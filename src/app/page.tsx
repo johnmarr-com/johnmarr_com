@@ -1,4 +1,47 @@
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/AuthProvider";
+import { isHistoricalUser } from "@/lib/auth";
+
 export default function Home() {
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    // Wait for auth to load before checking
+    if (isLoading) return;
+
+    // If no user, redirect to auth
+    if (!user) {
+      const historical = isHistoricalUser();
+      if (historical) {
+        router.push("/auth?login=true");
+      } else {
+        router.push("/auth");
+      }
+    }
+  }, [user, isLoading, router]);
+
+  // Show loading while checking auth
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+      </div>
+    );
+  }
+
+  // If not authenticated, show nothing (redirecting)
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+      </div>
+    );
+  }
+
   return (
     <div className="relative min-h-screen overflow-hidden">
       {/* Subtle geometric background pattern */}
@@ -31,7 +74,7 @@ export default function Home() {
         {/* Header section */}
         <header className="opacity-0 animate-fade-in-up">
           <p className="font-mono text-sm uppercase tracking-[0.2em] text-muted">
-            Welcome
+            Welcome{user.displayName ? `, ${user.displayName.split(" ")[0]}` : ""}
           </p>
         </header>
 

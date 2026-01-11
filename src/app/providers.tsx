@@ -1,6 +1,6 @@
 "use client";
 
-import { FirebaseProvider } from "@/lib";
+import { FirebaseProvider, AuthProvider } from "@/lib";
 import type { ReactNode } from "react";
 
 interface ProvidersProps {
@@ -8,6 +8,10 @@ interface ProvidersProps {
 }
 
 export function Providers({ children }: ProvidersProps) {
-  return <FirebaseProvider>{children}</FirebaseProvider>;
+  return (
+    <FirebaseProvider>
+      <AuthProvider>{children}</AuthProvider>
+    </FirebaseProvider>
+  );
 }
 
