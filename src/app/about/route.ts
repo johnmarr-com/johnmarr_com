@@ -86,37 +86,44 @@ export async function GET(request: NextRequest) {
       // Inject custom styles and lightbox handler
       const injectedHead = `
 <style>
-  html, body {
+  html {
     background-color: #000000 !important;
-    width: 100% !important;
+  }
+  body {
+    background-color: #000000 !important;
+    transform-origin: top center !important;
     overflow-x: hidden !important;
   }
 </style>
 <script>
-  // Scale Landingi content to fill viewport width
+  // Scale entire page to fill viewport width
   (function() {
     function scaleContent() {
-      var sections = document.querySelectorAll('.widget-section');
-      sections.forEach(function(section) {
-        var container = section.querySelector('.container');
-        if (container) {
-          var containerWidth = container.offsetWidth;
-          var viewportWidth = window.innerWidth;
-          if (containerWidth > 0 && containerWidth < viewportWidth) {
-            var scale = viewportWidth / containerWidth;
-            section.style.transform = 'scale(' + scale + ')';
-            section.style.transformOrigin = 'top left';
-            section.style.width = (100 / scale) + '%';
-          }
-        }
-      });
+      // Find the content width from the first container
+      var container = document.querySelector('.widget-section .container');
+      if (!container) return;
+      
+      var containerWidth = container.offsetWidth;
+      var viewportWidth = window.innerWidth;
+      
+      if (containerWidth > 0 && containerWidth < viewportWidth) {
+        var scale = viewportWidth / containerWidth;
+        var body = document.body;
+        var originalHeight = body.scrollHeight;
+        
+        body.style.transform = 'scale(' + scale + ')';
+        body.style.transformOrigin = 'top center';
+        body.style.width = (100 / scale) + '%';
+        body.style.marginLeft = ((100 - (100 / scale)) / 2) + '%';
+        
+        // Adjust html height to preserve scrolling
+        document.documentElement.style.height = (originalHeight * scale) + 'px';
+      }
     }
     
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', scaleContent);
-    } else {
-      scaleContent();
-    }
+    window.addEventListener('load', function() {
+      setTimeout(scaleContent, 100);
+    });
     window.addEventListener('resize', scaleContent);
   })();
 </script>
