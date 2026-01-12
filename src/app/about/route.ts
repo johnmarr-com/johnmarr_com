@@ -83,8 +83,13 @@ export async function GET(request: NextRequest) {
         ` href="${ENDPOINT}$1?export_hash=${EXPORT_HASH}&tid=${data.tid}"`
       );
 
-      // Inject lightbox handler
-      const lightboxScript = `
+      // Inject custom styles and lightbox handler
+      const injectedHead = `
+<style>
+  html, body {
+    background-color: #000000 !important;
+  }
+</style>
 <script>
     if (typeof Lightbox !== 'undefined') {
         Lightbox.init({
@@ -96,7 +101,7 @@ export async function GET(request: NextRequest) {
         Lightbox.register();
     }
 </script>`;
-      content = content.replace(/<\/head>/, `${lightboxScript}</head>`);
+      content = content.replace(/<\/head>/, `${injectedHead}</head>`);
 
       // Create response with HTML content
       const htmlResponse = new NextResponse(content, {
