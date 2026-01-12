@@ -1,6 +1,7 @@
 "use client";
 
 import { FirebaseProvider, AuthProvider, AuthGate } from "@/lib";
+import { JMStyleProvider } from "@/JMStyle";
 import type { ReactNode } from "react";
 
 interface ProvidersProps {
@@ -9,11 +10,13 @@ interface ProvidersProps {
 
 export function Providers({ children }: ProvidersProps) {
   return (
-    <FirebaseProvider>
-      <AuthProvider>
-        <AuthGate>{children}</AuthGate>
-      </AuthProvider>
-    </FirebaseProvider>
+    <JMStyleProvider>
+      <FirebaseProvider>
+        <AuthProvider>
+          <AuthGate>{children}</AuthGate>
+        </AuthProvider>
+      </FirebaseProvider>
+    </JMStyleProvider>
   );
 }
 
