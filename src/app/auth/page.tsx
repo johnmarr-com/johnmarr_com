@@ -20,6 +20,7 @@ function AuthContent() {
 
   const isLoginMode = searchParams.get("login") === "true";
   const emailFromUrl = searchParams.get("email");
+  const nameFromUrl = searchParams.get("name");
 
   const [firstName, setFirstName] = useState("");
   const [email, setEmail] = useState("");
@@ -49,7 +50,8 @@ function AuthContent() {
 
         if (storedEmail) {
           try {
-            const user = await completeSignInWithEmailLink(storedEmail, url);
+            // Pass the name from URL (for new signups coming from email link)
+            const user = await completeSignInWithEmailLink(storedEmail, url, nameFromUrl);
             if (user) {
               router.push("/");
             }
@@ -65,7 +67,7 @@ function AuthContent() {
     };
 
     checkEmailLink();
-  }, [emailFromUrl, router]);
+  }, [emailFromUrl, nameFromUrl, router]);
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);

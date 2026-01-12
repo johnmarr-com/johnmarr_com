@@ -108,17 +108,24 @@ export async function sendSignInLink(email: string, firstName?: string): Promise
     import("firebase/auth"),
   ]);
 
+  // Build redirect URL with email and name in query params
+  // This ensures the data survives even if the link opens in a new tab/browser
+  let redirectUrl = typeof window !== "undefined" 
+    ? `${window.location.origin}/auth?email=${encodeURIComponent(email)}`
+    : "http://localhost:3000/auth";
+  
+  if (firstName) {
+    redirectUrl += `&name=${encodeURIComponent(firstName)}`;
+  }
+
   const actionCodeSettings = {
-    // URL you want to redirect back to after email link click
-    url: typeof window !== "undefined" 
-      ? `${window.location.origin}/auth?email=${encodeURIComponent(email)}`
-      : "http://localhost:3000/auth",
+    url: redirectUrl,
     handleCodeInApp: true,
   };
 
   await sendSignInLinkToEmail(authInstance, email, actionCodeSettings);
   
-  // Save email and name to localStorage so we can complete sign-in when they return
+  // Also save to localStorage as fallback (same browser/tab scenario)
   if (typeof window !== "undefined") {
     window.localStorage.setItem("emailForSignIn", email);
     if (firstName) {
@@ -129,10 +136,14 @@ export async function sendSignInLink(email: string, firstName?: string): Promise
 
 /**
  * Complete the sign-in process when user clicks the email link
+ * @param email - User's email
+ * @param url - Current page URL (contains Firebase auth tokens)
+ * @param firstName - Optional first name (from URL params for new signups)
  */
 export async function completeSignInWithEmailLink(
   email: string,
-  url: string
+  url: string,
+  firstName?: string | null
 ): Promise<User | null> {
   const [authInstance, { isSignInWithEmailLink, signInWithEmailLink, updateProfile, getAdditionalUserInfo }] =
     await Promise.all([
@@ -146,18 +157,18 @@ export async function completeSignInWithEmailLink(
 
   const result = await signInWithEmailLink(authInstance, email, url);
   
-  // Get the stored name (only exists for signup, not login)
-  const storedName = typeof window !== "undefined" 
+  // Get name from parameter (URL) or fall back to localStorage
+  const name = firstName || (typeof window !== "undefined" 
     ? window.localStorage.getItem(NAME_FOR_SIGNIN_KEY) 
-    : null;
+    : null);
   
   // Only for NEW users (signup): set displayName and save to Firestore
   const additionalInfo = getAdditionalUserInfo(result);
-  if (additionalInfo?.isNewUser && storedName && result.user) {
+  if (additionalInfo?.isNewUser && name && result.user) {
     // Update Firebase Auth displayName
-    await updateProfile(result.user, { displayName: storedName });
-    // Save user profile to Firestore
-    await saveUserProfile(result.user);
+    await updateProfile(result.user, { displayName: name });
+    // Save user profile to Firestore (need to re-fetch user to get updated displayName)
+    await saveUserProfile({ ...result.user, displayName: name } as User);
   }
   
   // Clear localStorage and mark as historical user
