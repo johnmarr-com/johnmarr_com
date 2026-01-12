@@ -88,6 +88,29 @@ export async function GET(request: NextRequest) {
 <style>
   html, body {
     background-color: #000000 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+  
+  /* Force all Landingi containers to full width */
+  .widget-section,
+  .widget-section > .row,
+  .widget-section > .row > .container,
+  .container,
+  .row {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 100% !important;
+    margin: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  
+  /* Scale inner content to fit */
+  body > .widget {
+    width: 100vw !important;
+    max-width: 100vw !important;
   }
 </style>
 <script>
