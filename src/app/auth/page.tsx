@@ -11,6 +11,7 @@ import {
   isEmailSignInLink,
   getStoredEmail,
   clearHistoricalUser,
+  setSignupSource,
 } from "@/lib/auth";
 
 function AuthContent() {
@@ -21,6 +22,14 @@ function AuthContent() {
   const isLoginMode = searchParams.get("login") === "true";
   const emailFromUrl = searchParams.get("email");
   const nameFromUrl = searchParams.get("name");
+  const sourceFromUrl = searchParams.get("source");
+
+  // Store source for analytics tracking
+  useEffect(() => {
+    if (sourceFromUrl) {
+      setSignupSource(sourceFromUrl);
+    }
+  }, [sourceFromUrl]);
 
   const [firstName, setFirstName] = useState("");
   const [email, setEmail] = useState("");
@@ -50,8 +59,8 @@ function AuthContent() {
 
         if (storedEmail) {
           try {
-            // Pass the name from URL (for new signups coming from email link)
-            const user = await completeSignInWithEmailLink(storedEmail, url, nameFromUrl);
+            // Pass the name and source from URL (for new signups coming from email link)
+            const user = await completeSignInWithEmailLink(storedEmail, url, nameFromUrl, sourceFromUrl);
             if (user) {
               router.push("/");
             }
@@ -67,7 +76,7 @@ function AuthContent() {
     };
 
     checkEmailLink();
-  }, [emailFromUrl, nameFromUrl, router]);
+  }, [emailFromUrl, nameFromUrl, sourceFromUrl, router]);
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);

@@ -20,5 +20,9 @@ export {
   setHistoricalUser,
   isHistoricalUser,
   clearHistoricalUser,
+  setSignupSource,
+  getSignupSource,
+  clearSignupSource,
+  logSignupEvent,
 } from "./auth";
 

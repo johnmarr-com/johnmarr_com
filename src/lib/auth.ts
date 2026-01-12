@@ -7,6 +7,63 @@ let authInitPromise: Promise<Auth> | null = null;
 
 const HISTORICAL_USER_KEY = "historicalUser";
 const NAME_FOR_SIGNIN_KEY = "nameForSignIn";
+const SIGNUP_SOURCE_KEY = "signupSource";
+
+/**
+ * Store the signup source from URL param
+ */
+export function setSignupSource(source: string): void {
+  if (typeof window !== "undefined" && source) {
+    window.localStorage.setItem(SIGNUP_SOURCE_KEY, source);
+  }
+}
+
+/**
+ * Get the stored signup source
+ */
+export function getSignupSource(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(SIGNUP_SOURCE_KEY);
+}
+
+/**
+ * Clear the stored signup source
+ */
+export function clearSignupSource(): void {
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(SIGNUP_SOURCE_KEY);
+  }
+}
+
+/**
+ * Log a signup event to Firestore for analytics
+ */
+export async function logSignupEvent(data: {
+  source: string | null;
+  method: "google" | "email";
+  success: boolean;
+  userId?: string | null;
+  email?: string | null;
+}): Promise<void> {
+  try {
+    const { initializeFirebase } = await import("./firebase");
+    const { getFirestore, collection, addDoc, serverTimestamp } = await import("firebase/firestore");
+    
+    const { app } = await initializeFirebase();
+    const db = getFirestore(app);
+    
+    await addDoc(collection(db, "signup_events"), {
+      source: data.source || "direct",
+      method: data.method,
+      success: data.success,
+      userId: data.userId || null,
+      email: data.email || null,
+      createdAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error("Failed to log signup event:", error);
+  }
+}
 
 /**
  * Mark that a user has logged in on this browser before
@@ -97,6 +154,17 @@ export async function signInWithGoogle(): Promise<User> {
   const additionalInfo = getAdditionalUserInfo(result);
   if (additionalInfo?.isNewUser) {
     await saveUserProfile(result.user);
+    
+    // Log signup event for analytics
+    const source = getSignupSource();
+    await logSignupEvent({
+      source,
+      method: "google",
+      success: true,
+      userId: result.user.uid,
+      email: result.user.email,
+    });
+    clearSignupSource();
   }
   
   setHistoricalUser();
@@ -106,13 +174,13 @@ export async function signInWithGoogle(): Promise<User> {
 /**
  * Send a passwordless sign-in link to the user's email
  */
-export async function sendSignInLink(email: string, firstName?: string): Promise<void> {
+export async function sendSignInLink(email: string, firstName?: string, source?: string | null): Promise<void> {
   const [authInstance, { sendSignInLinkToEmail }] = await Promise.all([
     getAuth(),
     import("firebase/auth"),
   ]);
 
-  // Build redirect URL with email and name in query params
+  // Build redirect URL with email, name, and source in query params
   // This ensures the data survives even if the link opens in a new tab/browser
   let redirectUrl = typeof window !== "undefined" 
     ? `${window.location.origin}/auth?email=${encodeURIComponent(email)}`
@@ -120,6 +188,12 @@ export async function sendSignInLink(email: string, firstName?: string): Promise
   
   if (firstName) {
     redirectUrl += `&name=${encodeURIComponent(firstName)}`;
+  }
+  
+  // Include source for analytics tracking
+  const signupSource = source || getSignupSource();
+  if (signupSource) {
+    redirectUrl += `&source=${encodeURIComponent(signupSource)}`;
   }
 
   const actionCodeSettings = {
@@ -143,11 +217,13 @@ export async function sendSignInLink(email: string, firstName?: string): Promise
  * @param email - User's email
  * @param url - Current page URL (contains Firebase auth tokens)
  * @param firstName - Optional first name (from URL params for new signups)
+ * @param source - Optional signup source for analytics
  */
 export async function completeSignInWithEmailLink(
   email: string,
   url: string,
-  firstName?: string | null
+  firstName?: string | null,
+  source?: string | null
 ): Promise<User | null> {
   const [authInstance, { isSignInWithEmailLink, signInWithEmailLink, updateProfile, getAdditionalUserInfo }] =
     await Promise.all([
@@ -173,6 +249,15 @@ export async function completeSignInWithEmailLink(
     await updateProfile(result.user, { displayName: name });
     // Save user profile to Firestore
     await saveUserProfile({ ...result.user, displayName: name } as User);
+    
+    // Log signup event for analytics
+    await logSignupEvent({
+      source: source || getSignupSource(),
+      method: "email",
+      success: true,
+      userId: result.user.uid,
+      email: result.user.email,
+    });
   }
   
   // Clear localStorage and mark as historical user
@@ -180,6 +265,7 @@ export async function completeSignInWithEmailLink(
     window.localStorage.removeItem("emailForSignIn");
     window.localStorage.removeItem(NAME_FOR_SIGNIN_KEY);
   }
+  clearSignupSource();
   setHistoricalUser();
   
   return result.user;
