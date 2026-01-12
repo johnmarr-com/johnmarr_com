@@ -88,13 +88,21 @@ export async function GET(request: NextRequest) {
 <style>
   html {
     background-color: #000000 !important;
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
   }
   body {
     background-color: #000000 !important;
     transform-origin: top center !important;
     overflow-x: hidden !important;
+    max-width: 100vw !important;
+  }
+  /* Prevent any element from causing horizontal scroll */
+  * {
+    max-width: 100vw;
   }
 </style>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <script>
   // Scale entire page to fill viewport width
   (function() {
