@@ -56,9 +56,6 @@ export async function getAuth(): Promise<Auth> {
   return authInitPromise;
 }
 
-// Firestore database name (if not using default)
-const FIRESTORE_DB_NAME = "johnmarr-data";
-
 /**
  * Save user profile to Firestore
  */
@@ -68,7 +65,7 @@ export async function saveUserProfile(user: User): Promise<void> {
     const { getFirestore, doc, setDoc, serverTimestamp } = await import("firebase/firestore");
     
     const { app } = await initializeFirebase();
-    const db = getFirestore(app, FIRESTORE_DB_NAME);
+    const db = getFirestore(app);
     
     const userRef = doc(db, "users", user.uid);
     const userData = {
