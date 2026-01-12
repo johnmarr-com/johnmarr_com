@@ -6,6 +6,7 @@ let auth: Auth | null = null;
 let authInitPromise: Promise<Auth> | null = null;
 
 const HISTORICAL_USER_KEY = "historicalUser";
+const NAME_FOR_SIGNIN_KEY = "nameForSignIn";
 
 /**
  * Mark that a user has logged in on this browser before
@@ -56,10 +57,30 @@ export async function getAuth(): Promise<Auth> {
 }
 
 /**
+ * Save user profile to Firestore
+ */
+export async function saveUserProfile(user: User): Promise<void> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, setDoc, serverTimestamp } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const userRef = doc(db, "users", user.uid);
+  await setDoc(userRef, {
+    uid: user.uid,
+    email: user.email,
+    displayName: user.displayName,
+    photoURL: user.photoURL,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+}
+
+/**
  * Sign in with Google popup
  */
 export async function signInWithGoogle(): Promise<User> {
-  const [authInstance, { GoogleAuthProvider, signInWithPopup }] =
+  const [authInstance, { GoogleAuthProvider, signInWithPopup, getAdditionalUserInfo }] =
     await Promise.all([
       getAuth(),
       import("firebase/auth"),
@@ -67,6 +88,13 @@ export async function signInWithGoogle(): Promise<User> {
 
   const provider = new GoogleAuthProvider();
   const result = await signInWithPopup(authInstance, provider);
+  
+  // Only save user profile to Firestore for NEW users (signup, not login)
+  const additionalInfo = getAdditionalUserInfo(result);
+  if (additionalInfo?.isNewUser) {
+    await saveUserProfile(result.user);
+  }
+  
   setHistoricalUser();
   return result.user;
 }
@@ -74,7 +102,7 @@ export async function signInWithGoogle(): Promise<User> {
 /**
  * Send a passwordless sign-in link to the user's email
  */
-export async function sendSignInLink(email: string): Promise<void> {
+export async function sendSignInLink(email: string, firstName?: string): Promise<void> {
   const [authInstance, { sendSignInLinkToEmail }] = await Promise.all([
     getAuth(),
     import("firebase/auth"),
@@ -90,9 +118,12 @@ export async function sendSignInLink(email: string): Promise<void> {
 
   await sendSignInLinkToEmail(authInstance, email, actionCodeSettings);
   
-  // Save email to localStorage so we can complete sign-in when they return
+  // Save email and name to localStorage so we can complete sign-in when they return
   if (typeof window !== "undefined") {
     window.localStorage.setItem("emailForSignIn", email);
+    if (firstName) {
+      window.localStorage.setItem(NAME_FOR_SIGNIN_KEY, firstName);
+    }
   }
 }
 
@@ -103,7 +134,7 @@ export async function completeSignInWithEmailLink(
   email: string,
   url: string
 ): Promise<User | null> {
-  const [authInstance, { isSignInWithEmailLink, signInWithEmailLink }] =
+  const [authInstance, { isSignInWithEmailLink, signInWithEmailLink, updateProfile, getAdditionalUserInfo }] =
     await Promise.all([
       getAuth(),
       import("firebase/auth"),
@@ -115,9 +146,24 @@ export async function completeSignInWithEmailLink(
 
   const result = await signInWithEmailLink(authInstance, email, url);
   
-  // Clear the saved email and mark as historical user
+  // Get the stored name (only exists for signup, not login)
+  const storedName = typeof window !== "undefined" 
+    ? window.localStorage.getItem(NAME_FOR_SIGNIN_KEY) 
+    : null;
+  
+  // Only for NEW users (signup): set displayName and save to Firestore
+  const additionalInfo = getAdditionalUserInfo(result);
+  if (additionalInfo?.isNewUser && storedName && result.user) {
+    // Update Firebase Auth displayName
+    await updateProfile(result.user, { displayName: storedName });
+    // Save user profile to Firestore
+    await saveUserProfile(result.user);
+  }
+  
+  // Clear localStorage and mark as historical user
   if (typeof window !== "undefined") {
     window.localStorage.removeItem("emailForSignIn");
+    window.localStorage.removeItem(NAME_FOR_SIGNIN_KEY);
   }
   setHistoricalUser();
   
@@ -171,5 +217,13 @@ export async function signOut(): Promise<void> {
 export function getStoredEmail(): string | null {
   if (typeof window === "undefined") return null;
   return window.localStorage.getItem("emailForSignIn");
+}
+
+/**
+ * Get the stored name for completing sign-in
+ */
+export function getStoredName(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(NAME_FOR_SIGNIN_KEY);
 }
 

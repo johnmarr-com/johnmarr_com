@@ -5,6 +5,7 @@ export { firebaseConfig } from "./firebase-config";
 
 // Auth exports
 export { AuthProvider, useAuth } from "./AuthProvider";
+export { AuthGate } from "./AuthGate";
 export {
   getAuth,
   signInWithGoogle,
@@ -14,6 +15,8 @@ export {
   isEmailSignInLink,
   signOut,
   getStoredEmail,
+  getStoredName,
+  saveUserProfile,
   setHistoricalUser,
   isHistoricalUser,
   clearHistoricalUser,

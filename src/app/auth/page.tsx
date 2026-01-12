@@ -21,6 +21,7 @@ function AuthContent() {
   const isLoginMode = searchParams.get("login") === "true";
   const emailFromUrl = searchParams.get("email");
 
+  const [firstName, setFirstName] = useState("");
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,11 +84,17 @@ function AuthContent() {
   const handleSendSignInLink = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
+    // Require first name for signup
+    if (!isLoginMode && !firstName.trim()) {
+      setError("Please enter your first name.");
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
     try {
-      await sendSignInLink(email);
+      // Pass firstName only for signup, not login
+      await sendSignInLink(email, isLoginMode ? undefined : firstName.trim());
       setEmailSent(true);
     } catch (err) {
       console.error("Send link error:", err);
@@ -237,8 +244,28 @@ function AuthContent() {
             <div className="h-px flex-1 bg-foreground/10" />
           </div>
 
-          {/* Passwordless email form - same for both login and signup */}
+          {/* Passwordless email form */}
           <form onSubmit={handleSendSignInLink} className="space-y-4">
+            {/* First name - only for signup */}
+            {!isLoginMode && (
+              <div>
+                <label
+                  htmlFor="firstName"
+                  className="mb-2 block font-mono text-xs uppercase tracking-wider text-muted"
+                >
+                  First Name
+                </label>
+                <input
+                  id="firstName"
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  required
+                  placeholder="John"
+                  className="w-full rounded-xl border border-foreground/20 bg-transparent px-4 py-3 transition-colors placeholder:text-muted/50 focus:border-accent focus:outline-none"
+                />
+              </div>
+            )}
             <div>
               <label
                 htmlFor="email"
@@ -258,7 +285,7 @@ function AuthContent() {
             </div>
             <button
               type="submit"
-              disabled={isLoading || !email}
+              disabled={isLoading || !email || (!isLoginMode && !firstName.trim())}
               className="w-full rounded-xl bg-foreground px-4 py-3 font-medium text-background transition-all duration-300 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isLoading ? "Sending link..." : "Send sign-in link"}

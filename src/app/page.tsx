@@ -1,46 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthProvider";
-import { isHistoricalUser } from "@/lib/auth";
+import { signOut } from "@/lib/auth";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
-  const { user, isLoading } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
 
-  useEffect(() => {
-    // Wait for auth to load before checking
-    if (isLoading) return;
-
-    // If no user, redirect to auth
-    if (!user) {
-      const historical = isHistoricalUser();
-      if (historical) {
-        router.push("/auth?login=true");
-      } else {
-        router.push("/auth");
-      }
-    }
-  }, [user, isLoading, router]);
-
-  // Show loading while checking auth
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-      </div>
-    );
-  }
-
-  // If not authenticated, show nothing (redirecting)
-  if (!user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-      </div>
-    );
-  }
+  const handleSignOut = async () => {
+    await signOut();
+    router.push("/auth");
+  };
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -74,7 +45,7 @@ export default function Home() {
         {/* Header section */}
         <header className="opacity-0 animate-fade-in-up">
           <p className="font-mono text-sm uppercase tracking-[0.2em] text-muted">
-            Welcome{user.displayName ? `, ${user.displayName.split(" ")[0]}` : ""}
+            Welcome{user?.displayName ? `, ${user.displayName.split(" ")[0]}` : ""}
           </p>
         </header>
 
@@ -134,6 +105,27 @@ export default function Home() {
               </svg>
               LinkedIn
             </a>
+
+            {/* Sign out button */}
+            <button
+              onClick={handleSignOut}
+              className="inline-flex items-center gap-2 rounded-full border border-foreground/20 px-6 py-3 text-sm font-medium transition-all duration-300 hover:border-red-500/50 hover:text-red-500"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
+              </svg>
+              Sign out
+            </button>
           </div>
         </div>
 
