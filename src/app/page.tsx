@@ -3,6 +3,7 @@
 import { useAuth } from "@/lib/AuthProvider";
 import { signOut } from "@/lib/auth";
 import { useRouter } from "next/navigation";
+import { JMAppHeader } from "@/JMKit";
 
 export default function Home() {
   const { user } = useAuth();
@@ -15,6 +16,7 @@ export default function Home() {
 
   return (
     <div className="relative min-h-screen overflow-hidden">
+      <JMAppHeader />
       {/* Subtle geometric background pattern */}
       <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]">
         <svg className="h-full w-full" xmlns="http://www.w3.org/2000/svg">
@@ -38,8 +40,8 @@ export default function Home() {
       </div>
 
       {/* Gradient orb accent */}
-      <div className="absolute -right-40 -top-40 h-[500px] w-[500px] rounded-full bg-gradient-to-br from-accent/20 to-transparent blur-3xl" />
-      <div className="absolute -bottom-40 -left-40 h-[400px] w-[400px] rounded-full bg-gradient-to-tr from-accent-light/40 to-transparent blur-3xl" />
+      <div className="absolute -right-40 -top-40 h-[500px] w-[500px] rounded-full bg-linear-to-br from-accent/20 to-transparent blur-3xl" />
+      <div className="absolute -bottom-40 -left-40 h-[400px] w-[400px] rounded-full bg-linear-to-tr from-accent-light/40 to-transparent blur-3xl" />
 
       <main className="relative z-10 mx-auto flex min-h-screen max-w-4xl flex-col justify-center px-6 py-24 sm:px-12 lg:px-8">
         {/* Header section */}

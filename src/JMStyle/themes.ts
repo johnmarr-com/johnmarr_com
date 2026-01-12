@@ -25,6 +25,8 @@ export interface JMTheme {
     accentLightDark: string;
     muted: string;
     mutedDark: string;
+    headerBackground: string;
+    primaryPink: string;
   };
   
   // Semantic colors
@@ -64,6 +66,8 @@ export const johnmarrTheme: JMTheme = {
     accentLightDark: "#2a2420",
     muted: "#6b6b6b",
     mutedDark: "#8a8a8a",
+    headerBackground: "#000000",
+    primaryPink: "#e03dff",
   },
   
   semantic: {

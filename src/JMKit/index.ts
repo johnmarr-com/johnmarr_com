@@ -6,16 +6,9 @@
  * 
  * Usage:
  * ```tsx
- * import { Button, Card, Logo } from "@/JMKit";
+ * import { JMAppHeader, JMSimpleButton } from "@/JMKit";
  * ```
  */
 
-// Components will be exported here as they are created
-// Example:
-// export { Button } from "./Button";
-// export { Card } from "./Card";
-// export { Logo } from "./Logo";
-
-// Placeholder export to prevent empty module error
-export {};
-
+export { JMSimpleButton } from "./JMSimpleButton";
+export { JMAppHeader } from "./JMAppHeader";

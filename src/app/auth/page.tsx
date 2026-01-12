@@ -378,8 +378,8 @@ function BackgroundDecor() {
       </div>
 
       {/* Gradient orb accents */}
-      <div className="absolute -right-40 -top-40 h-[500px] w-[500px] rounded-full bg-gradient-to-br from-accent/20 to-transparent blur-3xl" />
-      <div className="absolute -bottom-40 -left-40 h-[400px] w-[400px] rounded-full bg-gradient-to-tr from-accent-light/40 to-transparent blur-3xl" />
+      <div className="absolute -right-40 -top-40 h-[500px] w-[500px] rounded-full bg-linear-to-br from-accent/20 to-transparent blur-3xl" />
+      <div className="absolute -bottom-40 -left-40 h-[400px] w-[400px] rounded-full bg-linear-to-tr from-accent-light/40 to-transparent blur-3xl" />
     </>
   );
 }
