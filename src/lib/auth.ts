@@ -68,20 +68,15 @@ export async function saveUserProfile(user: User): Promise<void> {
     const db = getFirestore(app);
     
     const userRef = doc(db, "users", user.uid);
-    const userData = {
+    await setDoc(userRef, {
       uid: user.uid,
       email: user.email,
       displayName: user.displayName,
       photoURL: user.photoURL,
       updatedAt: serverTimestamp(),
-    };
-    
-    console.log("Saving user profile to Firestore:", userData);
-    await setDoc(userRef, userData, { merge: true });
-    console.log("User profile saved successfully!");
+    }, { merge: true });
   } catch (error) {
     console.error("Failed to save user profile to Firestore:", error);
-    // Don't throw - we don't want to block sign-in if Firestore fails
   }
 }
 
@@ -173,23 +168,11 @@ export async function completeSignInWithEmailLink(
   
   // Only for NEW users (signup): set displayName and save to Firestore
   const additionalInfo = getAdditionalUserInfo(result);
-  console.log("Email sign-in complete:", {
-    isNewUser: additionalInfo?.isNewUser,
-    hasName: !!name,
-    name,
-    email: result.user?.email,
-  });
-  
   if (additionalInfo?.isNewUser && name && result.user) {
-    console.log("New user detected, updating profile...");
     // Update Firebase Auth displayName
     await updateProfile(result.user, { displayName: name });
-    // Save user profile to Firestore (need to re-fetch user to get updated displayName)
+    // Save user profile to Firestore
     await saveUserProfile({ ...result.user, displayName: name } as User);
-  } else {
-    console.log("Skipping profile save:", {
-      reason: !additionalInfo?.isNewUser ? "not a new user" : !name ? "no name provided" : "no user",
-    });
   }
   
   // Clear localStorage and mark as historical user

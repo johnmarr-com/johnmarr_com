@@ -44,7 +44,7 @@ export function AuthGate({ children }: AuthGateProps) {
       window.location.href = "/auth?login=true";
     } else {
       // New visitor - send to marketing site
-      window.location.href = "https://johnmarr.carrd.co";
+      window.location.href = "https://about.johnmarr.com";
     }
   }, [user, isLoading, isAuthPage]);
 
