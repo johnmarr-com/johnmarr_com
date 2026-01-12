@@ -14,10 +14,10 @@ interface AuthGateProps {
  * 
  * Logic:
  * - No user + historicalUser → /auth?login=true
- * - No user + no historicalUser → johnmarr.carrd.co (marketing site)
+ * - No user + no historicalUser → /about (landing page)
  * - Has user → allow access
  * 
- * The /auth route is excluded from redirects to allow sign-in/sign-up.
+ * Public routes (/auth, /about) are excluded from redirects.
  */
 export function AuthGate({ children }: AuthGateProps) {
   const { user, isLoading } = useAuth();
@@ -43,8 +43,8 @@ export function AuthGate({ children }: AuthGateProps) {
       // Returning user - send to login
       window.location.href = "/auth?login=true";
     } else {
-      // New visitor - send to marketing site
-      window.location.href = "https://about.johnmarr.com";
+      // New visitor - send to landing page
+      window.location.href = "/about";
     }
   }, [user, isLoading, isPublicRoute]);
 
