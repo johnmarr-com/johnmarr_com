@@ -23,15 +23,15 @@ export function AuthGate({ children }: AuthGateProps) {
   const { user, isLoading } = useAuth();
   const pathname = usePathname();
 
-  // Don't gate the auth page itself
-  const isAuthPage = pathname === "/auth";
+  // Public routes that don't require auth
+  const isPublicRoute = pathname === "/auth" || pathname === "/about";
 
   useEffect(() => {
     // Wait for auth to load
     if (isLoading) return;
 
-    // Don't redirect if on auth page
-    if (isAuthPage) return;
+    // Don't redirect if on a public route
+    if (isPublicRoute) return;
 
     // Don't redirect if user is authenticated
     if (user) return;
@@ -46,7 +46,7 @@ export function AuthGate({ children }: AuthGateProps) {
       // New visitor - send to marketing site
       window.location.href = "https://about.johnmarr.com";
     }
-  }, [user, isLoading, isAuthPage]);
+  }, [user, isLoading, isPublicRoute]);
 
   // Show loading spinner while checking auth
   if (isLoading) {
@@ -57,8 +57,8 @@ export function AuthGate({ children }: AuthGateProps) {
     );
   }
 
-  // On auth page - always show content
-  if (isAuthPage) {
+  // On public route - always show content
+  if (isPublicRoute) {
     return <>{children}</>;
   }
 
