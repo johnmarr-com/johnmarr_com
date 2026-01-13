@@ -112,9 +112,6 @@ export async function GET(request: NextRequest) {
     background: rgba(255, 255, 255, 0.3);
     border-radius: 3px;
   }
-  ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.5);
-  }
   /* Firefox */
   html {
     scrollbar-width: thin;
