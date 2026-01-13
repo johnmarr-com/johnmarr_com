@@ -86,8 +86,34 @@ export async function GET(request: NextRequest) {
       // Inject custom styles and lightbox handler
       const injectedHead = `
 <style>
-  html, body {
+  html {
     background-color: #000000 !important;
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+  }
+  body {
+    background-color: #000000 !important;
+    transform-origin: top center !important;
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    -webkit-perspective: 1000;
+    perspective: 1000;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  * {
+    max-width: 100vw;
+  }
+  /* Optimizes image rendering during scale */
+  img, picture, svg {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    transform: translateZ(0);
+    will-change: transform;
   }
   /* Subtle scrollbar */
   ::-webkit-scrollbar {
@@ -106,6 +132,51 @@ export async function GET(request: NextRequest) {
     scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
   }
 </style>
+<script>
+  // GPU-accelerated full-width scaling
+  (function() {
+    function scaleContent() {
+      var container = document.querySelector('.widget-section .container');
+      if (!container) return;
+      
+      var containerWidth = container.offsetWidth;
+      var viewportWidth = window.innerWidth;
+      
+      if (containerWidth > 0 && containerWidth < viewportWidth) {
+        var scale = viewportWidth / containerWidth;
+        var body = document.body;
+        var originalHeight = body.scrollHeight;
+        
+        // Force GPU acceleration
+        body.style.transform = 'scale(' + scale + ') translateZ(0)';
+        body.style.transformOrigin = 'top center';
+        body.style.width = (100 / scale) + '%';
+        body.style.marginLeft = ((100 - (100 / scale)) / 2) + '%';
+        body.style.webkitBackfaceVisibility = 'hidden';
+        body.style.backfaceVisibility = 'hidden';
+        
+        document.documentElement.style.height = (originalHeight * scale) + 'px';
+        
+        // Force repaint for sharper rendering
+        setTimeout(function() {
+          body.style.opacity = 0.9999;
+          setTimeout(function() {
+            body.style.opacity = 1;
+          }, 10);
+        }, 100);
+      }
+    }
+    
+    window.addEventListener('load', function() {
+      setTimeout(scaleContent, 100);
+    });
+    
+    window.addEventListener('resize', scaleContent);
+    window.addEventListener('orientationchange', function() {
+      setTimeout(scaleContent, 300);
+    });
+  })();
+</script>
 <script>
     if (typeof Lightbox !== 'undefined') {
         Lightbox.init({
