@@ -83,6 +83,12 @@ export async function GET(request: NextRequest) {
         ` href="${ENDPOINT}$1?export_hash=${EXPORT_HASH}&tid=${data.tid}"`
       );
 
+      // Replace viewport meta to prevent horizontal scroll
+      content = content.replace(
+        /<meta name="viewport"[^>]*>/,
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">'
+      );
+
       // Inject custom styles and lightbox handler
       const injectedHead = `
 <style>
