@@ -85,6 +85,7 @@ export async function GET(request: NextRequest) {
 
       // Inject custom styles and lightbox handler
       const injectedHead = `
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <style>
   html, body {
     background-color: #000000 !important;
