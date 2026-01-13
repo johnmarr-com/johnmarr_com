@@ -86,20 +86,8 @@ export async function GET(request: NextRequest) {
       // Inject custom styles and lightbox handler
       const injectedHead = `
 <style>
-  html {
+  html, body {
     background-color: #000000 !important;
-    overflow-x: hidden !important;
-    max-width: 100vw !important;
-  }
-  body {
-    background-color: #000000 !important;
-    transform-origin: top center !important;
-    overflow-x: hidden !important;
-    max-width: 100vw !important;
-  }
-  /* Prevent any element from causing horizontal scroll */
-  * {
-    max-width: 100vw;
   }
   /* Subtle scrollbar */
   ::-webkit-scrollbar {
@@ -118,39 +106,6 @@ export async function GET(request: NextRequest) {
     scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
   }
 </style>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<script>
-  // Scale entire page to fill viewport width
-  (function() {
-    function scaleContent() {
-      // Find the content width from the first container
-      var container = document.querySelector('.widget-section .container');
-      if (!container) return;
-      
-      var containerWidth = container.offsetWidth;
-      var viewportWidth = window.innerWidth;
-      
-      if (containerWidth > 0 && containerWidth < viewportWidth) {
-        var scale = viewportWidth / containerWidth;
-        var body = document.body;
-        var originalHeight = body.scrollHeight;
-        
-        body.style.transform = 'scale(' + scale + ')';
-        body.style.transformOrigin = 'top center';
-        body.style.width = (100 / scale) + '%';
-        body.style.marginLeft = ((100 - (100 / scale)) / 2) + '%';
-        
-        // Adjust html height to preserve scrolling
-        document.documentElement.style.height = (originalHeight * scale) + 'px';
-      }
-    }
-    
-    window.addEventListener('load', function() {
-      setTimeout(scaleContent, 100);
-    });
-    window.addEventListener('resize', scaleContent);
-  })();
-</script>
 <script>
     if (typeof Lightbox !== 'undefined') {
         Lightbox.init({
