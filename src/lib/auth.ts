@@ -45,6 +45,7 @@ export async function logSignupEvent(data: {
   userId?: string | null;
   email?: string | null;
 }): Promise<void> {
+  console.log("[logSignupEvent] Attempting to log signup event:", data);
   try {
     const { initializeFirebase } = await import("./firebase");
     const { getFirestore, collection, addDoc, serverTimestamp } = await import("firebase/firestore");
@@ -52,7 +53,7 @@ export async function logSignupEvent(data: {
     const { app } = await initializeFirebase();
     const db = getFirestore(app);
     
-    await addDoc(collection(db, "signup_events"), {
+    const docRef = await addDoc(collection(db, "signup_events"), {
       source: data.source || "direct",
       method: data.method,
       success: data.success,
@@ -60,8 +61,9 @@ export async function logSignupEvent(data: {
       email: data.email || null,
       createdAt: serverTimestamp(),
     });
+    console.log("[logSignupEvent] Successfully logged signup event, doc ID:", docRef.id);
   } catch (error) {
-    console.error("Failed to log signup event:", error);
+    console.error("[logSignupEvent] Failed to log signup event:", error);
   }
 }
 
