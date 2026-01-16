@@ -12,6 +12,7 @@ import {
   getStoredEmail,
   clearHistoricalUser,
   setSignupSource,
+  logSourceVisit,
 } from "@/lib/auth";
 
 function AuthContent() {
@@ -24,12 +25,14 @@ function AuthContent() {
   const nameFromUrl = searchParams.get("name");
   const sourceFromUrl = searchParams.get("source");
 
-  // Store source for analytics tracking
+  // Store source and log visit for analytics tracking
   useEffect(() => {
     if (sourceFromUrl) {
       setSignupSource(sourceFromUrl);
+      // Log the visit to Firestore
+      logSourceVisit(sourceFromUrl, isLoginMode);
     }
-  }, [sourceFromUrl]);
+  }, [sourceFromUrl, isLoginMode]);
 
   const [firstName, setFirstName] = useState("");
   const [email, setEmail] = useState("");

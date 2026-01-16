@@ -23,6 +23,7 @@ export {
   setSignupSource,
   getSignupSource,
   clearSignupSource,
-  logSignupEvent,
+  logSourceVisit,
+  logSignupSuccess,
 } from "./auth";
 

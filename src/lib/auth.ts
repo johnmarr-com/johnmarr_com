@@ -8,6 +8,7 @@ let authInitPromise: Promise<Auth> | null = null;
 const HISTORICAL_USER_KEY = "historicalUser";
 const NAME_FOR_SIGNIN_KEY = "nameForSignIn";
 const SIGNUP_SOURCE_KEY = "signupSource";
+const SOURCE_VISIT_DOC_KEY = "sourceVisitDocId";
 
 /**
  * Store the signup source from URL param
@@ -32,20 +33,24 @@ export function getSignupSource(): string | null {
 export function clearSignupSource(): void {
   if (typeof window !== "undefined") {
     window.localStorage.removeItem(SIGNUP_SOURCE_KEY);
+    window.localStorage.removeItem(SOURCE_VISIT_DOC_KEY);
   }
 }
 
 /**
- * Log a signup event to Firestore for analytics
+ * Get the stored source visit document ID
  */
-export async function logSignupEvent(data: {
-  source: string | null;
-  method: "google" | "email";
-  success: boolean;
-  userId?: string | null;
-  email?: string | null;
-}): Promise<void> {
-  console.log("[logSignupEvent] Attempting to log signup event:", data);
+function getSourceVisitDocId(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(SOURCE_VISIT_DOC_KEY);
+}
+
+/**
+ * Log a source visit when user arrives at auth page
+ * Creates a new document in Firestore and stores the doc ID for later update
+ */
+export async function logSourceVisit(source: string, isLoginMode: boolean): Promise<void> {
+  console.log("[logSourceVisit] Logging visit with source:", source, "isLoginMode:", isLoginMode);
   try {
     const { initializeFirebase } = await import("./firebase");
     const { getFirestore, collection, addDoc, serverTimestamp } = await import("firebase/firestore");
@@ -53,17 +58,72 @@ export async function logSignupEvent(data: {
     const { app } = await initializeFirebase();
     const db = getFirestore(app);
     
-    const docRef = await addDoc(collection(db, "signup_events"), {
-      source: data.source || "direct",
-      method: data.method,
-      success: data.success,
-      userId: data.userId || null,
-      email: data.email || null,
-      createdAt: serverTimestamp(),
+    const docRef = await addDoc(collection(db, "signup_funnel"), {
+      source: source,
+      isLoginMode: isLoginMode,
+      visitedAt: serverTimestamp(),
+      signedUp: false,
+      signedUpAt: null,
+      method: null,
+      userId: null,
+      email: null,
     });
-    console.log("[logSignupEvent] Successfully logged signup event, doc ID:", docRef.id);
+    
+    // Store doc ID for later update on successful signup
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(SOURCE_VISIT_DOC_KEY, docRef.id);
+    }
+    
+    console.log("[logSourceVisit] Successfully logged visit, doc ID:", docRef.id);
   } catch (error) {
-    console.error("[logSignupEvent] Failed to log signup event:", error);
+    console.error("[logSourceVisit] Failed to log source visit:", error);
+  }
+}
+
+/**
+ * Update the source visit record when signup completes
+ */
+export async function logSignupSuccess(data: {
+  method: "google" | "email";
+  userId: string;
+  email: string | null;
+}): Promise<void> {
+  const docId = getSourceVisitDocId();
+  console.log("[logSignupSuccess] Attempting to update signup, docId:", docId, "data:", data);
+  
+  try {
+    const { initializeFirebase } = await import("./firebase");
+    const { getFirestore, doc, updateDoc, serverTimestamp, collection, addDoc } = await import("firebase/firestore");
+    
+    const { app } = await initializeFirebase();
+    const db = getFirestore(app);
+    
+    if (docId) {
+      // Update existing visit record
+      await updateDoc(doc(db, "signup_funnel", docId), {
+        signedUp: true,
+        signedUpAt: serverTimestamp(),
+        method: data.method,
+        userId: data.userId,
+        email: data.email,
+      });
+      console.log("[logSignupSuccess] Updated existing visit record:", docId);
+    } else {
+      // No visit record exists (direct signup without source), create new record
+      const docRef = await addDoc(collection(db, "signup_funnel"), {
+        source: "direct",
+        isLoginMode: false,
+        visitedAt: serverTimestamp(),
+        signedUp: true,
+        signedUpAt: serverTimestamp(),
+        method: data.method,
+        userId: data.userId,
+        email: data.email,
+      });
+      console.log("[logSignupSuccess] Created new signup record:", docRef.id);
+    }
+  } catch (error) {
+    console.error("[logSignupSuccess] Failed to log signup success:", error);
   }
 }
 
@@ -157,12 +217,9 @@ export async function signInWithGoogle(): Promise<User> {
   if (additionalInfo?.isNewUser) {
     await saveUserProfile(result.user);
     
-    // Log signup event for analytics
-    const source = getSignupSource();
-    await logSignupEvent({
-      source,
+    // Update funnel record with signup success
+    await logSignupSuccess({
       method: "google",
-      success: true,
       userId: result.user.uid,
       email: result.user.email,
     });
@@ -225,7 +282,7 @@ export async function completeSignInWithEmailLink(
   email: string,
   url: string,
   firstName?: string | null,
-  source?: string | null
+  _source?: string | null // Source is now tracked via logSourceVisit on page load
 ): Promise<User | null> {
   const [authInstance, { isSignInWithEmailLink, signInWithEmailLink, updateProfile, getAdditionalUserInfo }] =
     await Promise.all([
@@ -252,11 +309,9 @@ export async function completeSignInWithEmailLink(
     // Save user profile to Firestore
     await saveUserProfile({ ...result.user, displayName: name } as User);
     
-    // Log signup event for analytics
-    await logSignupEvent({
-      source: source || getSignupSource(),
+    // Update funnel record with signup success
+    await logSignupSuccess({
       method: "email",
-      success: true,
       userId: result.user.uid,
       email: result.user.email,
     });
