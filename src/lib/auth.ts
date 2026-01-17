@@ -61,6 +61,7 @@ export async function logSourceVisit(source: string, isLoginMode: boolean): Prom
     const docRef = await addDoc(collection(db, "signup_funnel"), {
       source: source,
       isLoginMode: isLoginMode,
+      status: "visited",
       visitedAt: serverTimestamp(),
       // Signup attempt fields (updated when user clicks signup button)
       signupAttemptedAt: null,
@@ -68,9 +69,9 @@ export async function logSourceVisit(source: string, isLoginMode: boolean): Prom
       firstName: null,
       email: null,
       // Signup completion fields (updated when signup succeeds)
-      signedUp: false,
       signedUpAt: null,
       userId: null,
+      displayName: null,
     });
     
     // Store doc ID for later update on successful signup
@@ -103,6 +104,7 @@ export async function logSignupAttempt(data: {
     const db = getFirestore(app);
     
     const updateData = {
+      status: "requested",
       signupAttemptedAt: serverTimestamp(),
       method: data.method,
       firstName: data.firstName || null,
@@ -120,9 +122,9 @@ export async function logSignupAttempt(data: {
         isLoginMode: false,
         visitedAt: serverTimestamp(),
         ...updateData,
-        signedUp: false,
         signedUpAt: null,
         userId: null,
+        displayName: null,
       });
       // Store for potential later update
       if (typeof window !== "undefined") {
@@ -136,12 +138,13 @@ export async function logSignupAttempt(data: {
 }
 
 /**
- * Update the source visit record when signup completes
+ * Update the source visit record when signup completes successfully
  */
 export async function logSignupSuccess(data: {
   method: "google" | "email";
   userId: string;
   email: string | null;
+  displayName: string | null;
 }): Promise<void> {
   const docId = getSourceVisitDocId();
   console.log("[logSignupSuccess] Attempting to update signup, docId:", docId, "data:", data);
@@ -153,15 +156,17 @@ export async function logSignupSuccess(data: {
     const { app } = await initializeFirebase();
     const db = getFirestore(app);
     
+    const successData = {
+      status: "success",
+      signedUpAt: serverTimestamp(),
+      userId: data.userId,
+      email: data.email,
+      displayName: data.displayName,
+    };
+    
     if (docId) {
       // Update existing visit record
-      await updateDoc(doc(db, "signup_funnel", docId), {
-        signedUp: true,
-        signedUpAt: serverTimestamp(),
-        method: data.method,
-        userId: data.userId,
-        email: data.email,
-      });
+      await updateDoc(doc(db, "signup_funnel", docId), successData);
       console.log("[logSignupSuccess] Updated existing visit record:", docId);
     } else {
       // No visit record exists (direct signup without source), create new record
@@ -169,11 +174,10 @@ export async function logSignupSuccess(data: {
         source: "direct",
         isLoginMode: false,
         visitedAt: serverTimestamp(),
-        signedUp: true,
-        signedUpAt: serverTimestamp(),
+        signupAttemptedAt: serverTimestamp(),
         method: data.method,
-        userId: data.userId,
-        email: data.email,
+        firstName: null,
+        ...successData,
       });
       console.log("[logSignupSuccess] Created new signup record:", docRef.id);
     }
@@ -271,6 +275,13 @@ export async function signInWithGoogle(): Promise<User> {
   const additionalInfo = getAdditionalUserInfo(result);
   if (additionalInfo?.isNewUser) {
     await saveUserProfile(result.user);
+    // Log signup success - fire and forget
+    logSignupSuccess({
+      method: "google",
+      userId: result.user.uid,
+      email: result.user.email,
+      displayName: result.user.displayName,
+    });
     clearSignupSource();
   }
   
