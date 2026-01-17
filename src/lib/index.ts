@@ -26,5 +26,7 @@ export {
   logSourceVisit,
   logSignupAttempt,
   logSignupSuccess,
+  logEmailSignupSuccess,
+  getSourceVisitDocId,
 } from "./auth";
 

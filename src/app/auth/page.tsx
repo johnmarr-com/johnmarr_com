@@ -25,6 +25,7 @@ function AuthContent() {
   const emailFromUrl = searchParams.get("email");
   const nameFromUrl = searchParams.get("name");
   const sourceFromUrl = searchParams.get("source");
+  const funnelFromUrl = searchParams.get("funnel");
 
   // Store source and log visit for analytics tracking (page load only)
   useEffect(() => {
@@ -63,8 +64,8 @@ function AuthContent() {
 
         if (storedEmail) {
           try {
-            // Pass the name and source from URL (for new signups coming from email link)
-            const user = await completeSignInWithEmailLink(storedEmail, url, nameFromUrl, sourceFromUrl);
+            // Pass the name and funnel ID from URL (for new signups coming from email link)
+            const user = await completeSignInWithEmailLink(storedEmail, url, nameFromUrl, funnelFromUrl);
             if (user) {
               router.push("/");
             }
@@ -80,7 +81,7 @@ function AuthContent() {
     };
 
     checkEmailLink();
-  }, [emailFromUrl, nameFromUrl, sourceFromUrl, router]);
+  }, [emailFromUrl, nameFromUrl, funnelFromUrl, router]);
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);

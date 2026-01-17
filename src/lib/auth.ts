@@ -40,7 +40,7 @@ export function clearSignupSource(): void {
 /**
  * Get the stored source visit document ID
  */
-function getSourceVisitDocId(): string | null {
+export function getSourceVisitDocId(): string | null {
   if (typeof window === "undefined") return null;
   return window.localStorage.getItem(SOURCE_VISIT_DOC_KEY);
 }
@@ -134,6 +134,38 @@ export async function logSignupAttempt(data: {
     }
   } catch (error) {
     console.error("[logSignupAttempt] Failed to log signup attempt:", error);
+  }
+}
+
+/**
+ * Update signup funnel for email signup success using the funnel doc ID from the email link
+ */
+export async function logEmailSignupSuccess(data: {
+  funnelId: string;
+  userId: string;
+  displayName: string | null;
+  email: string;
+}): Promise<void> {
+  console.log("[logEmailSignupSuccess] Updating funnel by ID:", data.funnelId);
+  
+  try {
+    const { initializeFirebase } = await import("./firebase");
+    const { getFirestore, doc, updateDoc, serverTimestamp } = await import("firebase/firestore");
+    
+    const { app } = await initializeFirebase();
+    const db = getFirestore(app);
+    
+    await updateDoc(doc(db, "signup_funnel", data.funnelId), {
+      status: "success",
+      signedUpAt: serverTimestamp(),
+      userId: data.userId,
+      displayName: data.displayName,
+      email: data.email, // Update email in case it changed
+    });
+    
+    console.log("[logEmailSignupSuccess] Updated funnel record:", data.funnelId);
+  } catch (error) {
+    console.error("[logEmailSignupSuccess] Failed to update funnel:", error);
   }
 }
 
@@ -300,7 +332,7 @@ export async function sendSignInLink(email: string, firstName?: string, source?:
     import("firebase/auth"),
   ]);
 
-  // Build redirect URL with email, name, and source in query params
+  // Build redirect URL with email, name, source, and funnel ID in query params
   // This ensures the data survives even if the link opens in a new tab/browser
   let redirectUrl = typeof window !== "undefined" 
     ? `${window.location.origin}/auth?email=${encodeURIComponent(email)}`
@@ -314,6 +346,12 @@ export async function sendSignInLink(email: string, firstName?: string, source?:
   const signupSource = source || getSignupSource();
   if (signupSource) {
     redirectUrl += `&source=${encodeURIComponent(signupSource)}`;
+  }
+  
+  // Include funnel doc ID for tracking signup success
+  const funnelId = getSourceVisitDocId();
+  if (funnelId) {
+    redirectUrl += `&funnel=${encodeURIComponent(funnelId)}`;
   }
 
   const actionCodeSettings = {
@@ -346,13 +384,13 @@ export async function sendSignInLink(email: string, firstName?: string, source?:
  * @param email - User's email
  * @param url - Current page URL (contains Firebase auth tokens)
  * @param firstName - Optional first name (from URL params for new signups)
- * @param source - Optional signup source for analytics
+ * @param funnelId - Optional funnel doc ID for tracking signup success
  */
 export async function completeSignInWithEmailLink(
   email: string,
   url: string,
   firstName?: string | null,
-  _source?: string | null // Source is now tracked via logSourceVisit on page load
+  funnelId?: string | null
 ): Promise<User | null> {
   const [authInstance, { isSignInWithEmailLink, signInWithEmailLink, updateProfile, getAdditionalUserInfo }] =
     await Promise.all([
@@ -378,6 +416,15 @@ export async function completeSignInWithEmailLink(
     await updateProfile(result.user, { displayName: name });
     // Save user profile to Firestore
     await saveUserProfile({ ...result.user, displayName: name } as User);
+    // Log email signup success - fire and forget
+    if (funnelId) {
+      logEmailSignupSuccess({
+        funnelId: funnelId,
+        userId: result.user.uid,
+        displayName: name,
+        email: email,
+      });
+    }
   }
   
   // Clear localStorage and mark as historical user
