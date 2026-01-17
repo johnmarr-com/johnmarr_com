@@ -282,47 +282,35 @@ export async function signInWithGoogle(funnelId?: string | null): Promise<User> 
 }
 
 /**
- * Send a passwordless sign-in link to the user's email
+ * Send a passwordless sign-in link to the user's email via Resend
  * @param email - User's email
  * @param firstName - Optional first name for new signups
  * @param funnelId - Funnel doc ID for tracking signup success
  */
 export async function sendSignInLink(email: string, firstName?: string, funnelId?: string | null): Promise<void> {
   console.log("[sendSignInLink] Starting email send for:", email);
-  
-  const [authInstance, { sendSignInLinkToEmail }] = await Promise.all([
-    getAuth(),
-    import("firebase/auth"),
-  ]);
-
-  // Build redirect URL with email, name, and funnel ID in query params
-  // This ensures the data survives even if the link opens in a new tab/browser
-  let redirectUrl = typeof window !== "undefined" 
-    ? `${window.location.origin}/auth?email=${encodeURIComponent(email)}`
-    : "http://localhost:3000/auth";
-  
-  if (firstName) {
-    redirectUrl += `&name=${encodeURIComponent(firstName)}`;
-  }
-  
-  // Include funnel doc ID for tracking signup success
-  if (funnelId) {
-    redirectUrl += `&funnel=${encodeURIComponent(funnelId)}`;
-  }
-
-  const actionCodeSettings = {
-    url: redirectUrl,
-    handleCodeInApp: true,
-  };
-
-  console.log("[sendSignInLink] Redirect URL:", redirectUrl);
-  console.log("[sendSignInLink] Action code settings:", actionCodeSettings);
 
   try {
-    await sendSignInLinkToEmail(authInstance, email, actionCodeSettings);
-    console.log("[sendSignInLink] Email sent successfully");
+    const response = await fetch("/api/auth/send-signin-link", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email,
+        firstName,
+        funnelId,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to send sign-in link");
+    }
+
+    console.log("[sendSignInLink] Email sent successfully via Resend");
   } catch (error) {
-    console.error("[sendSignInLink] Firebase error:", error);
+    console.error("[sendSignInLink] Error:", error);
     throw error;
   }
 }
