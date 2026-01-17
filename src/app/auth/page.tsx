@@ -13,6 +13,7 @@ import {
   clearHistoricalUser,
   setSignupSource,
   logSourceVisit,
+  logSignupAttempt,
 } from "@/lib/auth";
 
 function AuthContent() {
@@ -85,6 +86,8 @@ function AuthContent() {
     setIsLoading(true);
     setError(null);
     try {
+      // Log the signup attempt (Google method) - fire and forget
+      logSignupAttempt({ method: "google" });
       await signInWithGoogle();
       router.push("/");
     } catch (err) {
@@ -107,6 +110,12 @@ function AuthContent() {
     setIsLoading(true);
     setError(null);
     try {
+      // Log the signup attempt (email method with name and email) - fire and forget
+      logSignupAttempt({
+        method: "email",
+        firstName: isLoginMode ? null : firstName.trim(),
+        email: email,
+      });
       // Pass firstName only for signup, not login
       await sendSignInLink(email, isLoginMode ? undefined : firstName.trim());
       setEmailSent(true);

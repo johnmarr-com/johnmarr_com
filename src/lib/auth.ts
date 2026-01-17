@@ -62,11 +62,15 @@ export async function logSourceVisit(source: string, isLoginMode: boolean): Prom
       source: source,
       isLoginMode: isLoginMode,
       visitedAt: serverTimestamp(),
+      // Signup attempt fields (updated when user clicks signup button)
+      signupAttemptedAt: null,
+      method: null,
+      firstName: null,
+      email: null,
+      // Signup completion fields (updated when signup succeeds)
       signedUp: false,
       signedUpAt: null,
-      method: null,
       userId: null,
-      email: null,
     });
     
     // Store doc ID for later update on successful signup
@@ -77,6 +81,57 @@ export async function logSourceVisit(source: string, isLoginMode: boolean): Prom
     console.log("[logSourceVisit] Successfully logged visit, doc ID:", docRef.id);
   } catch (error) {
     console.error("[logSourceVisit] Failed to log source visit:", error);
+  }
+}
+
+/**
+ * Log when user attempts signup (clicks Google or submits email form)
+ */
+export async function logSignupAttempt(data: {
+  method: "google" | "email";
+  firstName?: string | null;
+  email?: string | null;
+}): Promise<void> {
+  const docId = getSourceVisitDocId();
+  console.log("[logSignupAttempt] Logging signup attempt, docId:", docId, "data:", data);
+  
+  try {
+    const { initializeFirebase } = await import("./firebase");
+    const { getFirestore, doc, updateDoc, serverTimestamp, collection, addDoc } = await import("firebase/firestore");
+    
+    const { app } = await initializeFirebase();
+    const db = getFirestore(app);
+    
+    const updateData = {
+      signupAttemptedAt: serverTimestamp(),
+      method: data.method,
+      firstName: data.firstName || null,
+      email: data.email || null,
+    };
+    
+    if (docId) {
+      // Update existing visit record
+      await updateDoc(doc(db, "signup_funnel", docId), updateData);
+      console.log("[logSignupAttempt] Updated existing visit record:", docId);
+    } else {
+      // No visit record exists (direct signup without source), create new record
+      const docRef = await addDoc(collection(db, "signup_funnel"), {
+        source: "direct",
+        isLoginMode: false,
+        visitedAt: serverTimestamp(),
+        ...updateData,
+        signedUp: false,
+        signedUpAt: null,
+        userId: null,
+      });
+      // Store for potential later update
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(SOURCE_VISIT_DOC_KEY, docRef.id);
+      }
+      console.log("[logSignupAttempt] Created new record:", docRef.id);
+    }
+  } catch (error) {
+    console.error("[logSignupAttempt] Failed to log signup attempt:", error);
   }
 }
 
