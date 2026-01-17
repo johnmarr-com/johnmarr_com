@@ -227,6 +227,8 @@ export async function signInWithGoogle(): Promise<User> {
  * Send a passwordless sign-in link to the user's email
  */
 export async function sendSignInLink(email: string, firstName?: string, source?: string | null): Promise<void> {
+  console.log("[sendSignInLink] Starting email send for:", email);
+  
   const [authInstance, { sendSignInLinkToEmail }] = await Promise.all([
     getAuth(),
     import("firebase/auth"),
@@ -253,7 +255,16 @@ export async function sendSignInLink(email: string, firstName?: string, source?:
     handleCodeInApp: true,
   };
 
-  await sendSignInLinkToEmail(authInstance, email, actionCodeSettings);
+  console.log("[sendSignInLink] Redirect URL:", redirectUrl);
+  console.log("[sendSignInLink] Action code settings:", actionCodeSettings);
+
+  try {
+    await sendSignInLinkToEmail(authInstance, email, actionCodeSettings);
+    console.log("[sendSignInLink] Email sent successfully");
+  } catch (error) {
+    console.error("[sendSignInLink] Firebase error:", error);
+    throw error;
+  }
   
   // Also save to localStorage as fallback (same browser/tab scenario)
   if (typeof window !== "undefined") {
