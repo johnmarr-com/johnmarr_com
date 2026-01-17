@@ -25,6 +25,15 @@ function AuthContent() {
   const nameFromUrl = searchParams.get("name");
   const sourceFromUrl = searchParams.get("source");
 
+  // Store source and log visit for analytics tracking (page load only)
+  useEffect(() => {
+    if (sourceFromUrl) {
+      setSignupSource(sourceFromUrl);
+      // Log the visit to Firestore
+      logSourceVisit(sourceFromUrl, isLoginMode);
+    }
+  }, [sourceFromUrl, isLoginMode]);
+
   const [firstName, setFirstName] = useState("");
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -39,18 +48,11 @@ function AuthContent() {
     }
   }, [user, authLoading, router]);
 
-  // Combined effect: log source visit FIRST, then check for email sign-in link
+  // Check for email sign-in link on mount
   useEffect(() => {
-    const processAuthFlow = async () => {
+    const checkEmailLink = async () => {
       if (typeof window === "undefined") return;
 
-      // Step 1: Log source visit if present (and wait for it to complete)
-      if (sourceFromUrl) {
-        setSignupSource(sourceFromUrl);
-        await logSourceVisit(sourceFromUrl, isLoginMode);
-      }
-
-      // Step 2: Check for email sign-in link
       const url = window.location.href;
       const isSignInLink = await isEmailSignInLink(url);
 
@@ -76,8 +78,8 @@ function AuthContent() {
       }
     };
 
-    processAuthFlow();
-  }, [emailFromUrl, nameFromUrl, sourceFromUrl, isLoginMode, router]);
+    checkEmailLink();
+  }, [emailFromUrl, nameFromUrl, sourceFromUrl, router]);
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);

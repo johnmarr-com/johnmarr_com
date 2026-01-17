@@ -216,13 +216,6 @@ export async function signInWithGoogle(): Promise<User> {
   const additionalInfo = getAdditionalUserInfo(result);
   if (additionalInfo?.isNewUser) {
     await saveUserProfile(result.user);
-    
-    // Update funnel record with signup success
-    await logSignupSuccess({
-      method: "google",
-      userId: result.user.uid,
-      email: result.user.email,
-    });
     clearSignupSource();
   }
   
@@ -308,13 +301,6 @@ export async function completeSignInWithEmailLink(
     await updateProfile(result.user, { displayName: name });
     // Save user profile to Firestore
     await saveUserProfile({ ...result.user, displayName: name } as User);
-    
-    // Update funnel record with signup success
-    await logSignupSuccess({
-      method: "email",
-      userId: result.user.uid,
-      email: result.user.email,
-    });
   }
   
   // Clear localStorage and mark as historical user
