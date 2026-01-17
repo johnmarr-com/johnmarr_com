@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "@/lib/AuthProvider";
+import { useJMStyle } from "@/JMStyle";
 import {
   signInWithGoogle,
   sendSignInLink,
@@ -18,6 +19,7 @@ function AuthContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
+  const { theme } = useJMStyle();
 
   const isLoginMode = searchParams.get("login") === "true";
   const emailFromUrl = searchParams.get("email");
@@ -135,10 +137,16 @@ function AuthContent() {
   // Show loading while checking auth state or completing sign-in
   if (authLoading || isCompletingSignIn) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div 
+        className="flex min-h-screen items-center justify-center"
+        style={{ backgroundColor: theme.surfaces.base }}
+      >
         <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-          <p className="font-mono text-sm text-muted">
+          <div 
+            className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
+            style={{ borderColor: theme.primary, borderTopColor: 'transparent' }}
+          />
+          <p className="font-mono text-sm" style={{ color: theme.text.secondary }}>
             {isCompletingSignIn ? "Completing sign-in..." : "Loading..."}
           </p>
         </div>
@@ -150,15 +158,24 @@ function AuthContent() {
   if (emailSent) {
     return (
       <div className="relative min-h-screen overflow-hidden">
-        <BackgroundDecor />
+        <BackgroundImage />
         <main className="relative z-10 mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-24">
-          <div className="opacity-0 animate-fade-in-up rounded-2xl border border-foreground/10 bg-background/80 p-8 backdrop-blur-sm">
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-accent/10">
+          <div 
+            className="opacity-0 animate-fade-in-up rounded-2xl border p-8 backdrop-blur-md"
+            style={{ 
+              backgroundColor: `${theme.surfaces.base}ee`,
+              borderColor: `${theme.surfaces.elevated2}`,
+            }}
+          >
+            <div 
+              className="mb-6 flex h-16 w-16 items-center justify-center rounded-full"
+              style={{ backgroundColor: `${theme.primary}20` }}
+            >
               <svg
-                className="h-8 w-8 text-accent"
+                className="h-8 w-8"
                 fill="none"
                 viewBox="0 0 24 24"
-                stroke="currentColor"
+                stroke={theme.primary}
                 strokeWidth={1.5}
               >
                 <path
@@ -168,18 +185,21 @@ function AuthContent() {
                 />
               </svg>
             </div>
-            <h1 className="text-2xl font-semibold">Check your email</h1>
-            <p className="mt-3 text-muted">
+            <h1 className="text-2xl font-semibold" style={{ color: theme.text.primary }}>
+              Check your email
+            </h1>
+            <p className="mt-3" style={{ color: theme.text.secondary }}>
               We&apos;ve sent a sign-in link to{" "}
-              <span className="font-medium text-foreground">{email}</span>
+              <span className="font-medium" style={{ color: theme.text.primary }}>{email}</span>
             </p>
-            <p className="mt-4 text-sm text-muted">
+            <p className="mt-4 text-sm" style={{ color: theme.text.tertiary }}>
               Click the link in the email to complete your sign-up. The link
               will expire in 1 hour.
             </p>
             <button
               onClick={() => setEmailSent(false)}
-              className="mt-6 text-sm text-accent hover:underline"
+              className="mt-6 text-sm hover:underline"
+              style={{ color: theme.accents.neonPink }}
             >
               Use a different email
             </button>
@@ -191,13 +211,14 @@ function AuthContent() {
 
   return (
     <div className="relative min-h-screen overflow-hidden">
-      <BackgroundDecor />
+      <BackgroundImage />
 
       <main className="relative z-10 mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-24">
         {/* Back to home */}
         <Link
           href="/"
-          className="opacity-0 animate-fade-in mb-8 inline-flex items-center gap-2 font-mono text-sm text-muted transition-colors hover:text-foreground"
+          className="opacity-0 animate-fade-in mb-8 inline-flex items-center gap-2 font-mono text-sm transition-colors"
+          style={{ color: theme.text.secondary }}
         >
           <svg
             className="h-4 w-4"
@@ -216,13 +237,19 @@ function AuthContent() {
         </Link>
 
         {/* Auth card */}
-        <div className="opacity-0 animate-fade-in-up animation-delay-200 rounded-2xl border border-foreground/10 bg-background/80 p-8 backdrop-blur-sm">
+        <div 
+          className="opacity-0 animate-fade-in-up animation-delay-200 rounded-2xl border p-8 backdrop-blur-md"
+          style={{ 
+            backgroundColor: `${theme.surfaces.base}ee`,
+            borderColor: theme.surfaces.elevated2,
+          }}
+        >
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-semibold">
+            <h1 className="text-3xl font-semibold" style={{ color: theme.text.primary }}>
               {isLoginMode ? "Welcome back" : "Create an account"}
             </h1>
-            <p className="mt-2 text-muted">
+            <p className="mt-2" style={{ color: theme.text.secondary }}>
               {isLoginMode
                 ? "Sign in to continue to John Marr"
                 : "Join John Marr with just your email"}
@@ -231,7 +258,10 @@ function AuthContent() {
 
           {/* Error message */}
           {error && (
-            <div className="mb-6 rounded-lg bg-red-500/10 p-4 text-sm text-red-600 dark:text-red-400">
+            <div 
+              className="mb-6 rounded-lg p-4 text-sm"
+              style={{ backgroundColor: `${theme.semantic.error}15`, color: theme.semantic.error }}
+            >
               {error}
             </div>
           )}
@@ -240,7 +270,11 @@ function AuthContent() {
           <button
             onClick={handleGoogleSignIn}
             disabled={isLoading}
-            className="flex w-full items-center justify-center gap-3 rounded-xl border border-foreground/20 px-4 py-3 font-medium transition-all duration-300 hover:border-foreground/40 hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-3 rounded-xl border px-4 py-3 font-medium transition-all duration-300 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ 
+              borderColor: theme.surfaces.elevated2,
+              color: theme.text.primary,
+            }}
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24">
               <path
@@ -265,11 +299,11 @@ function AuthContent() {
 
           {/* Divider */}
           <div className="my-6 flex items-center gap-4">
-            <div className="h-px flex-1 bg-foreground/10" />
-            <span className="font-mono text-xs uppercase tracking-wider text-muted">
+            <div className="h-px flex-1" style={{ backgroundColor: theme.surfaces.elevated2 }} />
+            <span className="font-mono text-xs uppercase tracking-wider" style={{ color: theme.text.tertiary }}>
               or
             </span>
-            <div className="h-px flex-1 bg-foreground/10" />
+            <div className="h-px flex-1" style={{ backgroundColor: theme.surfaces.elevated2 }} />
           </div>
 
           {/* Passwordless email form */}
@@ -279,7 +313,8 @@ function AuthContent() {
               <div>
                 <label
                   htmlFor="firstName"
-                  className="mb-2 block font-mono text-xs uppercase tracking-wider text-muted"
+                  className="mb-2 block font-mono text-xs uppercase tracking-wider"
+                  style={{ color: theme.text.tertiary }}
                 >
                   First Name
                 </label>
@@ -290,14 +325,19 @@ function AuthContent() {
                   onChange={(e) => setFirstName(e.target.value)}
                   required
                   placeholder="John"
-                  className="w-full rounded-xl border border-foreground/20 bg-transparent px-4 py-3 transition-colors placeholder:text-muted/50 focus:border-accent focus:outline-none"
+                  className="w-full rounded-xl border bg-transparent px-4 py-3 transition-colors focus:outline-none"
+                  style={{ 
+                    borderColor: theme.surfaces.elevated2,
+                    color: theme.text.primary,
+                  }}
                 />
               </div>
             )}
             <div>
               <label
                 htmlFor="email"
-                className="mb-2 block font-mono text-xs uppercase tracking-wider text-muted"
+                className="mb-2 block font-mono text-xs uppercase tracking-wider"
+                style={{ color: theme.text.tertiary }}
               >
                 Email
               </label>
@@ -308,17 +348,25 @@ function AuthContent() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="you@example.com"
-                className="w-full rounded-xl border border-foreground/20 bg-transparent px-4 py-3 transition-colors placeholder:text-muted/50 focus:border-accent focus:outline-none"
+                className="w-full rounded-xl border bg-transparent px-4 py-3 transition-colors focus:outline-none"
+                style={{ 
+                  borderColor: theme.surfaces.elevated2,
+                  color: theme.text.primary,
+                }}
               />
             </div>
             <button
               type="submit"
               disabled={isLoading || !email || (!isLoginMode && !firstName.trim())}
-              className="w-full rounded-xl bg-foreground px-4 py-3 font-medium text-background transition-all duration-300 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-xl px-4 py-3 font-semibold transition-all duration-300 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              style={{ 
+                background: theme.gradient.css,
+                color: theme.text.primary,
+              }}
             >
-              {isLoading ? "Sending link..." : "Send sign-in link"}
+              {isLoading ? "Sending link..." : "Send magic link ✨"}
             </button>
-            <p className="text-center text-sm text-muted">
+            <p className="text-center text-sm" style={{ color: theme.text.tertiary }}>
               We&apos;ll email you a magic link. No password needed!
             </p>
           </form>
@@ -326,21 +374,23 @@ function AuthContent() {
           {/* Toggle mode */}
           <div className="mt-8 text-center">
             {isLoginMode ? (
-              <p className="text-sm text-muted">
+              <p className="text-sm" style={{ color: theme.text.secondary }}>
                 Don&apos;t have an account?{" "}
                 <a
                   href="/auth"
-                  className="font-medium text-accent hover:underline"
+                  className="font-medium hover:underline"
+                  style={{ color: theme.accents.neonPink }}
                 >
                   Sign up
                 </a>
               </p>
             ) : (
-              <p className="text-sm text-muted">
+              <p className="text-sm" style={{ color: theme.text.secondary }}>
                 Already have an account?{" "}
                 <a
                   href="/auth?login=true"
-                  className="font-medium text-accent hover:underline"
+                  className="font-medium hover:underline"
+                  style={{ color: theme.accents.neonPink }}
                 >
                   Sign in
                 </a>
@@ -350,7 +400,10 @@ function AuthContent() {
         </div>
 
         {/* Footer */}
-        <p className="opacity-0 animate-fade-in animation-delay-400 mt-8 text-center font-mono text-xs text-muted/60">
+        <p 
+          className="opacity-0 animate-fade-in animation-delay-400 mt-8 text-center font-mono text-xs"
+          style={{ color: theme.text.disabled }}
+        >
           By continuing, you agree to our Terms of Service
         </p>
       </main>
@@ -361,7 +414,8 @@ function AuthContent() {
           clearHistoricalUser();
           alert("historicalUser cleared from localStorage");
         }}
-        className="fixed bottom-4 right-4 rounded bg-muted/20 px-2 py-1 font-mono text-[10px] text-muted/60 transition-colors hover:bg-muted/30 hover:text-muted"
+        className="fixed bottom-4 right-4 rounded px-2 py-1 font-mono text-[10px] transition-colors"
+        style={{ backgroundColor: `${theme.surfaces.elevated1}`, color: theme.text.disabled }}
       >
         Clear historical
       </button>
@@ -369,35 +423,17 @@ function AuthContent() {
   );
 }
 
-function BackgroundDecor() {
+function BackgroundImage() {
   return (
-    <>
-      {/* Subtle geometric background pattern */}
-      <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]">
-        <svg className="h-full w-full" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <pattern
-              id="grid"
-              width="60"
-              height="60"
-              patternUnits="userSpaceOnUse"
-            >
-              <path
-                d="M 60 0 L 0 0 0 60"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1"
-              />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#grid)" />
-        </svg>
-      </div>
-
-      {/* Gradient orb accents */}
-      <div className="absolute -right-40 -top-40 h-[500px] w-[500px] rounded-full bg-linear-to-br from-accent/20 to-transparent blur-3xl" />
-      <div className="absolute -bottom-40 -left-40 h-[400px] w-[400px] rounded-full bg-linear-to-tr from-accent-light/40 to-transparent blur-3xl" />
-    </>
+    <div 
+      className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+      style={{ 
+        backgroundImage: "url('/images/bgs/BG-Signup.jpg')",
+      }}
+    >
+      {/* Dark overlay to ensure text readability */}
+      <div className="absolute inset-0 bg-black/40" />
+    </div>
   );
 }
 
