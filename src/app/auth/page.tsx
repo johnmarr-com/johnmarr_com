@@ -9,9 +9,7 @@ import {
   sendSignInLink,
   completeSignInWithEmailLink,
   isEmailSignInLink,
-  getStoredEmail,
   clearHistoricalUser,
-  setSignupSource,
   logSourceVisit,
   logSignupAttempt,
 } from "@/lib/auth";
@@ -27,16 +25,22 @@ function AuthContent() {
   const sourceFromUrl = searchParams.get("source");
   const funnelFromUrl = searchParams.get("funnel");
 
-  // Store source and log visit for analytics tracking (page load only)
-  useEffect(() => {
-    if (sourceFromUrl) {
-      setSignupSource(sourceFromUrl);
-      // Log the visit to Firestore
-      logSourceVisit(sourceFromUrl, isLoginMode);
-    }
-  }, [sourceFromUrl, isLoginMode]);
-
   const [firstName, setFirstName] = useState("");
+  const [funnelId, setFunnelId] = useState<string | null>(funnelFromUrl);
+
+  // Log visit for analytics tracking (only if NOT returning from email link)
+  useEffect(() => {
+    // If funnelFromUrl is set, we're returning from email link - don't create new funnel
+    if (funnelFromUrl) return;
+    
+    // Create a new funnel record for fresh page visits
+    const source = sourceFromUrl || "direct";
+    logSourceVisit(source, isLoginMode).then((docId) => {
+      if (docId) {
+        setFunnelId(docId);
+      }
+    });
+  }, [sourceFromUrl, isLoginMode, funnelFromUrl]);
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,12 +64,11 @@ function AuthContent() {
 
       if (isSignInLink) {
         setIsCompletingSignIn(true);
-        const storedEmail = emailFromUrl || getStoredEmail();
 
-        if (storedEmail) {
+        if (emailFromUrl) {
           try {
             // Pass the name and funnel ID from URL (for new signups coming from email link)
-            const user = await completeSignInWithEmailLink(storedEmail, url, nameFromUrl, funnelFromUrl);
+            const user = await completeSignInWithEmailLink(emailFromUrl, url, nameFromUrl, funnelFromUrl);
             if (user) {
               router.push("/");
             }
@@ -88,8 +91,8 @@ function AuthContent() {
     setError(null);
     try {
       // Log the signup attempt (Google method) - fire and forget
-      logSignupAttempt({ method: "google" });
-      await signInWithGoogle();
+      logSignupAttempt({ funnelId, method: "google" });
+      await signInWithGoogle(funnelId);
       router.push("/");
     } catch (err) {
       console.error("Google sign-in error:", err);
@@ -111,14 +114,15 @@ function AuthContent() {
     setIsLoading(true);
     setError(null);
     try {
-      // Log the signup attempt (email method with name and email) - fire and forget
-      logSignupAttempt({
+      // Log the signup attempt (email method with name and email) - may return new funnelId
+      const currentFunnelId = await logSignupAttempt({
+        funnelId,
         method: "email",
         firstName: isLoginMode ? null : firstName.trim(),
         email: email,
       });
-      // Pass firstName only for signup, not login
-      await sendSignInLink(email, isLoginMode ? undefined : firstName.trim());
+      // Pass firstName only for signup, not login; pass funnelId for tracking
+      await sendSignInLink(email, isLoginMode ? undefined : firstName.trim(), currentFunnelId);
       setEmailSent(true);
     } catch (err) {
       console.error("Send link error:", err);
