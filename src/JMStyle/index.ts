@@ -11,15 +11,20 @@
  *    
  *    function MyComponent() {
  *      const { theme } = useJMStyle();
- *      return <img src={theme.logo} alt={theme.logoAlt} />;
+ *      return (
+ *        <div style={{ background: theme.surfaces.base, color: theme.text.primary }}>
+ *          <button style={{ background: theme.gradient.css }}>Click me</button>
+ *        </div>
+ *      );
  *    }
  *    ```
  * 
  * 3. For server components, import theme directly:
  *    ```tsx
- *    import { getTheme } from "@/JMStyle";
+ *    import { getTheme, getSurface } from "@/JMStyle";
  *    
  *    const theme = getTheme("johnmarr");
+ *    const cardBg = getSurface(1); // elevated surface
  *    ```
  */
 
@@ -27,7 +32,7 @@
 export { JMStyleProvider, useJMStyle } from "./JMStyleProvider";
 
 // Theme utilities
-export { themes, defaultTheme, getTheme } from "./themes";
+export { themes, defaultTheme, getTheme, getGradientButton, getSurface } from "./themes";
 
 // Types
 export type { JMTheme, ThemeName } from "./themes";

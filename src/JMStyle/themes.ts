@@ -2,7 +2,7 @@
  * JMStyle - Theme Definitions
  * 
  * Centralized theming system for the John Marr application.
- * Each theme defines colors, typography hints, and branding assets.
+ * Dark-mode first design with vibrant accent colors.
  */
 
 export interface JMTheme {
@@ -13,23 +13,43 @@ export interface JMTheme {
   logo: string;
   logoAlt: string;
   
-  // Core colors
-  colors: {
-    background: string;
-    backgroundDark: string;
-    foreground: string;
-    foregroundDark: string;
-    accent: string;
-    accentDark: string;
-    accentLight: string;
-    accentLightDark: string;
-    muted: string;
-    mutedDark: string;
-    headerBackground: string;
-    primaryPink: string;
+  // Primary gradient (signature CTA)
+  gradient: {
+    start: string;      // Hot Pink
+    middle: string;     // Electric Purple  
+    end: string;        // Deep Blue
+    css: string;        // Ready-to-use CSS gradient
+    angle: number;      // Default angle (degrees)
   };
   
-  // Semantic colors
+  // Primary solid (when gradient isn't feasible)
+  primary: string;
+  
+  // Background system (surfaces)
+  surfaces: {
+    base: string;       // Pure black - main canvas
+    elevated1: string;  // Cards, elevated content
+    elevated2: string;  // Secondary surfaces
+    elevated3: string;  // Tertiary, inputs
+  };
+  
+  // Text & content
+  text: {
+    primary: string;    // Main text
+    secondary: string;  // 60% - supporting text
+    tertiary: string;   // 40% - hints, captions
+    disabled: string;   // Disabled states
+    accent: string;     // Lavender - quotes, testimonials
+  };
+  
+  // Accent colors (magic/energy)
+  accents: {
+    neonPink: string;
+    electricBlue: string;
+    goldenGlow: string;
+  };
+  
+  // Semantic colors (functional states)
   semantic: {
     success: string;
     warning: string;
@@ -37,7 +57,7 @@ export interface JMTheme {
     info: string;
   };
   
-  // Typography hints (used alongside CSS font definitions)
+  // Typography hints
   typography: {
     fontFamily: string;
     monoFamily: string;
@@ -46,7 +66,7 @@ export interface JMTheme {
 
 /**
  * John Marr - Primary brand theme
- * Warm, sophisticated palette with terracotta accents
+ * Dark, energetic palette with pink-purple gradient accents
  */
 export const johnmarrTheme: JMTheme = {
   name: "johnmarr",
@@ -55,30 +75,53 @@ export const johnmarrTheme: JMTheme = {
   logo: "/images/logos/JohnMarr-Signature.png",
   logoAlt: "John Marr Signature",
   
-  colors: {
-    background: "#faf9f7",
-    backgroundDark: "#0f0f0f",
-    foreground: "#1a1a1a",
-    foregroundDark: "#e8e6e3",
-    accent: "#c45d3a",
-    accentDark: "#e07850",
-    accentLight: "#e8d5c4",
-    accentLightDark: "#2a2420",
-    muted: "#6b6b6b",
-    mutedDark: "#8a8a8a",
-    headerBackground: "#000000",
-    primaryPink: "#e03dff",
+  // Primary gradient (pink → purple → blue)
+  gradient: {
+    start: "#FF1B6D",     // Hot Pink
+    middle: "#8B35FF",    // Electric Purple
+    end: "#5B21E8",       // Deep Blue
+    css: "linear-gradient(135deg, #FF1B6D 0%, #8B35FF 50%, #5B21E8 100%)",
+    angle: 135,
   },
   
+  // Primary solid
+  primary: "#8B35FF",     // Electric Purple
+  
+  // Background system
+  surfaces: {
+    base: "#000000",      // Pure black
+    elevated1: "#0A0A0A", // Cards
+    elevated2: "#141414", // Secondary
+    elevated3: "#1E1E1E", // Inputs
+  },
+  
+  // Text colors
+  text: {
+    primary: "#FFFFFF",
+    secondary: "#B8B8B8",
+    tertiary: "#808080",
+    disabled: "#4D4D4D",
+    accent: "#A89DC9",    // Lavender
+  },
+  
+  // Accent colors
+  accents: {
+    neonPink: "#FF36AB",
+    electricBlue: "#00D9FF",
+    goldenGlow: "#FFD700",
+  },
+  
+  // Semantic colors
   semantic: {
-    success: "#2d8a5f",
-    warning: "#d4a636",
-    error: "#c44536",
-    info: "#3a7bc4",
+    success: "#00E676",   // Vibrant green
+    warning: "#FFB300",   // Warm gold
+    error: "#FF3D71",     // Vibrant red-pink
+    info: "#00D9FF",      // Electric blue
   },
   
+  // Typography
   typography: {
-    fontFamily: "Crimson Pro, Georgia, serif",
+    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
     monoFamily: "JetBrains Mono, monospace",
   },
 };
@@ -104,3 +147,22 @@ export function getTheme(name: ThemeName): JMTheme {
   return themes[name] ?? themes[defaultTheme];
 }
 
+/**
+ * Helper: Get gradient CSS for buttons/CTAs
+ */
+export function getGradientButton(theme: JMTheme = johnmarrTheme): string {
+  return `background: ${theme.gradient.css}; background-color: ${theme.primary};`;
+}
+
+/**
+ * Helper: Get surface color by elevation level (0-3)
+ */
+export function getSurface(level: 0 | 1 | 2 | 3, theme: JMTheme = johnmarrTheme): string {
+  const surfaces: [string, string, string, string] = [
+    theme.surfaces.base,
+    theme.surfaces.elevated1,
+    theme.surfaces.elevated2,
+    theme.surfaces.elevated3,
+  ];
+  return surfaces[level];
+}

@@ -38,7 +38,7 @@ export function JMAppHeader({
       className="sticky top-0 z-50 w-full"
       style={{
         height: `${height}px`,
-        backgroundColor: theme.colors.headerBackground,
+        backgroundColor: theme.surfaces.base,
       }}
     >
       <div
@@ -64,12 +64,12 @@ export function JMAppHeader({
         <JMSimpleButton
           title={displayName}
           gradient={{
-            from: "#6310ef",
-            to: "#c529bf",
-            angle: 135,
+            from: theme.gradient.start,
+            to: theme.gradient.middle,
+            angle: theme.gradient.angle,
           }}
           backgroundOpacity={0.33}
-          titleColor={theme.colors.primaryPink}
+          titleColor={theme.accents.neonPink}
           onClick={onUserButtonClick}
         />
       </div>

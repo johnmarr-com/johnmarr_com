@@ -69,7 +69,7 @@ export function JMStyleProvider({
  * ```tsx
  * function MyComponent() {
  *   const { theme } = useJMStyle();
- *   return <div style={{ color: theme.colors.accent }}>{theme.displayName}</div>;
+ *   return <div style={{ color: theme.text.accent }}>{theme.displayName}</div>;
  * }
  * ```
  */
