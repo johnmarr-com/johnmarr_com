@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
-import { ShieldUser, User, Mail, ArrowLeft } from "lucide-react";
+import { ShieldUser, User, Mail } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
 import { useJMStyle } from "@/JMStyle";
+import { JMAppHeader } from "@/JMKit";
 
 export default function ProfilePage() {
   const { user, isAdmin, isLoading } = useAuth();
@@ -52,9 +52,12 @@ export default function ProfilePage() {
 
   return (
     <div className="relative min-h-screen overflow-hidden">
+      {/* Header */}
+      <JMAppHeader />
+
       {/* Background */}
       <div 
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat -z-10"
         style={{ 
           backgroundImage: "url('/images/bgs/BG-Signup.jpg')",
         }}
@@ -62,17 +65,7 @@ export default function ProfilePage() {
         <div className="absolute inset-0 bg-black/60" />
       </div>
 
-      <main className="relative z-10 mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-24">
-        {/* Back to home */}
-        <Link
-          href="/"
-          className="opacity-0 animate-fade-in mb-8 inline-flex items-center gap-2 font-mono text-sm transition-colors hover:opacity-80"
-          style={{ color: theme.text.secondary }}
-        >
-          <ArrowLeft size={16} />
-          Back to home
-        </Link>
-
+      <main className="relative z-10 mx-auto flex max-w-md flex-col px-6 py-12">
         {/* Profile card */}
         <div 
           className="opacity-0 animate-fade-in-up animation-delay-200 rounded-2xl border overflow-hidden backdrop-blur-md"

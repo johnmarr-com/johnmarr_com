@@ -3,12 +3,15 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useJMStyle } from "@/JMStyle";
+import { useAuth } from "@/lib/AuthProvider";
 import { signOut } from "@/lib/auth";
 
 export interface JMMenuOption {
   label: string;
   href?: string;
   onClick?: () => void | Promise<void>;
+  /** Custom hover color (defaults to neonPink) */
+  hoverColor?: string;
 }
 
 interface JMBasicMenuProps {
@@ -42,6 +45,7 @@ export function JMBasicMenu({
   headerHeight = 75,
 }: JMBasicMenuProps) {
   const { theme } = useJMStyle();
+  const { isAdmin } = useAuth();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -54,10 +58,15 @@ export function JMBasicMenu({
     isTouchDevice.current = "ontouchstart" in window || navigator.maxTouchPoints > 0;
   }, []);
 
-  // Default menu options
+  // Build default menu options (Admin only shown if user is admin)
   const defaultOptions: JMMenuOption[] = [
     { label: "Home", href: "/" },
     { label: "Profile", href: "/profile" },
+    ...(isAdmin ? [{ 
+      label: "Admin", 
+      href: "/admin",
+      hoverColor: theme.accents.goldenGlow,
+    }] : []),
     { 
       label: "Sign Out", 
       onClick: async () => {
@@ -171,29 +180,32 @@ export function JMBasicMenu({
             borderBottom: `1px solid ${theme.surfaces.elevated2}`,
           }}
         >
-          {menuOptions.map((option, index) => (
-            <button
-              key={option.label}
-              onClick={() => handleOptionClick(option)}
-              className="w-full px-4 py-3 text-left text-sm transition-all duration-150"
-              style={{
-                color: theme.text.primary,
-                borderTop: index > 0 ? `1px solid ${theme.surfaces.elevated2}` : undefined,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = theme.accents.neonPink;
-                e.currentTarget.style.fontWeight = "700";
-                e.currentTarget.style.backgroundColor = theme.surfaces.elevated1;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = theme.text.primary;
-                e.currentTarget.style.fontWeight = "400";
-                e.currentTarget.style.backgroundColor = "transparent";
-              }}
-            >
-              {option.label}
-            </button>
-          ))}
+          {menuOptions.map((option, index) => {
+            const hoverColor = option.hoverColor || theme.accents.neonPink;
+            return (
+              <button
+                key={option.label}
+                onClick={() => handleOptionClick(option)}
+                className="w-full px-4 py-3 text-left text-sm transition-all duration-150"
+                style={{
+                  color: theme.text.primary,
+                  borderTop: index > 0 ? `1px solid ${theme.surfaces.elevated2}` : undefined,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = hoverColor;
+                  e.currentTarget.style.fontWeight = "700";
+                  e.currentTarget.style.backgroundColor = theme.surfaces.elevated1;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = theme.text.primary;
+                  e.currentTarget.style.fontWeight = "400";
+                  e.currentTarget.style.backgroundColor = "transparent";
+                }}
+              >
+                {option.label}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

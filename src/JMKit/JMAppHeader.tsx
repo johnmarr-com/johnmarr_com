@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { ShieldUser } from "lucide-react";
 import { useJMStyle } from "@/JMStyle";
 import { useAuth } from "@/lib/AuthProvider";
@@ -60,19 +61,24 @@ export function JMAppHeader({
           />
         </div>
 
-        {/* User section with menu - right side */}
-        <JMBasicMenu headerHeight={height}>
-          <div className="flex items-center gap-3">
-            {/* Admin badge */}
-            {isAdmin && (
+        {/* User section - right side */}
+        <div className="flex items-center gap-3">
+          {/* Admin badge - clickable link to admin */}
+          {isAdmin && (
+            <Link 
+              href="/admin"
+              className="transition-opacity hover:opacity-80"
+            >
               <ShieldUser 
                 size={22} 
                 color={theme.accents.goldenGlow}
                 strokeWidth={2}
               />
-            )}
-            
-            {/* User button */}
+            </Link>
+          )}
+          
+          {/* User button with dropdown menu */}
+          <JMBasicMenu headerHeight={height}>
             <JMSimpleButton
               title={displayName}
               gradient={{
@@ -83,8 +89,8 @@ export function JMAppHeader({
               backgroundOpacity={0.33}
               titleColor={theme.accents.neonPink}
             />
-          </div>
-        </JMBasicMenu>
+          </JMBasicMenu>
+        </div>
       </div>
     </header>
   );
