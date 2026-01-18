@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { ShieldUser } from "lucide-react";
 import { useJMStyle } from "@/JMStyle";
 import { useAuth } from "@/lib/AuthProvider";
 import { JMSimpleButton } from "./JMSimpleButton";
@@ -19,13 +20,14 @@ interface JMAppHeaderProps {
  * - Sticky positioning at top
  * - Theme-aware logo and background
  * - User button with gradient styling
+ * - Admin badge for admin users
  */
 export function JMAppHeader({
   height = 75,
   onUserButtonClick,
 }: JMAppHeaderProps) {
   const { theme } = useJMStyle();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   
   // Calculate logo height (85% of available space)
   const logoHeight = Math.round(height * 0.85);
@@ -60,18 +62,30 @@ export function JMAppHeader({
           />
         </div>
 
-        {/* User button - right side */}
-        <JMSimpleButton
-          title={displayName}
-          gradient={{
-            from: theme.gradient.start,
-            to: theme.gradient.middle,
-            angle: theme.gradient.angle,
-          }}
-          backgroundOpacity={0.33}
-          titleColor={theme.accents.neonPink}
-          onClick={onUserButtonClick}
-        />
+        {/* User section - right side */}
+        <div className="flex items-center gap-3">
+          {/* Admin badge */}
+          {isAdmin && (
+            <ShieldUser 
+              size={22} 
+              color={theme.accents.goldenGlow}
+              strokeWidth={2}
+            />
+          )}
+          
+          {/* User button */}
+          <JMSimpleButton
+            title={displayName}
+            gradient={{
+              from: theme.gradient.start,
+              to: theme.gradient.middle,
+              angle: theme.gradient.angle,
+            }}
+            backgroundOpacity={0.33}
+            titleColor={theme.accents.neonPink}
+            onClick={onUserButtonClick}
+          />
+        </div>
       </div>
     </header>
   );
