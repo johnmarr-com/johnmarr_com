@@ -5,26 +5,24 @@ import { ShieldUser } from "lucide-react";
 import { useJMStyle } from "@/JMStyle";
 import { useAuth } from "@/lib/AuthProvider";
 import { JMSimpleButton } from "./JMSimpleButton";
+import { JMBasicMenu } from "./JMBasicMenu";
 
 interface JMAppHeaderProps {
   /** Override header height in pixels (default: 75) */
   height?: number;
-  /** Called when user button is clicked */
-  onUserButtonClick?: () => void;
 }
 
 /**
- * JMAppHeader - Main application header with logo and user menu button
+ * JMAppHeader - Main application header with logo and user menu
  * 
  * Features:
  * - Sticky positioning at top
  * - Theme-aware logo and background
- * - User button with gradient styling
+ * - User button with dropdown menu
  * - Admin badge for admin users
  */
 export function JMAppHeader({
   height = 75,
-  onUserButtonClick,
 }: JMAppHeaderProps) {
   const { theme } = useJMStyle();
   const { user, isAdmin } = useAuth();
@@ -62,30 +60,31 @@ export function JMAppHeader({
           />
         </div>
 
-        {/* User section - right side */}
-        <div className="flex items-center gap-3">
-          {/* Admin badge */}
-          {isAdmin && (
-            <ShieldUser 
-              size={22} 
-              color={theme.accents.goldenGlow}
-              strokeWidth={2}
+        {/* User section with menu - right side */}
+        <JMBasicMenu headerHeight={height}>
+          <div className="flex items-center gap-3">
+            {/* Admin badge */}
+            {isAdmin && (
+              <ShieldUser 
+                size={22} 
+                color={theme.accents.goldenGlow}
+                strokeWidth={2}
+              />
+            )}
+            
+            {/* User button */}
+            <JMSimpleButton
+              title={displayName}
+              gradient={{
+                from: theme.gradient.start,
+                to: theme.gradient.middle,
+                angle: theme.gradient.angle,
+              }}
+              backgroundOpacity={0.33}
+              titleColor={theme.accents.neonPink}
             />
-          )}
-          
-          {/* User button */}
-          <JMSimpleButton
-            title={displayName}
-            gradient={{
-              from: theme.gradient.start,
-              to: theme.gradient.middle,
-              angle: theme.gradient.angle,
-            }}
-            backgroundOpacity={0.33}
-            titleColor={theme.accents.neonPink}
-            onClick={onUserButtonClick}
-          />
-        </div>
+          </div>
+        </JMBasicMenu>
       </div>
     </header>
   );
