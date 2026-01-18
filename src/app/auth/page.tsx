@@ -395,12 +395,17 @@ function AuthContent() {
               {isLoading ? "Sending link..." : "Send magic link ✨"}
             </button>
             <p className="text-center text-sm" style={{ color: theme.text.tertiary }}>
-              We&apos;ll email you a magic link. No password needed!
+              We&apos;ll email you a magic link.<br />No password needed!
             </p>
           </form>
 
-          {/* Toggle mode */}
-          <div className="mt-8 text-center">
+          
+          </div>
+        </div>
+
+        {/* Footer */}
+        {/* Toggle mode */}
+        <div className="mt-8 text-center">
             {isLoginMode ? (
               <p className="text-sm" style={{ color: theme.text.secondary }}>
                 Don&apos;t have an account?{" "}
@@ -425,16 +430,6 @@ function AuthContent() {
               </p>
             )}
           </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <p 
-          className="opacity-0 animate-fade-in animation-delay-400 mt-8 text-center font-mono text-xs"
-          style={{ color: theme.text.disabled }}
-        >
-          By continuing, you agree to our Terms of Service
-        </p>
       </main>
 
     </div>
