@@ -2,6 +2,7 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "@/lib/AuthProvider";
 import { useJMStyle } from "@/JMStyle";
@@ -237,24 +238,29 @@ function AuthContent() {
 
         {/* Auth card */}
         <div 
-          className="opacity-0 animate-fade-in-up animation-delay-200 rounded-2xl border p-8 backdrop-blur-md"
+          className="opacity-0 animate-fade-in-up animation-delay-200 rounded-2xl border overflow-hidden backdrop-blur-md"
           style={{ 
             backgroundColor: `${theme.surfaces.base}ee`,
             borderColor: theme.surfaces.elevated2,
           }}
         >
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-semibold" style={{ color: theme.text.primary }}>
-              {isLoginMode ? "Welcome back" : "Create a FREE account"}
-            </h1>
-            <p className="mt-2" style={{ color: theme.text.secondary }}>
-              {isLoginMode
-                ? "Sign in to continue to JohnMarr.com"
-                : "Join with just your email"}
-            </p>
+          {/* Banner Image */}
+          <div className="p-5 pb-0">
+            <Image
+              src={isLoginMode 
+                ? "/images/banners/Banner-Welcome-Back-2.png" 
+                : "/images/banners/Banner-Create-Free-Account-2.png"
+              }
+              alt={isLoginMode ? "Welcome Back" : "Create a Free Account"}
+              width={800}
+              height={200}
+              className="w-full h-auto rounded-lg"
+              priority
+            />
           </div>
 
+          {/* Content */}
+          <div className="p-8 pt-6">
           {/* Error message */}
           {error && (
             <div 
@@ -401,6 +407,7 @@ function AuthContent() {
                 </a>
               </p>
             )}
+          </div>
           </div>
         </div>
 
