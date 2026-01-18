@@ -10,7 +10,6 @@ import {
   sendSignInLink,
   completeSignInWithEmailLink,
   isEmailSignInLink,
-  clearHistoricalUser,
   logSourceVisit,
   logSignupAttempt,
 } from "@/lib/auth";
@@ -247,12 +246,12 @@ function AuthContent() {
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-semibold" style={{ color: theme.text.primary }}>
-              {isLoginMode ? "Welcome back" : "Create an account"}
+              {isLoginMode ? "Welcome back" : "Create a FREE account"}
             </h1>
             <p className="mt-2" style={{ color: theme.text.secondary }}>
               {isLoginMode
-                ? "Sign in to continue to John Marr"
-                : "Join John Marr with just your email"}
+                ? "Sign in to continue to JohnMarr.com"
+                : "Join with just your email"}
             </p>
           </div>
 
@@ -325,10 +324,13 @@ function AuthContent() {
                   onChange={(e) => setFirstName(e.target.value)}
                   required
                   placeholder="John"
-                  className="w-full rounded-xl border bg-transparent px-4 py-3 transition-colors focus:outline-none"
+                  className="w-full rounded-xl border px-4 py-3 transition-all focus:outline-none focus-visible:outline-none focus:ring-1"
                   style={{ 
                     borderColor: theme.surfaces.elevated2,
+                    backgroundColor: "#171618",
                     color: theme.text.primary,
+                    // @ts-expect-error CSS custom property for focus ring
+                    "--tw-ring-color": theme.accents.neonPink,
                   }}
                 />
               </div>
@@ -348,10 +350,13 @@ function AuthContent() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="you@example.com"
-                className="w-full rounded-xl border bg-transparent px-4 py-3 transition-colors focus:outline-none"
+                className="w-full rounded-xl border px-4 py-3 transition-all focus:outline-none focus-visible:outline-none focus:ring-1"
                 style={{ 
                   borderColor: theme.surfaces.elevated2,
+                  backgroundColor: "#171618",
                   color: theme.text.primary,
+                  // @ts-expect-error CSS custom property for focus ring
+                  "--tw-ring-color": theme.accents.neonPink,
                 }}
               />
             </div>
@@ -408,17 +413,6 @@ function AuthContent() {
         </p>
       </main>
 
-      {/* Debug button */}
-      <button
-        onClick={() => {
-          clearHistoricalUser();
-          alert("historicalUser cleared from localStorage");
-        }}
-        className="fixed bottom-4 right-4 rounded px-2 py-1 font-mono text-[10px] transition-colors"
-        style={{ backgroundColor: `${theme.surfaces.elevated1}`, color: theme.text.disabled }}
-      >
-        Clear historical
-      </button>
     </div>
   );
 }
