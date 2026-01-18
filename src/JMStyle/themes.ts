@@ -31,6 +31,7 @@ export interface JMTheme {
     elevated1: string;  // Cards, elevated content
     elevated2: string;  // Secondary surfaces
     elevated3: string;  // Tertiary, inputs
+    header: string;     // Header background (dark purple)
   };
   
   // Text & content
@@ -93,6 +94,7 @@ export const johnmarrTheme: JMTheme = {
     elevated1: "#0A0A0A", // Cards
     elevated2: "#141414", // Secondary
     elevated3: "#1E1E1E", // Inputs
+    header: "#000000",    // Dark purple (50% darker than brand purple)
   },
   
   // Text colors

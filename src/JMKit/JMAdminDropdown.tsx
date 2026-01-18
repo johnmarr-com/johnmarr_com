@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
 import { useJMStyle } from "@/JMStyle";
 
-export type AdminFocus = "users" | "show" | "story" | "card" | "game" | null;
+export type AdminFocus = "users" | "avatars" | "show" | "story" | "card" | "game" | null;
 
 interface JMAdminDropdownProps {
   value: AdminFocus;
@@ -17,27 +18,49 @@ const focusOptions: { value: AdminFocus; label: string }[] = [
   { value: "story", label: "Stories" },
   { value: "card", label: "Cards" },
   { value: "game", label: "Games" },
+  { value: "avatars", label: "Avatars" },
 ];
 
 /**
  * JMAdminDropdown - Dropdown for selecting admin focus area
  * 
  * Styled to match the menu system: black bg, white text, pink hover
+ * Uses a portal to ensure the dropdown menu always appears on top of all content
  */
 export function JMAdminDropdown({ value, onChange }: JMAdminDropdownProps) {
   const { theme } = useJMStyle();
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   // Get display label
   const selectedLabel = value 
     ? focusOptions.find(opt => opt.value === value)?.label 
     : "Select Focus";
 
+  // Update menu position when opening
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setMenuPosition({
+        top: rect.bottom + 4, // 4px gap below button
+        left: rect.left,
+        width: rect.width,
+      });
+    }
+  }, [isOpen]);
+
   // Close when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        buttonRef.current && 
+        !buttonRef.current.contains(target) &&
+        menuRef.current &&
+        !menuRef.current.contains(target)
+      ) {
         setIsOpen(false);
       }
     };
@@ -51,15 +74,26 @@ export function JMAdminDropdown({ value, onChange }: JMAdminDropdownProps) {
     };
   }, []);
 
+  // Close on scroll to avoid misaligned menu
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const handleScroll = () => setIsOpen(false);
+    window.addEventListener("scroll", handleScroll, true);
+    
+    return () => window.removeEventListener("scroll", handleScroll, true);
+  }, [isOpen]);
+
   const handleSelect = (newValue: AdminFocus) => {
     onChange(newValue);
     setIsOpen(false);
   };
 
   return (
-    <div ref={dropdownRef} className="relative">
+    <div className="relative">
       {/* Trigger button */}
       <button
+        ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-4 py-2 rounded-lg border transition-all duration-150"
         style={{
@@ -77,42 +111,48 @@ export function JMAdminDropdown({ value, onChange }: JMAdminDropdownProps) {
         />
       </button>
 
-      {/* Dropdown menu */}
-      <div
-        className="absolute top-full left-0 mt-1 w-full overflow-hidden transition-all duration-200 ease-out rounded-lg shadow-lg"
-        style={{
-          maxHeight: isOpen ? "300px" : "0px",
-          opacity: isOpen ? 1 : 0,
-          backgroundColor: theme.surfaces.base,
-          border: isOpen ? `1px solid ${theme.surfaces.elevated2}` : "none",
-          zIndex: 50,
-        }}
-      >
-        {focusOptions.map((option, index) => (
-          <button
-            key={option.value}
-            onClick={() => handleSelect(option.value)}
-            className="w-full px-4 py-3 text-left text-sm transition-all duration-150"
-            style={{
-              color: theme.text.primary,
-              borderTop: index > 0 ? `1px solid ${theme.surfaces.elevated2}` : undefined,
-              backgroundColor: value === option.value ? theme.surfaces.elevated1 : "transparent",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = theme.accents.goldenGlow;
-              e.currentTarget.style.fontWeight = "700";
-              e.currentTarget.style.backgroundColor = theme.surfaces.elevated1;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = theme.text.primary;
-              e.currentTarget.style.fontWeight = "400";
-              e.currentTarget.style.backgroundColor = value === option.value ? theme.surfaces.elevated1 : "transparent";
-            }}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+      {/* Dropdown menu - rendered via portal to ensure it's always on top */}
+      {isOpen && typeof document !== "undefined" && createPortal(
+        <div
+          ref={menuRef}
+          className="overflow-hidden rounded-lg shadow-xl"
+          style={{
+            position: "fixed",
+            top: menuPosition.top,
+            left: menuPosition.left,
+            width: menuPosition.width,
+            backgroundColor: theme.surfaces.base,
+            border: `1px solid ${theme.surfaces.elevated2}`,
+            zIndex: 9999,
+          }}
+        >
+          {focusOptions.map((option, index) => (
+            <button
+              key={option.value}
+              onClick={() => handleSelect(option.value)}
+              className="w-full px-4 py-3 text-left text-sm transition-all duration-150"
+              style={{
+                color: theme.text.primary,
+                borderTop: index > 0 ? `1px solid ${theme.surfaces.elevated2}` : undefined,
+                backgroundColor: value === option.value ? theme.surfaces.elevated1 : "transparent",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = theme.accents.goldenGlow;
+                e.currentTarget.style.fontWeight = "700";
+                e.currentTarget.style.backgroundColor = theme.surfaces.elevated1;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = theme.text.primary;
+                e.currentTarget.style.fontWeight = "400";
+                e.currentTarget.style.backgroundColor = value === option.value ? theme.surfaces.elevated1 : "transparent";
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

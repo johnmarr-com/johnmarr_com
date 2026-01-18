@@ -40,7 +40,7 @@ export const avatarScaleMap: Record<string, AvatarScaleData> = {
   'D2E3F4': { scale: 1.0 }, // yuck
   'G5H6I7': { scale: 1.0 }, // smiling-face-with-heart-eyes
   'J8K9L0': { scale: 1.0 }, // rolling-on-the-floor-laughing
-  'M1N2O3': { scale: 1.0 }, // smiling-face-with-smiling-eyes
+  'M1N2O3': { scale: 1.05 }, // smiling-face-with-smiling-eyes
   'P4Q5R6': { scale: 1.1 }, // stress-emoji
   'S7T8U9': { scale: 1.0 }, // dead-emoji
   'V0W1X2': { scale: 1.0 }, // big-smile
@@ -225,6 +225,11 @@ export const avatarScaleMap: Record<string, AvatarScaleData> = {
   'ICL8L3': { scale: 1.5 }, // z-parrot~~|~~ICL8L3
   'P2BUYS': { scale: 1.1 }, // z-sunglasses-emoticon~~|~~P2BUYS
   'HYZBGH': { scale: 1.1 }, // z-sunglasses~~|~~HYZBGH
+  'C9KFZU': { scale: 1 },
+  '87JE4H': { scale: 1.5 },
+  '9O56GE': { scale: 1.5 },
+  'H4XI5Z': { scale: 1.15 },
+  '67FA4F': { scale: 1.15 },
 };
 
 // Helper function to extract avatar ID from filename

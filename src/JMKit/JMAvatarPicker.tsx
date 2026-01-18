@@ -47,7 +47,7 @@ interface JMAvatarGridItemProps {
   avatar: JMAvatarItem;
   onRename?: ((filename: string, newName: string) => Promise<void>) | undefined;
   onDelete?: ((filename: string) => Promise<void>) | undefined;
-  onScaleUpdate?: ((filename: string, newScale: number) => void) | undefined;
+  onScaleUpdate?: ((filename: string, newScale: number, newFilename?: string) => void) | undefined;
   showManagementControls?: boolean | undefined;
   mode?: 'editor' | 'selector' | undefined;
   onSelect?: ((avatar: JMAvatarItem) => void) | undefined;
@@ -77,21 +77,26 @@ const JMAvatarGridItem: React.FC<JMAvatarGridItemProps> = ({
 
   const handleScaleSave = async () => {
     const newScale = parseFloat(editedScale);
-    if (!isNaN(newScale) && newScale > 0 && newScale !== avatar.scale) {
+    if (!isNaN(newScale) && newScale > 0) {
       // Update scale via API
       try {
         const avatarId = extractAvatarId(avatar.filename);
-        if (avatarId) {
-          const response = await window.fetch('/api/avatars/update-scale', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ avatarId, scale: newScale }),
-          });
-          
-          if (response.ok) {
-            // Notify parent of scale update instead of mutating prop
-            onScaleUpdate?.(avatar.filename, newScale);
-          }
+        const isNewAvatar = !avatarId;
+        
+        const response = await window.fetch('/api/avatars/update-scale', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            avatarId: avatarId || undefined, 
+            scale: newScale,
+            filename: isNewAvatar ? avatar.filename : undefined
+          }),
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          // Notify parent of scale update (with new filename if file was renamed)
+          onScaleUpdate?.(avatar.filename, newScale, result.newFilename || undefined);
         }
       } catch (error) {
         console.error('Error updating scale:', error);
@@ -113,27 +118,45 @@ const JMAvatarGridItem: React.FC<JMAvatarGridItemProps> = ({
     }
   };
 
+  // Check if any edit mode is active
+  const isAnyEditActive = isEditing || isEditingScale || showDeleteModal;
+  
+  // Check if this is a new avatar (no ID assigned yet)
+  const isNewAvatar = !avatar.filename.includes('~~|~~');
+
   return (
-    <>
-      <div 
-        className={`bg-gray-800 rounded-lg overflow-hidden ${
-          mode === 'selector' ? 'cursor-pointer hover:bg-gray-700 transition-colors' : ''
-        }`}
-        onClick={handleAvatarClick}
-      >
-        {/* Square Avatar Display */}
-        <div className="relative group aspect-square">
-          <div className="w-full h-full flex items-center justify-center relative">
-            <JMAvatarView 
-              width={200}
-              avatarName={avatar.filename}
-              responsive={true}
-              fullFilename={avatar.filename}
-            />
-            
-            {/* Management Controls Overlay - Only in editor mode */}
-            {showManagementControls && mode === 'editor' && (
-              <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center z-20">
+    <div 
+      className={`bg-gray-800 rounded-lg overflow-hidden relative ${
+        mode === 'selector' ? 'cursor-pointer hover:bg-gray-700 transition-colors' : ''
+      }`}
+      style={{
+        border: isNewAvatar && mode === 'editor' ? '3px solid #8B35FF' : undefined,
+      }}
+      onClick={handleAvatarClick}
+    >
+      {/* Square Avatar Display */}
+      <div className="relative group aspect-square">
+        {/* New Avatar Badge */}
+        {isNewAvatar && mode === 'editor' && (
+          <div 
+            className="absolute top-2 right-2 z-10 px-2 py-0.5 rounded text-xs font-bold text-white"
+            style={{ backgroundColor: '#8B35FF' }}
+          >
+            New
+          </div>
+        )}
+        
+        <div className="w-full h-full flex items-center justify-center relative">
+          <JMAvatarView 
+            width={200}
+            avatarName={avatar.filename}
+            responsive={true}
+            fullFilename={avatar.filename}
+          />
+          
+          {/* Management Controls Overlay - Only in editor mode when not editing */}
+          {showManagementControls && mode === 'editor' && !isAnyEditActive && (
+            <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center z-20">
                 <div className="flex gap-2">
                   <JMSimpleButton
                     onClick={(e) => {
@@ -141,7 +164,8 @@ const JMAvatarGridItem: React.FC<JMAvatarGridItemProps> = ({
                       setIsEditing(true);
                     }}
                     size="sm"
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    backgroundColor="#8B35FF"
+                    titleColor="#ffffff"
                   >
                     Edit
                   </JMSimpleButton>
@@ -151,7 +175,8 @@ const JMAvatarGridItem: React.FC<JMAvatarGridItemProps> = ({
                       setIsEditingScale(true);
                     }}
                     size="sm"
-                    className="bg-green-600 hover:bg-green-700 text-white"
+                    backgroundColor="#FF1B6D"
+                    titleColor="#ffffff"
                   >
                     Scale
                   </JMSimpleButton>
@@ -161,134 +186,126 @@ const JMAvatarGridItem: React.FC<JMAvatarGridItemProps> = ({
                       setShowDeleteModal(true);
                     }}
                     size="sm"
-                    className="bg-red-600 hover:bg-red-700 text-white hover:text-white"
+                    backgroundColor="#4a4a4a"
+                    titleColor="#ffffff"
                   >
                     <Trash2 className="w-4 h-4" />
                   </JMSimpleButton>
                 </div>
+            </div>
+          )}
+
+          {/* Inline Edit Name Overlay */}
+          {isEditing && showManagementControls && mode === 'editor' && (
+            <div 
+              className="absolute inset-0 bg-gray-900 bg-opacity-95 flex flex-col items-center justify-center z-30 p-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p className="text-gray-400 text-xs mb-2">Edit Name</p>
+              <input
+                type="text"
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSave();
+                  if (e.key === 'Escape') { setIsEditing(false); setEditedName(avatar.name); }
+                }}
+                className="w-full p-2 border border-gray-600 rounded bg-gray-700 text-white text-sm text-center mb-3"
+                autoComplete="off"
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <JMSimpleButton onClick={handleSave} size="sm" backgroundColor="#8B35FF" titleColor="#ffffff">
+                  Save
+                </JMSimpleButton>
+                <JMSimpleButton 
+                  onClick={() => { setIsEditing(false); setEditedName(avatar.name); }}
+                  size="sm"
+                  backgroundColor="#374151"
+                  titleColor="#d1d5db"
+                >
+                  ✕
+                </JMSimpleButton>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Inline Edit Scale Overlay */}
+          {isEditingScale && showManagementControls && mode === 'editor' && (
+            <div 
+              className="absolute inset-0 bg-gray-900 bg-opacity-95 flex flex-col items-center justify-center z-30 p-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p className="text-gray-400 text-xs mb-2">Edit Scale</p>
+              <input
+                type="number"
+                step="0.1"
+                min="0.1"
+                max="5"
+                value={editedScale}
+                onChange={(e) => setEditedScale(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleScaleSave();
+                  if (e.key === 'Escape') { setIsEditingScale(false); setEditedScale(avatar.scale.toString()); }
+                }}
+                className="w-full p-2 border border-gray-600 rounded bg-gray-700 text-white text-sm text-center mb-3"
+                autoComplete="off"
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <JMSimpleButton onClick={handleScaleSave} size="sm" backgroundColor="#FF1B6D" titleColor="#ffffff">
+                  Save
+                </JMSimpleButton>
+                <JMSimpleButton 
+                  onClick={() => { setIsEditingScale(false); setEditedScale(avatar.scale.toString()); }}
+                  size="sm"
+                  backgroundColor="#374151"
+                  titleColor="#d1d5db"
+                >
+                  ✕
+                </JMSimpleButton>
+              </div>
+            </div>
+          )}
+
+          {/* Inline Delete Confirmation Overlay */}
+          {showDeleteModal && showManagementControls && mode === 'editor' && (
+            <div 
+              className="absolute inset-0 bg-gray-900 bg-opacity-95 flex flex-col items-center justify-center z-30 p-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p className="text-white text-sm font-medium mb-1">Delete?</p>
+              <p className="text-gray-400 text-xs mb-3 truncate max-w-full">{avatar.name}</p>
+              <div className="flex gap-2">
+                <JMSimpleButton onClick={handleDelete} size="sm" backgroundColor="#4a4a4a" titleColor="#ffffff">
+                  Delete
+                </JMSimpleButton>
+                <JMSimpleButton 
+                  onClick={() => setShowDeleteModal(false)}
+                  size="sm"
+                  backgroundColor="#374151"
+                  titleColor="#d1d5db"
+                >
+                  ✕
+                </JMSimpleButton>
+              </div>
+            </div>
+          )}
         </div>
-        
-        {/* Info Section Below Lottie - Only in editor mode */}
-        {mode === 'editor' && (
-          <div className="p-3 text-center">
-            <p className="text-white text-sm font-medium truncate mb-1">
-              {avatar.name}
-            </p>
-            <p className="text-gray-400 text-xs">
-              {avatar.scale.toFixed(2)}
-            </p>
-          </div>
-        )}
       </div>
-
-      {/* Edit Name Modal - Only in editor mode */}
-      {isEditing && showManagementControls && mode === 'editor' && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4">
-            <h3 className="text-white text-lg font-semibold mb-4">Edit Avatar Name</h3>
-            <input
-              type="text"
-              value={editedName}
-              onChange={(e) => setEditedName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleSave();
-                }
-              }}
-              className="w-full p-2 border border-gray-600 rounded bg-gray-700 text-white"
-              autoComplete="off"
-            />
-            <div className="flex gap-2 mt-4">
-              <JMSimpleButton onClick={handleSave} className="bg-blue-600 hover:bg-blue-700">
-                Save
-              </JMSimpleButton>
-              <JMSimpleButton 
-                onClick={() => { setIsEditing(false); setEditedName(avatar.name); }}
-                variant="outline"
-                className="border-gray-600 text-gray-300 hover:bg-gray-700"
-              >
-                Cancel
-              </JMSimpleButton>
-            </div>
-          </div>
+      
+      {/* Info Section Below Lottie - Only in editor mode */}
+      {mode === 'editor' && (
+        <div className="p-3 text-center">
+          <p className="text-white text-sm font-medium truncate mb-1">
+            {avatar.name}
+          </p>
+          <p className="text-gray-400 text-xs">
+            {avatar.scale.toFixed(2)}
+          </p>
         </div>
       )}
-
-      {/* Edit Scale Modal - Only in editor mode */}
-      {isEditingScale && showManagementControls && mode === 'editor' && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4">
-            <h3 className="text-white text-lg font-semibold mb-4">Edit Avatar Scale</h3>
-            <input
-              type="number"
-              step="0.1"
-              min="0.1"
-              max="5"
-              value={editedScale}
-              onChange={(e) => setEditedScale(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleScaleSave();
-                }
-              }}
-              className="w-full p-2 border border-gray-600 rounded bg-gray-700 text-white"
-              autoComplete="off"
-            />
-            <div className="flex gap-2 mt-4">
-              <JMSimpleButton onClick={handleScaleSave} className="bg-green-600 hover:bg-green-700">
-                Save
-              </JMSimpleButton>
-              <JMSimpleButton 
-                onClick={() => { setIsEditingScale(false); setEditedScale(avatar.scale.toString()); }}
-                variant="outline"
-                className="border-gray-600 text-gray-300 hover:bg-gray-700"
-              >
-                Cancel
-              </JMSimpleButton>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal - Only in editor mode */}
-      {showDeleteModal && showManagementControls && mode === 'editor' && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4">
-            <h3 className="text-white text-lg font-semibold mb-4">Delete Avatar</h3>
-            <div className="mb-4 flex justify-center">
-              <div className="w-24 h-24">
-                <JMAvatarView 
-                  width={96}
-                  avatarName={avatar.filename}
-                  fullFilename={avatar.filename}
-                />
-              </div>
-            </div>
-            <p className="text-gray-300 text-center mb-4">
-              Are you sure you want to delete &ldquo;{avatar.name}&rdquo;?
-            </p>
-            <div className="flex gap-2">
-              <JMSimpleButton 
-                onClick={handleDelete}
-                className="bg-red-600 hover:bg-red-700 flex-1"
-              >
-                Delete
-              </JMSimpleButton>
-              <JMSimpleButton 
-                onClick={() => setShowDeleteModal(false)}
-                variant="outline"
-                className="border-gray-600 text-gray-300 hover:bg-gray-700 flex-1"
-              >
-                Cancel
-              </JMSimpleButton>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    </div>
   );
 };
 

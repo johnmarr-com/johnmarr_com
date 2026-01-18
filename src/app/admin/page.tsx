@@ -6,6 +6,7 @@ import { AdminGate } from "@/lib/AdminGate";
 import { useJMStyle } from "@/JMStyle";
 import { JMAppHeader, JMAdminDropdown, type AdminFocus } from "@/JMKit";
 import { AdminUsersPanel } from "./AdminUsersPanel";
+import { AdminAvatarsPanel } from "./AdminAvatarsPanel";
 
 function AdminContent() {
   const { theme } = useJMStyle();
@@ -60,6 +61,7 @@ function AdminContent() {
 
         {/* Content panels based on focus */}
         {focus === "users" && <AdminUsersPanel />}
+        {focus === "avatars" && <AdminAvatarsPanel />}
       </main>
     </div>
   );

@@ -39,7 +39,7 @@ export function JMAppHeader({
       className="sticky top-0 z-50 w-full"
       style={{
         height: `${height}px`,
-        backgroundColor: theme.surfaces.base,
+        backgroundColor: theme.surfaces.header,
       }}
     >
       <div
