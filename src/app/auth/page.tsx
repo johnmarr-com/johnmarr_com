@@ -48,6 +48,23 @@ function AuthContent() {
   const [error, setError] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
   const [isCompletingSignIn, setIsCompletingSignIn] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Track screen size for responsive banner images
+  useEffect(() => {
+    const MOBILE_BREAKPOINT = 736;
+    
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= MOBILE_BREAKPOINT);
+    };
+    
+    // Check on mount
+    checkMobile();
+    
+    // Listen for resize
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -248,8 +265,8 @@ function AuthContent() {
           <div className="p-5 pb-0">
             <Image
               src={isLoginMode 
-                ? "/images/banners/Banner-Welcome-Back-2.png" 
-                : "/images/banners/Banner-Create-Free-Account-2.png"
+                ? `/images/banners/Banner-Welcome-Back-${isMobile ? '1' : '2'}.png`
+                : `/images/banners/Banner-Create-Free-Account-${isMobile ? '1' : '2'}.png`
               }
               alt={isLoginMode ? "Welcome Back" : "Create a Free Account"}
               width={800}

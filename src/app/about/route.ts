@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 /**
  * About Page - Redirects to appropriate Carrd site based on device width
  * 
- * - Desktop/Tablet (>=768px): about.johnmarr.com
- * - Mobile (<768px): mobile.johnmarr.com
+ * - Desktop/Tablet (>=737px): about.johnmarr.com
+ * - Mobile (<737px): mobile.johnmarr.com
  */
 export async function GET() {
   const html = `<!DOCTYPE html>
@@ -40,7 +40,7 @@ export async function GET() {
   <script>
     (function() {
       var width = window.innerWidth || document.documentElement.clientWidth;
-      var isMobile = width < 768;
+      var isMobile = width < 737;
       
       if (isMobile) {
         window.location.replace('https://mobile.johnmarr.com');
