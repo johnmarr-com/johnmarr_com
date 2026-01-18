@@ -1,13 +1,91 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import { ShieldUser, User, Mail } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
 import { useJMStyle } from "@/JMStyle";
-import { JMAppHeader } from "@/JMKit";
+import { JMAppHeader, JMAvatarPreviewAndSelection, type JMAvatarItem } from "@/JMKit";
+import { getAuth } from "@/lib/auth";
 
 export default function ProfilePage() {
   const { user, isAdmin, isLoading } = useAuth();
   const { theme } = useJMStyle();
+  const [avatarName, setAvatarName] = useState<string | null>(null);
+  const [avatarLoading, setAvatarLoading] = useState(true);
+  const [avatarSaving, setAvatarSaving] = useState(false);
+
+  // Fetch user's avatar on mount
+  useEffect(() => {
+    const fetchAvatar = async () => {
+      if (!user) return;
+      
+      try {
+        const auth = await getAuth();
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
+        
+        const idToken = await currentUser.getIdToken();
+        const response = await fetch("/api/user/avatar", {
+          headers: { "Authorization": `Bearer ${idToken}` },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setAvatarName(data.avatarName);
+        }
+      } catch (error) {
+        console.error("Failed to fetch avatar:", error);
+      } finally {
+        setAvatarLoading(false);
+      }
+    };
+
+    if (user && !isLoading) {
+      fetchAvatar();
+    }
+  }, [user, isLoading]);
+
+  // Save avatar to server
+  const saveAvatar = useCallback(async (newAvatarName: string | null) => {
+    if (!user) return;
+    
+    setAvatarSaving(true);
+    try {
+      const auth = await getAuth();
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+      
+      const idToken = await currentUser.getIdToken();
+      const response = await fetch("/api/user/avatar", {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${idToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ avatarName: newAvatarName }),
+      });
+      
+      if (response.ok) {
+        setAvatarName(newAvatarName);
+      } else {
+        console.error("Failed to save avatar");
+      }
+    } catch (error) {
+      console.error("Failed to save avatar:", error);
+    } finally {
+      setAvatarSaving(false);
+    }
+  }, [user]);
+
+  // Handle avatar selection
+  const handleAvatarSelect = useCallback((avatar: JMAvatarItem) => {
+    saveAvatar(avatar.filename);
+  }, [saveAvatar]);
+
+  // Handle avatar removal
+  const handleAvatarRemove = useCallback(() => {
+    saveAvatar(null);
+  }, [saveAvatar]);
 
   // Show loading while checking auth state
   if (isLoading) {
@@ -74,27 +152,29 @@ export default function ProfilePage() {
             borderColor: theme.surfaces.elevated2,
           }}
         >
-          {/* Header */}
-          <div 
-            className="px-8 py-6 border-b"
-            style={{ borderColor: theme.surfaces.elevated2 }}
-          >
-            <h1 
-              className="text-2xl font-semibold"
-              style={{ color: theme.text.primary }}
-            >
-              Your Profile
-            </h1>
-            <p 
-              className="mt-1 text-sm"
-              style={{ color: theme.text.tertiary }}
-            >
-              Account information
-            </p>
-          </div>
+         
 
           {/* Content */}
           <div className="p-8 space-y-6">
+            {/* Avatar Section */}
+            <div className="flex flex-col items-center">
+              <JMAvatarPreviewAndSelection
+                selectedAvatar={avatarName}
+                onAvatarSelect={handleAvatarSelect}
+                onAvatarRemove={handleAvatarRemove}
+                isLoading={avatarLoading || avatarSaving}
+                size={160}
+              />
+              {avatarSaving && (
+                <p 
+                  className="mt-2 text-xs"
+                  style={{ color: theme.text.tertiary }}
+                >
+                  Saving...
+                </p>
+              )}
+            </div>
+
             {/* Display Name */}
             <div>
               <label

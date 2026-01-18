@@ -1,13 +1,50 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/AuthProvider";
-import { signOut } from "@/lib/auth";
+import { signOut, getAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
-import { JMAppHeader } from "@/JMKit";
+import { JMAppHeader, JMWelcomeAvatarModal } from "@/JMKit";
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [hasCheckedAvatar, setHasCheckedAvatar] = useState(false);
+
+  // Check if this is a first-time user (no avatar)
+  useEffect(() => {
+    const checkFirstLogin = async () => {
+      if (!user || hasCheckedAvatar) return;
+      
+      try {
+        const auth = await getAuth();
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
+        
+        const idToken = await currentUser.getIdToken();
+        const response = await fetch("/api/user/avatar", {
+          headers: { "Authorization": `Bearer ${idToken}` },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          // Show welcome modal if no avatar assigned
+          if (!data.avatarName) {
+            setShowWelcomeModal(true);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to check avatar:", error);
+      } finally {
+        setHasCheckedAvatar(true);
+      }
+    };
+
+    if (user && !isLoading) {
+      checkFirstLogin();
+    }
+  }, [user, isLoading, hasCheckedAvatar]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -18,7 +55,7 @@ export default function Home() {
     <div className="relative min-h-screen overflow-hidden">
       <JMAppHeader />
       {/* Subtle geometric background pattern */}
-      <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]">
+      <div className="absolute inset-0 opacity-[0.05]">
         <svg className="h-full w-full" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <pattern
@@ -139,6 +176,12 @@ export default function Home() {
           </div>
         </footer>
       </main>
+
+      {/* Welcome modal for first-time users */}
+      <JMWelcomeAvatarModal
+        isOpen={showWelcomeModal}
+        onClose={() => setShowWelcomeModal(false)}
+      />
     </div>
   );
 }

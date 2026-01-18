@@ -200,23 +200,57 @@ export async function getAuth(): Promise<Auth> {
 
 /**
  * Save user profile to Firestore
+ * For new users, initializes all tracking fields
+ * For existing users, just updates basic profile info
  */
 export async function saveUserProfile(user: User): Promise<void> {
   try {
     const { initializeFirebase } = await import("./firebase");
-    const { getFirestore, doc, setDoc, serverTimestamp } = await import("firebase/firestore");
+    const { getFirestore, doc, setDoc, getDoc, serverTimestamp } = await import("firebase/firestore");
     
     const { app } = await initializeFirebase();
     const db = getFirestore(app);
     
     const userRef = doc(db, "users", user.uid);
-    await setDoc(userRef, {
-      uid: user.uid,
-      email: user.email,
-      displayName: user.displayName,
-      photoURL: user.photoURL,
-      updatedAt: serverTimestamp(),
-    }, { merge: true });
+    const existingDoc = await getDoc(userRef);
+    
+    if (existingDoc.exists()) {
+      // Existing user - just update basic profile
+      await setDoc(userRef, {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    } else {
+      // New user - initialize all fields
+      await setDoc(userRef, {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+        avatarName: null, // Lottie avatar filename
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        // Subscription
+        tier: "free",
+        monthsPaid: 0,
+        // Gift access
+        giftMonthsStarted: null,
+        giftMonthsRemaining: 0,
+        lifetimeGift: false,
+        // Activity tracking
+        showsWatched: 0,
+        storiesRead: 0,
+        gamesPlayed: 0,
+        gamesHosted: 0,
+        cardsViewed: 0,
+        cardsSent: 0,
+        shares: 0,
+        favorites: [],
+      });
+    }
   } catch (error) {
     console.error("Failed to save user profile to Firestore:", error);
   }

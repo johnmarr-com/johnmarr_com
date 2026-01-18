@@ -1,16 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import { ShieldUser } from "lucide-react";
-import { useAuth } from "@/lib/AuthProvider";
 import { AdminGate } from "@/lib/AdminGate";
 import { useJMStyle } from "@/JMStyle";
-import { JMAppHeader } from "@/JMKit";
+import { JMAppHeader, JMAdminDropdown, type AdminFocus } from "@/JMKit";
+import { AdminUsersPanel } from "./AdminUsersPanel";
 
 function AdminContent() {
-  const { user } = useAuth();
   const { theme } = useJMStyle();
-
-  const displayName = user?.displayName || "Admin";
+  const [focus, setFocus] = useState<AdminFocus>(null);
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -28,47 +27,39 @@ function AdminContent() {
       </div>
 
       <main className="relative z-10 mx-auto flex w-[80%] flex-col py-12">
-        {/* Admin header */}
+        {/* Admin toolbar */}
         <div 
-          className="opacity-0 animate-fade-in-up animation-delay-200 rounded-2xl border overflow-hidden backdrop-blur-md"
+          className="opacity-0 animate-fade-in-up animation-delay-200 rounded-2xl border backdrop-blur-md"
           style={{ 
             backgroundColor: `${theme.surfaces.base}ee`,
             borderColor: theme.surfaces.elevated2,
           }}
         >
-          {/* Header */}
           <div 
-            className="px-8 py-6 border-b flex items-center gap-4"
-            style={{ borderColor: theme.surfaces.elevated2 }}
+            className="px-8 py-6 flex items-center justify-between"
           >
-            <ShieldUser 
-              size={32} 
-              color={theme.accents.goldenGlow}
-              strokeWidth={2}
-            />
-            <div>
+            {/* Left: Title with icon */}
+            <div className="flex items-center gap-3">
+              <ShieldUser 
+                size={28} 
+                color={theme.accents.goldenGlow}
+                strokeWidth={2}
+              />
               <h1 
-                className="text-2xl font-semibold"
+                className="text-xl font-semibold"
                 style={{ color: theme.text.primary }}
               >
                 Admin Dashboard
               </h1>
-              <p 
-                className="mt-1 text-sm"
-                style={{ color: theme.text.tertiary }}
-              >
-                Welcome, {displayName}
-              </p>
             </div>
-          </div>
 
-          {/* Content */}
-          <div className="p-8">
-            <p style={{ color: theme.text.secondary }}>
-              Admin features coming soon...
-            </p>
+            {/* Right: Focus dropdown */}
+            <JMAdminDropdown value={focus} onChange={setFocus} />
           </div>
         </div>
+
+        {/* Content panels based on focus */}
+        {focus === "users" && <AdminUsersPanel />}
       </main>
     </div>
   );

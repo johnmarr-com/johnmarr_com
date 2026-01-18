@@ -1,5 +1,6 @@
 import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
+import { getFirestore, type Firestore } from "firebase-admin/firestore";
 
 let adminApp: App | undefined = undefined;
 
@@ -36,13 +37,26 @@ function getAdminApp(): App {
 }
 
 /**
- * Set admin custom claim on a user by email
+ * Get Admin Firestore instance
  */
-export async function setAdminRole(email: string): Promise<void> {
+export function getAdminFirestore(): Firestore {
+  const app = getAdminApp();
+  return getFirestore(app);
+}
+
+/**
+ * Set admin custom claim on a user by email or UID
+ */
+export async function setAdminRole(emailOrUid: string): Promise<void> {
   const app = getAdminApp();
   const auth = getAuth(app);
   
-  const user = await auth.getUserByEmail(email);
+  // Determine if it's an email or UID
+  const isEmail = emailOrUid.includes("@");
+  const user = isEmail 
+    ? await auth.getUserByEmail(emailOrUid)
+    : await auth.getUser(emailOrUid);
+    
   await auth.setCustomUserClaims(user.uid, { 
     ...user.customClaims,
     admin: true 
@@ -50,13 +64,18 @@ export async function setAdminRole(email: string): Promise<void> {
 }
 
 /**
- * Remove admin custom claim from a user by email
+ * Remove admin custom claim from a user by email or UID
  */
-export async function removeAdminRole(email: string): Promise<void> {
+export async function removeAdminRole(emailOrUid: string): Promise<void> {
   const app = getAdminApp();
   const auth = getAuth(app);
   
-  const user = await auth.getUserByEmail(email);
+  // Determine if it's an email or UID
+  const isEmail = emailOrUid.includes("@");
+  const user = isEmail 
+    ? await auth.getUserByEmail(emailOrUid)
+    : await auth.getUser(emailOrUid);
+    
   const currentClaims = (user.customClaims || {}) as Record<string, unknown>;
   delete currentClaims["admin"];
   await auth.setCustomUserClaims(user.uid, currentClaims);

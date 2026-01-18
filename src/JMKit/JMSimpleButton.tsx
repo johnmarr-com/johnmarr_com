@@ -9,9 +9,11 @@ interface GradientConfig {
   angle?: number;
 }
 
-interface JMSimpleButtonProps {
-  /** Button label text */
-  title: string;
+export interface JMSimpleButtonProps {
+  /** Button label text (use this OR children) */
+  title?: string;
+  /** Button content (use this OR title) */
+  children?: React.ReactNode;
   /** Solid background color (use this OR gradient, not both) */
   backgroundColor?: string;
   /** Gradient background (use this OR backgroundColor, not both) */
@@ -21,11 +23,15 @@ interface JMSimpleButtonProps {
   /** Text color */
   titleColor?: string;
   /** Click handler */
-  onClick?: (() => void) | undefined;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   /** Additional CSS classes */
   className?: string;
   /** Disabled state */
   disabled?: boolean;
+  /** Button variant */
+  variant?: "default" | "outline" | "ghost";
+  /** Button size */
+  size?: "sm" | "default" | "lg";
 }
 
 /**
@@ -33,6 +39,7 @@ interface JMSimpleButtonProps {
  * 
  * @example
  * ```tsx
+ * // Using title prop
  * <JMSimpleButton
  *   title="John"
  *   gradient={{ from: "#6310ef", to: "#c529bf", angle: 135 }}
@@ -40,10 +47,16 @@ interface JMSimpleButtonProps {
  *   titleColor="#e03dff"
  *   onClick={() => console.log("clicked")}
  * />
+ * 
+ * // Using children
+ * <JMSimpleButton onClick={() => {}}>
+ *   Click me
+ * </JMSimpleButton>
  * ```
  */
 export function JMSimpleButton({
   title,
+  children,
   backgroundColor,
   gradient,
   backgroundOpacity = 1,
@@ -51,9 +64,23 @@ export function JMSimpleButton({
   onClick,
   className = "",
   disabled = false,
+  variant = "default",
+  size = "default",
 }: JMSimpleButtonProps) {
+  // Size classes
+  const sizeClasses = {
+    sm: "px-3 py-1.5 text-xs",
+    default: "px-5 py-2 text-sm",
+    lg: "px-6 py-3 text-base",
+  };
+
   // Build the background style
   const getBackgroundStyle = (): React.CSSProperties => {
+    // For outline/ghost variants, don't apply background from gradient/backgroundColor
+    if (variant === "outline" || variant === "ghost") {
+      return {};
+    }
+    
     if (gradient) {
       const angle = gradient.angle ?? 135;
       return {
@@ -75,6 +102,15 @@ export function JMSimpleButton({
     };
   };
 
+  // Variant-specific classes
+  const variantClasses = {
+    default: "",
+    outline: "border border-current bg-transparent",
+    ghost: "bg-transparent hover:bg-white/10",
+  };
+
+  const content = children ?? title;
+
   return (
     <button
       onClick={onClick}
@@ -83,26 +119,27 @@ export function JMSimpleButton({
         relative
         overflow-hidden
         rounded-full
-        px-5 py-2
         font-medium
-        text-sm
         transition-all duration-200
         hover:scale-105
         active:scale-95
         disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
+        ${sizeClasses[size]}
+        ${variantClasses[variant]}
         ${className}
       `.trim().replace(/\s+/g, " ")}
       style={{ color: titleColor }}
     >
-      {/* Background layer with opacity */}
-      <span
-        className="absolute inset-0 rounded-full"
-        style={getBackgroundStyle()}
-        aria-hidden="true"
-      />
+      {/* Background layer with opacity (only for default variant) */}
+      {variant === "default" && (
+        <span
+          className="absolute inset-0 rounded-full"
+          style={getBackgroundStyle()}
+          aria-hidden="true"
+        />
+      )}
       {/* Text layer (always full opacity) */}
-      <span className="relative z-10">{title}</span>
+      <span className="relative z-10">{content}</span>
     </button>
   );
 }
-

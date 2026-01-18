@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Crimson_Pro, JetBrains_Mono } from "next/font/google";
+import { jmJambo } from "@/fonts";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -31,7 +32,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${crimsonPro.variable} ${jetbrainsMono.variable} antialiased`}
+        className={`${crimsonPro.variable} ${jetbrainsMono.variable} ${jmJambo.variable} antialiased`}
       >
         <Providers>{children}</Providers>
       </body>

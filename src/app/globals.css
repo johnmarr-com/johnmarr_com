@@ -1,11 +1,12 @@
 @import "tailwindcss";
 
+/* Dark mode only - no light mode */
 :root {
-  --background: #faf9f7;
-  --foreground: #1a1a1a;
-  --accent: #c45d3a;
-  --accent-light: #e8d5c4;
-  --muted: #6b6b6b;
+  --background: #000000;
+  --foreground: #e8e6e3;
+  --accent: #e07850;
+  --accent-light: #2a2420;
+  --muted: #8a8a8a;
 }
 
 @theme inline {
@@ -16,16 +17,6 @@
   --color-muted: var(--muted);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0f0f0f;
-    --foreground: #e8e6e3;
-    --accent: #e07850;
-    --accent-light: #2a2420;
-    --muted: #8a8a8a;
-  }
 }
 
 body {
@@ -45,10 +36,22 @@ html {
   color: var(--background);
 }
 
-/* Custom focus styles */
-:focus-visible {
+/* Custom focus styles - exclude inputs which handle their own */
+:focus-visible:not(input):not(textarea):not(select) {
   outline: 1px solid #8B35FF;
   outline-offset: 2px;
+}
+
+/* Reset focus for inputs - they use ring instead */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
 }
 
 /* Animation keyframes */
