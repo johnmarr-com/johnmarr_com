@@ -3,7 +3,6 @@
 import { useEffect, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "./AuthProvider";
-import { isHistoricalUser } from "./auth";
 
 interface AuthGateProps {
   children: ReactNode;
@@ -13,8 +12,7 @@ interface AuthGateProps {
  * Global auth gate that protects all routes.
  * 
  * Logic:
- * - No user + historicalUser → /auth?login=true
- * - No user + no historicalUser → /about (landing page)
+ * - No user → /about (landing page)
  * - Has user → allow access
  * 
  * Public routes (/auth, /about) are excluded from redirects.
@@ -36,16 +34,8 @@ export function AuthGate({ children }: AuthGateProps) {
     // Don't redirect if user is authenticated
     if (user) return;
 
-    // No user - check historical user status
-    const historical = isHistoricalUser();
-
-    if (historical) {
-      // Returning user - send to login
-      window.location.href = "/auth?login=true";
-    } else {
-      // New visitor - send to landing page
-      window.location.href = "/about";
-    }
+    // No user - send to landing page
+    window.location.href = "/about";
   }, [user, isLoading, isPublicRoute]);
 
   // Show loading spinner while checking auth

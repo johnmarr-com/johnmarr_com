@@ -5,7 +5,6 @@ import type { User, Auth } from "firebase/auth";
 let auth: Auth | null = null;
 let authInitPromise: Promise<Auth> | null = null;
 
-const HISTORICAL_USER_KEY = "historicalUser";
 
 /**
  * Log a source visit when user arrives at auth page
@@ -178,32 +177,6 @@ export async function logSignupSuccess(data: {
 }
 
 /**
- * Mark that a user has logged in on this browser before
- */
-export function setHistoricalUser(): void {
-  if (typeof window !== "undefined") {
-    window.localStorage.setItem(HISTORICAL_USER_KEY, "true");
-  }
-}
-
-/**
- * Check if a user has ever logged in on this browser
- */
-export function isHistoricalUser(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.localStorage.getItem(HISTORICAL_USER_KEY) === "true";
-}
-
-/**
- * Clear the historical user flag (for testing)
- */
-export function clearHistoricalUser(): void {
-  if (typeof window !== "undefined") {
-    window.localStorage.removeItem(HISTORICAL_USER_KEY);
-  }
-}
-
-/**
  * Lazily initializes Firebase Auth on the client side only.
  */
 export async function getAuth(): Promise<Auth> {
@@ -277,7 +250,6 @@ export async function signInWithGoogle(funnelId?: string | null): Promise<User> 
     });
   }
   
-  setHistoricalUser();
   return result.user;
 }
 
@@ -358,8 +330,6 @@ export async function completeSignInWithEmailLink(
     }
   }
   
-  setHistoricalUser();
-  
   return result.user;
 }
 
@@ -388,7 +358,6 @@ export async function signInWithEmail(
   ]);
 
   const result = await signInWithEmailAndPassword(authInstance, email, password);
-  setHistoricalUser();
   return result.user;
 }
 
