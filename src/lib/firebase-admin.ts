@@ -16,7 +16,18 @@ function getAdminApp(): App {
   // Initialize with service account credentials from environment
   const projectId = process.env["FIREBASE_PROJECT_ID"];
   const clientEmail = process.env["FIREBASE_CLIENT_EMAIL"];
-  const privateKey = process.env["FIREBASE_PRIVATE_KEY"]?.replace(/\\n/g, "\n");
+  const rawPrivateKey = process.env["FIREBASE_PRIVATE_KEY"];
+  const privateKey = rawPrivateKey?.replace(/\\n/g, "\n");
+
+  // Debug logging (safe - only shows structure, not actual secrets)
+  console.log("[firebase-admin] Initializing with:", {
+    projectId,
+    clientEmail,
+    privateKeyLength: rawPrivateKey?.length,
+    privateKeyStart: rawPrivateKey?.substring(0, 30),
+    privateKeyHasNewlines: rawPrivateKey?.includes("\n"),
+    privateKeyHasEscapedNewlines: rawPrivateKey?.includes("\\n"),
+  });
 
   if (!projectId || !clientEmail || !privateKey) {
     throw new Error(
