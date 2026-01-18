@@ -144,7 +144,7 @@ function AuthContent() {
         <div className="flex flex-col items-center gap-4">
           <div 
             className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
-            style={{ borderColor: theme.primary, borderTopColor: 'transparent' }}
+            style={{ borderColor: '#FF36AB', borderTopColor: 'transparent' }}
           />
           <p className="font-mono text-sm" style={{ color: theme.text.secondary }}>
             {isCompletingSignIn ? "Completing sign-in..." : "Loading..."}
