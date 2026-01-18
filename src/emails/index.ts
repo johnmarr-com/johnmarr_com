@@ -6,11 +6,17 @@
  * 
  * Usage:
  * ```ts
- * import { buildAccountActivationEmail } from "@/emails";
+ * import { buildAccountActivationEmail, buildAccountLoginEmail } from "@/emails";
  * 
+ * // For new signups
  * const html = buildAccountActivationEmail({ firstName: "John", signInLink: "https://..." });
+ * 
+ * // For returning users
+ * const html = buildAccountLoginEmail({ firstName: "John", signInLink: "https://..." });
+ * 
  * await resend.emails.send({ html, ... });
  * ```
  */
 
 export { buildAccountActivationEmail, type AccountActivationEmailProps } from "./account-activation";
+export { buildAccountLoginEmail, type AccountLoginEmailProps } from "./account-login";

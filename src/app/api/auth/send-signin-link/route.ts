@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { generateSignInLink } from "@/lib/firebase-admin";
-import { buildAccountActivationEmail } from "@/emails";
+import { buildAccountActivationEmail, buildAccountLoginEmail } from "@/emails";
 
 const resend = new Resend(process.env["RESEND_API_KEY"]);
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, firstName, funnelId } = await request.json();
-    console.log("[send-signin-link] Request received:", { email, firstName, funnelId });
+    const { email, firstName, funnelId, isLogin } = await request.json();
+    console.log("[send-signin-link] Request received:", { email, firstName, funnelId, isLogin });
 
     if (!email) {
       return NextResponse.json(
@@ -44,15 +44,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Choose email template and subject based on login vs signup
+    const displayName = firstName || "there";
+    const subject = isLogin
+      ? `Welcome back${firstName ? `, ${firstName}` : ""} - Sign in to your account`
+      : firstName 
+        ? `Hey ${firstName} - Activate your FREE Account`
+        : "Activate your FREE Account";
+    const html = isLogin
+      ? buildAccountLoginEmail({ firstName: displayName, signInLink })
+      : buildAccountActivationEmail({ firstName: displayName, signInLink });
+
     // Send email via Resend with HTML
     console.log("[send-signin-link] Sending via Resend...");
     const { data, error } = await resend.emails.send({
       from: "John Marr <hello@mail.johnmarr.com>",
       to: email,
-      subject: firstName 
-        ? `Hey ${firstName} - Activate your FREE Account`
-        : "Activate your FREE Account",
-      html: buildAccountActivationEmail({ firstName: firstName || "there", signInLink }),
+      subject,
+      html,
     });
 
     if (error) {

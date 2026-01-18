@@ -140,8 +140,8 @@ function AuthContent() {
         firstName: isLoginMode ? null : firstName.trim(),
         email: email,
       });
-      // Pass firstName only for signup, not login; pass funnelId for tracking
-      await sendSignInLink(email, isLoginMode ? undefined : firstName.trim(), currentFunnelId);
+      // Pass firstName only for signup, not login; pass funnelId for tracking; pass isLogin for email template
+      await sendSignInLink(email, isLoginMode ? undefined : firstName.trim(), currentFunnelId, isLoginMode);
       setEmailSent(true);
     } catch (err) {
       console.error("Send link error:", err);

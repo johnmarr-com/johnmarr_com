@@ -10,7 +10,8 @@
     "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
     "type-check": "tsc --noEmit",
     "check": "npm run type-check && npm run lint",
-    "prepare": "husky"
+    "prepare": "husky",
+    "setup:admin": "node --env-file=.env.local --import tsx scripts/setup-initial-admin.ts"
   },
   "dependencies": {
     "firebase": "^12.7.0",
@@ -30,6 +31,7 @@
     "husky": "^9",
     "lint-staged": "^15",
     "tailwindcss": "^4",
+    "tsx": "^4",
     "typescript": "^5"
   },
   "lint-staged": {

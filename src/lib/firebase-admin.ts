@@ -36,6 +36,54 @@ function getAdminApp(): App {
 }
 
 /**
+ * Set admin custom claim on a user by email
+ */
+export async function setAdminRole(email: string): Promise<void> {
+  const app = getAdminApp();
+  const auth = getAuth(app);
+  
+  const user = await auth.getUserByEmail(email);
+  await auth.setCustomUserClaims(user.uid, { 
+    ...user.customClaims,
+    admin: true 
+  });
+}
+
+/**
+ * Remove admin custom claim from a user by email
+ */
+export async function removeAdminRole(email: string): Promise<void> {
+  const app = getAdminApp();
+  const auth = getAuth(app);
+  
+  const user = await auth.getUserByEmail(email);
+  const currentClaims = (user.customClaims || {}) as Record<string, unknown>;
+  delete currentClaims["admin"];
+  await auth.setCustomUserClaims(user.uid, currentClaims);
+}
+
+/**
+ * Check if a user has admin role by UID
+ */
+export async function isUserAdmin(uid: string): Promise<boolean> {
+  const app = getAdminApp();
+  const auth = getAuth(app);
+  
+  const user = await auth.getUser(uid);
+  return (user.customClaims as { admin?: boolean })?.admin === true;
+}
+
+/**
+ * Verify an ID token and return the decoded token with claims
+ */
+export async function verifyIdToken(idToken: string) {
+  const app = getAdminApp();
+  const auth = getAuth(app);
+  
+  return auth.verifyIdToken(idToken);
+}
+
+/**
  * Generate a sign-in link for email authentication
  */
 export async function generateSignInLink(

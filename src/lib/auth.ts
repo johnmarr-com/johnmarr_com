@@ -258,9 +258,10 @@ export async function signInWithGoogle(funnelId?: string | null): Promise<User> 
  * @param email - User's email
  * @param firstName - Optional first name for new signups
  * @param funnelId - Funnel doc ID for tracking signup success
+ * @param isLogin - Whether this is a login (returning user) vs signup (new user)
  */
-export async function sendSignInLink(email: string, firstName?: string, funnelId?: string | null): Promise<void> {
-  console.log("[sendSignInLink] Starting email send for:", email);
+export async function sendSignInLink(email: string, firstName?: string, funnelId?: string | null, isLogin?: boolean): Promise<void> {
+  console.log("[sendSignInLink] Starting email send for:", email, "isLogin:", isLogin);
 
   try {
     const response = await fetch("/api/auth/send-signin-link", {
@@ -272,6 +273,7 @@ export async function sendSignInLink(email: string, firstName?: string, funnelId
         email,
         firstName,
         funnelId,
+        isLogin,
       }),
     });
 
@@ -373,4 +375,59 @@ export async function signOut(): Promise<void> {
   await firebaseSignOut(authInstance);
 }
 
+/**
+ * Grant admin role to another user (requires current user to be admin)
+ */
+export async function grantAdminRole(email: string): Promise<void> {
+  const authInstance = await getAuth();
+  const currentUser = authInstance.currentUser;
+  
+  if (!currentUser) {
+    throw new Error("Must be authenticated to grant admin role");
+  }
+
+  const idToken = await currentUser.getIdToken();
+  
+  const response = await fetch("/api/admin/roles", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ email, action: "grant" }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || "Failed to grant admin role");
+  }
+}
+
+/**
+ * Revoke admin role from a user (requires current user to be admin)
+ */
+export async function revokeAdminRole(email: string): Promise<void> {
+  const authInstance = await getAuth();
+  const currentUser = authInstance.currentUser;
+  
+  if (!currentUser) {
+    throw new Error("Must be authenticated to revoke admin role");
+  }
+
+  const idToken = await currentUser.getIdToken();
+  
+  const response = await fetch("/api/admin/roles", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ email, action: "revoke" }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || "Failed to revoke admin role");
+  }
+}
 

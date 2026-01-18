@@ -6,6 +6,7 @@ export { firebaseConfig } from "./firebase-config";
 // Auth exports
 export { AuthProvider, useAuth } from "./AuthProvider";
 export { AuthGate } from "./AuthGate";
+export { AdminGate } from "./AdminGate";
 export {
   getAuth,
   signInWithGoogle,
@@ -19,5 +20,8 @@ export {
   logSignupAttempt,
   logSignupSuccess,
   logEmailSignupSuccess,
+  // Admin role management (client-side)
+  grantAdminRole,
+  revokeAdminRole,
 } from "./auth";
 
