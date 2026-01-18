@@ -31,13 +31,15 @@ export async function POST(request: NextRequest) {
 
     // Generate Firebase sign-in link using Admin SDK
     console.log("[send-signin-link] Generating Firebase sign-in link...");
-    const signInLink = await generateSignInLink(email, redirectUrl);
-    console.log("[send-signin-link] Sign-in link generated:", signInLink ? "success" : "FAILED (null)");
-
-    if (!signInLink) {
-      console.error("[send-signin-link] Firebase Admin failed to generate sign-in link");
+    let signInLink: string;
+    try {
+      signInLink = await generateSignInLink(email, redirectUrl);
+      console.log("[send-signin-link] Sign-in link generated successfully");
+    } catch (linkError) {
+      console.error("[send-signin-link] Firebase Admin generateSignInLink failed:", linkError);
+      const errorMsg = linkError instanceof Error ? linkError.message : "Unknown error";
       return NextResponse.json(
-        { error: "Failed to generate sign-in link" },
+        { error: `Failed to generate sign-in link: ${errorMsg}` },
         { status: 500 }
       );
     }
@@ -66,8 +68,10 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error("[send-signin-link] Error:", error);
+    // Return more specific error info in development, generic in production
+    const errorMessage = error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: errorMessage },
       { status: 500 }
     );
   }
