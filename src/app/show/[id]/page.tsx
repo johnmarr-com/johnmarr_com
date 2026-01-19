@@ -334,7 +334,7 @@ export default function ShowDetailPage() {
                 WebkitOverflowScrolling: "touch",
               }}
             >
-              {episodes.map((episode, index) => {
+              {episodes.map((episode) => {
                 // Prefer custom cover, fall back to Vimeo thumbnail
                 const vimeoId = getVimeoId(episode.mediaURL || "");
                 const vimeoThumbnail = vimeoId ? getVimeoThumbnail(vimeoId) : null;
@@ -384,16 +384,6 @@ export default function ShowDetailPage() {
                         </div>
                       </div>
                       
-                      {/* Episode number badge */}
-                      <div 
-                        className="absolute top-2 left-2 px-2 py-0.5 rounded text-xs font-bold"
-                        style={{ 
-                          backgroundColor: `${theme.surfaces.base}cc`,
-                          color: theme.text.primary,
-                        }}
-                      >
-                        {episode.episodeNumber || index + 1}
-                      </div>
                     </div>
                   </div>
                 );

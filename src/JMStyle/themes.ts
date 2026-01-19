@@ -73,7 +73,7 @@ export const johnmarrTheme: JMTheme = {
   name: "johnmarr",
   displayName: "John Marr",
   
-  logo: "/images/logos/JohnMarr-Signature.png",
+  logo: "/images/logos/JohnMarr-Signature-Small.png",
   logoAlt: "John Marr Signature",
   
   // Primary gradient (pink → purple → blue)
