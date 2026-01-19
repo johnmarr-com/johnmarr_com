@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { JMAppHeader } from "@/JMKit";
 import { useJMStyle } from "@/JMStyle";
 import { getContentWithChildren } from "@/lib/content";
 import type { JMContentWithChildren } from "@/lib/content-types";
 import Image from "next/image";
+import Player from "@vimeo/player";
 import { 
   Play, ChevronDown, X, ChevronLeft, ChevronRight,
   Loader2, ArrowLeft
@@ -28,6 +29,8 @@ export default function ShowDetailPage() {
   
   // Video player
   const [playingEpisode, setPlayingEpisode] = useState<JMContentWithChildren | null>(null);
+  const playerContainerRef = useRef<HTMLDivElement>(null);
+  const playerRef = useRef<Player | null>(null);
 
   // Load show data
   useEffect(() => {
@@ -82,6 +85,53 @@ export default function ShowDetailPage() {
     // Vimeo thumbnail via their CDN (may need API call for HD)
     return `https://vumbnail.com/${vimeoId}.jpg`;
   };
+
+  // Initialize Vimeo player when episode is selected
+  useEffect(() => {
+    if (!playingEpisode || !playerContainerRef.current) return;
+    
+    const vimeoId = getVimeoId(playingEpisode.mediaURL || "");
+    if (!vimeoId) return;
+    
+    // Clear previous player
+    if (playerRef.current) {
+      playerRef.current.destroy();
+      playerRef.current = null;
+    }
+    
+    // Create new player with SDK
+    const player = new Player(playerContainerRef.current, {
+      id: parseInt(vimeoId),
+      width: window.innerWidth,
+      height: window.innerHeight,
+      autoplay: true,  // SDK handles autoplay better than iframe param
+      muted: false,    // Start unmuted - SDK user gesture propagation
+      controls: true,
+      responsive: true,
+      title: false,
+      byline: false,
+      portrait: false,
+      playsinline: true,
+    });
+    
+    playerRef.current = player;
+    
+    // Attempt to play (SDK carries the user gesture through)
+    player.ready().then(() => {
+      player.play().catch((error: Error) => {
+        // If autoplay fails (iOS restriction), user can tap play
+        console.log("Autoplay blocked, user can tap play:", error.message);
+      });
+    });
+    
+    // Cleanup on unmount or episode change
+    return () => {
+      if (playerRef.current) {
+        playerRef.current.destroy();
+        playerRef.current = null;
+      }
+    };
+  }, [playingEpisode]);
 
   // Episode scroll navigation
   const scrollEpisodes = useCallback((direction: "left" | "right") => {
@@ -379,7 +429,7 @@ export default function ShowDetailPage() {
       {/* Video Player Modal - Full Screen */}
       {playingEpisode && (
         <div 
-          className="fixed inset-0 z-50"
+          className="fixed inset-0 z-50 flex items-center justify-center"
           style={{ backgroundColor: "#000" }}
         >
           {/* Close button - visible on light and dark */}
@@ -394,30 +444,20 @@ export default function ShowDetailPage() {
             <X className="h-6 w-6 text-white" />
           </button>
           
-          {/* Vimeo Player - Full screen */}
-          <div className="w-full h-full">
-            {(() => {
-              const vimeoId = getVimeoId(playingEpisode.mediaURL || "");
-              if (!vimeoId) {
-                return (
-                  <div 
-                    className="w-full h-full flex items-center justify-center"
-                    style={{ backgroundColor: theme.surfaces.elevated1 }}
-                  >
-                    <p style={{ color: theme.text.tertiary }}>Video not available</p>
-                  </div>
-                );
-              }
-              return (
-                <iframe
-                  src={`https://player.vimeo.com/video/${vimeoId}?autoplay=1&title=0&byline=0&portrait=0`}
-                  className="w-full h-full"
-                  allow="autoplay; fullscreen; picture-in-picture"
-                  allowFullScreen
-                />
-              );
-            })()}
-          </div>
+          {/* Vimeo Player Container - SDK will inject iframe here */}
+          {getVimeoId(playingEpisode.mediaURL || "") ? (
+            <div 
+              ref={playerContainerRef}
+              className="w-full h-full"
+            />
+          ) : (
+            <div 
+              className="w-full h-full flex items-center justify-center"
+              style={{ backgroundColor: theme.surfaces.elevated1 }}
+            >
+              <p style={{ color: theme.text.tertiary }}>Video not available</p>
+            </div>
+          )}
         </div>
       )}
 
