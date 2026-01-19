@@ -10,11 +10,14 @@ import {
 } from "react";
 import type { User } from "firebase/auth";
 
+export type UserTier = "free" | "paid";
+
 interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  userTier: UserTier;
   /** Force refresh the ID token to get updated claims (e.g., after admin status changes) */
   refreshClaims: () => Promise<void>;
 }
@@ -24,6 +27,7 @@ const AuthContext = createContext<AuthContextValue>({
   isLoading: true,
   isAuthenticated: false,
   isAdmin: false,
+  userTier: "free",
   refreshClaims: async () => {},
 });
 
@@ -32,7 +36,7 @@ interface AuthProviderProps {
 }
 
 /**
- * Auth Provider - Manages Firebase authentication state including admin roles
+ * Auth Provider - Manages Firebase authentication state including admin roles and user tier
  */
 export function AuthProvider({ children }: AuthProviderProps) {
   const [state, setState] = useState<Omit<AuthContextValue, "refreshClaims">>({
@@ -40,6 +44,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isLoading: true,
     isAuthenticated: false,
     isAdmin: false,
+    userTier: "free",
   });
 
   // Function to check admin claim from ID token
@@ -56,19 +61,47 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, []);
 
-  // Function to refresh claims (force token refresh)
+  // Function to fetch user tier from Firestore
+  const fetchUserTier = useCallback(async (user: User | null): Promise<UserTier> => {
+    if (!user) return "free";
+    
+    try {
+      const { getFirestore, doc, getDoc } = await import("firebase/firestore");
+      const { getFirebaseApp } = await import("./firebase");
+      
+      const app = await getFirebaseApp();
+      if (!app) return "free";
+      
+      const db = getFirestore(app);
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        return data["tier"] === "paid" ? "paid" : "free";
+      }
+      return "free";
+    } catch (error) {
+      console.error("Failed to fetch user tier:", error);
+      return "free";
+    }
+  }, []);
+
+  // Function to refresh claims and tier (force token refresh)
   const refreshClaims = useCallback(async () => {
     if (!state.user) return;
     
     try {
       // Force refresh the ID token to get updated claims
       await state.user.getIdToken(true);
-      const isAdmin = await checkAdminClaim(state.user);
-      setState(prev => ({ ...prev, isAdmin }));
+      const [isAdmin, userTier] = await Promise.all([
+        checkAdminClaim(state.user),
+        fetchUserTier(state.user),
+      ]);
+      setState(prev => ({ ...prev, isAdmin, userTier }));
     } catch (error) {
       console.error("Failed to refresh claims:", error);
     }
-  }, [state.user, checkAdminClaim]);
+  }, [state.user, checkAdminClaim, fetchUserTier]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -85,12 +118,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const auth = await getAuth();
 
         unsubscribe = onAuthStateChanged(auth, async (user) => {
-          const isAdmin = await checkAdminClaim(user);
+          const [isAdmin, userTier] = await Promise.all([
+            checkAdminClaim(user),
+            fetchUserTier(user),
+          ]);
           setState({
             user,
             isLoading: false,
             isAuthenticated: !!user,
             isAdmin,
+            userTier,
           });
         });
       } catch (error) {
@@ -107,7 +144,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [checkAdminClaim]);
+  }, [checkAdminClaim, fetchUserTier]);
 
   return (
     <AuthContext.Provider value={{ ...state, refreshClaims }}>

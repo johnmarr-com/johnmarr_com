@@ -4,19 +4,24 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { JMAppHeader } from "@/JMKit";
 import { useJMStyle } from "@/JMStyle";
+import { useAuth } from "@/lib/AuthProvider";
 import { getContentWithChildren } from "@/lib/content";
 import type { JMContentWithChildren } from "@/lib/content-types";
 import Image from "next/image";
 import Player from "@vimeo/player";
 import { 
   Play, ChevronDown, X, ChevronLeft, ChevronRight,
-  Loader2, ArrowLeft
+  Loader2, ArrowLeft, Flame
 } from "lucide-react";
+
+// Episode access status for free users
+type EpisodeAccess = "released" | "early_access" | "locked";
 
 export default function ShowDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { theme } = useJMStyle();
+  const { userTier, isAdmin } = useAuth();
   const showId = params["id"] as string;
 
   const [show, setShow] = useState<JMContentWithChildren | null>(null);
@@ -31,6 +36,45 @@ export default function ShowDetailPage() {
   const [playingEpisode, setPlayingEpisode] = useState<JMContentWithChildren | null>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<Player | null>(null);
+
+  // Determine episode access for free users
+  const getEpisodeAccess = useCallback((
+    episode: JMContentWithChildren, 
+    allEpisodes: JMContentWithChildren[],
+    episodeIndex: number
+  ): EpisodeAccess => {
+    // Paid users and admins get full access
+    if (userTier === "paid" || isAdmin) return "released";
+    
+    // Check if episode is released (releaseDate <= today)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (episode.releaseDate) {
+      const releaseDate = episode.releaseDate.toDate();
+      releaseDate.setHours(0, 0, 0, 0);
+      
+      if (releaseDate <= today) {
+        return "released";
+      }
+    }
+    
+    // Find the first unreleased episode (the "next" one for early access)
+    const firstUnreleasedIndex = allEpisodes.findIndex(ep => {
+      if (!ep.releaseDate) return true; // No release date = unreleased
+      const releaseDate = ep.releaseDate.toDate();
+      releaseDate.setHours(0, 0, 0, 0);
+      return releaseDate > today;
+    });
+    
+    // If this is the first unreleased episode, it's early access
+    if (episodeIndex === firstUnreleasedIndex) {
+      return "early_access";
+    }
+    
+    // Otherwise it's locked
+    return "locked";
+  }, [userTier, isAdmin]);
 
   // Load show data
   useEffect(() => {
@@ -334,25 +378,32 @@ export default function ShowDetailPage() {
                 WebkitOverflowScrolling: "touch",
               }}
             >
-              {episodes.map((episode) => {
+              {episodes.map((episode, index) => {
                 // Prefer custom cover, fall back to Vimeo thumbnail
                 const vimeoId = getVimeoId(episode.mediaURL || "");
                 const vimeoThumbnail = vimeoId ? getVimeoThumbnail(vimeoId) : null;
                 const thumbnail = episode.coverURL || vimeoThumbnail;
                 
+                // Determine access level for this episode
+                const access = getEpisodeAccess(episode, episodes, index);
+                const isLocked = access === "locked";
+                const isEarlyAccess = access === "early_access";
+                
                 return (
                   <div
                     key={episode.id}
-                    onClick={() => setPlayingEpisode(episode)}
-                    className="shrink-0 cursor-pointer group/episode"
+                    onClick={() => !isLocked && setPlayingEpisode(episode)}
+                    className={`shrink-0 group/episode ${isLocked ? "cursor-not-allowed" : "cursor-pointer"}`}
                     style={{ scrollSnapAlign: "start" }}
                   >
                     {/* Episode card - 2:1 aspect ratio */}
                     <div 
-                      className="relative w-64 sm:w-72 md:w-80 aspect-2/1 rounded-lg overflow-hidden transition-transform duration-200 group-hover/episode:scale-105"
+                      className={`relative w-64 sm:w-72 md:w-80 aspect-2/1 rounded-lg overflow-hidden transition-transform duration-200 ${!isLocked ? "group-hover/episode:scale-105" : ""}`}
                       style={{ 
                         backgroundColor: theme.surfaces.elevated2,
                         boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                        opacity: isLocked ? 0.5 : 1,
+                        filter: isLocked ? "grayscale(100%)" : "none",
                       }}
                     >
                       {thumbnail ? (
@@ -371,18 +422,49 @@ export default function ShowDetailPage() {
                         </div>
                       )}
                       
-                      {/* Play overlay */}
-                      <div 
-                        className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/episode:opacity-100 transition-opacity"
-                        style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
-                      >
+                      {/* Play overlay - only for unlocked episodes */}
+                      {!isLocked && (
                         <div 
-                          className="rounded-full p-4"
-                          style={{ backgroundColor: theme.accents.goldenGlow }}
+                          className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/episode:opacity-100 transition-opacity"
+                          style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
                         >
-                          <Play className="h-8 w-8" style={{ color: theme.surfaces.base }} fill="currentColor" />
+                          <div 
+                            className="rounded-full p-4"
+                            style={{ backgroundColor: theme.accents.goldenGlow }}
+                          >
+                            <Play className="h-8 w-8" style={{ color: theme.surfaces.base }} fill="currentColor" />
+                          </div>
                         </div>
-                      </div>
+                      )}
+                      
+                      {/* Early Access tag - yellow badge top left */}
+                      {isEarlyAccess && (
+                        <div 
+                          className="absolute top-2 left-2 px-2 py-1 rounded text-xs font-bold"
+                          style={{ 
+                            backgroundColor: theme.accents.goldenGlow,
+                            color: theme.surfaces.base,
+                          }}
+                        >
+                          Early Access!
+                        </div>
+                      )}
+                      
+                      {/* Locked indicator - Flame icon top right */}
+                      {isLocked && (
+                        <div 
+                          className="absolute top-2 right-2 p-1.5 rounded-full"
+                          style={{ 
+                            backgroundColor: `${theme.surfaces.base}cc`,
+                          }}
+                        >
+                          <Flame 
+                            className="h-5 w-5" 
+                            style={{ color: theme.accents.neonPink }}
+                            fill="currentColor"
+                          />
+                        </div>
+                      )}
                       
                     </div>
                   </div>
