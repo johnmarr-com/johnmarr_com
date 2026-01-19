@@ -55,8 +55,9 @@ export function JMAppHeader({
             src={theme.logo}
             alt={theme.logoAlt}
             height={logoHeight}
-            width={logoHeight * 3} // Approximate aspect ratio, will be auto-adjusted
-            className="h-full w-auto object-contain"
+            width={logoHeight * 3} // Approximate aspect ratio
+            className="object-contain"
+            style={{ height: logoHeight, width: "auto" }}
             priority
           />
         </div>

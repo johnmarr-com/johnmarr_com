@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { readdir, rename, readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 
@@ -71,7 +71,7 @@ async function updateScaleMap(newEntries: Array<{ id: string; filename: string }
   }
 }
 
-export async function POST(_request: NextRequest) {
+export async function POST() {
   try {
     const sourceDir = join(process.cwd(), 'public', 'avatars-load-source');
     const targetDir = join(process.cwd(), 'public', 'avatars');

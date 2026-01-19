@@ -36,3 +36,5 @@ export { default as JMAvatarPicker, type JMAvatarItem, type JMAvatarPickerProps,
 export { default as JMAvatarPreviewAndSelection } from "./JMAvatarPreviewAndSelection";
 export { JMWelcomeAvatarModal } from "./JMWelcomeAvatarModal";
 export { JMImageUpload, type JMImageUploadProps } from "./JMImageUpload";
+export { JMFeaturedCarousel, type FeaturedItem } from "./JMFeaturedCarousel";
+export { JMContentScroller, type ContentItem } from "./JMContentScroller";

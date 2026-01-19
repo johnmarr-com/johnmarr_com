@@ -34,7 +34,7 @@ export function ShowCreateModal({ onClose, onCreated }: ShowCreateModalProps) {
   const [contentLevel, setContentLevel] = useState<JMContentLevel | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [coverURL, setCoverURL] = useState("");      // Icon (1:1)
+  const [coverURL, setCoverURL] = useState("");      // Cover (16:9)
   const [backdropURL, setBackdropURL] = useState(""); // Feature/Banner (16:9)
   
   // Temp ID for image uploads (before content is created)
@@ -268,15 +268,15 @@ export function ShowCreateModal({ onClose, onCreated }: ShowCreateModalProps) {
                 />
               </div>
 
-              {/* Icon & Banner Images */}
-              <div className="flex gap-4">
+              {/* Cover & Banner Images */}
+              <div className="flex flex-col gap-4">
                 <JMImageUpload
-                  label="Icon (1:1)"
+                  label="Cover (16:9)"
                   value={coverURL}
                   onChange={(url) => setCoverURL(url || "")}
                   onUpload={handleIconUpload}
-                  aspectRatio="square"
-                  previewSize={100}
+                  aspectRatio="landscape"
+                  previewSize={200}
                   required
                 />
                 <JMImageUpload
@@ -285,8 +285,7 @@ export function ShowCreateModal({ onClose, onCreated }: ShowCreateModalProps) {
                   onChange={(url) => setBackdropURL(url || "")}
                   onUpload={handleBannerUpload}
                   aspectRatio="landscape"
-                  previewSize={180}
-                  required
+                  previewSize={200}
                 />
               </div>
 

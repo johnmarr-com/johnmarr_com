@@ -88,4 +88,13 @@ export {
   addContentToExperience,
   removeContentFromExperience,
   reorderExperienceContent,
+  // Featured content
+  getFeaturedContent,
+  getAllFeaturedItems,
+  createFeaturedItem,
+  updateFeaturedItem,
+  deleteFeaturedItem,
+  reorderFeaturedItems,
+  type JMFeaturedItem,
+  type JMFeaturedInput,
 } from "./content";

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import NextImage from "next/image";
 import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react";
 import { useJMStyle } from "@/JMStyle";
 
@@ -178,10 +179,11 @@ export function JMImageUpload({
         {value ? (
           // Image preview
           <>
-            <img
+            <NextImage
               src={value}
               alt="Preview"
-              className="w-full h-full object-cover"
+              fill
+              className="object-cover"
             />
             {/* Remove button */}
             {!disabled && !isUploading && (

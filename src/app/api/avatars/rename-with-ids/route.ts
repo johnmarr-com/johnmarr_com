@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { readdir, rename } from 'fs/promises';
 import { join } from 'path';
 
@@ -105,7 +105,7 @@ const fileIdMap: Record<string, string> = {
   'crossed-fingers-5.json': 'F2G3H4',
 };
 
-export async function POST(_request: NextRequest) {
+export async function POST() {
   try {
     const avatarsDir = join(process.cwd(), 'public', 'avatars');
     const files = await readdir(avatarsDir);

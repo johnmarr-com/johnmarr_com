@@ -149,7 +149,7 @@ export function AdminShowsPanel() {
               >
                 {/* Cover thumbnail */}
                 <div 
-                  className="w-16 h-16 rounded-lg bg-cover bg-center flex-shrink-0"
+                  className="w-16 h-16 rounded-lg bg-cover bg-center shrink-0"
                   style={{ 
                     backgroundImage: show.coverURL ? `url(${show.coverURL})` : undefined,
                     backgroundColor: show.coverURL ? undefined : theme.surfaces.elevated2,
@@ -196,7 +196,7 @@ export function AdminShowsPanel() {
                 </div>
 
                 {/* Type badge + chevron */}
-                <div className="flex items-center gap-3 flex-shrink-0">
+                <div className="flex items-center gap-3 shrink-0">
                   <div 
                     className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-full"
                     style={{ 

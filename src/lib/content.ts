@@ -622,3 +622,183 @@ export async function deleteContentImage(
     console.warn("Could not delete image:", err);
   }
 }
+
+// ─────────────────────────────────────────────────────────────
+// FEATURED CONTENT
+// ─────────────────────────────────────────────────────────────
+
+export interface JMFeaturedItem {
+  id: string;
+  contentId: string;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  backdropURL: string;
+  contentType: JMContentType;
+  order: number;
+  isActive: boolean;
+  createdAt: import("firebase/firestore").Timestamp;
+  updatedAt: import("firebase/firestore").Timestamp;
+}
+
+export interface JMFeaturedInput {
+  contentId: string;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  backdropURL: string;
+  contentType: JMContentType;
+  order: number;
+  isActive?: boolean;
+}
+
+interface FeaturedContentResult {
+  id: string;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  backdropURL: string;
+  contentId: string;
+  contentType: "show" | "story" | "card" | "game";
+}
+
+/**
+ * Get all active featured items, ordered by position
+ * Returns items formatted for the carousel component
+ */
+export async function getFeaturedContent(): Promise<FeaturedContentResult[]> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, collection, query, where, orderBy, getDocs } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const featuredRef = collection(db, "featured");
+  const q = query(
+    featuredRef,
+    where("isActive", "==", true),
+    orderBy("order", "asc")
+  );
+  
+  const snapshot = await getDocs(q);
+  
+  return snapshot.docs.map(doc => {
+    const data = doc.data() as JMFeaturedItem;
+    const result: FeaturedContentResult = {
+      id: doc.id,
+      title: data.title,
+      backdropURL: data.backdropURL,
+      contentId: data.contentId,
+      contentType: data.contentType,
+    };
+    if (data.subtitle) result.subtitle = data.subtitle;
+    if (data.description) result.description = data.description;
+    return result;
+  });
+}
+
+/**
+ * Get all featured items for admin (including inactive)
+ */
+export async function getAllFeaturedItems(): Promise<JMFeaturedItem[]> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, collection, query, orderBy, getDocs } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const featuredRef = collection(db, "featured");
+  const q = query(featuredRef, orderBy("order", "asc"));
+  
+  const snapshot = await getDocs(q);
+  
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  } as JMFeaturedItem));
+}
+
+/**
+ * Create a new featured item
+ */
+export async function createFeaturedItem(
+  input: JMFeaturedInput,
+  creatorId: string
+): Promise<string> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, collection, addDoc, serverTimestamp } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const featuredRef = collection(db, "featured");
+  
+  const docRef = await addDoc(featuredRef, {
+    ...input,
+    isActive: input.isActive ?? true,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    creatorId,
+  });
+  
+  return docRef.id;
+}
+
+/**
+ * Update a featured item
+ */
+export async function updateFeaturedItem(
+  id: string,
+  updates: Partial<JMFeaturedInput>
+): Promise<void> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, updateDoc, serverTimestamp } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const docRef = doc(db, "featured", id);
+  await updateDoc(docRef, {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Delete a featured item
+ */
+export async function deleteFeaturedItem(id: string): Promise<void> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, deleteDoc } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const docRef = doc(db, "featured", id);
+  await deleteDoc(docRef);
+}
+
+/**
+ * Reorder featured items
+ */
+export async function reorderFeaturedItems(
+  orderedIds: string[]
+): Promise<void> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, writeBatch, serverTimestamp } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const batch = writeBatch(db);
+  
+  orderedIds.forEach((id, index) => {
+    const docRef = doc(db, "featured", id);
+    batch.update(docRef, { 
+      order: index,
+      updatedAt: serverTimestamp(),
+    });
+  });
+  
+  await batch.commit();
+}

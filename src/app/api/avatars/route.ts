@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { readdir } from 'fs/promises';
 import { join } from 'path';
 
-export async function GET(_request: NextRequest) {
+export async function GET() {
   try {
     const publicAvatarsDir = join(process.cwd(), 'public', 'avatars');
     const files = await readdir(publicAvatarsDir);

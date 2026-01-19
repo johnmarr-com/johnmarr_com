@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { 
   X, Save, Trash2, Plus, ChevronRight, ChevronDown, 
   Film, Tv, Play, Check, Loader2, ArrowLeft,
-  Layers, Video, Pencil
+  Layers, Video, Pencil, Eye, EyeOff
 } from "lucide-react";
 import { useJMStyle } from "@/JMStyle";
 import { JMImageUpload } from "@/JMKit";
@@ -373,6 +373,18 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
     }
   };
 
+  // Toggle publish status for child content (seasons/episodes)
+  const handleToggleChildPublish = async (childId: string, currentlyPublished: boolean) => {
+    try {
+      await updateContent(childId, { isPublished: !currentlyPublished });
+      await fetchShow();
+      onUpdated();
+    } catch (err) {
+      console.error("Failed to toggle publish:", err);
+      setError(err instanceof Error ? err.message : "Failed to update");
+    }
+  };
+
   // Determine if series has seasons or direct episodes
   const hasSeasons = show?.children?.some(c => c.contentLevel === "season");
   const directEpisodes = show?.children?.filter(c => c.contentLevel === "episode") || [];
@@ -506,6 +518,7 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
                           : theme.text.tertiary,
                       }}
                     >
+                      {editState.isPublished ? <Eye size={12} /> : <EyeOff size={12} />}
                       {editState.isPublished ? "Published" : "Draft"}
                     </button>
                   </div>
@@ -542,15 +555,15 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
                     />
                   </div>
 
-                  {/* Icon & Banner Images */}
-                  <div className="flex gap-4">
+                  {/* Cover & Banner Images */}
+                  <div className="flex flex-col gap-4">
                     <JMImageUpload
-                      label="Icon (1:1)"
+                      label="Cover (16:9)"
                       value={editState.coverURL}
                       onChange={(url) => setEditState({ ...editState, coverURL: url || "" })}
                       onUpload={handleShowCoverUpload}
-                      aspectRatio="square"
-                      previewSize={100}
+                      aspectRatio="landscape"
+                      previewSize={200}
                     />
                     <JMImageUpload
                       label="Banner (16:9)"
@@ -558,7 +571,7 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
                       onChange={(url) => setEditState({ ...editState, backdropURL: url || "" })}
                       onUpload={handleShowBackdropUpload}
                       aspectRatio="landscape"
-                      previewSize={180}
+                      previewSize={200}
                     />
                   </div>
 
@@ -642,6 +655,18 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
                               >
                                 {season.children?.length || 0} episodes
                               </span>
+                              {/* Publish toggle */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleChildPublish(season.id, season.isPublished);
+                                }}
+                                className="p-1 rounded hover:bg-white/10 transition-colors"
+                                style={{ color: season.isPublished ? theme.semantic.success : theme.text.tertiary }}
+                                title={season.isPublished ? "Published - click to unpublish" : "Draft - click to publish"}
+                              >
+                                {season.isPublished ? <Eye size={14} /> : <EyeOff size={14} />}
+                              </button>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -687,6 +712,16 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
                                         ? episode.releaseDate.toDate().toLocaleDateString("en-US", { timeZone: "UTC" })
                                         : "No date"}
                                     </span>
+                                    
+                                    {/* Publish toggle */}
+                                    <button
+                                      onClick={() => handleToggleChildPublish(episode.id, episode.isPublished)}
+                                      className="p-1 rounded hover:bg-white/10 transition-colors"
+                                      style={{ color: episode.isPublished ? theme.semantic.success : theme.text.tertiary }}
+                                      title={episode.isPublished ? "Published" : "Draft - click to publish"}
+                                    >
+                                      {episode.isPublished ? <Eye size={12} /> : <EyeOff size={12} />}
+                                    </button>
                                     
                                     {/* Edit button */}
                                     <button
