@@ -436,76 +436,78 @@ export default function ShowDetailPage() {
                       </div>
                     )}
                     
-                    {/* Episode card - 2:1 aspect ratio */}
-                    <div 
-                      className={`relative w-64 sm:w-72 md:w-80 aspect-2/1 rounded-lg overflow-hidden transition-transform duration-200 ${!isLocked ? "group-hover/episode:scale-105" : ""}`}
-                      style={{ 
-                        backgroundColor: theme.surfaces.elevated2,
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-                        opacity: isLocked ? 0.5 : 1,
-                        filter: isLocked ? "grayscale(100%)" : "none",
-                      }}
-                    >
-                      {thumbnail ? (
-                        <Image
-                          src={thumbnail}
-                          alt={episode.name}
-                          fill
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div 
-                          className="w-full h-full flex items-center justify-center"
-                          style={{ color: theme.text.tertiary }}
-                        >
-                          <Play className="h-12 w-12" />
-                        </div>
-                      )}
-                      
-                      {/* Play overlay - only for unlocked episodes */}
-                      {!isLocked && (
-                        <div 
-                          className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/episode:opacity-100 transition-opacity"
-                          style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
-                        >
+                    {/* Episode card wrapper - for positioning */}
+                    <div className={`relative w-64 sm:w-72 md:w-80 aspect-2/1 transition-transform duration-200 ${!isLocked ? "group-hover/episode:scale-105" : ""}`}>
+                      {/* Card content - gets grayscale/opacity when locked */}
+                      <div 
+                        className="absolute inset-0 rounded-lg overflow-hidden"
+                        style={{ 
+                          backgroundColor: theme.surfaces.elevated2,
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                          opacity: isLocked ? 0.5 : 1,
+                          filter: isLocked ? "grayscale(100%)" : "none",
+                        }}
+                      >
+                        {thumbnail ? (
+                          <Image
+                            src={thumbnail}
+                            alt={episode.name}
+                            fill
+                            className="object-cover"
+                          />
+                        ) : (
                           <div 
-                            className="rounded-full p-4"
-                            style={{ backgroundColor: theme.accents.goldenGlow }}
+                            className="w-full h-full flex items-center justify-center"
+                            style={{ color: theme.text.tertiary }}
                           >
-                            <Play className="h-8 w-8" style={{ color: theme.surfaces.base }} fill="currentColor" />
+                            <Play className="h-12 w-12" />
                           </div>
-                        </div>
-                      )}
+                        )}
+                        
+                        {/* Play overlay - only for unlocked episodes */}
+                        {!isLocked && (
+                          <div 
+                            className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/episode:opacity-100 transition-opacity"
+                            style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+                          >
+                            <div 
+                              className="rounded-full p-4"
+                              style={{ backgroundColor: theme.accents.goldenGlow }}
+                            >
+                              <Play className="h-8 w-8" style={{ color: theme.surfaces.base }} fill="currentColor" />
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Early Access tag - yellow badge top left */}
+                        {isEarlyAccess && (
+                          <div 
+                            className="absolute top-2 left-2 px-2 py-1 rounded text-xs font-bold"
+                            style={{ 
+                              backgroundColor: theme.accents.goldenGlow,
+                              color: theme.surfaces.base,
+                            }}
+                          >
+                            Early Access!
+                          </div>
+                        )}
+                      </div>
                       
-                      {/* Early Access tag - yellow badge top left */}
-                      {isEarlyAccess && (
-                        <div 
-                          className="absolute top-2 left-2 px-2 py-1 rounded text-xs font-bold"
-                          style={{ 
-                            backgroundColor: theme.accents.goldenGlow,
-                            color: theme.surfaces.base,
-                          }}
-                        >
-                          Early Access!
-                        </div>
-                      )}
-                      
-                      {/* Locked indicator - Flame icon top right */}
+                      {/* Locked indicator - Flame icon top right (outside grayscale wrapper) */}
                       {isLocked && (
                         <div 
-                          className="absolute top-2 right-2 p-1.5 rounded-full"
+                          className="absolute top-2 right-2 p-1.5 rounded-full z-10"
                           style={{ 
-                            backgroundColor: `${theme.surfaces.base}cc`,
+                            backgroundColor: `${theme.surfaces.base}ee`,
                           }}
                         >
                           <Flame 
                             className="h-5 w-5" 
-                            style={{ color: theme.accents.neonPink }}
+                            style={{ color: theme.accents.goldenGlow }}
                             fill="currentColor"
                           />
                         </div>
                       )}
-                      
                     </div>
                   </div>
                 );
