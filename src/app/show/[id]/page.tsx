@@ -168,14 +168,6 @@ export default function ShowDetailPage() {
           />
         )}
         
-        {/* Gradient overlay */}
-        <div 
-          className="absolute inset-0"
-          style={{
-            background: `linear-gradient(to top, ${theme.surfaces.base} 0%, transparent 50%), linear-gradient(to bottom, ${theme.surfaces.base}80 0%, transparent 30%)`,
-          }}
-        />
-        
         {/* Back button */}
         <button
           onClick={() => router.push("/")}
@@ -188,19 +180,19 @@ export default function ShowDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           <span className="hidden sm:inline">Back</span>
         </button>
-        
-        {/* Show info overlay - description only (title is in the banner image) */}
-        {show.description && (
-          <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 lg:p-8">
-            <p 
-              className="max-w-2xl text-sm sm:text-base line-clamp-2 sm:line-clamp-3"
-              style={{ color: theme.text.secondary }}
-            >
-              {show.description}
-            </p>
-          </div>
-        )}
       </div>
+
+      {/* Show description - centered below banner */}
+      {show.description && (
+        <div className="px-4 sm:px-6 lg:px-8 py-6 text-center">
+          <p 
+            className="max-w-2xl mx-auto text-sm sm:text-base"
+            style={{ color: theme.text.secondary }}
+          >
+            {show.description}
+          </p>
+        </div>
+      )}
 
       {/* Content Section */}
       <div className="px-4 sm:px-6 lg:px-8 py-6">
@@ -305,9 +297,9 @@ export default function ShowDetailPage() {
                     className="shrink-0 cursor-pointer group/episode"
                     style={{ scrollSnapAlign: "start" }}
                   >
-                    {/* Episode card */}
+                    {/* Episode card - 2:1 aspect ratio */}
                     <div 
-                      className="relative w-64 sm:w-72 md:w-80 aspect-video rounded-lg overflow-hidden transition-transform duration-200 group-hover/episode:scale-105"
+                      className="relative w-64 sm:w-72 md:w-80 aspect-2/1 rounded-lg overflow-hidden transition-transform duration-200 group-hover/episode:scale-105"
                       style={{ 
                         backgroundColor: theme.surfaces.elevated2,
                         boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
@@ -353,14 +345,6 @@ export default function ShowDetailPage() {
                         {episode.episodeNumber || index + 1}
                       </div>
                     </div>
-                    
-                    {/* Episode title */}
-                    <p 
-                      className="mt-2 text-sm font-medium truncate max-w-64 sm:max-w-72 md:max-w-80"
-                      style={{ color: theme.text.primary }}
-                    >
-                      {episode.name}
-                    </p>
                   </div>
                 );
               })}
@@ -392,40 +376,32 @@ export default function ShowDetailPage() {
         )}
       </div>
 
-      {/* Video Player Modal */}
+      {/* Video Player Modal - Full Screen */}
       {playingEpisode && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          style={{ backgroundColor: "rgba(0,0,0,0.95)" }}
+          className="fixed inset-0 z-50"
+          style={{ backgroundColor: "#000" }}
         >
-          {/* Close button */}
+          {/* Close button - visible on light and dark */}
           <button
             onClick={() => setPlayingEpisode(null)}
-            className="absolute top-4 right-4 z-10 p-2 rounded-full transition-colors hover:bg-white/10"
-            style={{ color: theme.text.primary }}
+            className="absolute top-4 right-4 z-10 p-2 rounded-full transition-opacity hover:opacity-80"
+            style={{ 
+              backgroundColor: "rgba(0,0,0,0.6)",
+              border: "2px solid rgba(255,255,255,0.3)",
+            }}
           >
-            <X className="h-8 w-8" />
+            <X className="h-6 w-6 text-white" />
           </button>
           
-          {/* Episode info */}
-          <div 
-            className="absolute top-4 left-4 z-10"
-            style={{ color: theme.text.primary }}
-          >
-            <p className="text-sm" style={{ color: theme.text.tertiary }}>
-              {show.name} • Episode {playingEpisode.episodeNumber}
-            </p>
-            <p className="text-lg font-semibold">{playingEpisode.name}</p>
-          </div>
-          
-          {/* Vimeo Player */}
-          <div className="w-full max-w-6xl aspect-video mx-4">
+          {/* Vimeo Player - Full screen */}
+          <div className="w-full h-full">
             {(() => {
               const vimeoId = getVimeoId(playingEpisode.mediaURL || "");
               if (!vimeoId) {
                 return (
                   <div 
-                    className="w-full h-full flex items-center justify-center rounded-lg"
+                    className="w-full h-full flex items-center justify-center"
                     style={{ backgroundColor: theme.surfaces.elevated1 }}
                   >
                     <p style={{ color: theme.text.tertiary }}>Video not available</p>
@@ -435,7 +411,7 @@ export default function ShowDetailPage() {
               return (
                 <iframe
                   src={`https://player.vimeo.com/video/${vimeoId}?autoplay=1&title=0&byline=0&portrait=0`}
-                  className="w-full h-full rounded-lg"
+                  className="w-full h-full"
                   allow="autoplay; fullscreen; picture-in-picture"
                   allowFullScreen
                 />

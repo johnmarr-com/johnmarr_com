@@ -595,12 +595,13 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
                   {/* Cover & Banner Images */}
                   <div className="flex flex-col gap-4">
                     <JMImageUpload
-                      label="Cover (16:9)"
+                      label="Cover (2:1)"
                       value={editState.coverURL}
                       onChange={(url) => setEditState({ ...editState, coverURL: url || "" })}
                       onUpload={handleShowCoverUpload}
-                      aspectRatio="landscape"
+                      aspectRatio="wide"
                       previewSize={200}
+                      maxWidth={640}
                     />
                     <JMImageUpload
                       label="Banner (16:9)"
@@ -609,6 +610,7 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
                       onUpload={handleShowBackdropUpload}
                       aspectRatio="landscape"
                       previewSize={200}
+                      maxWidth={1920}
                     />
                   </div>
 
@@ -938,8 +940,9 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
                     }
                   }}
                   onUpload={handlePendingEpisodeCover}
-                  aspectRatio="landscape"
+                  aspectRatio="wide"
                   previewSize={200}
+                  maxWidth={640}
                 />
               </div>
               
@@ -1040,8 +1043,9 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
                   value={editEpisode.coverURL}
                   onChange={(url) => setEditEpisode({ ...editEpisode, coverURL: url || "" })}
                   onUpload={(file) => handleEpisodeCoverUpload(file, editEpisode.id)}
-                  aspectRatio="landscape"
+                  aspectRatio="wide"
                   previewSize={200}
+                  maxWidth={640}
                 />
               </div>
               

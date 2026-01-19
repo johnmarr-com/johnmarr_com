@@ -271,12 +271,13 @@ export function ShowCreateModal({ onClose, onCreated }: ShowCreateModalProps) {
               {/* Cover & Banner Images */}
               <div className="flex flex-col gap-4">
                 <JMImageUpload
-                  label="Cover (16:9)"
+                  label="Cover (2:1)"
                   value={coverURL}
                   onChange={(url) => setCoverURL(url || "")}
                   onUpload={handleIconUpload}
-                  aspectRatio="landscape"
+                  aspectRatio="wide"
                   previewSize={200}
+                  maxWidth={640}
                   required
                 />
                 <JMImageUpload
@@ -286,6 +287,7 @@ export function ShowCreateModal({ onClose, onCreated }: ShowCreateModalProps) {
                   onUpload={handleBannerUpload}
                   aspectRatio="landscape"
                   previewSize={200}
+                  maxWidth={1920}
                 />
               </div>
 

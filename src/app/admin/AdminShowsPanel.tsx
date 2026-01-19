@@ -147,9 +147,9 @@ export function AdminShowsPanel() {
                 onClick={() => setSelectedShowId(show.id)}
                 className="w-full px-8 py-4 flex items-center gap-4 hover:bg-white/5 transition-colors text-left"
               >
-                {/* Cover thumbnail */}
+                {/* Cover thumbnail - 2:1 aspect ratio */}
                 <div 
-                  className="w-16 h-16 rounded-lg bg-cover bg-center shrink-0"
+                  className="w-24 h-12 rounded-lg bg-cover bg-center shrink-0"
                   style={{ 
                     backgroundImage: show.coverURL ? `url(${show.coverURL})` : undefined,
                     backgroundColor: show.coverURL ? undefined : theme.surfaces.elevated2,
@@ -158,9 +158,9 @@ export function AdminShowsPanel() {
                   {!show.coverURL && (
                     <div className="w-full h-full flex items-center justify-center">
                       {show.contentLevel === "standalone" ? (
-                        <Film size={24} style={{ color: theme.text.tertiary }} />
+                        <Film size={20} style={{ color: theme.text.tertiary }} />
                       ) : (
-                        <Tv size={24} style={{ color: theme.text.tertiary }} />
+                        <Tv size={20} style={{ color: theme.text.tertiary }} />
                       )}
                     </div>
                   )}

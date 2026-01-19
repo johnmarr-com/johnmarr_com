@@ -10,8 +10,8 @@ export interface JMImageUploadProps {
   value?: string;
   /** Called when image is uploaded or removed */
   onChange: (url: string | null) => void;
-  /** Aspect ratio: "square" (1:1) or "landscape" (16:9) */
-  aspectRatio?: "square" | "landscape";
+  /** Aspect ratio: "square" (1:1), "wide" (2:1), or "landscape" (16:9) */
+  aspectRatio?: "square" | "wide" | "landscape";
   /** Upload function - receives file, returns URL */
   onUpload: (file: File) => Promise<string>;
   /** Label shown above the upload area */
@@ -22,6 +22,63 @@ export interface JMImageUploadProps {
   disabled?: boolean;
   /** Size of the preview (width in pixels) */
   previewSize?: number;
+  /** Max width for uploaded image (resizes before upload). Default: no resize */
+  maxWidth?: number;
+}
+
+/**
+ * Resize an image file using Canvas API
+ * Maintains aspect ratio, only shrinks (never enlarges)
+ */
+async function resizeImage(file: File, maxWidth: number): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      // Don't upscale - only downscale
+      if (img.width <= maxWidth) {
+        resolve(file);
+        return;
+      }
+
+      const ratio = maxWidth / img.width;
+      const newWidth = maxWidth;
+      const newHeight = Math.round(img.height * ratio);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = newWidth;
+      canvas.height = newHeight;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Could not get canvas context"));
+        return;
+      }
+
+      // Use high-quality image smoothing
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, 0, 0, newWidth, newHeight);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error("Could not create blob"));
+            return;
+          }
+          // Create new file with same name but resized content
+          const resizedFile = new File([blob], file.name, {
+            type: "image/jpeg",
+            lastModified: Date.now(),
+          });
+          resolve(resizedFile);
+        },
+        "image/jpeg",
+        0.9 // 90% quality - good balance of size/quality
+      );
+    };
+    img.onerror = () => reject(new Error("Failed to load image"));
+    img.src = URL.createObjectURL(file);
+  });
 }
 
 /**
@@ -34,6 +91,7 @@ export interface JMImageUploadProps {
  * - Aspect ratio enforcement (visual only)
  * - Loading state during upload
  * - Remove button
+ * - Optional image resizing before upload
  */
 export function JMImageUpload({
   value,
@@ -44,6 +102,7 @@ export function JMImageUpload({
   required = false,
   disabled = false,
   previewSize = 150,
+  maxWidth,
 }: JMImageUploadProps) {
   const { theme } = useJMStyle();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -53,7 +112,11 @@ export function JMImageUpload({
 
   // Calculate dimensions based on aspect ratio
   const width = previewSize;
-  const height = aspectRatio === "square" ? previewSize : Math.round(previewSize * 9 / 16);
+  const height = aspectRatio === "square" 
+    ? previewSize 
+    : aspectRatio === "wide" 
+      ? Math.round(previewSize / 2)  // 2:1
+      : Math.round(previewSize * 9 / 16);  // 16:9
 
   const handleFile = useCallback(async (file: File) => {
     // Validate file type
@@ -62,7 +125,7 @@ export function JMImageUpload({
       return;
     }
 
-    // Validate file size (max 5MB)
+    // Validate file size (max 5MB before resize)
     if (file.size > 5 * 1024 * 1024) {
       setError("Image must be less than 5MB");
       return;
@@ -72,7 +135,13 @@ export function JMImageUpload({
     setIsUploading(true);
 
     try {
-      const url = await onUpload(file);
+      // Resize if maxWidth is set
+      let fileToUpload = file;
+      if (maxWidth) {
+        fileToUpload = await resizeImage(file, maxWidth);
+      }
+
+      const url = await onUpload(fileToUpload);
       onChange(url);
     } catch (err) {
       console.error("Upload failed:", err);
@@ -80,7 +149,7 @@ export function JMImageUpload({
     } finally {
       setIsUploading(false);
     }
-  }, [onUpload, onChange]);
+  }, [onUpload, onChange, maxWidth]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -208,7 +277,7 @@ export function JMImageUpload({
               className="text-xs"
               style={{ color: theme.text.tertiary }}
             >
-              Uploading...
+              {maxWidth ? "Resizing & uploading..." : "Uploading..."}
             </span>
           </div>
         ) : (
@@ -237,7 +306,7 @@ export function JMImageUpload({
               className="text-xs mt-1"
               style={{ color: theme.text.tertiary }}
             >
-              {aspectRatio === "square" ? "1:1" : "16:9"} • Max 5MB
+              {aspectRatio === "square" ? "1:1" : aspectRatio === "wide" ? "2:1 (640×320)" : "16:9"} • Max 5MB
             </span>
           </div>
         )}

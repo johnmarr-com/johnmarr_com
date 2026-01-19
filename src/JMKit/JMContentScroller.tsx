@@ -112,9 +112,9 @@ export function JMContentScroller({
               className="shrink-0 cursor-pointer transition-transform duration-200 hover:scale-105"
               style={{ scrollSnapAlign: "start" }}
             >
-              {/* 16:9 landscape cover */}
+              {/* 2:1 wide cover */}
               <div 
-                className="relative w-44 sm:w-56 md:w-64 lg:w-72 aspect-video rounded-lg overflow-hidden"
+                className="relative w-44 sm:w-56 md:w-64 lg:w-72 aspect-2/1 rounded-lg overflow-hidden"
                 style={{ 
                   backgroundColor: theme.surfaces.elevated2,
                   boxShadow: "0 4px 12px rgba(0,0,0,0.3)",

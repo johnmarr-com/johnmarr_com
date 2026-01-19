@@ -585,13 +585,15 @@ export async function uploadContentImage(
     cacheControl: "public, max-age=31536000", // Cache for 1 year
   });
   
-  // Return permanent public URL
+  // Return permanent public URL with cache-busting timestamp
   const bucket = storage.app.options.storageBucket;
   if (!bucket) {
     throw new Error("Storage bucket not configured");
   }
   
-  return getPublicStorageUrl(bucket, storagePath);
+  const baseUrl = getPublicStorageUrl(bucket, storagePath);
+  // Add timestamp to bust browser cache when image is replaced
+  return `${baseUrl}&t=${Date.now()}`;
 }
 
 /**
