@@ -88,7 +88,7 @@ export function JMFeaturedCarousel({
           centeredSlides
           slidesPerView="auto"
           loop={true}
-          speed={400}
+          speed={500}
           coverflowEffect={{
             rotate: 0,
             stretch: 0,
@@ -116,64 +116,65 @@ export function JMFeaturedCarousel({
               {({ isActive }) => (
                 <div
                   onClick={() => onItemClick?.(item)}
-                  className="slide-content relative aspect-video cursor-pointer overflow-hidden rounded-lg sm:rounded-xl transition-all duration-300"
+                  className="slide-content relative aspect-video cursor-pointer overflow-hidden rounded-lg sm:rounded-xl transition-all duration-500"
                   style={{
                     boxShadow: isActive 
                       ? `0 25px 50px -12px rgba(0,0,0,0.5)` 
                       : `0 10px 30px -10px rgba(0,0,0,0.3)`,
                   }}
                 >
-                  {/* Backdrop Image */}
+                  {/* Backdrop Image - use brightness for dimming inactive slides */}
                   <Image
                     src={item.backdropURL}
                     alt={item.title}
                     fill
-                    className="object-cover transition-all duration-300"
+                    className="object-cover transition-all duration-500"
                     style={{
-                      filter: isActive ? "none" : "brightness(0.4)",
+                      filter: isActive ? "brightness(1)" : "brightness(0.35)",
                     }}
                   />
                   
-                  {/* Gradient overlay for text readability - only on active */}
-                  {isActive && (
-                    <div 
-                      className="absolute inset-0"
-                      style={{
-                        background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 35%, transparent 60%)",
-                      }}
-                    />
-                  )}
+                  {/* Gradient overlay - always rendered, fade with opacity */}
+                  <div 
+                    className="absolute inset-0 transition-opacity duration-500"
+                    style={{
+                      background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 35%, transparent 60%)",
+                      opacity: isActive ? 1 : 0,
+                    }}
+                  />
 
-                  {/* Content overlay - only visible on active slide */}
-                  {isActive && (
-                    <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-5 md:p-6 lg:p-8">
-                      {/* Description - shown on all screen sizes */}
-                      {item.description && (
-                        <p 
-                          className="mb-2 sm:mb-3 md:mb-4 line-clamp-2 max-w-xl text-xs sm:text-sm md:text-base"
-                          style={{ color: theme.text.secondary }}
-                        >
-                          {item.description}
-                        </p>
-                      )}
-                      
-                      {/* Play/View button */}
-                      <button
-                        className="inline-flex items-center gap-1 sm:gap-2 rounded-full px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 lg:px-6 text-xs sm:text-sm font-semibold transition-all duration-200 hover:scale-105"
-                        style={{
-                          backgroundColor: theme.accents.goldenGlow,
-                          color: theme.surfaces.base,
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onItemClick?.(item);
-                        }}
+                  {/* Content overlay - always rendered, fade with opacity */}
+                  <div 
+                    className="absolute bottom-0 left-0 right-0 p-3 sm:p-5 md:p-6 lg:p-8 transition-opacity duration-500"
+                    style={{ opacity: isActive ? 1 : 0 }}
+                  >
+                    {/* Description - shown on all screen sizes */}
+                    {item.description && (
+                      <p 
+                        className="mb-2 sm:mb-3 md:mb-4 line-clamp-2 max-w-xl text-xs sm:text-sm md:text-base"
+                        style={{ color: theme.text.secondary }}
                       >
-                        <Play className="h-3 w-3 sm:h-4 sm:w-4" fill="currentColor" />
-                        {item.contentType === "show" ? "Watch Now" : "View"}
-                      </button>
-                    </div>
-                  )}
+                        {item.description}
+                      </p>
+                    )}
+                    
+                    {/* Play/View button */}
+                    <button
+                      className="inline-flex items-center gap-1 sm:gap-2 rounded-full px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 lg:px-6 text-xs sm:text-sm font-semibold transition-all duration-200 hover:scale-105"
+                      style={{
+                        backgroundColor: theme.accents.goldenGlow,
+                        color: theme.surfaces.base,
+                        pointerEvents: isActive ? "auto" : "none",
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onItemClick?.(item);
+                      }}
+                    >
+                      <Play className="h-3 w-3 sm:h-4 sm:w-4" fill="currentColor" />
+                      {item.contentType === "show" ? "Watch Now" : "View"}
+                    </button>
+                  </div>
                 </div>
               )}
             </SwiperSlide>
@@ -235,16 +236,10 @@ export function JMFeaturedCarousel({
       {/* Custom styles for the carousel */}
       <style jsx global>{`
         .featured-carousel .swiper-slide {
-          transition: transform 0.3s ease, opacity 0.3s ease;
-        }
-        .featured-carousel .swiper-slide:not(.swiper-slide-active) {
-          opacity: 0.6;
-        }
-        .featured-carousel .swiper-slide-active {
-          opacity: 1;
+          transition: transform 0.5s ease;
         }
         
-        /* Responsive slide widths - back to original sizing */
+        /* Responsive slide widths */
         .featured-slide {
           width: 85% !important;
           max-width: 900px;
