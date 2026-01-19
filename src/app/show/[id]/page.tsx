@@ -355,7 +355,7 @@ export default function ShowDetailPage() {
                 className="ml-3 text-sm"
                 style={{ color: theme.text.tertiary }}
               >
-                • New Episodes ({JMReleaseDayLabels[show.releaseDay]})
+                 &nbsp;&nbsp;&nbsp;   New Episodes {JMReleaseDayLabels[show.releaseDay]}
               </span>
             )}
           </div>

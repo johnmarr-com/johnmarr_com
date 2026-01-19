@@ -135,21 +135,6 @@ export function JMContentScroller({
                     {item.name.charAt(0)}
                   </div>
                 )}
-                
-                {/* Hover overlay with title */}
-                <div 
-                  className="absolute inset-0 flex items-end opacity-0 hover:opacity-100 transition-opacity"
-                  style={{
-                    background: "linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 50%)",
-                  }}
-                >
-                  <p 
-                    className="p-2 sm:p-3 text-xs sm:text-sm font-medium line-clamp-2"
-                    style={{ color: theme.text.primary }}
-                  >
-                    {item.name}
-                  </p>
-                </div>
               </div>
             </div>
           ))}
