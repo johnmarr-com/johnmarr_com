@@ -7,6 +7,7 @@ import { useJMStyle } from "@/JMStyle";
 import { useAuth } from "@/lib/AuthProvider";
 import { getContentWithChildren } from "@/lib/content";
 import type { JMContentWithChildren } from "@/lib/content-types";
+import { JMReleaseDayLabels } from "@/lib/content-types";
 import Image from "next/image";
 import Player from "@vimeo/player";
 import { 
@@ -347,6 +348,16 @@ export default function ShowDetailPage() {
             >
               {episodes.length} episode{episodes.length !== 1 ? "s" : ""}
             </span>
+            
+            {/* Release day - show if series has one set */}
+            {show.releaseDay && (
+              <span 
+                className="ml-3 text-sm"
+                style={{ color: theme.text.tertiary }}
+              >
+                • New Episodes ({JMReleaseDayLabels[show.releaseDay]})
+              </span>
+            )}
           </div>
         )}
 

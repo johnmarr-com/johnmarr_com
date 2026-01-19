@@ -6,7 +6,8 @@ import { useJMStyle } from "@/JMStyle";
 import { JMImageUpload } from "@/JMKit";
 import { useAuth } from "@/lib/AuthProvider";
 import { createContent, uploadContentImage } from "@/lib/content";
-import type { JMContentLevel } from "@/lib/content-types";
+import type { JMContentLevel, JMReleaseDay } from "@/lib/content-types";
+import { JMReleaseDayLabels } from "@/lib/content-types";
 
 interface ShowCreateModalProps {
   onClose: () => void;
@@ -36,6 +37,7 @@ export function ShowCreateModal({ onClose, onCreated }: ShowCreateModalProps) {
   const [description, setDescription] = useState("");
   const [coverURL, setCoverURL] = useState("");      // Cover (16:9)
   const [backdropURL, setBackdropURL] = useState(""); // Feature/Banner (16:9)
+  const [releaseDay, setReleaseDay] = useState<JMReleaseDay | "">("");  // Optional release day
   
   // Temp ID for image uploads (before content is created)
   const tempIdRef = useRef(`new-${Date.now()}`);
@@ -79,6 +81,7 @@ export function ShowCreateModal({ onClose, onCreated }: ShowCreateModalProps) {
         isPublished: false,
       };
       if (backdropURL.trim()) input.backdropURL = backdropURL.trim();
+      if (releaseDay) input.releaseDay = releaseDay;
       
       await createContent(input, user.uid);
       
@@ -267,6 +270,37 @@ export function ShowCreateModal({ onClose, onCreated }: ShowCreateModalProps) {
                   }}
                 />
               </div>
+
+              {/* Release Day - only for series */}
+              {contentLevel === "series" && (
+                <div>
+                  <label 
+                    className="block text-sm font-medium mb-2"
+                    style={{ color: theme.text.secondary }}
+                  >
+                    New Episodes Day <span style={{ color: theme.text.tertiary }}>(optional)</span>
+                  </label>
+                  <select
+                    value={releaseDay}
+                    onChange={(e) => setReleaseDay(e.target.value as JMReleaseDay | "")}
+                    className="w-full px-4 py-3 rounded-lg border text-sm focus:outline-none focus:ring-2"
+                    style={{
+                      backgroundColor: "rgba(0, 0, 0, 0.4)",
+                      borderColor: "rgba(255, 255, 255, 0.2)",
+                      color: releaseDay ? theme.text.primary : theme.text.tertiary,
+                      // @ts-expect-error CSS custom property
+                      "--tw-ring-color": theme.accents.goldenGlow,
+                    }}
+                  >
+                    <option value="">No recurring day</option>
+                    {(Object.keys(JMReleaseDayLabels) as JMReleaseDay[]).map((day) => (
+                      <option key={day} value={day}>
+                        {JMReleaseDayLabels[day]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Cover & Banner Images */}
               <div className="flex flex-col gap-4">

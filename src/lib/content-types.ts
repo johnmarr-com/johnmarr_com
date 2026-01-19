@@ -24,6 +24,24 @@ import type { Timestamp } from "firebase/firestore";
 export type JMContentType = "show" | "story" | "card" | "game";
 
 /**
+ * Days of the week for recurring release schedules
+ */
+export type JMReleaseDay = "sunday" | "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday";
+
+/**
+ * Release day display labels
+ */
+export const JMReleaseDayLabels: Record<JMReleaseDay, string> = {
+  sunday: "Sundays",
+  monday: "Mondays",
+  tuesday: "Tuesdays",
+  wednesday: "Wednesdays",
+  thursday: "Thursdays",
+  friday: "Fridays",
+  saturday: "Saturdays",
+};
+
+/**
  * Content type display labels (for UI)
  */
 export const JMContentTypeLabels: Record<JMContentType, string> = {
@@ -137,6 +155,7 @@ export interface JMContent {
   // ─── Discovery ────────────────────────────────────────────
   tags?: string[];                // ["comedy", "animated", "family"]
   releaseDate?: Timestamp;        // When episode streams (free tier: 1 week ahead)
+  releaseDay?: JMReleaseDay;      // For series: recurring release day (e.g., "monday")
   
   // ─── Status ───────────────────────────────────────────────
   isPublished: boolean;           // Draft vs live
@@ -160,6 +179,7 @@ export interface JMContentInput {
   duration?: number;
   tags?: string[];
   releaseDate?: Timestamp;
+  releaseDay?: JMReleaseDay;
   isPublished?: boolean;
 }
 

@@ -19,7 +19,9 @@ import {
 import type {
   JMContent,
   JMContentWithChildren,
+  JMReleaseDay,
 } from "@/lib/content-types";
+import { JMReleaseDayLabels } from "@/lib/content-types";
 
 interface ShowDetailModalProps {
   showId: string;
@@ -39,6 +41,7 @@ interface EditState {
   seasonNumber: number;
   episodeNumber: number;
   isPublished: boolean;
+  releaseDay: JMReleaseDay | "";
 }
 
 /**
@@ -139,6 +142,7 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
           seasonNumber: data.seasonNumber || 1,
           episodeNumber: data.episodeNumber || 1,
           isPublished: data.isPublished,
+          releaseDay: data.releaseDay || "",
         };
         setEditState(state);
         setOriginalState(state);
@@ -175,6 +179,7 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
       if (editState.backdropURL) updates["backdropURL"] = editState.backdropURL;
       if (editState.mediaURL) updates["mediaURL"] = editState.mediaURL;
       if (editState.duration) updates["duration"] = editState.duration;
+      if (editState.releaseDay) updates["releaseDay"] = editState.releaseDay;
       
       await updateContent(showId, updates);
       
@@ -591,6 +596,37 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
                       }}
                     />
                   </div>
+
+                  {/* Release Day - only for series */}
+                  {isSeries && (
+                    <div>
+                      <label 
+                        className="block text-sm font-medium mb-1.5"
+                        style={{ color: theme.text.secondary }}
+                      >
+                        New Episodes Day <span style={{ color: theme.text.tertiary }}>(optional)</span>
+                      </label>
+                      <select
+                        value={editState.releaseDay}
+                        onChange={(e) => setEditState({ ...editState, releaseDay: e.target.value as JMReleaseDay | "" })}
+                        className="w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-1"
+                        style={{
+                          backgroundColor: "rgba(0, 0, 0, 0.4)",
+                          borderColor: "rgba(255, 255, 255, 0.2)",
+                          color: editState.releaseDay ? theme.text.primary : theme.text.tertiary,
+                          // @ts-expect-error CSS custom property
+                          "--tw-ring-color": theme.accents.goldenGlow,
+                        }}
+                      >
+                        <option value="">No recurring day</option>
+                        {(Object.keys(JMReleaseDayLabels) as JMReleaseDay[]).map((day) => (
+                          <option key={day} value={day}>
+                            {JMReleaseDayLabels[day]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   {/* Cover & Banner Images */}
                   <div className="flex flex-col gap-4">
