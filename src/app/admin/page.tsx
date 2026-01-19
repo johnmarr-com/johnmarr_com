@@ -7,6 +7,7 @@ import { useJMStyle } from "@/JMStyle";
 import { JMAppHeader, JMAdminDropdown, type AdminFocus } from "@/JMKit";
 import { AdminUsersPanel } from "./AdminUsersPanel";
 import { AdminAvatarsPanel } from "./AdminAvatarsPanel";
+import { AdminShowsPanel } from "./AdminShowsPanel";
 
 function AdminContent() {
   const { theme } = useJMStyle();
@@ -62,6 +63,7 @@ function AdminContent() {
         {/* Content panels based on focus */}
         {focus === "users" && <AdminUsersPanel />}
         {focus === "avatars" && <AdminAvatarsPanel />}
+        {focus === "show" && <AdminShowsPanel />}
       </main>
     </div>
   );

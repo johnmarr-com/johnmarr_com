@@ -35,3 +35,4 @@ export { default as JMAvatarView } from "./JMAvatarView";
 export { default as JMAvatarPicker, type JMAvatarItem, type JMAvatarPickerProps, AVATAR_CATEGORIES } from "./JMAvatarPicker";
 export { default as JMAvatarPreviewAndSelection } from "./JMAvatarPreviewAndSelection";
 export { JMWelcomeAvatarModal } from "./JMWelcomeAvatarModal";
+export { JMImageUpload, type JMImageUploadProps } from "./JMImageUpload";

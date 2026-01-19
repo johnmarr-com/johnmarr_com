@@ -38,3 +38,54 @@ export {
   revokeAdminRole,
 } from "./auth";
 
+// Content types
+export type {
+  JMContentType,
+  JMContentLevel,
+  JMContent,
+  JMContentInput,
+  JMContentUpdate,
+  JMContentWithChildren,
+  JMExperience,
+  JMExperienceInput,
+  JMExperienceUpdate,
+  JMExperienceWithContent,
+  JMContentCounts,
+} from "./content-types";
+
+export {
+  JMContentTypeLabels,
+  JMContentTypePluralLabels,
+  JMContentLevelLabels,
+  getContentLevelLabel,
+  canHaveChildren,
+  isPlayable,
+  getValidChildLevels,
+  isValidChildLevel,
+} from "./content-types";
+
+// Content CRUD operations
+export {
+  // Content
+  createContent,
+  getContent,
+  updateContent,
+  deleteContent,
+  getTopLevelContent,
+  getContentChildren,
+  getContentWithChildren,
+  getContentByCreator,
+  getContentCounts,
+  searchContent,
+  // Experiences
+  createExperience,
+  getExperience,
+  updateExperience,
+  deleteExperience,
+  getExperiences,
+  getExperienceWithContent,
+  getExperiencesWithContent,
+  addContentToExperience,
+  removeContentFromExperience,
+  reorderExperienceContent,
+} from "./content";
