@@ -389,6 +389,25 @@ export default function ShowDetailPage() {
                 const isLocked = access === "locked";
                 const isEarlyAccess = access === "early_access";
                 
+                // Check if episode is unreleased (for showing release date)
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const isUnreleased = episode.releaseDate && (() => {
+                  const releaseDate = episode.releaseDate!.toDate();
+                  releaseDate.setHours(0, 0, 0, 0);
+                  return releaseDate > today;
+                })();
+                
+                // Format release date as M/D/YY
+                const formattedReleaseDate = episode.releaseDate 
+                  ? episode.releaseDate.toDate().toLocaleDateString("en-US", {
+                      month: "numeric",
+                      day: "numeric", 
+                      year: "2-digit",
+                      timeZone: "UTC",
+                    })
+                  : null;
+                
                 return (
                   <div
                     key={episode.id}
@@ -396,6 +415,16 @@ export default function ShowDetailPage() {
                     className={`shrink-0 group/episode ${isLocked ? "cursor-not-allowed" : "cursor-pointer"}`}
                     style={{ scrollSnapAlign: "start" }}
                   >
+                    {/* Release date for unreleased content - above the card */}
+                    {isUnreleased && formattedReleaseDate && (
+                      <div 
+                        className="text-right text-xs mb-1 pr-1"
+                        style={{ color: theme.text.tertiary }}
+                      >
+                        {formattedReleaseDate}
+                      </div>
+                    )}
+                    
                     {/* Episode card - 2:1 aspect ratio */}
                     <div 
                       className={`relative w-64 sm:w-72 md:w-80 aspect-2/1 rounded-lg overflow-hidden transition-transform duration-200 ${!isLocked ? "group-hover/episode:scale-105" : ""}`}
