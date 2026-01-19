@@ -426,13 +426,27 @@ export default function ShowDetailPage() {
                     className={`shrink-0 group/episode ${isLocked ? "cursor-not-allowed" : "cursor-pointer"}`}
                     style={{ scrollSnapAlign: "start" }}
                   >
-                    {/* Release date for unreleased content - above the card */}
-                    {isUnreleased && formattedReleaseDate && (
-                      <div 
-                        className="text-right text-xs mb-1 pr-1"
-                        style={{ color: theme.text.tertiary }}
-                      >
-                        {formattedReleaseDate}
+                    {/* Labels above the card */}
+                    {(isEarlyAccess || (isUnreleased && formattedReleaseDate)) && (
+                      <div className="flex justify-between items-center text-xs mb-1 px-1">
+                        {/* Early Access - left aligned */}
+                        {isEarlyAccess ? (
+                          <span 
+                            className="font-bold"
+                            style={{ color: theme.accents.goldenGlow }}
+                          >
+                            Early Access!
+                          </span>
+                        ) : (
+                          <span />
+                        )}
+                        
+                        {/* Release date - right aligned */}
+                        {isUnreleased && formattedReleaseDate && (
+                          <span style={{ color: theme.text.tertiary }}>
+                            {formattedReleaseDate}
+                          </span>
+                        )}
                       </div>
                     )}
                     
@@ -476,19 +490,6 @@ export default function ShowDetailPage() {
                             >
                               <Play className="h-8 w-8" style={{ color: theme.surfaces.base }} fill="currentColor" />
                             </div>
-                          </div>
-                        )}
-                        
-                        {/* Early Access tag - yellow badge top left */}
-                        {isEarlyAccess && (
-                          <div 
-                            className="absolute top-2 left-2 px-2 py-1 rounded text-xs font-bold"
-                            style={{ 
-                              backgroundColor: theme.accents.goldenGlow,
-                              color: theme.surfaces.base,
-                            }}
-                          >
-                            Early Access!
                           </div>
                         )}
                       </div>
