@@ -99,23 +99,13 @@ export default function ShowDetailPage() {
       playerRef.current = null;
     }
     
-    // Calculate dimensions - fit to viewport height, maintain 16:9
+    // Calculate dimensions - fill viewport height, center horizontally
     const viewportHeight = window.innerHeight;
-    const viewportWidth = window.innerWidth;
     const aspectRatio = 16 / 9;
     
-    // Calculate size based on height (with some padding for close button)
-    const maxHeight = viewportHeight * 0.95;
-    const maxWidth = viewportWidth * 0.98;
-    
-    let playerWidth = maxHeight * aspectRatio;
-    let playerHeight = maxHeight;
-    
-    // If calculated width exceeds viewport, constrain by width instead
-    if (playerWidth > maxWidth) {
-      playerWidth = maxWidth;
-      playerHeight = maxWidth / aspectRatio;
-    }
+    // Height fills the viewport, width calculated from aspect ratio
+    const playerHeight = viewportHeight;
+    const playerWidth = viewportHeight * aspectRatio;
     
     // Create new player with SDK - no autoplay for iOS compatibility
     const player = new Player(playerContainerRef.current, {
@@ -429,7 +419,7 @@ export default function ShowDetailPage() {
       {/* Video Player Modal - Full Screen */}
       {playingEpisode && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden"
           style={{ backgroundColor: "#000" }}
         >
           {/* Close button - visible on light and dark */}
@@ -444,11 +434,11 @@ export default function ShowDetailPage() {
             <X className="h-6 w-6 text-white" />
           </button>
           
-          {/* Vimeo Player Container - SDK will inject iframe here */}
+          {/* Vimeo Player Container - fills height, centered horizontally */}
           {getVimeoId(playingEpisode.mediaURL || "") ? (
             <div 
               ref={playerContainerRef}
-              className="flex items-center justify-center"
+              className="h-full flex items-center justify-center"
             />
           ) : (
             <div 
