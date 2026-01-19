@@ -18,6 +18,11 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isAdmin: boolean;
   userTier: UserTier;
+  /** Admin-only: view the app as a different tier (for testing) */
+  adminViewAs: UserTier | null;
+  setAdminViewAs: (tier: UserTier | null) => void;
+  /** The effective tier to use (respects adminViewAs for admins) */
+  effectiveTier: UserTier;
   /** Force refresh the ID token to get updated claims (e.g., after admin status changes) */
   refreshClaims: () => Promise<void>;
 }
@@ -28,6 +33,9 @@ const AuthContext = createContext<AuthContextValue>({
   isAuthenticated: false,
   isAdmin: false,
   userTier: "free",
+  adminViewAs: null,
+  setAdminViewAs: () => {},
+  effectiveTier: "free",
   refreshClaims: async () => {},
 });
 
@@ -39,13 +47,24 @@ interface AuthProviderProps {
  * Auth Provider - Manages Firebase authentication state including admin roles and user tier
  */
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [state, setState] = useState<Omit<AuthContextValue, "refreshClaims">>({
+  const [state, setState] = useState<Omit<AuthContextValue, "refreshClaims" | "setAdminViewAs" | "effectiveTier">>({
     user: null,
     isLoading: true,
     isAuthenticated: false,
     isAdmin: false,
     userTier: "free",
+    adminViewAs: null,
   });
+
+  // Set admin view as tier (for testing)
+  const setAdminViewAs = useCallback((tier: UserTier | null) => {
+    setState(prev => ({ ...prev, adminViewAs: tier }));
+  }, []);
+
+  // Calculate effective tier (respects adminViewAs for admins)
+  const effectiveTier: UserTier = state.isAdmin && state.adminViewAs 
+    ? state.adminViewAs 
+    : state.userTier;
 
   // Function to check admin claim from ID token
   const checkAdminClaim = useCallback(async (user: User | null): Promise<boolean> => {
@@ -122,13 +141,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
             checkAdminClaim(user),
             fetchUserTier(user),
           ]);
-          setState({
+          setState(prev => ({
+            ...prev,
             user,
             isLoading: false,
             isAuthenticated: !!user,
             isAdmin,
             userTier,
-          });
+          }));
         });
       } catch (error) {
         console.error("Failed to initialize auth:", error);
@@ -147,7 +167,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [checkAdminClaim, fetchUserTier]);
 
   return (
-    <AuthContext.Provider value={{ ...state, refreshClaims }}>
+    <AuthContext.Provider value={{ ...state, refreshClaims, setAdminViewAs, effectiveTier }}>
       {children}
     </AuthContext.Provider>
   );

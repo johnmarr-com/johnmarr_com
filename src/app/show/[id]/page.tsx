@@ -21,7 +21,7 @@ export default function ShowDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { theme } = useJMStyle();
-  const { userTier, isAdmin } = useAuth();
+  const { effectiveTier } = useAuth();
   const showId = params["id"] as string;
 
   const [show, setShow] = useState<JMContentWithChildren | null>(null);
@@ -43,8 +43,8 @@ export default function ShowDetailPage() {
     allEpisodes: JMContentWithChildren[],
     episodeIndex: number
   ): EpisodeAccess => {
-    // Paid users and admins get full access
-    if (userTier === "paid" || isAdmin) return "released";
+    // Paid users get full access
+    if (effectiveTier === "paid") return "released";
     
     // Check if episode is released (releaseDate <= today)
     const today = new Date();
@@ -74,7 +74,7 @@ export default function ShowDetailPage() {
     
     // Otherwise it's locked
     return "locked";
-  }, [userTier, isAdmin]);
+  }, [effectiveTier]);
 
   // Load show data
   useEffect(() => {

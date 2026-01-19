@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ShieldUser } from "lucide-react";
+import { ShieldUser, Eye, ChevronDown } from "lucide-react";
 import { AdminGate } from "@/lib/AdminGate";
+import { useAuth, type UserTier } from "@/lib/AuthProvider";
 import { useJMStyle } from "@/JMStyle";
 import { JMAppHeader, JMAdminDropdown, type AdminFocus } from "@/JMKit";
 import { AdminUsersPanel } from "./AdminUsersPanel";
@@ -12,7 +13,9 @@ import { AdminFeaturedPanel } from "./AdminFeaturedPanel";
 
 function AdminContent() {
   const { theme } = useJMStyle();
+  const { adminViewAs, setAdminViewAs } = useAuth();
   const [focus, setFocus] = useState<AdminFocus>(null);
+  const [viewAsOpen, setViewAsOpen] = useState(false);
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -56,8 +59,70 @@ function AdminContent() {
               </h1>
             </div>
 
-            {/* Right: Focus dropdown */}
-            <JMAdminDropdown value={focus} onChange={setFocus} />
+            {/* Right: Dropdowns */}
+            <div className="flex items-center gap-3">
+              {/* View As dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setViewAsOpen(!viewAsOpen)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border transition-all duration-150"
+                  style={{
+                    backgroundColor: adminViewAs ? theme.surfaces.elevated1 : theme.surfaces.base,
+                    borderColor: adminViewAs ? theme.accents.goldenGlow : theme.surfaces.elevated2,
+                    color: theme.text.primary,
+                  }}
+                >
+                  <Eye size={16} style={{ color: adminViewAs ? theme.accents.goldenGlow : theme.text.tertiary }} />
+                  <span className="text-sm">
+                    {adminViewAs ? `View: ${adminViewAs.charAt(0).toUpperCase() + adminViewAs.slice(1)}` : "View As"}
+                  </span>
+                  <ChevronDown 
+                    size={14} 
+                    className={`transition-transform duration-200 ${viewAsOpen ? "rotate-180" : ""}`}
+                    style={{ color: theme.text.tertiary }}
+                  />
+                </button>
+                
+                {viewAsOpen && (
+                  <>
+                    {/* Backdrop to close */}
+                    <div 
+                      className="fixed inset-0 z-40"
+                      onClick={() => setViewAsOpen(false)}
+                    />
+                    {/* Menu */}
+                    <div
+                      className="absolute top-full right-0 mt-1 overflow-hidden rounded-lg shadow-xl z-50"
+                      style={{
+                        backgroundColor: theme.surfaces.base,
+                        border: `1px solid ${theme.surfaces.elevated2}`,
+                        minWidth: "140px",
+                      }}
+                    >
+                      {(["free", "paid", null] as (UserTier | null)[]).map((tier, index) => (
+                        <button
+                          key={tier ?? "reset"}
+                          onClick={() => {
+                            setAdminViewAs(tier);
+                            setViewAsOpen(false);
+                          }}
+                          className="w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-white/10"
+                          style={{
+                            color: adminViewAs === tier ? theme.accents.goldenGlow : theme.text.primary,
+                            borderTop: index > 0 ? `1px solid ${theme.surfaces.elevated2}` : undefined,
+                          }}
+                        >
+                          {tier === null ? "Reset (Admin)" : tier === "free" ? "Free User" : "Paid User"}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Focus dropdown */}
+              <JMAdminDropdown value={focus} onChange={setFocus} />
+            </div>
           </div>
         </div>
 
