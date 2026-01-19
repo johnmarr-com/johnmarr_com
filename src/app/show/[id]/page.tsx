@@ -99,15 +99,33 @@ export default function ShowDetailPage() {
       playerRef.current = null;
     }
     
-    // Create new player with SDK
+    // Calculate dimensions - fit to viewport height, maintain 16:9
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+    const aspectRatio = 16 / 9;
+    
+    // Calculate size based on height (with some padding for close button)
+    const maxHeight = viewportHeight * 0.95;
+    const maxWidth = viewportWidth * 0.98;
+    
+    let playerWidth = maxHeight * aspectRatio;
+    let playerHeight = maxHeight;
+    
+    // If calculated width exceeds viewport, constrain by width instead
+    if (playerWidth > maxWidth) {
+      playerWidth = maxWidth;
+      playerHeight = maxWidth / aspectRatio;
+    }
+    
+    // Create new player with SDK - no autoplay for iOS compatibility
     const player = new Player(playerContainerRef.current, {
       id: parseInt(vimeoId),
-      width: window.innerWidth,
-      height: window.innerHeight,
-      autoplay: true,  // SDK handles autoplay better than iframe param
-      muted: false,    // Start unmuted - SDK user gesture propagation
+      width: playerWidth,
+      height: playerHeight,
+      autoplay: false,  // Don't autoplay - iOS blocks unmuted autoplay
+      muted: false,
       controls: true,
-      responsive: true,
+      responsive: false,  // We handle sizing manually
       title: false,
       byline: false,
       portrait: false,
@@ -115,14 +133,6 @@ export default function ShowDetailPage() {
     });
     
     playerRef.current = player;
-    
-    // Attempt to play (SDK carries the user gesture through)
-    player.ready().then(() => {
-      player.play().catch((error: Error) => {
-        // If autoplay fails (iOS restriction), user can tap play
-        console.log("Autoplay blocked, user can tap play:", error.message);
-      });
-    });
     
     // Cleanup on unmount or episode change
     return () => {
@@ -438,7 +448,7 @@ export default function ShowDetailPage() {
           {getVimeoId(playingEpisode.mediaURL || "") ? (
             <div 
               ref={playerContainerRef}
-              className="w-full h-full"
+              className="flex items-center justify-center"
             />
           ) : (
             <div 
