@@ -87,8 +87,13 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
     episodeNumber: number;
     mediaURL: string;
     releaseDate: string;
+    coverURL: string;
   } | null>(null);
   const [isEditingSaving, setIsEditingSaving] = useState(false);
+  
+  // Pending cover file for new episodes (uploaded after creation)
+  const [pendingEpisodeCover, setPendingEpisodeCover] = useState<File | null>(null);
+  const [pendingCoverPreview, setPendingCoverPreview] = useState<string | null>(null);
   
   // Image upload handlers
   const handleShowCoverUpload = useCallback(async (file: File) => {
@@ -98,6 +103,22 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
   const handleShowBackdropUpload = useCallback(async (file: File) => {
     return uploadContentImage(file, showId, "backdrop");
   }, [showId]);
+
+  // Handle pending cover for new episodes (stores file until episode is created)
+  const handlePendingEpisodeCover = useCallback((file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      setPendingEpisodeCover(file);
+      // Create local preview URL
+      const previewUrl = URL.createObjectURL(file);
+      setPendingCoverPreview(previewUrl);
+      resolve(previewUrl);
+    });
+  }, []);
+
+  // Upload cover for existing episode
+  const handleEpisodeCoverUpload = useCallback(async (file: File, episodeId: string) => {
+    return uploadContentImage(file, episodeId, "cover");
+  }, []);
 
   // Fetch show data
   const fetchShow = useCallback(async () => {
@@ -278,7 +299,7 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
         contentLevel: "episode",
         name: addForm.name.trim(),
         description: "",
-        coverURL: "",  // Thumbnail fetched from Vimeo
+        coverURL: "",  // Will be updated if there's a pending cover
         mediaURL: addForm.mediaURL.trim(),  // Vimeo URL
         parentId: selectedParentId,
         episodeNumber: addForm.episodeNumber,
@@ -291,7 +312,20 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
         input.releaseDate = Timestamp.fromDate(new Date(addForm.releaseDate));
       }
 
-      await createContent(input, user.uid);
+      const newEpisode = await createContent(input, user.uid);
+      
+      // If there's a pending cover, upload it now
+      if (pendingEpisodeCover && newEpisode?.id) {
+        const coverURL = await uploadContentImage(pendingEpisodeCover, newEpisode.id, "cover");
+        await updateContent(newEpisode.id, { coverURL });
+      }
+      
+      // Clean up pending cover state
+      if (pendingCoverPreview) {
+        URL.revokeObjectURL(pendingCoverPreview);
+      }
+      setPendingEpisodeCover(null);
+      setPendingCoverPreview(null);
       
       await fetchShow();
       onUpdated();
@@ -324,6 +358,7 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
       episodeNumber: episode.episodeNumber || 1,
       mediaURL: episode.mediaURL || "",
       releaseDate: releaseDateStr,
+      coverURL: episode.coverURL || "",
     });
     setView("edit-episode");
   };
@@ -344,6 +379,8 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
         const { Timestamp } = await import("firebase/firestore");
         updates["releaseDate"] = Timestamp.fromDate(new Date(editEpisode.releaseDate));
       }
+      // Include coverURL (even if empty, to allow clearing)
+      updates["coverURL"] = editEpisode.coverURL;
 
       await updateContent(editEpisode.id, updates);
       
@@ -874,12 +911,37 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
                 required
               />
               
-              <p 
-                className="text-xs"
-                style={{ color: theme.text.tertiary }}
-              >
-                Thumbnail will be fetched automatically from Vimeo (9:16 portrait)
-              </p>
+              {/* Episode Cover (optional) */}
+              <div>
+                <label 
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: theme.text.secondary }}
+                >
+                  Cover Image (16:9)
+                  <span 
+                    className="ml-2 text-xs font-normal"
+                    style={{ color: theme.text.tertiary }}
+                  >
+                    optional - uses Vimeo thumbnail if not set
+                  </span>
+                </label>
+                <JMImageUpload
+                  value={pendingCoverPreview || ""}
+                  onChange={(url) => {
+                    if (!url) {
+                      // Clear pending cover
+                      if (pendingCoverPreview) {
+                        URL.revokeObjectURL(pendingCoverPreview);
+                      }
+                      setPendingEpisodeCover(null);
+                      setPendingCoverPreview(null);
+                    }
+                  }}
+                  onUpload={handlePendingEpisodeCover}
+                  aspectRatio="landscape"
+                  previewSize={200}
+                />
+              </div>
               
               {/* Release Date */}
               <div>
@@ -959,6 +1021,29 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
                 placeholder="https://vimeo.com/123456789"
                 required
               />
+              
+              {/* Episode Cover (optional) */}
+              <div>
+                <label 
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: theme.text.secondary }}
+                >
+                  Cover Image (16:9)
+                  <span 
+                    className="ml-2 text-xs font-normal"
+                    style={{ color: theme.text.tertiary }}
+                  >
+                    optional - uses Vimeo thumbnail if not set
+                  </span>
+                </label>
+                <JMImageUpload
+                  value={editEpisode.coverURL}
+                  onChange={(url) => setEditEpisode({ ...editEpisode, coverURL: url || "" })}
+                  onUpload={(file) => handleEpisodeCoverUpload(file, editEpisode.id)}
+                  aspectRatio="landscape"
+                  previewSize={200}
+                />
+              </div>
               
               {/* Release Date */}
               <div>

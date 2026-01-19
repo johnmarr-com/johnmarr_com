@@ -293,8 +293,10 @@ export default function ShowDetailPage() {
               }}
             >
               {episodes.map((episode, index) => {
+                // Prefer custom cover, fall back to Vimeo thumbnail
                 const vimeoId = getVimeoId(episode.mediaURL || "");
-                const thumbnail = vimeoId ? getVimeoThumbnail(vimeoId) : null;
+                const vimeoThumbnail = vimeoId ? getVimeoThumbnail(vimeoId) : null;
+                const thumbnail = episode.coverURL || vimeoThumbnail;
                 
                 return (
                   <div
