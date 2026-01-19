@@ -59,6 +59,7 @@ export function JMAppHeader({
             className="object-contain"
             style={{ height: logoHeight, width: "auto" }}
             priority
+            unoptimized
           />
         </div>
 
