@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { ShieldUser } from "lucide-react";
 import { useJMStyle } from "@/JMStyle";
@@ -51,15 +50,11 @@ export function JMAppHeader({
           className="relative flex items-center"
           style={{ height: `${logoHeight}px` }}
         >
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src={theme.logo}
             alt={theme.logoAlt}
-            height={logoHeight}
-            width={logoHeight * 3} // Approximate aspect ratio
-            className="object-contain"
             style={{ height: logoHeight, width: "auto" }}
-            priority
-            unoptimized
           />
         </div>
 
