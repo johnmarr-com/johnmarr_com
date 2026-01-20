@@ -1,8 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Required for Firebase App Hosting to include public folder
-  output: "standalone",
   images: {
     remotePatterns: [
       {
