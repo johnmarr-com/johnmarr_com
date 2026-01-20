@@ -52,8 +52,8 @@ export function JMAppHeader({
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={theme.logo}
-            alt={theme.logoAlt}
+            src="/images/logos/JohnMarr-Signature.jpg"
+            alt="John Marr"
             style={{ height: logoHeight, width: "auto" }}
           />
         </div>
