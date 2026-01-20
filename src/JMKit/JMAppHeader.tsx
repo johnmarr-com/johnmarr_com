@@ -46,7 +46,8 @@ export function JMAppHeader({
         style={{ padding: "0 25px" }}
       >
         {/* Logo - left side */}
-        <div
+        <Link
+          href="/"
           className="relative flex items-center"
           style={{ height: `${logoHeight}px` }}
         >
@@ -56,7 +57,7 @@ export function JMAppHeader({
             alt="John Marr"
             style={{ height: logoHeight, width: "auto" }}
           />
-        </div>
+        </Link>
 
         {/* User section - right side */}
         <div className="flex items-center gap-3">
