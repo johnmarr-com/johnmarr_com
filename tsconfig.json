@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -9,7 +13,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "react-jsx",
+    "jsx": "preserve",
     "incremental": true,
     "noEmit": true,
     "plugins": [
@@ -18,9 +22,10 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": [
+        "./src/*"
+      ]
     },
-
     /* Strict Type-Checking Options */
     "strict": true,
     "noImplicitAny": true,
@@ -31,7 +36,6 @@
     "noImplicitThis": true,
     "useUnknownInCatchVariables": true,
     "alwaysStrict": true,
-
     /* Additional Checks */
     "noUnusedLocals": true,
     "noUnusedParameters": true,
@@ -43,7 +47,6 @@
     "noPropertyAccessFromIndexSignature": true,
     "allowUnusedLabels": false,
     "allowUnreachableCode": false,
-
     /* Module Resolution */
     "forceConsistentCasingInFileNames": true
   },
@@ -55,5 +58,7 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules"
+  ]
 }
