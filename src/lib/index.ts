@@ -51,6 +51,9 @@ export type {
   JMExperienceUpdate,
   JMExperienceWithContent,
   JMContentCounts,
+  JMAlert,
+  JMAlertInput,
+  JMAlertUpdate,
 } from "./content-types";
 
 export {
@@ -97,4 +100,12 @@ export {
   reorderFeaturedItems,
   type JMFeaturedItem,
   type JMFeaturedInput,
+  // Alerts
+  createAlert,
+  getAllAlerts,
+  getPublishedAlert,
+  updateAlert,
+  publishAlert,
+  unpublishAlert,
+  deleteAlert,
 } from "./content";

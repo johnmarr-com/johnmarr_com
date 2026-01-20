@@ -304,3 +304,34 @@ export const isValidChildLevel = (
 ): boolean => {
   return getValidChildLevels(parentLevel).includes(childLevel);
 };
+
+// ─────────────────────────────────────────────────────────────
+// ALERT TYPES
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Alert for displaying site-wide notifications
+ * Only one alert can be published at a time
+ */
+export interface JMAlert {
+  id: string;
+  text: string;
+  isPublished: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/**
+ * Input for creating a new alert
+ */
+export interface JMAlertInput {
+  text: string;
+}
+
+/**
+ * Input for updating an alert
+ */
+export interface JMAlertUpdate {
+  text?: string;
+  isPublished?: boolean;
+}

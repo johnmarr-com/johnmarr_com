@@ -7,8 +7,8 @@ import { useRouter } from "next/navigation";
 import { JMAppHeader, JMWelcomeAvatarModal, JMFeaturedCarousel, JMContentScroller } from "@/JMKit";
 import type { FeaturedItem, ContentItem } from "@/JMKit";
 import { useJMStyle } from "@/JMStyle";
-import { getFeaturedContent, getTopLevelContent } from "@/lib/content";
-import type { JMContentType } from "@/lib/content-types";
+import { getFeaturedContent, getTopLevelContent, getPublishedAlert } from "@/lib/content";
+import type { JMContentType, JMAlert } from "@/lib/content-types";
 
 // Define content row configuration
 const CONTENT_ROWS: { type: JMContentType; title: string }[] = [
@@ -26,6 +26,7 @@ export default function Home() {
   const [hasCheckedAvatar, setHasCheckedAvatar] = useState(false);
   const [featuredItems, setFeaturedItems] = useState<FeaturedItem[]>([]);
   const [isFeaturedLoading, setIsFeaturedLoading] = useState(true);
+  const [activeAlert, setActiveAlert] = useState<JMAlert | null>(null);
   
   // Content rows state - keyed by content type
   const [contentRows, setContentRows] = useState<Record<JMContentType, ContentItem[]>>({
@@ -36,7 +37,7 @@ export default function Home() {
   });
   const [isContentLoading, setIsContentLoading] = useState(true);
 
-  // Load featured content
+  // Load featured content and alert
   useEffect(() => {
     const loadFeatured = async () => {
       try {
@@ -48,7 +49,18 @@ export default function Home() {
         setIsFeaturedLoading(false);
       }
     };
+    
+    const loadAlert = async () => {
+      try {
+        const alert = await getPublishedAlert();
+        setActiveAlert(alert);
+      } catch (error) {
+        console.error("Failed to load alert:", error);
+      }
+    };
+    
     loadFeatured();
+    loadAlert();
   }, []);
 
   // Load content rows
@@ -145,9 +157,24 @@ export default function Home() {
       <JMAppHeader />
       
       {/* Main Content Area */}
-      <main className="pt-16 pb-12">
+      <main className="pb-12">
+        {/* Active Alert Banner */}
+        {activeAlert && (
+          <div 
+            className="w-full px-4 py-3 sm:px-6 sm:py-4"
+            style={{ backgroundColor: theme.accents.goldenGlow }}
+          >
+            <p 
+              className="text-center font-bold whitespace-pre-wrap text-sm sm:text-base"
+              style={{ color: "#000" }}
+            >
+              {activeAlert.text}
+            </p>
+          </div>
+        )}
+
         {/* Featured Carousel Section */}
-        <section className="relative">
+        <section className="relative mt-4">
           {isFeaturedLoading ? (
             // Loading skeleton
             <div className="flex items-center justify-center py-20">

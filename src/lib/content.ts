@@ -804,3 +804,183 @@ export async function reorderFeaturedItems(
   
   await batch.commit();
 }
+
+// ─────────────────────────────────────────────────────────────
+// ALERT CRUD OPERATIONS
+// ─────────────────────────────────────────────────────────────
+
+import type { JMAlert, JMAlertInput, JMAlertUpdate } from "./content-types";
+
+/**
+ * Create a new alert (starts as draft/unpublished)
+ */
+export async function createAlert(input: JMAlertInput): Promise<JMAlert> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, collection, addDoc, serverTimestamp } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const alertData = {
+    text: input.text,
+    isPublished: false,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+  
+  const docRef = await addDoc(collection(db, "alerts"), alertData);
+  
+  return {
+    id: docRef.id,
+    ...alertData,
+    createdAt: alertData.createdAt as unknown as import("firebase/firestore").Timestamp,
+    updatedAt: alertData.updatedAt as unknown as import("firebase/firestore").Timestamp,
+  } as JMAlert;
+}
+
+/**
+ * Get all alerts (ordered by creation date, newest first)
+ * Requires admin access - forces token refresh to ensure admin claim is sent
+ */
+export async function getAllAlerts(): Promise<JMAlert[]> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, collection, query, orderBy, getDocs } = await import("firebase/firestore");
+  const { getAuth } = await import("firebase/auth");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  // Force token refresh to ensure admin claim is sent with request
+  const auth = getAuth(app);
+  if (auth.currentUser) {
+    await auth.currentUser.getIdToken(true);
+  }
+  
+  const q = query(
+    collection(db, "alerts"),
+    orderBy("createdAt", "desc")
+  );
+  
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as JMAlert[];
+}
+
+/**
+ * Get the currently published alert (if any)
+ */
+export async function getPublishedAlert(): Promise<JMAlert | null> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, collection, query, where, getDocs, limit } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const q = query(
+    collection(db, "alerts"),
+    where("isPublished", "==", true),
+    limit(1)
+  );
+  
+  const snapshot = await getDocs(q);
+  const alertDoc = snapshot.docs[0];
+  
+  if (!alertDoc) {
+    return null;
+  }
+  
+  return {
+    id: alertDoc.id,
+    ...alertDoc.data(),
+  } as JMAlert;
+}
+
+/**
+ * Update an alert
+ */
+export async function updateAlert(
+  id: string,
+  updates: JMAlertUpdate
+): Promise<void> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, updateDoc, serverTimestamp } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const docRef = doc(db, "alerts", id);
+  await updateDoc(docRef, {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Publish an alert (and unpublish all others)
+ */
+export async function publishAlert(id: string): Promise<void> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, collection, doc, query, where, getDocs, writeBatch, serverTimestamp } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  // Find all currently published alerts
+  const q = query(
+    collection(db, "alerts"),
+    where("isPublished", "==", true)
+  );
+  const snapshot = await getDocs(q);
+  
+  const batch = writeBatch(db);
+  
+  // Unpublish all currently published alerts
+  snapshot.docs.forEach(alertDoc => {
+    batch.update(alertDoc.ref, { 
+      isPublished: false,
+      updatedAt: serverTimestamp(),
+    });
+  });
+  
+  // Publish the specified alert
+  const targetRef = doc(db, "alerts", id);
+  batch.update(targetRef, { 
+    isPublished: true,
+    updatedAt: serverTimestamp(),
+  });
+  
+  await batch.commit();
+}
+
+/**
+ * Unpublish an alert
+ */
+export async function unpublishAlert(id: string): Promise<void> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, updateDoc, serverTimestamp } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const docRef = doc(db, "alerts", id);
+  await updateDoc(docRef, {
+    isPublished: false,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Delete an alert
+ */
+export async function deleteAlert(id: string): Promise<void> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, deleteDoc } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const docRef = doc(db, "alerts", id);
+  await deleteDoc(docRef);
+}
