@@ -54,6 +54,9 @@ export type {
   JMAlert,
   JMAlertInput,
   JMAlertUpdate,
+  JMBrand,
+  JMBrandInput,
+  JMBrandUpdate,
 } from "./content-types";
 
 export {
@@ -108,4 +111,12 @@ export {
   publishAlert,
   unpublishAlert,
   deleteAlert,
+  // Brands
+  createBrand,
+  getBrand,
+  getAllBrands,
+  updateBrand,
+  deleteBrand,
+  uploadBrandLogo,
+  getContentByBrand,
 } from "./content";

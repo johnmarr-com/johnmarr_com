@@ -15,11 +15,13 @@ import {
   deleteContent,
   createContent,
   uploadContentImage,
+  getAllBrands,
 } from "@/lib/content";
 import type {
   JMContent,
   JMContentWithChildren,
   JMReleaseDay,
+  JMBrand,
 } from "@/lib/content-types";
 import { JMReleaseDayLabels } from "@/lib/content-types";
 
@@ -42,6 +44,7 @@ interface EditState {
   episodeNumber: number;
   isPublished: boolean;
   releaseDay: JMReleaseDay | "";
+  brandId: string;
 }
 
 /**
@@ -98,6 +101,9 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
   const [pendingEpisodeCover, setPendingEpisodeCover] = useState<File | null>(null);
   const [pendingCoverPreview, setPendingCoverPreview] = useState<string | null>(null);
   
+  // Brands list for dropdown
+  const [brands, setBrands] = useState<JMBrand[]>([]);
+  
   // Image upload handlers
   const handleShowCoverUpload = useCallback(async (file: File) => {
     return uploadContentImage(file, showId, "cover");
@@ -143,6 +149,7 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
           episodeNumber: data.episodeNumber || 1,
           isPublished: data.isPublished,
           releaseDay: data.releaseDay || "",
+          brandId: data.brandId || "",
         };
         setEditState(state);
         setOriginalState(state);
@@ -157,6 +164,7 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
 
   useEffect(() => {
     fetchShow();
+    getAllBrands(true).then(setBrands).catch(console.error);
   }, [fetchShow]);
 
   // Check for unsaved changes
@@ -180,6 +188,8 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
       if (editState.mediaURL) updates["mediaURL"] = editState.mediaURL;
       if (editState.duration) updates["duration"] = editState.duration;
       if (editState.releaseDay) updates["releaseDay"] = editState.releaseDay;
+      // brandId can be empty string to remove brand association
+      updates["brandId"] = editState.brandId || null;
       
       await updateContent(showId, updates);
       
@@ -596,6 +606,37 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
                       }}
                     />
                   </div>
+
+                  {/* Brand - optional */}
+                  {brands.length > 0 && (
+                    <div>
+                      <label 
+                        className="block text-sm font-medium mb-1.5"
+                        style={{ color: theme.text.secondary }}
+                      >
+                        Brand <span style={{ color: theme.text.tertiary }}>(optional)</span>
+                      </label>
+                      <select
+                        value={editState.brandId}
+                        onChange={(e) => setEditState({ ...editState, brandId: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-1"
+                        style={{
+                          backgroundColor: "rgba(0, 0, 0, 0.4)",
+                          borderColor: "rgba(255, 255, 255, 0.2)",
+                          color: editState.brandId ? theme.text.primary : theme.text.tertiary,
+                          // @ts-expect-error CSS custom property
+                          "--tw-ring-color": theme.accents.goldenGlow,
+                        }}
+                      >
+                        <option value="">No brand</option>
+                        {brands.map((brand) => (
+                          <option key={brand.id} value={brand.id}>
+                            {brand.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   {/* Release Day - only for series */}
                   {isSeries && (

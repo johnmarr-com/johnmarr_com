@@ -809,7 +809,7 @@ export async function reorderFeaturedItems(
 // ALERT CRUD OPERATIONS
 // ─────────────────────────────────────────────────────────────
 
-import type { JMAlert, JMAlertInput, JMAlertUpdate } from "./content-types";
+import type { JMAlert, JMAlertInput, JMAlertUpdate, JMBrand, JMBrandInput, JMBrandUpdate } from "./content-types";
 
 /**
  * Create a new alert (starts as draft/unpublished)
@@ -983,4 +983,191 @@ export async function deleteAlert(id: string): Promise<void> {
   
   const docRef = doc(db, "alerts", id);
   await deleteDoc(docRef);
+}
+
+// ─────────────────────────────────────────────────────────────
+// BRAND CRUD OPERATIONS
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Create a new brand
+ */
+export async function createBrand(
+  input: JMBrandInput,
+  creatorId: string
+): Promise<JMBrand> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, collection, addDoc, serverTimestamp } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const brandData = {
+    ...input,
+    creatorId,
+    isPublished: input.isPublished ?? false,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+  
+  const docRef = await addDoc(collection(db, "brands"), brandData);
+  
+  return {
+    id: docRef.id,
+    ...brandData,
+    createdAt: brandData.createdAt as unknown as import("firebase/firestore").Timestamp,
+    updatedAt: brandData.updatedAt as unknown as import("firebase/firestore").Timestamp,
+  } as JMBrand;
+}
+
+/**
+ * Get a single brand by ID
+ */
+export async function getBrand(brandId: string): Promise<JMBrand | null> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, getDoc } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const docSnap = await getDoc(doc(db, "brands", brandId));
+  
+  if (!docSnap.exists()) {
+    return null;
+  }
+  
+  return { id: docSnap.id, ...docSnap.data() } as JMBrand;
+}
+
+/**
+ * Get all brands (for admin dropdown)
+ */
+export async function getAllBrands(publishedOnly: boolean = false): Promise<JMBrand[]> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, collection, query, where, orderBy, getDocs } = await import("firebase/firestore");
+  const { getAuth } = await import("firebase/auth");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  // Force token refresh if fetching all (including drafts)
+  if (!publishedOnly) {
+    const auth = getAuth(app);
+    if (auth.currentUser) {
+      await auth.currentUser.getIdToken(true);
+    }
+  }
+  
+  const constraints: Parameters<typeof query>[1][] = [
+    orderBy("name", "asc"),
+  ];
+  
+  if (publishedOnly) {
+    constraints.unshift(where("isPublished", "==", true));
+  }
+  
+  const q = query(collection(db, "brands"), ...constraints);
+  const snapshot = await getDocs(q);
+  
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as JMBrand[];
+}
+
+/**
+ * Update a brand
+ */
+export async function updateBrand(
+  brandId: string,
+  updates: JMBrandUpdate
+): Promise<void> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, updateDoc, serverTimestamp } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  await updateDoc(doc(db, "brands", brandId), {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Delete a brand
+ * Note: This doesn't delete associated content, just removes the brand
+ */
+export async function deleteBrand(brandId: string): Promise<void> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, deleteDoc } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  await deleteDoc(doc(db, "brands", brandId));
+}
+
+/**
+ * Upload a brand logo to Firebase Storage
+ * Returns a permanent public URL
+ */
+export async function uploadBrandLogo(
+  file: File,
+  brandId: string
+): Promise<string> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getStorage, ref, uploadBytes } = await import("firebase/storage");
+  
+  const { app } = await initializeFirebase();
+  const storage = getStorage(app);
+  
+  const ext = file.type.split("/")[1] || "png";
+  const storagePath = `brand-logos/${brandId}/logo.${ext}`;
+  const storageRef = ref(storage, storagePath);
+  
+  await uploadBytes(storageRef, file, {
+    contentType: file.type,
+    cacheControl: "public, max-age=31536000",
+  });
+  
+  const bucket = storage.app.options.storageBucket;
+  if (!bucket) {
+    throw new Error("Storage bucket not configured");
+  }
+  
+  const baseUrl = getPublicStorageUrl(bucket, storagePath);
+  return `${baseUrl}&t=${Date.now()}`;
+}
+
+/**
+ * Get all content for a specific brand
+ */
+export async function getContentByBrand(
+  brandId: string,
+  publishedOnly: boolean = true
+): Promise<JMContent[]> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, collection, query, where, orderBy, getDocs } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const constraints: Parameters<typeof query>[1][] = [
+    where("brandId", "==", brandId),
+    where("parentId", "==", null), // Only top-level content
+    orderBy("order", "asc"),
+  ];
+  
+  if (publishedOnly) {
+    constraints.unshift(where("isPublished", "==", true));
+  }
+  
+  const q = query(collection(db, "content"), ...constraints);
+  const snapshot = await getDocs(q);
+  
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as JMContent[];
 }

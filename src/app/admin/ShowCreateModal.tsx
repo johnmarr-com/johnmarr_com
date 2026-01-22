@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { X, Film, Tv, ArrowRight, ArrowLeft, Check, Loader2 } from "lucide-react";
 import { useJMStyle } from "@/JMStyle";
 import { JMImageUpload } from "@/JMKit";
 import { useAuth } from "@/lib/AuthProvider";
-import { createContent, uploadContentImage } from "@/lib/content";
-import type { JMContentLevel, JMReleaseDay } from "@/lib/content-types";
+import { createContent, uploadContentImage, getAllBrands } from "@/lib/content";
+import type { JMContentLevel, JMReleaseDay, JMBrand } from "@/lib/content-types";
 import { JMReleaseDayLabels } from "@/lib/content-types";
 
 interface ShowCreateModalProps {
@@ -38,9 +38,18 @@ export function ShowCreateModal({ onClose, onCreated }: ShowCreateModalProps) {
   const [coverURL, setCoverURL] = useState("");      // Cover (16:9)
   const [backdropURL, setBackdropURL] = useState(""); // Feature/Banner (16:9)
   const [releaseDay, setReleaseDay] = useState<JMReleaseDay | "">("");  // Optional release day
+  const [brandId, setBrandId] = useState<string>("");  // Optional brand association
+  
+  // Brands list for dropdown
+  const [brands, setBrands] = useState<JMBrand[]>([]);
   
   // Temp ID for image uploads (before content is created)
   const tempIdRef = useRef(`new-${Date.now()}`);
+  
+  // Fetch brands on mount
+  useEffect(() => {
+    getAllBrands(true).then(setBrands).catch(console.error);
+  }, []);
   
   // UI state
   const [isCreating, setIsCreating] = useState(false);
@@ -82,6 +91,7 @@ export function ShowCreateModal({ onClose, onCreated }: ShowCreateModalProps) {
       };
       if (backdropURL.trim()) input.backdropURL = backdropURL.trim();
       if (releaseDay) input.releaseDay = releaseDay;
+      if (brandId) input.brandId = brandId;
       
       await createContent(input, user.uid);
       
@@ -270,6 +280,37 @@ export function ShowCreateModal({ onClose, onCreated }: ShowCreateModalProps) {
                   }}
                 />
               </div>
+
+              {/* Brand - optional */}
+              {brands.length > 0 && (
+                <div>
+                  <label 
+                    className="block text-sm font-medium mb-2"
+                    style={{ color: theme.text.secondary }}
+                  >
+                    Brand <span style={{ color: theme.text.tertiary }}>(optional)</span>
+                  </label>
+                  <select
+                    value={brandId}
+                    onChange={(e) => setBrandId(e.target.value)}
+                    className="w-full px-4 py-3 rounded-lg border text-sm focus:outline-none focus:ring-2"
+                    style={{
+                      backgroundColor: "rgba(0, 0, 0, 0.4)",
+                      borderColor: "rgba(255, 255, 255, 0.2)",
+                      color: brandId ? theme.text.primary : theme.text.tertiary,
+                      // @ts-expect-error CSS custom property
+                      "--tw-ring-color": theme.accents.goldenGlow,
+                    }}
+                  >
+                    <option value="">No brand</option>
+                    {brands.map((brand) => (
+                      <option key={brand.id} value={brand.id}>
+                        {brand.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Release Day - only for series */}
               {contentLevel === "series" && (

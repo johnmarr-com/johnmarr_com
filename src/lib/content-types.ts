@@ -135,6 +135,7 @@ export interface JMContent {
   name: string;
   description: string;
   creatorId: string;              // User UID of creator
+  brandId?: string;               // Optional: associate with a brand
   createdAt: Timestamp;
   updatedAt: Timestamp;
   
@@ -171,6 +172,7 @@ export interface JMContentInput {
   description: string;
   coverURL: string;
   backdropURL?: string;
+  brandId?: string;
   parentId?: string | null;
   order?: number;
   seasonNumber?: number;
@@ -304,6 +306,41 @@ export const isValidChildLevel = (
 ): boolean => {
   return getValidChildLevels(parentLevel).includes(childLevel);
 };
+
+// ─────────────────────────────────────────────────────────────
+// BRAND TYPES
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Brand - top-level container for grouping related content
+ * Multiple series, games, stories can belong to one brand
+ * Stored in Firestore: /brands/{brandId}
+ */
+export interface JMBrand {
+  id: string;
+  name: string;
+  description: string;
+  logoURL: string;                // 1:1 square logo
+  creatorId: string;              // User UID of creator
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  isPublished: boolean;           // Draft vs live
+}
+
+/**
+ * Input for creating a new brand
+ */
+export interface JMBrandInput {
+  name: string;
+  description: string;
+  logoURL: string;
+  isPublished?: boolean;
+}
+
+/**
+ * Input for updating a brand
+ */
+export type JMBrandUpdate = Partial<Omit<JMBrand, "id" | "creatorId" | "createdAt">>;
 
 // ─────────────────────────────────────────────────────────────
 // ALERT TYPES
