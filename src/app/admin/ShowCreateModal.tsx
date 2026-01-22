@@ -46,9 +46,9 @@ export function ShowCreateModal({ onClose, onCreated }: ShowCreateModalProps) {
   // Temp ID for image uploads (before content is created)
   const tempIdRef = useRef(`new-${Date.now()}`);
   
-  // Fetch brands on mount
+  // Fetch brands on mount (include drafts for admin)
   useEffect(() => {
-    getAllBrands(true).then(setBrands).catch(console.error);
+    getAllBrands(false).then(setBrands).catch(console.error);
   }, []);
   
   // UI state

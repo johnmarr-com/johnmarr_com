@@ -164,7 +164,7 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
 
   useEffect(() => {
     fetchShow();
-    getAllBrands(true).then(setBrands).catch(console.error);
+    getAllBrands(false).then(setBrands).catch(console.error); // Include drafts for admin
   }, [fetchShow]);
 
   // Check for unsaved changes
