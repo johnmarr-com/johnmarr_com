@@ -7,16 +7,8 @@ import { useRouter } from "next/navigation";
 import { JMAppHeader, JMWelcomeAvatarModal, JMFeaturedCarousel, JMContentScroller } from "@/JMKit";
 import type { FeaturedItem, ContentItem } from "@/JMKit";
 import { useJMStyle } from "@/JMStyle";
-import { getFeaturedContent, getTopLevelContent, getPublishedAlert } from "@/lib/content";
-import type { JMContentType, JMAlert } from "@/lib/content-types";
-
-// Define content row configuration
-const CONTENT_ROWS: { type: JMContentType; title: string }[] = [
-  { type: "show", title: "Shows" },
-  { type: "game", title: "Games" },
-  { type: "story", title: "Stories" },
-  { type: "card", title: "Cards" },
-];
+import { getFeaturedContent, getPublishedAlert, getExperiencesWithContent } from "@/lib/content";
+import type { JMAlert, JMExperienceWithContent } from "@/lib/content-types";
 
 export default function Home() {
   const { user, isLoading } = useAuth();
@@ -28,13 +20,8 @@ export default function Home() {
   const [isFeaturedLoading, setIsFeaturedLoading] = useState(true);
   const [activeAlert, setActiveAlert] = useState<JMAlert | null>(null);
   
-  // Content rows state - keyed by content type
-  const [contentRows, setContentRows] = useState<Record<JMContentType, ContentItem[]>>({
-    show: [],
-    game: [],
-    story: [],
-    card: [],
-  });
+  // Content rows state - now using experiences
+  const [experienceRows, setExperienceRows] = useState<JMExperienceWithContent[]>([]);
   const [isContentLoading, setIsContentLoading] = useState(true);
 
   // Load featured content and alert
@@ -63,36 +50,12 @@ export default function Home() {
     loadAlert();
   }, []);
 
-  // Load content rows
+  // Load content rows (from experiences)
   useEffect(() => {
     const loadContentRows = async () => {
       try {
-        // Load all content types in parallel
-        const results = await Promise.all(
-          CONTENT_ROWS.map(async ({ type }) => {
-            const content = await getTopLevelContent(type, true);
-            const items: ContentItem[] = content.map(c => ({
-              id: c.id,
-              name: c.name,
-              coverURL: c.coverURL,
-              contentType: c.contentType,
-            }));
-            return { type, items };
-          })
-        );
-
-        // Build the content rows object
-        const rows: Record<JMContentType, ContentItem[]> = {
-          show: [],
-          game: [],
-          story: [],
-          card: [],
-        };
-        results.forEach(({ type, items }) => {
-          rows[type] = items;
-        });
-        
-        setContentRows(rows);
+        const experiences = await getExperiencesWithContent(true); // Only published
+        setExperienceRows(experiences);
       } catch (error) {
         console.error("Failed to load content:", error);
       } finally {
@@ -147,7 +110,7 @@ export default function Home() {
   };
 
   // Check if there's any content at all
-  const hasAnyContent = Object.values(contentRows).some(items => items.length > 0);
+  const hasAnyContent = experienceRows.some(exp => exp.content.length > 0);
 
   return (
     <div 
@@ -208,17 +171,23 @@ export default function Home() {
           ) : null}
         </section>
 
-        {/* Content Rows */}
-        {!isContentLoading && (
+        {/* Content Rows (from Experiences) */}
+        {!isContentLoading && experienceRows.length > 0 && (
           <section className="mt-4 sm:mt-6 space-y-6 sm:space-y-8">
-            {CONTENT_ROWS.map(({ type, title }) => {
-              const items = contentRows[type];
-              if (items.length === 0) return null;
+            {experienceRows.map((experience) => {
+              if (experience.content.length === 0) return null;
+              
+              const items: ContentItem[] = experience.content.map(c => ({
+                id: c.id,
+                name: c.name,
+                coverURL: c.coverURL,
+                contentType: c.contentType,
+              }));
               
               return (
                 <JMContentScroller
-                  key={type}
-                  title={title}
+                  key={experience.id}
+                  title={experience.title}
                   items={items}
                   onItemClick={handleContentClick}
                 />

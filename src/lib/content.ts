@@ -452,15 +452,22 @@ export async function getExperienceWithContent(
     return null;
   }
   
-  // Fetch all content items
-  const content = await Promise.all(
-    experience.contentIds.map((id) => getContent(id))
-  );
+  let resolvedContent: JMContent[];
   
-  // Filter out nulls and unpublished content
-  const resolvedContent = content.filter(
-    (c): c is JMContent => c !== null && (!publishedOnly || c.isPublished)
-  );
+  // If autoPopulate is enabled and contentType is set, fetch all content of that type
+  if (experience.autoPopulate && experience.contentType) {
+    resolvedContent = await getTopLevelContent(experience.contentType, publishedOnly);
+  } else {
+    // Otherwise use the curated contentIds list
+    const content = await Promise.all(
+      experience.contentIds.map((id) => getContent(id))
+    );
+    
+    // Filter out nulls and unpublished content
+    resolvedContent = content.filter(
+      (c): c is JMContent => c !== null && (!publishedOnly || c.isPublished)
+    );
+  }
   
   return {
     ...experience,

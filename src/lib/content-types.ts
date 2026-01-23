@@ -208,8 +208,8 @@ export interface JMExperience {
   
   // ─── Content Configuration ────────────────────────────────
   contentType?: JMContentType;    // Optional: filter row to one type
-  contentIds: string[];           // Ordered array of JMContent IDs
-                                  // Should only reference series/standalone content
+  contentIds: string[];           // Ordered array of JMContent IDs (for curated rows)
+  autoPopulate?: boolean;         // If true, auto-populate from contentType instead of using contentIds
   
   // ─── Display ──────────────────────────────────────────────
   order: number;                  // Position on homepage (lower = higher)
@@ -224,6 +224,7 @@ export interface JMExperienceInput {
   description?: string;
   contentType?: JMContentType;
   contentIds?: string[];
+  autoPopulate?: boolean;
   order?: number;
   isPublished?: boolean;
 }
