@@ -187,10 +187,8 @@ export default function ShowDetailPage() {
       playerRef.current = null;
     }
     
-    // Get video orientation - for standalone, use show's orientation; for episodes, default to landscape
-    const videoOrientation: JMVideoOrientation = isStandalone 
-      ? (show?.videoOrientation || "landscape")
-      : "landscape";
+    // Get video orientation from the show (applies to both standalone and all episodes in a series)
+    const videoOrientation: JMVideoOrientation = show?.videoOrientation || "landscape";
     
     // Calculate dimensions based on orientation
     const { width: playerWidth, height: playerHeight } = calculatePlayerDimensions(videoOrientation);
@@ -219,7 +217,7 @@ export default function ShowDetailPage() {
         playerRef.current = null;
       }
     };
-  }, [playingEpisode, isStandalone, show?.videoOrientation]);
+  }, [playingEpisode, show?.videoOrientation]);
 
   // Episode scroll navigation
   const scrollEpisodes = useCallback((direction: "left" | "right") => {

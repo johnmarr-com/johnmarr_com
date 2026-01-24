@@ -83,7 +83,7 @@ export function ShowCreateModal({ onClose, onCreated }: ShowCreateModalProps) {
       };
       if (backdropURL.trim()) input.backdropURL = backdropURL.trim();
       if (releaseDay) input.releaseDay = releaseDay;
-      if (contentLevel === "standalone") input.videoOrientation = videoOrientation;
+      input.videoOrientation = videoOrientation;
       
       await createContent(input, user.uid);
       
@@ -304,35 +304,33 @@ export function ShowCreateModal({ onClose, onCreated }: ShowCreateModalProps) {
                 </div>
               )}
 
-              {/* Video Orientation - for movies/specials */}
-              {contentLevel === "standalone" && (
-                <div>
-                  <label 
-                    className="block text-sm font-medium mb-2"
-                    style={{ color: theme.text.secondary }}
-                  >
-                    Video Orientation
-                  </label>
-                  <select
-                    value={videoOrientation}
-                    onChange={(e) => setVideoOrientation(e.target.value as JMVideoOrientation)}
-                    className="w-full px-4 py-3 rounded-lg border text-sm focus:outline-none focus:ring-2"
-                    style={{
-                      backgroundColor: "rgba(0, 0, 0, 0.4)",
-                      borderColor: "rgba(255, 255, 255, 0.2)",
-                      color: theme.text.primary,
-                      // @ts-expect-error CSS custom property
-                      "--tw-ring-color": theme.accents.goldenGlow,
-                    }}
-                  >
-                    {(Object.keys(JMVideoOrientationLabels) as JMVideoOrientation[]).map((orient) => (
-                      <option key={orient} value={orient}>
-                        {JMVideoOrientationLabels[orient]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              {/* Video Orientation - for all shows */}
+              <div>
+                <label 
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: theme.text.secondary }}
+                >
+                  Video Orientation {contentLevel === "series" && <span style={{ color: theme.text.tertiary }}>(for all episodes)</span>}
+                </label>
+                <select
+                  value={videoOrientation}
+                  onChange={(e) => setVideoOrientation(e.target.value as JMVideoOrientation)}
+                  className="w-full px-4 py-3 rounded-lg border text-sm focus:outline-none focus:ring-2"
+                  style={{
+                    backgroundColor: "rgba(0, 0, 0, 0.4)",
+                    borderColor: "rgba(255, 255, 255, 0.2)",
+                    color: theme.text.primary,
+                    // @ts-expect-error CSS custom property
+                    "--tw-ring-color": theme.accents.goldenGlow,
+                  }}
+                >
+                  {(Object.keys(JMVideoOrientationLabels) as JMVideoOrientation[]).map((orient) => (
+                    <option key={orient} value={orient}>
+                      {JMVideoOrientationLabels[orient]}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               {/* Cover & Banner Images */}
               <div className="flex flex-col gap-4">
