@@ -29,6 +29,20 @@ export type JMContentType = "show" | "story" | "card" | "game";
 export type JMReleaseDay = "sunday" | "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday";
 
 /**
+ * Video orientation for playback sizing
+ */
+export type JMVideoOrientation = "landscape" | "portrait" | "square";
+
+/**
+ * Video orientation display labels
+ */
+export const JMVideoOrientationLabels: Record<JMVideoOrientation, string> = {
+  landscape: "Landscape (16:9)",
+  portrait: "Portrait (9:16)",
+  square: "Square (1:1)",
+};
+
+/**
  * Release day display labels
  */
 export const JMReleaseDayLabels: Record<JMReleaseDay, string> = {
@@ -152,6 +166,7 @@ export interface JMContent {
   // ─── Playback (for episodes/standalones) ──────────────────
   mediaURL?: string;              // Firebase Storage URL to actual content
   duration?: number;              // Seconds (for video/audio)
+  videoOrientation?: JMVideoOrientation; // landscape, portrait, or square
   
   // ─── Discovery ────────────────────────────────────────────
   tags?: string[];                // ["comedy", "animated", "family"]
@@ -179,6 +194,7 @@ export interface JMContentInput {
   episodeNumber?: number;
   mediaURL?: string;
   duration?: number;
+  videoOrientation?: JMVideoOrientation;
   tags?: string[];
   releaseDate?: Timestamp;
   releaseDay?: JMReleaseDay;

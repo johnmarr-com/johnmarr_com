@@ -22,8 +22,9 @@ import type {
   JMContentWithChildren,
   JMReleaseDay,
   JMBrand,
+  JMVideoOrientation,
 } from "@/lib/content-types";
-import { JMReleaseDayLabels } from "@/lib/content-types";
+import { JMReleaseDayLabels, JMVideoOrientationLabels } from "@/lib/content-types";
 
 interface ShowDetailModalProps {
   showId: string;
@@ -45,6 +46,7 @@ interface EditState {
   isPublished: boolean;
   releaseDay: JMReleaseDay | "";
   brandId: string;
+  videoOrientation: JMVideoOrientation;
 }
 
 /**
@@ -150,6 +152,7 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
           isPublished: data.isPublished,
           releaseDay: data.releaseDay || "",
           brandId: data.brandId || "",
+          videoOrientation: data.videoOrientation || "landscape",
         };
         setEditState(state);
         setOriginalState(state);
@@ -188,6 +191,7 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
       if (editState.mediaURL) updates["mediaURL"] = editState.mediaURL;
       if (editState.duration) updates["duration"] = editState.duration;
       if (editState.releaseDay) updates["releaseDay"] = editState.releaseDay;
+      if (editState.videoOrientation) updates["videoOrientation"] = editState.videoOrientation;
       // brandId can be empty string to remove brand association
       updates["brandId"] = editState.brandId || null;
       
@@ -691,7 +695,7 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
                     />
                   </div>
 
-                  {/* Media URL (for movies) */}
+                  {/* Media URL and Video Orientation (for movies) */}
                   {isMovie && (
                     <>
                       <Field
@@ -702,6 +706,35 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
                         type="url"
                         placeholder="https://..."
                       />
+                      
+                      {/* Video Orientation */}
+                      <div>
+                        <label 
+                          className="block text-sm font-medium mb-1.5"
+                          style={{ color: theme.text.secondary }}
+                        >
+                          Video Orientation
+                        </label>
+                        <select
+                          value={editState.videoOrientation}
+                          onChange={(e) => setEditState({ ...editState, videoOrientation: e.target.value as JMVideoOrientation })}
+                          className="w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-1"
+                          style={{
+                            backgroundColor: "rgba(0, 0, 0, 0.4)",
+                            borderColor: "rgba(255, 255, 255, 0.2)",
+                            color: theme.text.primary,
+                            // @ts-expect-error CSS custom property
+                            "--tw-ring-color": theme.accents.goldenGlow,
+                          }}
+                        >
+                          {(Object.keys(JMVideoOrientationLabels) as JMVideoOrientation[]).map((orient) => (
+                            <option key={orient} value={orient}>
+                              {JMVideoOrientationLabels[orient]}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
                       <Field
                         label="Duration (seconds)"
                         value={String(editState.duration || "")}

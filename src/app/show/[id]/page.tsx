@@ -6,7 +6,7 @@ import { JMAppHeader } from "@/JMKit";
 import { useJMStyle } from "@/JMStyle";
 import { useAuth } from "@/lib/AuthProvider";
 import { getContentWithChildren } from "@/lib/content";
-import type { JMContentWithChildren } from "@/lib/content-types";
+import type { JMContentWithChildren, JMVideoOrientation } from "@/lib/content-types";
 import { JMReleaseDayLabels } from "@/lib/content-types";
 import Image from "next/image";
 import Player from "@vimeo/player";
@@ -134,6 +134,46 @@ export default function ShowDetailPage() {
     return `https://vumbnail.com/${vimeoId}.jpg`;
   };
 
+  // Calculate player dimensions based on video orientation
+  const calculatePlayerDimensions = (orientation: JMVideoOrientation = "landscape") => {
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    let playerWidth: number;
+    let playerHeight: number;
+    
+    if (orientation === "portrait") {
+      // Portrait (9:16): Prefer fitting to height, auto width
+      const aspectRatio = 9 / 16;
+      playerHeight = viewportHeight * 0.95;
+      playerWidth = playerHeight * aspectRatio;
+      
+      // If too wide, constrain by width instead
+      if (playerWidth > viewportWidth * 0.95) {
+        playerWidth = viewportWidth * 0.95;
+        playerHeight = playerWidth / aspectRatio;
+      }
+    } else if (orientation === "square") {
+      // Square (1:1): 80% of the smaller dimension
+      const smallerDimension = Math.min(viewportWidth, viewportHeight);
+      playerWidth = smallerDimension * 0.8;
+      playerHeight = smallerDimension * 0.8;
+    } else {
+      // Landscape (16:9): Prefer fitting to width, auto height
+      const aspectRatio = 16 / 9;
+      playerWidth = viewportWidth * 0.95;
+      playerHeight = playerWidth / aspectRatio;
+      
+      // If too tall, constrain by height instead
+      if (playerHeight > viewportHeight * 0.95) {
+        playerHeight = viewportHeight * 0.95;
+        playerWidth = playerHeight * aspectRatio;
+      }
+    }
+    
+    return { width: playerWidth, height: playerHeight };
+  };
+
   // Initialize Vimeo player when episode is selected
   useEffect(() => {
     if (!playingEpisode || !playerContainerRef.current) return;
@@ -147,13 +187,13 @@ export default function ShowDetailPage() {
       playerRef.current = null;
     }
     
-    // Calculate dimensions - fill viewport height, center horizontally
-    const viewportHeight = window.innerHeight;
-    const aspectRatio = 16 / 9;
+    // Get video orientation - for standalone, use show's orientation; for episodes, default to landscape
+    const videoOrientation: JMVideoOrientation = isStandalone 
+      ? (show?.videoOrientation || "landscape")
+      : "landscape";
     
-    // Height fills the viewport, width calculated from aspect ratio
-    const playerHeight = viewportHeight;
-    const playerWidth = viewportHeight * aspectRatio;
+    // Calculate dimensions based on orientation
+    const { width: playerWidth, height: playerHeight } = calculatePlayerDimensions(videoOrientation);
     
     // Create new player with SDK - no autoplay for iOS compatibility
     const player = new Player(playerContainerRef.current, {
@@ -179,7 +219,7 @@ export default function ShowDetailPage() {
         playerRef.current = null;
       }
     };
-  }, [playingEpisode]);
+  }, [playingEpisode, isStandalone, show?.videoOrientation]);
 
   // Episode scroll navigation
   const scrollEpisodes = useCallback((direction: "left" | "right") => {
