@@ -103,7 +103,10 @@ export default function ShowDetailPage() {
     loadShow();
   }, [showId]);
 
-  // Get seasons (children of the show)
+  // Check if this is a standalone video (movie/special) vs series
+  const isStandalone = show?.contentLevel === "standalone";
+  
+  // Get seasons (children of the show) - only for series
   const seasons = show?.children || [];
   const selectedSeason = seasons[selectedSeasonIndex];
   const episodes = selectedSeason?.children || [];
@@ -291,78 +294,104 @@ export default function ShowDetailPage() {
 
       {/* Content Section */}
       <div className="px-4 sm:px-6 lg:px-8 py-6">
-        {/* Season Selector */}
-        {seasons.length > 0 && (
-          <div className="mb-6">
-            <div className="relative inline-block">
-              <button
-                onClick={() => hasMultipleSeasons && setIsSeasonDropdownOpen(!isSeasonDropdownOpen)}
-                disabled={!hasMultipleSeasons}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                style={{
-                  backgroundColor: theme.surfaces.elevated1,
-                  color: hasMultipleSeasons ? theme.text.primary : theme.text.tertiary,
-                  cursor: hasMultipleSeasons ? "pointer" : "default",
-                  opacity: hasMultipleSeasons ? 1 : 0.6,
-                }}
-              >
-                {selectedSeason?.name || `Season ${selectedSeasonIndex + 1}`}
-                {hasMultipleSeasons && (
-                  <ChevronDown 
-                    className={`h-4 w-4 transition-transform ${isSeasonDropdownOpen ? "rotate-180" : ""}`} 
-                  />
-                )}
-              </button>
-              
-              {/* Dropdown */}
-              {isSeasonDropdownOpen && hasMultipleSeasons && (
-                <div 
-                  className="absolute top-full left-0 mt-1 min-w-[150px] rounded-lg overflow-hidden shadow-xl z-20"
-                  style={{ backgroundColor: theme.surfaces.elevated1 }}
-                >
-                  {seasons.map((season, index) => (
-                    <button
-                      key={season.id}
-                      onClick={() => {
-                        setSelectedSeasonIndex(index);
-                        setIsSeasonDropdownOpen(false);
-                      }}
-                      className="w-full px-4 py-2 text-left text-sm hover:bg-white/10 transition-colors"
-                      style={{
-                        color: index === selectedSeasonIndex 
-                          ? theme.accents.goldenGlow 
-                          : theme.text.primary,
-                      }}
-                    >
-                      {season.name || `Season ${index + 1}`}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            
-            {/* Episode count */}
-            <span 
-              className="ml-3 text-sm"
-              style={{ color: theme.text.tertiary }}
+        {/* Standalone Video - Show centered play button */}
+        {isStandalone ? (
+          <div className="flex flex-col items-center py-8">
+            <button
+              onClick={() => show && setPlayingEpisode(show)}
+              className="group flex items-center justify-center w-24 h-24 rounded-full transition-all duration-300 hover:scale-110"
+              style={{ 
+                backgroundColor: theme.accents.goldenGlow,
+                boxShadow: `0 8px 32px ${theme.accents.goldenGlow}40`,
+              }}
             >
-              {episodes.length} episode{episodes.length !== 1 ? "s" : ""}
-            </span>
-            
-            {/* Release day - show if series has one set */}
-            {show.releaseDay && (
-              <span 
-                className="ml-3 text-sm"
-                style={{ color: theme.text.tertiary }}
-              >
-                 &nbsp;&nbsp;&nbsp;   New Episodes {JMReleaseDayLabels[show.releaseDay]}
-              </span>
-            )}
+              <Play 
+                className="h-12 w-12 transition-transform group-hover:scale-110" 
+                style={{ color: theme.surfaces.base, marginLeft: 4 }} 
+                fill="currentColor"
+              />
+            </button>
+            <p 
+              className="mt-4 text-sm font-medium"
+              style={{ color: theme.text.secondary }}
+            >
+              Play Video
+            </p>
           </div>
-        )}
+        ) : (
+          <>
+            {/* Season Selector - Series only */}
+            {seasons.length > 0 && (
+              <div className="mb-6">
+                <div className="relative inline-block">
+                  <button
+                    onClick={() => hasMultipleSeasons && setIsSeasonDropdownOpen(!isSeasonDropdownOpen)}
+                    disabled={!hasMultipleSeasons}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                    style={{
+                      backgroundColor: theme.surfaces.elevated1,
+                      color: hasMultipleSeasons ? theme.text.primary : theme.text.tertiary,
+                      cursor: hasMultipleSeasons ? "pointer" : "default",
+                      opacity: hasMultipleSeasons ? 1 : 0.6,
+                    }}
+                  >
+                    {selectedSeason?.name || `Season ${selectedSeasonIndex + 1}`}
+                    {hasMultipleSeasons && (
+                      <ChevronDown 
+                        className={`h-4 w-4 transition-transform ${isSeasonDropdownOpen ? "rotate-180" : ""}`} 
+                      />
+                    )}
+                  </button>
+                  
+                  {/* Dropdown */}
+                  {isSeasonDropdownOpen && hasMultipleSeasons && (
+                    <div 
+                      className="absolute top-full left-0 mt-1 min-w-[150px] rounded-lg overflow-hidden shadow-xl z-20"
+                      style={{ backgroundColor: theme.surfaces.elevated1 }}
+                    >
+                      {seasons.map((season, index) => (
+                        <button
+                          key={season.id}
+                          onClick={() => {
+                            setSelectedSeasonIndex(index);
+                            setIsSeasonDropdownOpen(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-white/10 transition-colors"
+                          style={{
+                            color: index === selectedSeasonIndex 
+                              ? theme.accents.goldenGlow 
+                              : theme.text.primary,
+                          }}
+                        >
+                          {season.name || `Season ${index + 1}`}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Episode count */}
+                <span 
+                  className="ml-3 text-sm"
+                  style={{ color: theme.text.tertiary }}
+                >
+                  {episodes.length} episode{episodes.length !== 1 ? "s" : ""}
+                </span>
+                
+                {/* Release day - show if series has one set */}
+                {show.releaseDay && (
+                  <span 
+                    className="ml-3 text-sm"
+                    style={{ color: theme.text.tertiary }}
+                  >
+                     &nbsp;&nbsp;&nbsp;   New Episodes {JMReleaseDayLabels[show.releaseDay]}
+                  </span>
+                )}
+              </div>
+            )}
 
-        {/* Episodes Row */}
-        {episodes.length > 0 ? (
+            {/* Episodes Row */}
+            {episodes.length > 0 ? (
           <div className="relative group">
             {/* Left arrow */}
             <button
@@ -531,13 +560,15 @@ export default function ShowDetailPage() {
               </div>
             </button>
           </div>
-        ) : (
-          <div 
-            className="text-center py-12"
-            style={{ color: theme.text.tertiary }}
-          >
-            No episodes available
-          </div>
+            ) : (
+              <div 
+                className="text-center py-12"
+                style={{ color: theme.text.tertiary }}
+              >
+                No episodes available
+              </div>
+            )}
+          </>
         )}
       </div>
 
