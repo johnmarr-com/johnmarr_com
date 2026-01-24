@@ -518,7 +518,7 @@ export default function ShowDetailPage() {
                     )}
                     
                     {/* Episode card wrapper - for positioning */}
-                    <div className={`relative w-64 sm:w-72 md:w-80 aspect-2/1 transition-transform duration-200 ${!isLocked ? "group-hover/episode:scale-105" : ""}`}>
+                    <div className="relative w-64 sm:w-72 md:w-80 aspect-2/1">
                       {/* Card content - gets grayscale/opacity when locked */}
                       <div 
                         className="absolute inset-0 rounded-lg overflow-hidden"
@@ -534,11 +534,11 @@ export default function ShowDetailPage() {
                             src={thumbnail}
                             alt={episode.name}
                             fill
-                            className="object-cover"
+                            className={`object-cover transition-transform duration-300 ${!isLocked ? "group-hover/episode:scale-110" : ""}`}
                           />
                         ) : (
                           <div 
-                            className="w-full h-full flex items-center justify-center"
+                            className={`w-full h-full flex items-center justify-center transition-transform duration-300 ${!isLocked ? "group-hover/episode:scale-110" : ""}`}
                             style={{ color: theme.text.tertiary }}
                           >
                             <Play className="h-12 w-12" />

@@ -109,7 +109,7 @@ export function JMContentScroller({
             <div
               key={item.id}
               onClick={() => onItemClick?.(item)}
-              className="shrink-0 cursor-pointer transition-transform duration-200 hover:scale-105"
+              className="shrink-0 cursor-pointer group/item"
               style={{ scrollSnapAlign: "start" }}
             >
               {/* 2:1 wide cover */}
@@ -125,11 +125,11 @@ export function JMContentScroller({
                     src={item.coverURL}
                     alt={item.name}
                     fill
-                    className="object-cover"
+                    className="object-cover transition-transform duration-300 group-hover/item:scale-110"
                   />
                 ) : (
                   <div 
-                    className="h-full w-full flex items-center justify-center text-2xl font-bold"
+                    className="h-full w-full flex items-center justify-center text-2xl font-bold transition-transform duration-300 group-hover/item:scale-110"
                     style={{ color: theme.text.tertiary }}
                   >
                     {item.name.charAt(0)}
