@@ -162,6 +162,8 @@ function SortableShowItem({ show, onClick }: SortableShowItemProps) {
  * - Drag to reorder shows
  * - Click to manage (seasons/episodes for series)
  */
+type ShowFilter = "all" | "series" | "standalone";
+
 export function AdminShowsPanel() {
   const { theme } = useJMStyle();
   useAuth(); // Ensure user is authenticated
@@ -170,10 +172,19 @@ export function AdminShowsPanel() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
+  const [filter, setFilter] = useState<ShowFilter>("all");
 
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedShowId, setSelectedShowId] = useState<string | null>(null);
+  
+  // Filter shows based on selection
+  const filteredShows = shows.filter((show) => {
+    if (filter === "all") return true;
+    if (filter === "series") return show.contentLevel === "series";
+    if (filter === "standalone") return show.contentLevel === "standalone";
+    return true;
+  });
 
   // DnD sensors
   const sensors = useSensors(
@@ -228,18 +239,29 @@ export function AdminShowsPanel() {
       return;
     }
 
-    const oldIndex = shows.findIndex((show) => show.id === active.id);
-    const newIndex = shows.findIndex((show) => show.id === over.id);
+    // Work with filtered shows for the reorder
+    const oldIndex = filteredShows.findIndex((show) => show.id === active.id);
+    const newIndex = filteredShows.findIndex((show) => show.id === over.id);
+    
+    if (oldIndex === -1 || newIndex === -1) return;
 
-    // Optimistically update the UI
-    const newShows = arrayMove(shows, oldIndex, newIndex);
+    // Reorder the filtered list
+    const newFilteredShows = arrayMove(filteredShows, oldIndex, newIndex);
+    
+    // Build a new full shows list preserving the order of filtered items
+    // Non-filtered items stay in their original position
+    const filteredIds = new Set(filteredShows.map(s => s.id));
+    const nonFilteredShows = shows.filter(s => !filteredIds.has(s.id));
+    const newShows = [...newFilteredShows, ...nonFilteredShows];
+    
+    // Optimistically update UI
     setShows(newShows);
 
-    // Save the new order to the database
+    // Save the new order to the database (only for the filtered items)
     setIsSavingOrder(true);
     try {
       await Promise.all(
-        newShows.map((show, index) =>
+        newFilteredShows.map((show, index) =>
           updateContent(show.id, { order: index })
         )
       );
@@ -262,14 +284,14 @@ export function AdminShowsPanel() {
           borderColor: theme.surfaces.elevated2,
         }}
       >
-        <div className="px-8 py-5 flex items-center justify-between gap-6">
+        <div className="px-8 py-5 flex items-center justify-between gap-4">
           {/* Left: Total count + saving indicator */}
           <div className="flex items-center gap-3">
             <div
               className="text-sm font-medium whitespace-nowrap"
               style={{ color: theme.text.secondary }}
             >
-              Total shows:{" "}
+              Total:{" "}
               <span style={{ color: theme.text.primary }}>
                 {showCount === null ? "..." : showCount}
               </span>
@@ -282,9 +304,29 @@ export function AdminShowsPanel() {
                   color: theme.accents.goldenGlow,
                 }}
               >
-                Saving order...
+                Saving...
               </div>
             )}
+          </div>
+
+          {/* Center: Segment filter */}
+          <div
+            className="flex rounded-lg overflow-hidden border"
+            style={{ borderColor: theme.surfaces.elevated2 }}
+          >
+            {(["all", "series", "standalone"] as ShowFilter[]).map((option) => (
+              <button
+                key={option}
+                onClick={() => setFilter(option)}
+                className="px-3 py-1.5 text-xs font-medium transition-colors"
+                style={{
+                  backgroundColor: filter === option ? theme.accents.goldenGlow : "transparent",
+                  color: filter === option ? theme.surfaces.base : theme.text.secondary,
+                }}
+              >
+                {option === "all" ? "All" : option === "series" ? "Series" : "Specials"}
+              </button>
+            ))}
           </div>
 
           {/* Right: Create button */}
@@ -327,21 +369,25 @@ export function AdminShowsPanel() {
           >
             {error}
           </div>
-        ) : shows.length === 0 ? (
+        ) : filteredShows.length === 0 ? (
           <div className="px-8 py-12 text-center">
             <div
               className="text-sm mb-2"
               style={{ color: theme.text.tertiary }}
             >
-              No shows yet
+              {shows.length === 0
+                ? "No shows yet"
+                : `No ${filter === "series" ? "series" : "specials"} found`}
             </div>
-            <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="text-sm font-medium transition-colors hover:underline"
-              style={{ color: theme.accents.goldenGlow }}
-            >
-              Create your first show →
-            </button>
+            {shows.length === 0 && (
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="text-sm font-medium transition-colors hover:underline"
+                style={{ color: theme.accents.goldenGlow }}
+              >
+                Create your first show →
+              </button>
+            )}
           </div>
         ) : (
           <DndContext
@@ -350,14 +396,14 @@ export function AdminShowsPanel() {
             onDragEnd={handleDragEnd}
           >
             <SortableContext
-              items={shows.map((s) => s.id)}
+              items={filteredShows.map((s) => s.id)}
               strategy={verticalListSortingStrategy}
             >
               <div
                 className="divide-y"
                 style={{ borderColor: theme.surfaces.elevated2 }}
               >
-                {shows.map((show) => (
+                {filteredShows.map((show) => (
                   <SortableShowItem
                     key={show.id}
                     show={show}
@@ -371,12 +417,12 @@ export function AdminShowsPanel() {
       </div>
 
       {/* Drag hint */}
-      {shows.length > 1 && !isLoading && (
+      {filteredShows.length > 1 && !isLoading && (
         <div
           className="text-center text-xs"
           style={{ color: theme.text.tertiary }}
         >
-          Drag the grip handle to reorder shows
+          Drag to reorder {filter === "all" ? "shows" : filter === "series" ? "series" : "specials"}
         </div>
       )}
 

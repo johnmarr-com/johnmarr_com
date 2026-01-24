@@ -44,6 +44,67 @@ import {
 import type { JMExperience, JMContent, JMContentType } from "@/lib/content-types";
 import { JMContentTypeLabels } from "@/lib/content-types";
 
+// Sortable content item for curated row editor
+interface SortableContentItemProps {
+  content: JMContent;
+  onRemove: () => void;
+}
+
+function SortableContentItem({ content, onRemove }: SortableContentItemProps) {
+  const { theme } = useJMStyle();
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: content.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ ...style, borderColor: theme.surfaces.elevated2 }}
+      className="flex items-center gap-2 p-2 border-b last:border-b-0"
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing touch-none p-1"
+        style={{ color: theme.text.tertiary }}
+      >
+        <GripVertical size={14} />
+      </div>
+      {content.coverURL && (
+        <div className="w-10 h-5 rounded overflow-hidden shrink-0">
+          <Image
+            src={content.coverURL}
+            alt=""
+            width={40}
+            height={20}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
+      <span className="flex-1 truncate text-sm" style={{ color: theme.text.primary }}>
+        {content.name}
+      </span>
+      <button
+        onClick={onRemove}
+        className="p-1 rounded hover:bg-red-500/20 transition-colors"
+      >
+        <Trash2 size={14} style={{ color: "#EF4444" }} />
+      </button>
+    </div>
+  );
+}
+
 interface SortableRowItemProps {
   row: JMExperience;
   onEdit: () => void;
@@ -542,64 +603,105 @@ export function AdminHomeRowsPanel() {
 
               {/* Content picker (only for curated rows) */}
               {!formAutoPopulate && (
-                <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: theme.text.secondary }}>
-                    Select Content
-                  </label>
-                  {isLoadingContent ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin" style={{ color: theme.accents.goldenGlow }} />
-                    </div>
-                  ) : availableContent.length === 0 ? (
-                    <p className="text-sm py-4" style={{ color: theme.text.tertiary }}>
-                      No content available. Create some content first.
-                    </p>
-                  ) : (
-                    <div
-                      className="max-h-60 overflow-y-auto rounded-lg border"
-                      style={{ backgroundColor: theme.surfaces.elevated1, borderColor: theme.surfaces.elevated2 }}
-                    >
-                      {availableContent.map((content) => (
-                        <label
-                          key={content.id}
-                          className="flex items-center gap-3 p-3 cursor-pointer hover:bg-white/5 border-b last:border-b-0"
-                          style={{ borderColor: theme.surfaces.elevated2 }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={formContentIds.includes(content.id)}
-                            onChange={() => toggleContentItem(content.id)}
-                            className="w-4 h-4 rounded"
-                          />
-                          {content.coverURL && (
-                            <div className="w-12 h-6 rounded overflow-hidden shrink-0">
-                              <Image
-                                src={content.coverURL}
-                                alt=""
-                                width={48}
-                                height={24}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                          )}
-                          <span className="flex-1 truncate" style={{ color: theme.text.primary }}>
-                            {content.name}
-                          </span>
-                          <span
-                            className="text-xs px-2 py-0.5 rounded-full"
-                            style={{ backgroundColor: theme.surfaces.elevated2, color: theme.text.tertiary }}
-                          >
-                            {JMContentTypeLabels[content.contentType]}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
+                <div className="space-y-4">
+                  {/* Selected items - draggable */}
                   {formContentIds.length > 0 && (
-                    <p className="text-sm mt-2" style={{ color: theme.text.tertiary }}>
-                      {formContentIds.length} item{formContentIds.length !== 1 ? "s" : ""} selected
-                    </p>
+                    <div>
+                      <label className="block text-sm font-medium mb-2" style={{ color: theme.text.secondary }}>
+                        Selected Content ({formContentIds.length}) - Drag to reorder
+                      </label>
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={(event) => {
+                          const { active, over } = event;
+                          if (over && active.id !== over.id) {
+                            const oldIndex = formContentIds.indexOf(active.id as string);
+                            const newIndex = formContentIds.indexOf(over.id as string);
+                            setFormContentIds(arrayMove(formContentIds, oldIndex, newIndex));
+                          }
+                        }}
+                      >
+                        <SortableContext items={formContentIds} strategy={verticalListSortingStrategy}>
+                          <div
+                            className="rounded-lg border overflow-hidden"
+                            style={{ backgroundColor: theme.surfaces.elevated1, borderColor: theme.surfaces.elevated2 }}
+                          >
+                            {formContentIds.map((contentId) => {
+                              const content = availableContent.find((c) => c.id === contentId);
+                              if (!content) return null;
+                              return (
+                                <SortableContentItem
+                                  key={contentId}
+                                  content={content}
+                                  onRemove={() => toggleContentItem(contentId)}
+                                />
+                              );
+                            })}
+                          </div>
+                        </SortableContext>
+                      </DndContext>
+                    </div>
                   )}
+
+                  {/* Add content */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: theme.text.secondary }}>
+                      {formContentIds.length > 0 ? "Add More Content" : "Select Content"}
+                    </label>
+                    {isLoadingContent ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin" style={{ color: theme.accents.goldenGlow }} />
+                      </div>
+                    ) : availableContent.length === 0 ? (
+                      <p className="text-sm py-4" style={{ color: theme.text.tertiary }}>
+                        No content available. Create some content first.
+                      </p>
+                    ) : (
+                      <div
+                        className="max-h-48 overflow-y-auto rounded-lg border"
+                        style={{ backgroundColor: theme.surfaces.elevated1, borderColor: theme.surfaces.elevated2 }}
+                      >
+                        {availableContent
+                          .filter((c) => !formContentIds.includes(c.id))
+                          .map((content) => (
+                            <button
+                              key={content.id}
+                              onClick={() => toggleContentItem(content.id)}
+                              className="w-full flex items-center gap-3 p-3 hover:bg-white/5 border-b last:border-b-0 text-left"
+                              style={{ borderColor: theme.surfaces.elevated2 }}
+                            >
+                              <Plus size={16} style={{ color: theme.accents.goldenGlow }} />
+                              {content.coverURL && (
+                                <div className="w-12 h-6 rounded overflow-hidden shrink-0">
+                                  <Image
+                                    src={content.coverURL}
+                                    alt=""
+                                    width={48}
+                                    height={24}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                              )}
+                              <span className="flex-1 truncate" style={{ color: theme.text.primary }}>
+                                {content.name}
+                              </span>
+                              <span
+                                className="text-xs px-2 py-0.5 rounded-full"
+                                style={{ backgroundColor: theme.surfaces.elevated2, color: theme.text.tertiary }}
+                              >
+                                {JMContentTypeLabels[content.contentType]}
+                              </span>
+                            </button>
+                          ))}
+                        {availableContent.filter((c) => !formContentIds.includes(c.id)).length === 0 && (
+                          <p className="text-sm p-4 text-center" style={{ color: theme.text.tertiary }}>
+                            All available content has been added
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
