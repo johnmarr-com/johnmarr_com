@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { X, Film, Tv, ArrowRight, ArrowLeft, Check, Loader2 } from "lucide-react";
+import { X, Film, Tv, ArrowRight, ArrowLeft, Check, Loader2, Eye, EyeOff } from "lucide-react";
 import { useJMStyle } from "@/JMStyle";
 import { JMImageUpload } from "@/JMKit";
 import { useAuth } from "@/lib/AuthProvider";
@@ -39,6 +39,9 @@ export function ShowCreateModal({ onClose, onCreated }: ShowCreateModalProps) {
   const [backdropURL, setBackdropURL] = useState(""); // Feature/Banner (16:9)
   const [releaseDay, setReleaseDay] = useState<JMReleaseDay | "">("");  // Optional release day
   const [videoOrientation, setVideoOrientation] = useState<JMVideoOrientation>("landscape"); // Video orientation
+  const [mediaURL, setMediaURL] = useState("");      // Video URL (for movies)
+  const [duration, setDuration] = useState<number>(0); // Duration in seconds (for movies)
+  const [isPublished, setIsPublished] = useState(false); // Draft vs Published
   
   // Temp ID for image uploads (before content is created)
   const tempIdRef = useRef(`new-${Date.now()}`);
@@ -79,11 +82,16 @@ export function ShowCreateModal({ onClose, onCreated }: ShowCreateModalProps) {
         name: name.trim(),
         description: description.trim(),
         coverURL: coverURL.trim() || "",
-        isPublished: false,
+        isPublished,
       };
       if (backdropURL.trim()) input.backdropURL = backdropURL.trim();
       if (releaseDay) input.releaseDay = releaseDay;
       input.videoOrientation = videoOrientation;
+      // Add movie-specific fields
+      if (contentLevel === "standalone") {
+        if (mediaURL.trim()) input.mediaURL = mediaURL.trim();
+        if (duration > 0) input.duration = duration;
+      }
       
       await createContent(input, user.uid);
       
@@ -224,6 +232,32 @@ export function ShowCreateModal({ onClose, onCreated }: ShowCreateModalProps) {
           ) : (
             // Step 2: Details
             <div className="space-y-5">
+              {/* Published toggle */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsPublished(!isPublished)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors"
+                  style={{ 
+                    backgroundColor: isPublished 
+                      ? `${theme.semantic.success}20` 
+                      : theme.surfaces.elevated2,
+                    color: isPublished 
+                      ? theme.semantic.success 
+                      : theme.text.tertiary,
+                  }}
+                >
+                  {isPublished ? <Eye size={14} /> : <EyeOff size={14} />}
+                  {isPublished ? "Published" : "Draft"}
+                </button>
+                <span 
+                  className="text-xs"
+                  style={{ color: theme.text.tertiary }}
+                >
+                  {isPublished ? "Will be visible to users" : "Only visible to admins"}
+                </span>
+              </div>
+
               {/* Name */}
               <div>
                 <label 
@@ -331,6 +365,57 @@ export function ShowCreateModal({ onClose, onCreated }: ShowCreateModalProps) {
                   ))}
                 </select>
               </div>
+
+              {/* Video URL and Duration - for movies only */}
+              {contentLevel === "standalone" && (
+                <>
+                  <div>
+                    <label 
+                      className="block text-sm font-medium mb-2"
+                      style={{ color: theme.text.secondary }}
+                    >
+                      Video URL
+                    </label>
+                    <input
+                      type="url"
+                      value={mediaURL}
+                      onChange={(e) => setMediaURL(e.target.value)}
+                      placeholder="https://vimeo.com/123456789"
+                      className="w-full px-4 py-3 rounded-lg border text-sm focus:outline-none focus:ring-2"
+                      style={{
+                        backgroundColor: "rgba(0, 0, 0, 0.4)",
+                        borderColor: "rgba(255, 255, 255, 0.2)",
+                        color: theme.text.primary,
+                        // @ts-expect-error CSS custom property
+                        "--tw-ring-color": theme.accents.goldenGlow,
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label 
+                      className="block text-sm font-medium mb-2"
+                      style={{ color: theme.text.secondary }}
+                    >
+                      Duration <span style={{ color: theme.text.tertiary }}>(seconds)</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={duration || ""}
+                      onChange={(e) => setDuration(parseInt(e.target.value) || 0)}
+                      placeholder="0"
+                      min={0}
+                      className="w-full px-4 py-3 rounded-lg border text-sm focus:outline-none focus:ring-2"
+                      style={{
+                        backgroundColor: "rgba(0, 0, 0, 0.4)",
+                        borderColor: "rgba(255, 255, 255, 0.2)",
+                        color: theme.text.primary,
+                        // @ts-expect-error CSS custom property
+                        "--tw-ring-color": theme.accents.goldenGlow,
+                      }}
+                    />
+                  </div>
+                </>
+              )}
 
               {/* Cover & Banner Images */}
               <div className="flex flex-col gap-4">
