@@ -92,7 +92,8 @@ export default function ArtistPage() {
         setMusicVideos(videosData);
       } catch (err) {
         console.error("Failed to load artist:", err);
-        setError("Failed to load artist");
+        const message = err instanceof Error ? err.message : "Unknown error";
+        setError(`Failed to load artist: ${message}`);
       } finally {
         setIsLoading(false);
       }
@@ -326,11 +327,11 @@ export default function ArtistPage() {
   if (error || !artist) {
     return (
       <div
-        className="min-h-screen flex flex-col items-center justify-center"
+        className="min-h-screen"
         style={{ backgroundColor: theme.surfaces.base }}
       >
         <JMAppHeader />
-        <div className="text-center">
+        <div className="flex flex-col items-center justify-center pt-32">
           <h1
             className="text-2xl font-bold mb-4"
             style={{ color: theme.text.primary }}
