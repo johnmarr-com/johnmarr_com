@@ -633,6 +633,180 @@ export async function deleteContentImage(
 }
 
 // ─────────────────────────────────────────────────────────────
+// AI ARTIST MEDIA UPLOAD OPERATIONS
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Upload an artist avatar image to Firebase Storage
+ * Returns a permanent public URL
+ */
+export async function uploadArtistAvatar(
+  file: File,
+  artistId: string
+): Promise<string> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getStorage, ref, uploadBytes } = await import("firebase/storage");
+  
+  const { app } = await initializeFirebase();
+  const storage = getStorage(app);
+  
+  const ext = file.type.split("/")[1] || "jpg";
+  const storagePath = `artist-avatars/${artistId}/avatar.${ext}`;
+  const storageRef = ref(storage, storagePath);
+  
+  await uploadBytes(storageRef, file, {
+    contentType: file.type,
+    cacheControl: "public, max-age=31536000",
+  });
+  
+  const bucket = storage.app.options.storageBucket;
+  if (!bucket) {
+    throw new Error("Storage bucket not configured");
+  }
+  
+  const baseUrl = getPublicStorageUrl(bucket, storagePath);
+  return `${baseUrl}&t=${Date.now()}`;
+}
+
+/**
+ * Upload an album cover image to Firebase Storage
+ * Returns a permanent public URL
+ */
+export async function uploadAlbumCover(
+  file: File,
+  albumId: string
+): Promise<string> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getStorage, ref, uploadBytes } = await import("firebase/storage");
+  
+  const { app } = await initializeFirebase();
+  const storage = getStorage(app);
+  
+  const ext = file.type.split("/")[1] || "jpg";
+  const storagePath = `album-covers/${albumId}/cover.${ext}`;
+  const storageRef = ref(storage, storagePath);
+  
+  await uploadBytes(storageRef, file, {
+    contentType: file.type,
+    cacheControl: "public, max-age=31536000",
+  });
+  
+  const bucket = storage.app.options.storageBucket;
+  if (!bucket) {
+    throw new Error("Storage bucket not configured");
+  }
+  
+  const baseUrl = getPublicStorageUrl(bucket, storagePath);
+  return `${baseUrl}&t=${Date.now()}`;
+}
+
+/**
+ * Upload an album cover video to Firebase Storage (short looping video)
+ * Returns a permanent public URL
+ */
+export async function uploadAlbumVideo(
+  file: File,
+  albumId: string
+): Promise<string> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getStorage, ref, uploadBytes } = await import("firebase/storage");
+  
+  const { app } = await initializeFirebase();
+  const storage = getStorage(app);
+  
+  // Support mp4 and webm
+  const ext = file.type === "video/webm" ? "webm" : "mp4";
+  const storagePath = `album-covers/${albumId}/video.${ext}`;
+  const storageRef = ref(storage, storagePath);
+  
+  await uploadBytes(storageRef, file, {
+    contentType: file.type,
+    cacheControl: "public, max-age=31536000",
+  });
+  
+  const bucket = storage.app.options.storageBucket;
+  if (!bucket) {
+    throw new Error("Storage bucket not configured");
+  }
+  
+  const baseUrl = getPublicStorageUrl(bucket, storagePath);
+  return `${baseUrl}&t=${Date.now()}`;
+}
+
+/**
+ * Upload a song audio file to Firebase Storage
+ * Returns a permanent public URL
+ */
+export async function uploadSongAudio(
+  file: File,
+  songId: string
+): Promise<string> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getStorage, ref, uploadBytes } = await import("firebase/storage");
+  
+  const { app } = await initializeFirebase();
+  const storage = getStorage(app);
+  
+  // Support common audio formats
+  let ext = "mp3";
+  if (file.type === "audio/mp4" || file.type === "audio/x-m4a") {
+    ext = "m4a";
+  } else if (file.type === "audio/wav") {
+    ext = "wav";
+  } else if (file.type === "audio/ogg") {
+    ext = "ogg";
+  }
+  
+  const storagePath = `songs/${songId}/audio.${ext}`;
+  const storageRef = ref(storage, storagePath);
+  
+  await uploadBytes(storageRef, file, {
+    contentType: file.type,
+    cacheControl: "public, max-age=31536000",
+  });
+  
+  const bucket = storage.app.options.storageBucket;
+  if (!bucket) {
+    throw new Error("Storage bucket not configured");
+  }
+  
+  const baseUrl = getPublicStorageUrl(bucket, storagePath);
+  return `${baseUrl}&t=${Date.now()}`;
+}
+
+/**
+ * Upload a music video thumbnail to Firebase Storage
+ * Returns a permanent public URL
+ */
+export async function uploadMusicVideoThumbnail(
+  file: File,
+  videoId: string
+): Promise<string> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getStorage, ref, uploadBytes } = await import("firebase/storage");
+  
+  const { app } = await initializeFirebase();
+  const storage = getStorage(app);
+  
+  const ext = file.type.split("/")[1] || "jpg";
+  const storagePath = `music-video-thumbnails/${videoId}/thumbnail.${ext}`;
+  const storageRef = ref(storage, storagePath);
+  
+  await uploadBytes(storageRef, file, {
+    contentType: file.type,
+    cacheControl: "public, max-age=31536000",
+  });
+  
+  const bucket = storage.app.options.storageBucket;
+  if (!bucket) {
+    throw new Error("Storage bucket not configured");
+  }
+  
+  const baseUrl = getPublicStorageUrl(bucket, storagePath);
+  return `${baseUrl}&t=${Date.now()}`;
+}
+
+// ─────────────────────────────────────────────────────────────
 // FEATURED CONTENT
 // ─────────────────────────────────────────────────────────────
 
@@ -816,7 +990,14 @@ export async function reorderFeaturedItems(
 // ALERT CRUD OPERATIONS
 // ─────────────────────────────────────────────────────────────
 
-import type { JMAlert, JMAlertInput, JMAlertUpdate, JMBrand, JMBrandInput, JMBrandUpdate } from "./content-types";
+import type { 
+  JMAlert, JMAlertInput, JMAlertUpdate, 
+  JMBrand, JMBrandInput, JMBrandUpdate,
+  JMArtist, JMArtistInput, JMArtistUpdate, JMArtistWithContent,
+  JMAlbum, JMAlbumInput, JMAlbumUpdate, JMAlbumWithSongs,
+  JMSong, JMSongInput, JMSongUpdate,
+  JMMusicVideo, JMMusicVideoInput, JMMusicVideoUpdate,
+} from "./content-types";
 
 /**
  * Create a new alert (starts as draft/unpublished)
@@ -1177,4 +1358,588 @@ export async function getContentByBrand(
     id: doc.id,
     ...doc.data(),
   })) as JMContent[];
+}
+
+// ─────────────────────────────────────────────────────────────
+// AI ARTIST CRUD OPERATIONS
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Create a new AI artist
+ */
+export async function createArtist(
+  input: JMArtistInput,
+  creatorId: string
+): Promise<JMArtist> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, collection, addDoc, serverTimestamp } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const artistData = {
+    ...input,
+    creatorId,
+    isPublished: input.isPublished ?? false,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+  
+  const docRef = await addDoc(collection(db, "artists"), artistData);
+  
+  return {
+    id: docRef.id,
+    ...artistData,
+    createdAt: artistData.createdAt as unknown as import("firebase/firestore").Timestamp,
+    updatedAt: artistData.updatedAt as unknown as import("firebase/firestore").Timestamp,
+  } as JMArtist;
+}
+
+/**
+ * Get a single artist by ID
+ */
+export async function getArtist(artistId: string): Promise<JMArtist | null> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, getDoc } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const docSnap = await getDoc(doc(db, "artists", artistId));
+  
+  if (!docSnap.exists()) {
+    return null;
+  }
+  
+  return { id: docSnap.id, ...docSnap.data() } as JMArtist;
+}
+
+/**
+ * Get an artist by slug
+ */
+export async function getArtistBySlug(slug: string): Promise<JMArtist | null> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, collection, query, where, getDocs, limit } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const q = query(
+    collection(db, "artists"),
+    where("slug", "==", slug),
+    limit(1)
+  );
+  
+  const snapshot = await getDocs(q);
+  const artistDoc = snapshot.docs[0];
+  
+  if (!artistDoc) {
+    return null;
+  }
+  
+  return { id: artistDoc.id, ...artistDoc.data() } as JMArtist;
+}
+
+/**
+ * Get all artists
+ */
+export async function getAllArtists(publishedOnly: boolean = false): Promise<JMArtist[]> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, collection, query, where, orderBy, getDocs } = await import("firebase/firestore");
+  const { getAuth } = await import("firebase/auth");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  // Force token refresh if fetching all (including drafts)
+  if (!publishedOnly) {
+    const auth = getAuth(app);
+    if (auth.currentUser) {
+      await auth.currentUser.getIdToken(true);
+    }
+  }
+  
+  const constraints: Parameters<typeof query>[1][] = [
+    orderBy("name", "asc"),
+  ];
+  
+  if (publishedOnly) {
+    constraints.unshift(where("isPublished", "==", true));
+  }
+  
+  const q = query(collection(db, "artists"), ...constraints);
+  const snapshot = await getDocs(q);
+  
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as JMArtist[];
+}
+
+/**
+ * Update an artist
+ */
+export async function updateArtist(
+  artistId: string,
+  updates: JMArtistUpdate
+): Promise<void> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, updateDoc, serverTimestamp } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  await updateDoc(doc(db, "artists", artistId), {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Delete an artist and all their albums, songs, and music videos
+ */
+export async function deleteArtist(artistId: string): Promise<void> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, deleteDoc, collection, query, where, getDocs } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  // Delete all albums (and their songs)
+  const albumsQuery = query(collection(db, "albums"), where("artistId", "==", artistId));
+  const albumsSnap = await getDocs(albumsQuery);
+  for (const albumDoc of albumsSnap.docs) {
+    await deleteAlbum(albumDoc.id);
+  }
+  
+  // Delete all music videos
+  const videosQuery = query(collection(db, "musicVideos"), where("artistId", "==", artistId));
+  const videosSnap = await getDocs(videosQuery);
+  for (const videoDoc of videosSnap.docs) {
+    await deleteDoc(doc(db, "musicVideos", videoDoc.id));
+  }
+  
+  // Delete the artist
+  await deleteDoc(doc(db, "artists", artistId));
+}
+
+/**
+ * Get an artist with all their content (albums, songs, music videos)
+ */
+export async function getArtistWithContent(
+  artistId: string,
+  publishedOnly: boolean = true
+): Promise<JMArtistWithContent | null> {
+  const artist = await getArtist(artistId);
+  
+  if (!artist) {
+    return null;
+  }
+  
+  if (publishedOnly && !artist.isPublished) {
+    return null;
+  }
+  
+  const albums = await getAlbumsByArtist(artistId, publishedOnly);
+  const albumsWithSongs: JMAlbumWithSongs[] = await Promise.all(
+    albums.map(async (album) => {
+      const songs = await getSongsByAlbum(album.id, publishedOnly);
+      return { ...album, songs };
+    })
+  );
+  
+  const musicVideos = await getMusicVideosByArtist(artistId, publishedOnly);
+  
+  return {
+    ...artist,
+    albums: albumsWithSongs,
+    musicVideos,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// ALBUM CRUD OPERATIONS
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Create a new album
+ */
+export async function createAlbum(
+  input: JMAlbumInput,
+  creatorId: string
+): Promise<JMAlbum> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, collection, addDoc, serverTimestamp } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const albumData = {
+    ...input,
+    creatorId,
+    order: input.order ?? 0,
+    isPublished: input.isPublished ?? false,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+  
+  const docRef = await addDoc(collection(db, "albums"), albumData);
+  
+  return {
+    id: docRef.id,
+    ...albumData,
+    createdAt: albumData.createdAt as unknown as import("firebase/firestore").Timestamp,
+    updatedAt: albumData.updatedAt as unknown as import("firebase/firestore").Timestamp,
+  } as JMAlbum;
+}
+
+/**
+ * Get a single album by ID
+ */
+export async function getAlbum(albumId: string): Promise<JMAlbum | null> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, getDoc } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const docSnap = await getDoc(doc(db, "albums", albumId));
+  
+  if (!docSnap.exists()) {
+    return null;
+  }
+  
+  return { id: docSnap.id, ...docSnap.data() } as JMAlbum;
+}
+
+/**
+ * Get all albums for an artist
+ */
+export async function getAlbumsByArtist(
+  artistId: string,
+  publishedOnly: boolean = true
+): Promise<JMAlbum[]> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, collection, query, where, orderBy, getDocs } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const constraints: Parameters<typeof query>[1][] = [
+    where("artistId", "==", artistId),
+    orderBy("order", "asc"),
+  ];
+  
+  if (publishedOnly) {
+    constraints.unshift(where("isPublished", "==", true));
+  }
+  
+  const q = query(collection(db, "albums"), ...constraints);
+  const snapshot = await getDocs(q);
+  
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as JMAlbum[];
+}
+
+/**
+ * Update an album
+ */
+export async function updateAlbum(
+  albumId: string,
+  updates: JMAlbumUpdate
+): Promise<void> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, updateDoc, serverTimestamp } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  await updateDoc(doc(db, "albums", albumId), {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Delete an album and all its songs
+ */
+export async function deleteAlbum(albumId: string): Promise<void> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, deleteDoc, collection, query, where, getDocs } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  // Delete all songs in this album
+  const songsQuery = query(collection(db, "songs"), where("albumId", "==", albumId));
+  const songsSnap = await getDocs(songsQuery);
+  for (const songDoc of songsSnap.docs) {
+    await deleteDoc(doc(db, "songs", songDoc.id));
+  }
+  
+  // Delete the album
+  await deleteDoc(doc(db, "albums", albumId));
+}
+
+/**
+ * Get album with songs
+ */
+export async function getAlbumWithSongs(
+  albumId: string,
+  publishedOnly: boolean = true
+): Promise<JMAlbumWithSongs | null> {
+  const album = await getAlbum(albumId);
+  
+  if (!album) {
+    return null;
+  }
+  
+  if (publishedOnly && !album.isPublished) {
+    return null;
+  }
+  
+  const songs = await getSongsByAlbum(albumId, publishedOnly);
+  
+  return {
+    ...album,
+    songs,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// SONG CRUD OPERATIONS
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Create a new song
+ */
+export async function createSong(
+  input: JMSongInput,
+  creatorId: string
+): Promise<JMSong> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, collection, addDoc, serverTimestamp } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const songData = {
+    ...input,
+    creatorId,
+    trackNumber: input.trackNumber ?? 1,
+    isPublished: input.isPublished ?? false,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+  
+  const docRef = await addDoc(collection(db, "songs"), songData);
+  
+  return {
+    id: docRef.id,
+    ...songData,
+    createdAt: songData.createdAt as unknown as import("firebase/firestore").Timestamp,
+    updatedAt: songData.updatedAt as unknown as import("firebase/firestore").Timestamp,
+  } as JMSong;
+}
+
+/**
+ * Get a single song by ID
+ */
+export async function getSong(songId: string): Promise<JMSong | null> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, getDoc } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const docSnap = await getDoc(doc(db, "songs", songId));
+  
+  if (!docSnap.exists()) {
+    return null;
+  }
+  
+  return { id: docSnap.id, ...docSnap.data() } as JMSong;
+}
+
+/**
+ * Get all songs for an album
+ */
+export async function getSongsByAlbum(
+  albumId: string,
+  publishedOnly: boolean = true
+): Promise<JMSong[]> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, collection, query, where, orderBy, getDocs } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const constraints: Parameters<typeof query>[1][] = [
+    where("albumId", "==", albumId),
+    orderBy("trackNumber", "asc"),
+  ];
+  
+  if (publishedOnly) {
+    constraints.unshift(where("isPublished", "==", true));
+  }
+  
+  const q = query(collection(db, "songs"), ...constraints);
+  const snapshot = await getDocs(q);
+  
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as JMSong[];
+}
+
+/**
+ * Update a song
+ */
+export async function updateSong(
+  songId: string,
+  updates: JMSongUpdate
+): Promise<void> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, updateDoc, serverTimestamp } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  await updateDoc(doc(db, "songs", songId), {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Delete a song
+ */
+export async function deleteSong(songId: string): Promise<void> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, deleteDoc } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  await deleteDoc(doc(db, "songs", songId));
+}
+
+// ─────────────────────────────────────────────────────────────
+// MUSIC VIDEO CRUD OPERATIONS
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Create a new music video
+ */
+export async function createMusicVideo(
+  input: JMMusicVideoInput,
+  creatorId: string
+): Promise<JMMusicVideo> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, collection, addDoc, serverTimestamp } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const videoData = {
+    ...input,
+    creatorId,
+    order: input.order ?? 0,
+    isPublished: input.isPublished ?? false,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+  
+  const docRef = await addDoc(collection(db, "musicVideos"), videoData);
+  
+  return {
+    id: docRef.id,
+    ...videoData,
+    createdAt: videoData.createdAt as unknown as import("firebase/firestore").Timestamp,
+    updatedAt: videoData.updatedAt as unknown as import("firebase/firestore").Timestamp,
+  } as JMMusicVideo;
+}
+
+/**
+ * Get a single music video by ID
+ */
+export async function getMusicVideo(videoId: string): Promise<JMMusicVideo | null> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, getDoc } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const docSnap = await getDoc(doc(db, "musicVideos", videoId));
+  
+  if (!docSnap.exists()) {
+    return null;
+  }
+  
+  return { id: docSnap.id, ...docSnap.data() } as JMMusicVideo;
+}
+
+/**
+ * Get all music videos for an artist
+ */
+export async function getMusicVideosByArtist(
+  artistId: string,
+  publishedOnly: boolean = true
+): Promise<JMMusicVideo[]> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, collection, query, where, orderBy, getDocs } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const constraints: Parameters<typeof query>[1][] = [
+    where("artistId", "==", artistId),
+    orderBy("order", "asc"),
+  ];
+  
+  if (publishedOnly) {
+    constraints.unshift(where("isPublished", "==", true));
+  }
+  
+  const q = query(collection(db, "musicVideos"), ...constraints);
+  const snapshot = await getDocs(q);
+  
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as JMMusicVideo[];
+}
+
+/**
+ * Update a music video
+ */
+export async function updateMusicVideo(
+  videoId: string,
+  updates: JMMusicVideoUpdate
+): Promise<void> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, updateDoc, serverTimestamp } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  await updateDoc(doc(db, "musicVideos", videoId), {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Delete a music video
+ */
+export async function deleteMusicVideo(videoId: string): Promise<void> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, deleteDoc } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  await deleteDoc(doc(db, "musicVideos", videoId));
 }

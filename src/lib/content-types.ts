@@ -389,3 +389,179 @@ export interface JMAlertUpdate {
   text?: string;
   isPublished?: boolean;
 }
+
+// ─────────────────────────────────────────────────────────────
+// AI ARTIST TYPES
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Music video orientation options
+ */
+export type JMMusicVideoOrientation = "landscape" | "portrait";
+
+/**
+ * Music video orientation display labels
+ */
+export const JMMusicVideoOrientationLabels: Record<JMMusicVideoOrientation, string> = {
+  landscape: "Landscape (16:9)",
+  portrait: "Portrait (9:16)",
+};
+
+/**
+ * AI Artist - represents an AI performing artist
+ * Stored in Firestore: /artists/{artistId}
+ */
+export interface JMArtist {
+  id: string;
+  name: string;
+  slug: string;                   // URL-safe identifier (e.g., "neon-nova")
+  description: string;
+  avatarURL?: string;             // Artist profile image
+  creatorId: string;              // User UID of creator
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  isPublished: boolean;           // Draft vs live
+}
+
+/**
+ * Input for creating a new artist
+ */
+export interface JMArtistInput {
+  name: string;
+  slug: string;
+  description: string;
+  avatarURL?: string;
+  isPublished?: boolean;
+}
+
+/**
+ * Input for updating an artist
+ */
+export type JMArtistUpdate = Partial<Omit<JMArtist, "id" | "creatorId" | "createdAt">>;
+
+/**
+ * Album - a collection of songs by an artist
+ * Stored in Firestore: /albums/{albumId}
+ */
+export interface JMAlbum {
+  id: string;
+  artistId: string;               // Reference to parent artist
+  name: string;
+  description: string;
+  coverImageURL: string;          // Static cover image (required)
+  coverVideoURL?: string;         // Optional looping video cover (Firebase Storage)
+  order: number;                  // Position within artist's albums
+  creatorId: string;              // User UID of creator
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  isPublished: boolean;           // Draft vs live
+}
+
+/**
+ * Input for creating a new album
+ */
+export interface JMAlbumInput {
+  artistId: string;
+  name: string;
+  description: string;
+  coverImageURL: string;
+  coverVideoURL?: string;
+  order?: number;
+  isPublished?: boolean;
+}
+
+/**
+ * Input for updating an album
+ */
+export type JMAlbumUpdate = Partial<Omit<JMAlbum, "id" | "artistId" | "creatorId" | "createdAt">>;
+
+/**
+ * Song - an individual track on an album
+ * Stored in Firestore: /songs/{songId}
+ */
+export interface JMSong {
+  id: string;
+  albumId: string;                // Reference to parent album
+  title: string;
+  description: string;
+  duration: number;               // Duration in seconds
+  lyrics?: string;                // Full lyrics text
+  audioURL: string;               // Firebase Storage audio file URL
+  trackNumber: number;            // Position on album (1, 2, 3...)
+  creatorId: string;              // User UID of creator
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  isPublished: boolean;           // Draft vs live
+}
+
+/**
+ * Input for creating a new song
+ */
+export interface JMSongInput {
+  albumId: string;
+  title: string;
+  description: string;
+  duration: number;
+  lyrics?: string;
+  audioURL: string;
+  trackNumber?: number;
+  isPublished?: boolean;
+}
+
+/**
+ * Input for updating a song
+ */
+export type JMSongUpdate = Partial<Omit<JMSong, "id" | "albumId" | "creatorId" | "createdAt">>;
+
+/**
+ * Music Video - a video by an artist (separate from albums)
+ * Stored in Firestore: /musicVideos/{videoId}
+ */
+export interface JMMusicVideo {
+  id: string;
+  artistId: string;               // Reference to parent artist
+  title: string;
+  description: string;
+  vimeoURL: string;               // Vimeo video URL
+  orientation: JMMusicVideoOrientation; // Video orientation
+  thumbnailURL?: string;          // Optional custom thumbnail
+  order: number;                  // Display order
+  creatorId: string;              // User UID of creator
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  isPublished: boolean;           // Draft vs live
+}
+
+/**
+ * Input for creating a new music video
+ */
+export interface JMMusicVideoInput {
+  artistId: string;
+  title: string;
+  description: string;
+  vimeoURL: string;
+  orientation: JMMusicVideoOrientation;
+  thumbnailURL?: string;
+  order?: number;
+  isPublished?: boolean;
+}
+
+/**
+ * Input for updating a music video
+ */
+export type JMMusicVideoUpdate = Partial<Omit<JMMusicVideo, "id" | "artistId" | "creatorId" | "createdAt">>;
+
+/**
+ * Artist with resolved albums, songs, and music videos (for UI display)
+ */
+export interface JMArtistWithContent extends JMArtist {
+  albums: JMAlbumWithSongs[];
+  musicVideos: JMMusicVideo[];
+}
+
+/**
+ * Album with resolved songs (for UI display)
+ */
+export interface JMAlbumWithSongs extends JMAlbum {
+  songs: JMSong[];
+}

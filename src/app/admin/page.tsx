@@ -13,6 +13,7 @@ import { AdminFeaturedPanel } from "./AdminFeaturedPanel";
 import { AdminAlertsPanel } from "./AdminAlertsPanel";
 import { AdminBrandsPanel } from "./AdminBrandsPanel";
 import { AdminHomeRowsPanel } from "./AdminHomeRowsPanel";
+import { AdminArtistsPanel } from "./AdminArtistsPanel";
 
 function AdminContent() {
   const { theme } = useJMStyle();
@@ -134,6 +135,7 @@ function AdminContent() {
         {focus === "homerows" && <AdminHomeRowsPanel />}
         {focus === "alert" && <AdminAlertsPanel />}
         {focus === "brands" && <AdminBrandsPanel />}
+        {focus === "artist" && <AdminArtistsPanel />}
         {focus === "users" && <AdminUsersPanel />}
         {focus === "avatars" && <AdminAvatarsPanel />}
         {focus === "show" && <AdminShowsPanel />}

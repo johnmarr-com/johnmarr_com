@@ -1,0 +1,176 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // ─────────────────────────────────────────────────────────────
+    // HELPER FUNCTIONS
+    // ─────────────────────────────────────────────────────────────
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if user is admin
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.admin == true;
+    }
+    
+    // Validate image file type
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    // Validate video file type
+    function isVideo() {
+      return request.resource.contentType.matches('video/.*');
+    }
+    
+    // Validate audio file type
+    function isAudio() {
+      return request.resource.contentType.matches('audio/.*');
+    }
+    
+    // Validate JSON file type (for Lottie avatars)
+    function isJSON() {
+      return request.resource.contentType == 'application/json';
+    }
+    
+    // Max file size validation (in bytes)
+    function maxSize(sizeInMB) {
+      return request.resource.size < sizeInMB * 1024 * 1024;
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // CONTENT IMAGES (covers, backdrops)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /content-images/{contentId}/{fileName} {
+      // Anyone can read content images (they're public)
+      allow read: if true;
+      
+      // Only admins can upload content images
+      // Must be an image under 10MB
+      allow write: if isAdmin() && isImage() && maxSize(10);
+      
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // BRAND LOGOS
+    // ─────────────────────────────────────────────────────────────
+    
+    match /brand-logos/{brandId}/{fileName} {
+      // Anyone can read brand logos (they're public)
+      allow read: if true;
+      
+      // Only admins can upload brand logos
+      // Must be an image under 5MB
+      allow write: if isAdmin() && isImage() && maxSize(5);
+      
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // USER AVATARS (Lottie JSON files)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /avatars/{category}/{fileName} {
+      // Anyone can read avatars (they're public assets)
+      allow read: if true;
+      
+      // Only admins can upload avatars
+      // Must be JSON under 1MB
+      allow write: if isAdmin() && isJSON() && maxSize(1);
+      
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // AI ARTIST AVATARS
+    // ─────────────────────────────────────────────────────────────
+    
+    match /artist-avatars/{artistId}/{fileName} {
+      // Anyone can read artist avatars (they're public)
+      allow read: if true;
+      
+      // Only admins can upload artist avatars
+      // Must be an image under 5MB
+      allow write: if isAdmin() && isImage() && maxSize(5);
+      
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // ALBUM COVERS (images and short videos)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /album-covers/{albumId}/{fileName} {
+      // Anyone can read album covers (they're public)
+      allow read: if true;
+      
+      // Only admins can upload album covers
+      // Images: under 5MB, Videos: under 15MB (for short looping covers)
+      allow write: if isAdmin() && (
+        (isImage() && maxSize(5)) ||
+        (isVideo() && maxSize(15))
+      );
+      
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // SONG AUDIO FILES
+    // ─────────────────────────────────────────────────────────────
+    
+    match /songs/{songId}/{fileName} {
+      // Anyone can read song audio (they're public)
+      allow read: if true;
+      
+      // Only admins can upload song audio
+      // Must be audio under 50MB
+      allow write: if isAdmin() && isAudio() && maxSize(50);
+      
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // MUSIC VIDEO THUMBNAILS
+    // ─────────────────────────────────────────────────────────────
+    
+    match /music-video-thumbnails/{videoId}/{fileName} {
+      // Anyone can read thumbnails (they're public)
+      allow read: if true;
+      
+      // Only admins can upload thumbnails
+      // Must be an image under 5MB
+      allow write: if isAdmin() && isImage() && maxSize(5);
+      
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // FEATURED IMAGES (if separate from content images)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /featured-images/{featuredId}/{fileName} {
+      // Anyone can read featured images (they're public)
+      allow read: if true;
+      
+      // Only admins can upload featured images
+      // Must be an image under 10MB
+      allow write: if isAdmin() && isImage() && maxSize(10);
+      
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+  }
+}

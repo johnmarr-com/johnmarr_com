@@ -1,0 +1,217 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ─────────────────────────────────────────────────────────────
+    // HELPER FUNCTIONS
+    // ─────────────────────────────────────────────────────────────
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if user is admin
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.admin == true;
+    }
+    
+    // Check if user owns the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // USER COLLECTION
+    // ─────────────────────────────────────────────────────────────
+    
+    match /users/{userId} {
+      // Users can read their own document, admins can read all
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Users can create their own document
+      allow create: if isOwner(userId);
+      
+      // Users can update their own document (limited fields), admins can update any
+      allow update: if isOwner(userId) || isAdmin();
+      
+      // Only admins can delete user documents
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // CONTENT COLLECTION (Shows, Stories, Cards, Games)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /content/{contentId} {
+      // Anyone can read published content, admins can read all
+      allow read: if resource.data.isPublished == true || isAdmin();
+      
+      // Only admins can create content
+      allow create: if isAdmin();
+      
+      // Only admins can update content
+      allow update: if isAdmin();
+      
+      // Only admins can delete content
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // EXPERIENCES COLLECTION (Home page rows)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /experiences/{experienceId} {
+      // Anyone can read published experiences, admins can read all
+      allow read: if resource.data.isPublished == true || isAdmin();
+      
+      // Only admins can create experiences
+      allow create: if isAdmin();
+      
+      // Only admins can update experiences
+      allow update: if isAdmin();
+      
+      // Only admins can delete experiences
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // BRANDS COLLECTION
+    // ─────────────────────────────────────────────────────────────
+    
+    match /brands/{brandId} {
+      // Anyone can read published brands, admins can read all
+      allow read: if resource.data.isPublished == true || isAdmin();
+      
+      // Only admins can create brands
+      allow create: if isAdmin();
+      
+      // Only admins can update brands
+      allow update: if isAdmin();
+      
+      // Only admins can delete brands
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // ALERTS COLLECTION
+    // ─────────────────────────────────────────────────────────────
+    
+    match /alerts/{alertId} {
+      // Anyone can read published alerts, admins can read all
+      allow read: if resource.data.isPublished == true || isAdmin();
+      
+      // Only admins can create alerts
+      allow create: if isAdmin();
+      
+      // Only admins can update alerts
+      allow update: if isAdmin();
+      
+      // Only admins can delete alerts
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // FEATURED COLLECTION
+    // ─────────────────────────────────────────────────────────────
+    
+    match /featured/{featuredId} {
+      // Anyone can read active featured items, admins can read all
+      allow read: if resource.data.isActive == true || isAdmin();
+      
+      // Only admins can create featured items
+      allow create: if isAdmin();
+      
+      // Only admins can update featured items
+      allow update: if isAdmin();
+      
+      // Only admins can delete featured items
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // AI ARTISTS COLLECTION
+    // ─────────────────────────────────────────────────────────────
+    
+    match /artists/{artistId} {
+      // Anyone can read published artists, admins can read all
+      allow read: if resource.data.isPublished == true || isAdmin();
+      
+      // Only admins can create artists
+      allow create: if isAdmin();
+      
+      // Only admins can update artists
+      allow update: if isAdmin();
+      
+      // Only admins can delete artists
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // ALBUMS COLLECTION
+    // ─────────────────────────────────────────────────────────────
+    
+    match /albums/{albumId} {
+      // Anyone can read published albums, admins can read all
+      allow read: if resource.data.isPublished == true || isAdmin();
+      
+      // Only admins can create albums
+      allow create: if isAdmin();
+      
+      // Only admins can update albums
+      allow update: if isAdmin();
+      
+      // Only admins can delete albums
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // SONGS COLLECTION
+    // ─────────────────────────────────────────────────────────────
+    
+    match /songs/{songId} {
+      // Anyone can read published songs, admins can read all
+      allow read: if resource.data.isPublished == true || isAdmin();
+      
+      // Only admins can create songs
+      allow create: if isAdmin();
+      
+      // Only admins can update songs
+      allow update: if isAdmin();
+      
+      // Only admins can delete songs
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // MUSIC VIDEOS COLLECTION
+    // ─────────────────────────────────────────────────────────────
+    
+    match /musicVideos/{videoId} {
+      // Anyone can read published music videos, admins can read all
+      allow read: if resource.data.isPublished == true || isAdmin();
+      
+      // Only admins can create music videos
+      allow create: if isAdmin();
+      
+      // Only admins can update music videos
+      allow update: if isAdmin();
+      
+      // Only admins can delete music videos
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // AVATARS COLLECTION (Lottie avatar metadata)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /avatars/{avatarId} {
+      // Anyone can read avatars (they're public assets)
+      allow read: if true;
+      
+      // Only admins can manage avatars
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}
