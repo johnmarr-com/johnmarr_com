@@ -22,11 +22,11 @@ export function AuthGate({ children }: AuthGateProps) {
   const pathname = usePathname();
 
   // Public routes that don't require auth at all
-  const isPublicRoute = pathname === "/auth" || pathname === "/about";
+  const isPublicRoute = pathname === "/auth" || pathname === "/about" || pathname.startsWith("/artist");
   
   // Semi-public routes: show content with auth modal overlay
   // Add more patterns here as needed (e.g., /show/*, /story/*)
-  const isSemiPublicRoute = pathname.startsWith("/artist");
+  const isSemiPublicRoute = false; // Disabled for now
 
   useEffect(() => {
     // Wait for auth to load
