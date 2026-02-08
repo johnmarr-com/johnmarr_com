@@ -9,7 +9,8 @@ export interface ContentItem {
   id: string;
   name: string;
   coverURL: string;
-  contentType: "show" | "story" | "card" | "game";
+  contentType: "show" | "story" | "card" | "game" | "artist";
+  slug?: string | undefined; // For artists, used for navigation
 }
 
 interface JMContentScrollerProps {

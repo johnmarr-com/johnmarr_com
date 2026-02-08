@@ -456,7 +456,49 @@ export async function getExperienceWithContent(
   
   // If autoPopulate is enabled and contentType is set, fetch all content of that type
   if (experience.autoPopulate && experience.contentType) {
-    resolvedContent = await getTopLevelContent(experience.contentType, publishedOnly);
+    if (experience.contentType === "artist") {
+      // Fetch artists and convert to JMContent-like format
+      const artists = await getAllArtists(publishedOnly);
+      resolvedContent = artists.map(artist => ({
+        id: artist.id,
+        name: artist.name,
+        slug: artist.slug,
+        description: artist.description || "",
+        coverURL: artist.coverURL,
+        contentType: "artist" as const,
+        contentLevel: "standalone" as const,
+        parentId: null,
+        creatorId: artist.creatorId,
+        createdAt: artist.createdAt,
+        updatedAt: artist.updatedAt,
+        order: artist.order,
+        isPublished: artist.isPublished,
+      }));
+    } else {
+      resolvedContent = await getTopLevelContent(experience.contentType, publishedOnly);
+    }
+  } else if (experience.contentType === "artist") {
+    // Curated artist row - fetch artists by IDs
+    const artists = await Promise.all(
+      experience.contentIds.map((id) => getArtist(id))
+    );
+    resolvedContent = artists
+      .filter((a): a is JMArtist => a !== null && (!publishedOnly || a.isPublished))
+      .map(artist => ({
+        id: artist.id,
+        name: artist.name,
+        slug: artist.slug,
+        description: artist.description || "",
+        coverURL: artist.coverURL,
+        contentType: "artist" as const,
+        contentLevel: "standalone" as const,
+        parentId: null,
+        creatorId: artist.creatorId,
+        createdAt: artist.createdAt,
+        updatedAt: artist.updatedAt,
+        order: artist.order,
+        isPublished: artist.isPublished,
+      }));
   } else {
     // Otherwise use the curated contentIds list
     const content = await Promise.all(
@@ -669,6 +711,70 @@ export async function uploadArtistAvatar(
 }
 
 /**
+ * Upload an artist cover image (for home rows) to Firebase Storage
+ * Returns a permanent public URL
+ */
+export async function uploadArtistCover(
+  file: File,
+  artistId: string
+): Promise<string> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getStorage, ref, uploadBytes } = await import("firebase/storage");
+  
+  const { app } = await initializeFirebase();
+  const storage = getStorage(app);
+  
+  const ext = file.type.split("/")[1] || "jpg";
+  const storagePath = `artist-covers/${artistId}/cover.${ext}`;
+  const storageRef = ref(storage, storagePath);
+  
+  await uploadBytes(storageRef, file, {
+    contentType: file.type,
+    cacheControl: "public, max-age=31536000",
+  });
+  
+  const bucket = storage.app.options.storageBucket;
+  if (!bucket) {
+    throw new Error("Storage bucket not configured");
+  }
+  
+  const baseUrl = getPublicStorageUrl(bucket, storagePath);
+  return `${baseUrl}&t=${Date.now()}`;
+}
+
+/**
+ * Upload an artist banner image (for featured carousel) to Firebase Storage
+ * Returns a permanent public URL
+ */
+export async function uploadArtistBanner(
+  file: File,
+  artistId: string
+): Promise<string> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getStorage, ref, uploadBytes } = await import("firebase/storage");
+  
+  const { app } = await initializeFirebase();
+  const storage = getStorage(app);
+  
+  const ext = file.type.split("/")[1] || "jpg";
+  const storagePath = `artist-banners/${artistId}/banner.${ext}`;
+  const storageRef = ref(storage, storagePath);
+  
+  await uploadBytes(storageRef, file, {
+    contentType: file.type,
+    cacheControl: "public, max-age=31536000",
+  });
+  
+  const bucket = storage.app.options.storageBucket;
+  if (!bucket) {
+    throw new Error("Storage bucket not configured");
+  }
+  
+  const baseUrl = getPublicStorageUrl(bucket, storagePath);
+  return `${baseUrl}&t=${Date.now()}`;
+}
+
+/**
  * Upload an album cover image to Firebase Storage
  * Returns a permanent public URL
  */
@@ -818,6 +924,7 @@ export interface JMFeaturedItem {
   description?: string;
   backdropURL: string;
   contentType: JMContentType;
+  slug?: string; // For artists - used for navigation
   order: number;
   isActive: boolean;
   createdAt: import("firebase/firestore").Timestamp;
@@ -831,6 +938,7 @@ export interface JMFeaturedInput {
   description?: string;
   backdropURL: string;
   contentType: JMContentType;
+  slug?: string; // For artists - used for navigation
   order: number;
   isActive?: boolean;
 }
@@ -842,7 +950,8 @@ interface FeaturedContentResult {
   description?: string;
   backdropURL: string;
   contentId: string;
-  contentType: "show" | "story" | "card" | "game";
+  contentType: "show" | "story" | "card" | "game" | "artist";
+  slug?: string; // For artists - used for navigation
 }
 
 /**
@@ -876,6 +985,7 @@ export async function getFeaturedContent(): Promise<FeaturedContentResult[]> {
     };
     if (data.subtitle) result.subtitle = data.subtitle;
     if (data.description) result.description = data.description;
+    if (data.slug) result.slug = data.slug;
     return result;
   });
 }
@@ -1372,13 +1482,18 @@ export async function createArtist(
   creatorId: string
 ): Promise<JMArtist> {
   const { initializeFirebase } = await import("./firebase");
-  const { getFirestore, collection, addDoc, serverTimestamp } = await import("firebase/firestore");
+  const { getFirestore, collection, addDoc, serverTimestamp, getDocs, query } = await import("firebase/firestore");
   
   const { app } = await initializeFirebase();
   const db = getFirestore(app);
   
+  // Get next order value
+  const artistsSnapshot = await getDocs(query(collection(db, "artists")));
+  const nextOrder = input.order ?? artistsSnapshot.size;
+  
   const artistData = {
     ...input,
+    order: nextOrder,
     creatorId,
     isPublished: input.isPublished ?? false,
     createdAt: serverTimestamp(),

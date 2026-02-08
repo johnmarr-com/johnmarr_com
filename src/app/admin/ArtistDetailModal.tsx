@@ -14,6 +14,8 @@ import {
   createArtist,
   updateArtist,
   uploadArtistAvatar,
+  uploadArtistCover,
+  uploadArtistBanner,
   getAlbumsByArtist,
   createAlbum,
   updateAlbum,
@@ -74,6 +76,8 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
   const [avatarURL, setAvatarURL] = useState("");
+  const [coverURL, setCoverURL] = useState("");
+  const [bannerURL, setBannerURL] = useState("");
   const [isPublished, setIsPublished] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -121,6 +125,8 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
         setSlug(data.slug);
         setDescription(data.description);
         setAvatarURL(data.avatarURL || "");
+        setCoverURL(data.coverURL || "");
+        setBannerURL(data.bannerURL || "");
         setIsPublished(data.isPublished);
         
         // Fetch albums with songs
@@ -152,7 +158,7 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
   // Track changes
   useEffect(() => {
     if (!artist) {
-      setHasChanges(name.trim().length > 0 || slug.trim().length > 0);
+      setHasChanges(name.trim().length > 0 || slug.trim().length > 0 || coverURL.trim().length > 0);
       return;
     }
     
@@ -161,9 +167,11 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
       slug !== artist.slug ||
       description !== artist.description ||
       avatarURL !== (artist.avatarURL || "") ||
+      coverURL !== (artist.coverURL || "") ||
+      bannerURL !== (artist.bannerURL || "") ||
       isPublished !== artist.isPublished;
     setHasChanges(changed);
-  }, [artist, name, slug, description, avatarURL, isPublished]);
+  }, [artist, name, slug, description, avatarURL, coverURL, bannerURL, isPublished]);
 
   // Generate slug from name
   const generateSlug = (inputName: string) => {
@@ -181,10 +189,26 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
     return uploadArtistAvatar(file, id);
   }, [artistId]);
 
+  // Handle cover upload
+  const handleCoverUpload = useCallback(async (file: File) => {
+    const id = artistId || `new-${Date.now()}`;
+    return uploadArtistCover(file, id);
+  }, [artistId]);
+
+  // Handle banner upload
+  const handleBannerUpload = useCallback(async (file: File) => {
+    const id = artistId || `new-${Date.now()}`;
+    return uploadArtistBanner(file, id);
+  }, [artistId]);
+
   // Save artist
   const handleSave = async () => {
     if (!name.trim() || !slug.trim()) {
       setError("Name and slug are required");
+      return;
+    }
+    if (!coverURL.trim()) {
+      setError("Cover image is required");
       return;
     }
     if (!user?.uid) return;
@@ -199,9 +223,11 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
           name: name.trim(),
           slug: slug.trim(),
           description: description.trim(),
+          coverURL: coverURL.trim(),
           isPublished,
         };
         if (avatarURL) input.avatarURL = avatarURL;
+        if (bannerURL) input.bannerURL = bannerURL;
         
         await createArtist(input, user.uid);
         
@@ -212,9 +238,11 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
           name: name.trim(),
           slug: slug.trim(),
           description: description.trim(),
+          coverURL: coverURL.trim(),
           isPublished,
         };
         if (avatarURL) updates.avatarURL = avatarURL;
+        if (bannerURL) updates.bannerURL = bannerURL;
         
         await updateArtist(artistId, updates);
         
@@ -729,7 +757,18 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
                     />
                   </div>
 
-                  {/* Avatar */}
+                  {/* Cover (required - for home rows) */}
+                  <JMImageUpload
+                    label="Cover Image (2:1) *"
+                    value={coverURL}
+                    onChange={(url) => setCoverURL(url || "")}
+                    onUpload={handleCoverUpload}
+                    aspectRatio="wide"
+                    previewSize={200}
+                    maxWidth={1200}
+                  />
+
+                  {/* Avatar (optional) */}
                   <JMImageUpload
                     label="Avatar Image (1:1)"
                     value={avatarURL}
@@ -738,6 +777,17 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
                     aspectRatio="square"
                     previewSize={150}
                     maxWidth={512}
+                  />
+
+                  {/* Banner (optional - for featured carousel) */}
+                  <JMImageUpload
+                    label="Banner Image (16:9) - for Featured Carousel"
+                    value={bannerURL}
+                    onChange={(url) => setBannerURL(url || "")}
+                    onUpload={handleBannerUpload}
+                    aspectRatio="wide"
+                    previewSize={200}
+                    maxWidth={1920}
                   />
                 </div>
               </Section>

@@ -107,6 +107,38 @@ service firebase.storage {
     }
     
     // ─────────────────────────────────────────────────────────────
+    // AI ARTIST COVERS (for home rows - 2:1 wide)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /artist-covers/{artistId}/{fileName} {
+      // Anyone can read artist covers (they're public)
+      allow read: if true;
+      
+      // Only admins can upload artist covers
+      // Must be an image under 5MB
+      allow write: if isAdmin() && isImage() && maxSize(5);
+      
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // AI ARTIST BANNERS (for featured carousel - 16:9)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /artist-banners/{artistId}/{fileName} {
+      // Anyone can read artist banners (they're public)
+      allow read: if true;
+      
+      // Only admins can upload artist banners
+      // Must be an image under 10MB
+      allow write: if isAdmin() && isImage() && maxSize(10);
+      
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
     // ALBUM COVERS (images and short videos)
     // ─────────────────────────────────────────────────────────────
     

@@ -40,6 +40,7 @@ import {
   updateExperience,
   deleteExperience,
   getTopLevelContent,
+  getAllArtists,
 } from "@/lib/content";
 import type { JMExperience, JMContent, JMContentType } from "@/lib/content-types";
 import { JMContentTypeLabels } from "@/lib/content-types";
@@ -277,8 +278,29 @@ export function AdminHomeRowsPanel() {
   const loadAvailableContent = useCallback(async (contentType?: JMContentType) => {
     setIsLoadingContent(true);
     try {
-      const content = await getTopLevelContent(contentType, false); // Include drafts
-      setAvailableContent(content);
+      if (contentType === "artist") {
+        // Fetch artists and convert to JMContent format for display
+        const artists = await getAllArtists(false); // Include drafts
+        const artistContent: JMContent[] = artists.map(artist => ({
+          id: artist.id,
+          name: artist.name,
+          slug: artist.slug,
+          description: artist.description || "",
+          coverURL: artist.coverURL,
+          contentType: "artist" as const,
+          contentLevel: "standalone" as const,
+          parentId: null,
+          creatorId: artist.creatorId,
+          createdAt: artist.createdAt,
+          updatedAt: artist.updatedAt,
+          order: artist.order,
+          isPublished: artist.isPublished,
+        }));
+        setAvailableContent(artistContent);
+      } else {
+        const content = await getTopLevelContent(contentType, false); // Include drafts
+        setAvailableContent(content);
+      }
     } catch (err) {
       console.error("Failed to load content:", err);
     } finally {
@@ -578,6 +600,7 @@ export function AdminHomeRowsPanel() {
                   <option value="game">Games</option>
                   <option value="story">Stories</option>
                   <option value="card">Cards</option>
+                  <option value="artist">AI Artists</option>
                 </select>
               </div>
 

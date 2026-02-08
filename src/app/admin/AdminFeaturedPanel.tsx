@@ -11,6 +11,7 @@ import {
   deleteFeaturedItem,
   reorderFeaturedItems,
   getTopLevelContent,
+  getAllArtists,
   type JMFeaturedItem,
   type JMFeaturedInput,
 } from "@/lib/content";
@@ -18,7 +19,7 @@ import type { JMContentType } from "@/lib/content-types";
 import { 
   Plus, Trash2, GripVertical, Eye, EyeOff, 
   ChevronDown, Loader2, AlertCircle, X,
-  Film, BookOpen, Gamepad2, CreditCard
+  Film, BookOpen, Gamepad2, CreditCard, Music
 } from "lucide-react";
 
 interface ContentOption {
@@ -27,6 +28,7 @@ interface ContentOption {
   backdropURL?: string;
   description?: string;
   contentType: JMContentType;
+  slug?: string; // For artists - used for navigation
 }
 
 const CONTENT_TYPE_ICONS: Record<JMContentType, typeof Film> = {
@@ -34,6 +36,7 @@ const CONTENT_TYPE_ICONS: Record<JMContentType, typeof Film> = {
   story: BookOpen,
   game: Gamepad2,
   card: CreditCard,
+  artist: Music,
 };
 
 export function AdminFeaturedPanel() {
@@ -81,19 +84,39 @@ export function AdminFeaturedPanel() {
   const loadAvailableContent = useCallback(async (contentType: JMContentType) => {
     setIsLoadingContent(true);
     try {
-      // Get top-level content (series, movies, etc.) - published only
-      const content = await getTopLevelContent(contentType, true);
+      let options: ContentOption[];
       
-      const options: ContentOption[] = content.map((c) => {
-        const option: ContentOption = {
-          id: c.id,
-          name: c.name,
-          contentType: c.contentType,
-        };
-        if (c.backdropURL) option.backdropURL = c.backdropURL;
-        if (c.description) option.description = c.description;
-        return option;
-      });
+      if (contentType === "artist") {
+        // Fetch artists - published only, need banner for featured carousel
+        const artists = await getAllArtists(true);
+        options = artists
+          .filter((a): a is typeof a & { bannerURL: string } => !!a.bannerURL) // Only artists with banners can be featured
+          .map((a) => {
+            const option: ContentOption = {
+              id: a.id,
+              name: a.name,
+              contentType: "artist",
+              backdropURL: a.bannerURL,
+              slug: a.slug,
+            };
+            if (a.description) option.description = a.description;
+            return option;
+          });
+      } else {
+        // Get top-level content (series, movies, etc.) - published only
+        const content = await getTopLevelContent(contentType, true);
+        
+        options = content.map((c) => {
+          const option: ContentOption = {
+            id: c.id,
+            name: c.name,
+            contentType: c.contentType,
+          };
+          if (c.backdropURL) option.backdropURL = c.backdropURL;
+          if (c.description) option.description = c.description;
+          return option;
+        });
+      }
       
       setAvailableContent(options);
     } catch (err) {
@@ -126,6 +149,10 @@ export function AdminFeaturedPanel() {
       // Only add description if it exists
       if (contentOption.description) {
         input.description = contentOption.description;
+      }
+      // Add slug for artists (used for navigation)
+      if (contentOption.slug) {
+        input.slug = contentOption.slug;
       }
       
       await createFeaturedItem(input, user.uid);
@@ -428,6 +455,7 @@ export function AdminFeaturedPanel() {
                   <option value="story">Stories</option>
                   <option value="game">Games</option>
                   <option value="card">Cards</option>
+                  <option value="artist">AI Artists</option>
                 </select>
                 <ChevronDown 
                   className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none"

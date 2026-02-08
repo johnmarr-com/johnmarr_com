@@ -101,12 +101,20 @@ export default function Home() {
 
   const handleFeaturedClick = (item: FeaturedItem) => {
     // Navigate to content detail page
-    router.push(`/${item.contentType}/${item.contentId}`);
+    if (item.contentType === "artist" && item.slug) {
+      router.push(`/artist/${item.slug}`);
+    } else {
+      router.push(`/${item.contentType}/${item.contentId}`);
+    }
   };
 
   const handleContentClick = (item: ContentItem) => {
     // Navigate to content detail page
-    router.push(`/${item.contentType}/${item.id}`);
+    if (item.contentType === "artist" && item.slug) {
+      router.push(`/artist/${item.slug}`);
+    } else {
+      router.push(`/${item.contentType}/${item.id}`);
+    }
   };
 
   // Check if there's any content at all
@@ -182,6 +190,7 @@ export default function Home() {
                 name: c.name,
                 coverURL: c.coverURL,
                 contentType: c.contentType,
+                slug: c.slug, // For artists
               }));
               
               return (

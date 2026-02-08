@@ -21,7 +21,7 @@ import type { Timestamp } from "firebase/firestore";
 /**
  * Types of content available on the platform
  */
-export type JMContentType = "show" | "story" | "card" | "game";
+export type JMContentType = "show" | "story" | "card" | "game" | "artist";
 
 /**
  * Days of the week for recurring release schedules
@@ -63,6 +63,7 @@ export const JMContentTypeLabels: Record<JMContentType, string> = {
   story: "Story",
   card: "Card",
   game: "Game",
+  artist: "Artist",
 };
 
 /**
@@ -73,6 +74,7 @@ export const JMContentTypePluralLabels: Record<JMContentType, string> = {
   story: "Stories",
   card: "Cards",
   game: "Games",
+  artist: "Artists",
 };
 
 /**
@@ -127,6 +129,9 @@ export const getContentLevelLabel = (
       episode: "Game",
       standalone: "Game",
     },
+    artist: {
+      standalone: "Artist",
+    },
   };
   
   return labels[contentType][level] || JMContentLevelLabels[level];
@@ -147,6 +152,7 @@ export interface JMContent {
   
   // ─── Basic Metadata ───────────────────────────────────────
   name: string;
+  slug?: string;                  // URL-friendly identifier (used by artists)
   description: string;
   creatorId: string;              // User UID of creator
   brandId?: string;               // Optional: associate with a brand
@@ -416,7 +422,10 @@ export interface JMArtist {
   name: string;
   slug: string;                   // URL-safe identifier (e.g., "neon-nova")
   description: string;
-  avatarURL?: string;             // Artist profile image
+  avatarURL?: string;             // Artist profile image (small, for headers)
+  coverURL: string;               // Cover image for home rows (2:1 wide)
+  bannerURL?: string;             // Banner for featured carousel (16:9 landscape)
+  order: number;                  // Display order
   creatorId: string;              // User UID of creator
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -430,7 +439,10 @@ export interface JMArtistInput {
   name: string;
   slug: string;
   description: string;
+  coverURL: string;               // Required cover for home rows
   avatarURL?: string;
+  bannerURL?: string;             // Optional banner for featured carousel
+  order?: number;
   isPublished?: boolean;
 }
 

@@ -20,7 +20,8 @@ export interface FeaturedItem {
   description?: string;
   backdropURL: string;
   contentId: string;  // Links to actual content
-  contentType: "show" | "story" | "card" | "game";
+  contentType: "show" | "story" | "card" | "game" | "artist";
+  slug?: string;  // For artists - used for navigation
 }
 
 interface JMFeaturedCarouselProps {
