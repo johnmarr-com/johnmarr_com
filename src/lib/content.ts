@@ -1539,8 +1539,10 @@ export async function getArtistBySlug(slug: string): Promise<JMArtist | null> {
   const { app } = await initializeFirebase();
   const db = getFirestore(app);
   
+  // Must include isPublished filter for security rules to allow the query
   const q = query(
     collection(db, "artists"),
+    where("isPublished", "==", true),
     where("slug", "==", slug),
     limit(1)
   );

@@ -61,6 +61,14 @@
       ]
     },
     {
+      "collectionGroup": "artists",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isPublished", "order": "ASCENDING" },
+        { "fieldPath": "slug", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "albums",
       "queryScope": "COLLECTION",
       "fields": [
