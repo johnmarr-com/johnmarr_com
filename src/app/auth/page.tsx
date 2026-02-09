@@ -36,6 +36,7 @@ function AuthContent() {
   const [firstName, setFirstName] = useState("");
   const [funnelId, setFunnelId] = useState<string | null>(funnelFromUrl);
   const [customBgURL, setCustomBgURL] = useState<string | null>(null);
+  const [contentName, setContentName] = useState<string | null>(null);
 
   // Log visit for analytics tracking (only if NOT returning from email link)
   useEffect(() => {
@@ -51,26 +52,29 @@ function AuthContent() {
     });
   }, [sourceFromUrl, isLoginMode, funnelFromUrl]);
   
-  // Fetch custom background based on content type
+  // Fetch custom background and content name based on content type
   useEffect(() => {
-    const fetchCustomBg = async () => {
+    const fetchContentInfo = async () => {
       if (!contentType || !contentSlug) return;
       
       try {
         if (contentType === "artist") {
           const artist = await getArtistBySlug(contentSlug);
-          if (artist?.loginBgURL) {
-            setCustomBgURL(artist.loginBgURL);
+          if (artist) {
+            setContentName(artist.name);
+            if (artist.loginBgURL) {
+              setCustomBgURL(artist.loginBgURL);
+            }
           }
         }
         // Add support for shows later:
         // else if (contentType === "show") { ... }
       } catch (err) {
-        console.error("Failed to fetch custom background:", err);
+        console.error("Failed to fetch content info:", err);
       }
     };
     
-    fetchCustomBg();
+    fetchContentInfo();
   }, [contentType, contentSlug]);
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -260,27 +264,37 @@ function AuthContent() {
       <BackgroundImage customUrl={customBgURL} />
 
       <main className="relative z-10 mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-24">
-        {/* Back to home */}
-        <Link
-          href="/"
-          className="opacity-0 animate-fade-in mb-8 inline-flex items-center gap-2 font-mono text-sm transition-colors"
-          style={{ color: theme.text.secondary }}
-        >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
+        {/* Header row: Back to home + Content name */}
+        <div className="opacity-0 animate-fade-in mb-8 flex items-center justify-between">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 font-mono text-sm transition-colors"
+            style={{ color: theme.text.secondary }}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M10 19l-7-7m0 0l7-7m-7 7h18"
-            />
-          </svg>
-          Back to home
-        </Link>
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M10 19l-7-7m0 0l7-7m-7 7h18"
+              />
+            </svg>
+            Back to home
+          </Link>
+          {contentName && (
+            <span 
+              className="text-lg font-medium"
+              style={{ color: theme.text.primary }}
+            >
+              {contentName}
+            </span>
+          )}
+        </div>
 
         {/* Auth card */}
         <div 
