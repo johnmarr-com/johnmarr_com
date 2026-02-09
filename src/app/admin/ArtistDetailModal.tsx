@@ -16,6 +16,7 @@ import {
   uploadArtistAvatar,
   uploadArtistCover,
   uploadArtistBanner,
+  uploadArtistLoginBg,
   getAlbumsByArtist,
   createAlbum,
   updateAlbum,
@@ -78,6 +79,7 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
   const [avatarURL, setAvatarURL] = useState("");
   const [coverURL, setCoverURL] = useState("");
   const [bannerURL, setBannerURL] = useState("");
+  const [loginBgURL, setLoginBgURL] = useState("");
   const [isPublished, setIsPublished] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -127,6 +129,7 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
         setAvatarURL(data.avatarURL || "");
         setCoverURL(data.coverURL || "");
         setBannerURL(data.bannerURL || "");
+        setLoginBgURL(data.loginBgURL || "");
         setIsPublished(data.isPublished);
         
         // Fetch albums with songs
@@ -169,9 +172,10 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
       avatarURL !== (artist.avatarURL || "") ||
       coverURL !== (artist.coverURL || "") ||
       bannerURL !== (artist.bannerURL || "") ||
+      loginBgURL !== (artist.loginBgURL || "") ||
       isPublished !== artist.isPublished;
     setHasChanges(changed);
-  }, [artist, name, slug, description, avatarURL, coverURL, bannerURL, isPublished]);
+  }, [artist, name, slug, description, avatarURL, coverURL, bannerURL, loginBgURL, isPublished]);
 
   // Generate slug from name
   const generateSlug = (inputName: string) => {
@@ -199,6 +203,11 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
   const handleBannerUpload = useCallback(async (file: File) => {
     const id = artistId || `new-${Date.now()}`;
     return uploadArtistBanner(file, id);
+  }, [artistId]);
+  
+  const handleLoginBgUpload = useCallback(async (file: File) => {
+    const id = artistId || `new-${Date.now()}`;
+    return uploadArtistLoginBg(file, id);
   }, [artistId]);
 
   // Save artist
@@ -228,6 +237,7 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
         };
         if (avatarURL) input.avatarURL = avatarURL;
         if (bannerURL) input.bannerURL = bannerURL;
+        if (loginBgURL) input.loginBgURL = loginBgURL;
         
         await createArtist(input, user.uid);
         
@@ -243,6 +253,7 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
         };
         if (avatarURL) updates.avatarURL = avatarURL;
         if (bannerURL) updates.bannerURL = bannerURL;
+        if (loginBgURL) updates.loginBgURL = loginBgURL;
         
         await updateArtist(artistId, updates);
         
@@ -785,6 +796,17 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
                     value={bannerURL}
                     onChange={(url) => setBannerURL(url || "")}
                     onUpload={handleBannerUpload}
+                    aspectRatio="wide"
+                    previewSize={200}
+                    maxWidth={1920}
+                  />
+
+                  {/* Login Background (optional - for auth page) */}
+                  <JMImageUpload
+                    label="Login Background - custom auth page background"
+                    value={loginBgURL}
+                    onChange={(url) => setLoginBgURL(url || "")}
+                    onUpload={handleLoginBgUpload}
                     aspectRatio="wide"
                     previewSize={200}
                     maxWidth={1920}

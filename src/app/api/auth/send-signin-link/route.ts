@@ -7,8 +7,8 @@ const resend = new Resend(process.env["RESEND_API_KEY"]);
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, firstName, funnelId, isLogin } = await request.json();
-    console.log("[send-signin-link] Request received:", { email, firstName, funnelId, isLogin });
+    const { email, firstName, funnelId, isLogin, redirectTo } = await request.json();
+    console.log("[send-signin-link] Request received:", { email, firstName, funnelId, isLogin, redirectTo });
 
     if (!email) {
       return NextResponse.json(
@@ -26,6 +26,10 @@ export async function POST(request: NextRequest) {
     }
     if (funnelId) {
       redirectUrl += `&funnel=${encodeURIComponent(funnelId)}`;
+    }
+    // Include the final destination redirect if specified
+    if (redirectTo && redirectTo !== "/") {
+      redirectUrl += `&redirect=${encodeURIComponent(redirectTo)}`;
     }
     console.log("[send-signin-link] Redirect URL:", redirectUrl);
 

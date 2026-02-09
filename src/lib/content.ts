@@ -775,6 +775,38 @@ export async function uploadArtistBanner(
 }
 
 /**
+ * Upload an artist login background image to Firebase Storage
+ * Returns a permanent public URL
+ */
+export async function uploadArtistLoginBg(
+  file: File,
+  artistId: string
+): Promise<string> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getStorage, ref, uploadBytes } = await import("firebase/storage");
+  
+  const { app } = await initializeFirebase();
+  const storage = getStorage(app);
+  
+  const ext = file.type.split("/")[1] || "jpg";
+  const storagePath = `artist-login-bgs/${artistId}/login-bg.${ext}`;
+  const storageRef = ref(storage, storagePath);
+  
+  await uploadBytes(storageRef, file, {
+    contentType: file.type,
+    cacheControl: "public, max-age=31536000",
+  });
+  
+  const bucket = storage.app.options.storageBucket;
+  if (!bucket) {
+    throw new Error("Storage bucket not configured");
+  }
+  
+  const baseUrl = getPublicStorageUrl(bucket, storagePath);
+  return `${baseUrl}&t=${Date.now()}`;
+}
+
+/**
  * Upload an album cover image to Firebase Storage
  * Returns a permanent public URL
  */

@@ -294,8 +294,14 @@ export async function signInWithGoogle(funnelId?: string | null): Promise<User> 
  * @param funnelId - Funnel doc ID for tracking signup success
  * @param isLogin - Whether this is a login (returning user) vs signup (new user)
  */
-export async function sendSignInLink(email: string, firstName?: string, funnelId?: string | null, isLogin?: boolean): Promise<void> {
-  console.log("[sendSignInLink] Starting email send for:", email, "isLogin:", isLogin);
+export async function sendSignInLink(
+  email: string, 
+  firstName?: string, 
+  funnelId?: string | null, 
+  isLogin?: boolean,
+  redirectTo?: string
+): Promise<void> {
+  console.log("[sendSignInLink] Starting email send for:", email, "isLogin:", isLogin, "redirectTo:", redirectTo);
 
   try {
     const response = await fetch("/api/auth/send-signin-link", {
@@ -308,6 +314,7 @@ export async function sendSignInLink(email: string, firstName?: string, funnelId
         firstName,
         funnelId,
         isLogin,
+        redirectTo,
       }),
     });
 

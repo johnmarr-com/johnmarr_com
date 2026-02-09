@@ -14,6 +14,7 @@ import {
   logSourceVisit,
   logSignupAttempt,
 } from "@/lib/auth";
+import { getArtistBySlug } from "@/lib/content";
 
 function AuthContent() {
   const searchParams = useSearchParams();
@@ -26,9 +27,15 @@ function AuthContent() {
   const nameFromUrl = searchParams.get("name");
   const sourceFromUrl = searchParams.get("source");
   const funnelFromUrl = searchParams.get("funnel");
+  
+  // Custom redirect and background support
+  const redirectUrl = searchParams.get("redirect") || "/";
+  const contentType = searchParams.get("contentType");
+  const contentSlug = searchParams.get("contentSlug");
 
   const [firstName, setFirstName] = useState("");
   const [funnelId, setFunnelId] = useState<string | null>(funnelFromUrl);
+  const [customBgURL, setCustomBgURL] = useState<string | null>(null);
 
   // Log visit for analytics tracking (only if NOT returning from email link)
   useEffect(() => {
@@ -43,6 +50,28 @@ function AuthContent() {
       }
     });
   }, [sourceFromUrl, isLoginMode, funnelFromUrl]);
+  
+  // Fetch custom background based on content type
+  useEffect(() => {
+    const fetchCustomBg = async () => {
+      if (!contentType || !contentSlug) return;
+      
+      try {
+        if (contentType === "artist") {
+          const artist = await getArtistBySlug(contentSlug);
+          if (artist?.loginBgURL) {
+            setCustomBgURL(artist.loginBgURL);
+          }
+        }
+        // Add support for shows later:
+        // else if (contentType === "show") { ... }
+      } catch (err) {
+        console.error("Failed to fetch custom background:", err);
+      }
+    };
+    
+    fetchCustomBg();
+  }, [contentType, contentSlug]);
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,9 +98,9 @@ function AuthContent() {
   // Redirect if already authenticated
   useEffect(() => {
     if (user && !authLoading) {
-      router.push("/");
+      router.push(redirectUrl);
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, redirectUrl]);
 
   // Check for email sign-in link on mount
   useEffect(() => {
@@ -89,7 +118,7 @@ function AuthContent() {
             // Pass the name and funnel ID from URL (for new signups coming from email link)
             const user = await completeSignInWithEmailLink(emailFromUrl, url, nameFromUrl, funnelFromUrl);
             if (user) {
-              router.push("/");
+              router.push(redirectUrl);
             }
           } catch (err) {
             console.error("Error completing sign-in:", err);
@@ -112,7 +141,7 @@ function AuthContent() {
       // Log the signup attempt (Google method) - fire and forget
       logSignupAttempt({ funnelId, method: "google" });
       await signInWithGoogle(funnelId);
-      router.push("/");
+      router.push(redirectUrl);
     } catch (err) {
       console.error("Google sign-in error:", err);
       setError("Failed to sign in with Google. Please try again.");
@@ -140,8 +169,8 @@ function AuthContent() {
         firstName: isLoginMode ? null : firstName.trim(),
         email: email,
       });
-      // Pass firstName only for signup, not login; pass funnelId for tracking; pass isLogin for email template
-      await sendSignInLink(email, isLoginMode ? undefined : firstName.trim(), currentFunnelId, isLoginMode);
+      // Pass firstName only for signup, not login; pass funnelId for tracking; pass isLogin for email template; pass redirectUrl
+      await sendSignInLink(email, isLoginMode ? undefined : firstName.trim(), currentFunnelId, isLoginMode, redirectUrl);
       setEmailSent(true);
     } catch (err) {
       console.error("Send link error:", err);
@@ -175,7 +204,7 @@ function AuthContent() {
   if (emailSent) {
     return (
       <div className="relative min-h-screen overflow-hidden">
-        <BackgroundImage />
+        <BackgroundImage customUrl={customBgURL} />
         <main className="relative z-10 mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-24">
           <div 
             className="opacity-0 animate-fade-in-up rounded-2xl border p-8 backdrop-blur-md"
@@ -228,7 +257,7 @@ function AuthContent() {
 
   return (
     <div className="relative min-h-screen overflow-hidden">
-      <BackgroundImage />
+      <BackgroundImage customUrl={customBgURL} />
 
       <main className="relative z-10 mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-24">
         {/* Back to home */}
@@ -436,12 +465,14 @@ function AuthContent() {
   );
 }
 
-function BackgroundImage() {
+function BackgroundImage({ customUrl }: { customUrl?: string | null }) {
+  const bgUrl = customUrl || "/images/bgs/BG-Signup.jpg";
+  
   return (
     <div 
       className="absolute inset-0 bg-cover bg-center bg-no-repeat"
       style={{ 
-        backgroundImage: "url('/images/bgs/BG-Signup.jpg')",
+        backgroundImage: `url('${bgUrl}')`,
       }}
     >
       {/* Dark overlay to ensure text readability */}

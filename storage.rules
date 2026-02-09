@@ -139,6 +139,22 @@ service firebase.storage {
     }
     
     // ─────────────────────────────────────────────────────────────
+    // ARTIST LOGIN BACKGROUNDS (custom auth page backgrounds)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /artist-login-bgs/{artistId}/{fileName} {
+      // Anyone can read login backgrounds (needed for auth page)
+      allow read: if true;
+      
+      // Only admins can upload login backgrounds
+      // Must be an image under 10MB
+      allow write: if isAdmin() && isImage() && maxSize(10);
+      
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
     // ALBUM COVERS (images and short videos)
     // ─────────────────────────────────────────────────────────────
     

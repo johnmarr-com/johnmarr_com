@@ -162,6 +162,7 @@ export interface JMContent {
   // ─── Artwork ──────────────────────────────────────────────
   coverURL: string;               // 1:1 square (for scroller tiles)
   backdropURL?: string;           // 16:9 landscape (for detail pages)
+  loginBgURL?: string;            // Custom background for auth page when accessing this content
   
   // ─── Hierarchy & Ordering ─────────────────────────────────
   parentId: string | null;        // null = top-level content
@@ -425,6 +426,7 @@ export interface JMArtist {
   avatarURL?: string;             // Artist profile image (small, for headers)
   coverURL: string;               // Cover image for home rows (2:1 wide)
   bannerURL?: string;             // Banner for featured carousel (16:9 landscape)
+  loginBgURL?: string;            // Custom background for auth page when accessing this artist
   order: number;                  // Display order
   creatorId: string;              // User UID of creator
   createdAt: Timestamp;
@@ -442,6 +444,7 @@ export interface JMArtistInput {
   coverURL: string;               // Required cover for home rows
   avatarURL?: string;
   bannerURL?: string;             // Optional banner for featured carousel
+  loginBgURL?: string;            // Optional custom background for auth page
   order?: number;
   isPublished?: boolean;
 }
