@@ -606,7 +606,7 @@ export default function ArtistPage() {
               className="text-sm leading-relaxed"
               style={{ color: theme.text.tertiary }}
             >
-              {artist.description}
+              {artist.fullDescription || artist.description}
             </p>
           </div>
         )}

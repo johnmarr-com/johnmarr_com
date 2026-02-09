@@ -76,6 +76,7 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
+  const [fullDescription, setFullDescription] = useState("");
   const [avatarURL, setAvatarURL] = useState("");
   const [coverURL, setCoverURL] = useState("");
   const [bannerURL, setBannerURL] = useState("");
@@ -126,6 +127,7 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
         setName(data.name);
         setSlug(data.slug);
         setDescription(data.description);
+        setFullDescription(data.fullDescription || "");
         setAvatarURL(data.avatarURL || "");
         setCoverURL(data.coverURL || "");
         setBannerURL(data.bannerURL || "");
@@ -169,13 +171,14 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
       name !== artist.name ||
       slug !== artist.slug ||
       description !== artist.description ||
+      fullDescription !== (artist.fullDescription || "") ||
       avatarURL !== (artist.avatarURL || "") ||
       coverURL !== (artist.coverURL || "") ||
       bannerURL !== (artist.bannerURL || "") ||
       loginBgURL !== (artist.loginBgURL || "") ||
       isPublished !== artist.isPublished;
     setHasChanges(changed);
-  }, [artist, name, slug, description, avatarURL, coverURL, bannerURL, loginBgURL, isPublished]);
+  }, [artist, name, slug, description, fullDescription, avatarURL, coverURL, bannerURL, loginBgURL, isPublished]);
 
   // Generate slug from name
   const generateSlug = (inputName: string) => {
@@ -235,6 +238,7 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
           coverURL: coverURL.trim(),
           isPublished,
         };
+        if (fullDescription.trim()) input.fullDescription = fullDescription.trim();
         if (avatarURL) input.avatarURL = avatarURL;
         if (bannerURL) input.bannerURL = bannerURL;
         if (loginBgURL) input.loginBgURL = loginBgURL;
@@ -251,6 +255,7 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
           coverURL: coverURL.trim(),
           isPublished,
         };
+        if (fullDescription.trim()) updates.fullDescription = fullDescription.trim();
         if (avatarURL) updates.avatarURL = avatarURL;
         if (bannerURL) updates.bannerURL = bannerURL;
         if (loginBgURL) updates.loginBgURL = loginBgURL;
@@ -746,19 +751,41 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
                     placeholder="artist-slug"
                   />
 
-                  {/* Description */}
+                  {/* Description (Short) */}
                   <div>
                     <label 
                       className="block text-sm font-medium mb-1.5"
                       style={{ color: theme.text.secondary }}
                     >
-                      Description
+                      Short Description
                     </label>
                     <textarea
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
-                      rows={3}
-                      placeholder="Brief bio or description"
+                      rows={2}
+                      placeholder="Brief tagline for carousels (5-10 words)"
+                      className="w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-1 resize-none"
+                      style={{
+                        backgroundColor: "rgba(0, 0, 0, 0.4)",
+                        borderColor: "rgba(255, 255, 255, 0.2)",
+                        color: theme.text.primary,
+                      }}
+                    />
+                  </div>
+
+                  {/* Full Description */}
+                  <div>
+                    <label 
+                      className="block text-sm font-medium mb-1.5"
+                      style={{ color: theme.text.secondary }}
+                    >
+                      Full Description
+                    </label>
+                    <textarea
+                      value={fullDescription}
+                      onChange={(e) => setFullDescription(e.target.value)}
+                      rows={5}
+                      placeholder="Full bio for the artist page"
                       className="w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-1 resize-none"
                       style={{
                         backgroundColor: "rgba(0, 0, 0, 0.4)",

@@ -422,7 +422,8 @@ export interface JMArtist {
   id: string;
   name: string;
   slug: string;                   // URL-safe identifier (e.g., "neon-nova")
-  description: string;
+  description: string;            // Short description for carousels/cards
+  fullDescription?: string;       // Full bio for artist detail page
   avatarURL?: string;             // Artist profile image (small, for headers)
   coverURL: string;               // Cover image for home rows (2:1 wide)
   bannerURL?: string;             // Banner for featured carousel (16:9 landscape)
@@ -440,7 +441,8 @@ export interface JMArtist {
 export interface JMArtistInput {
   name: string;
   slug: string;
-  description: string;
+  description: string;            // Short description for carousels
+  fullDescription?: string;       // Full bio for artist page
   coverURL: string;               // Required cover for home rows
   avatarURL?: string;
   bannerURL?: string;             // Optional banner for featured carousel
