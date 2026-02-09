@@ -308,8 +308,8 @@ function AuthContent() {
           <div className="p-5 pb-0">
             <Image
               src={isLoginMode 
-                ? `/images/banners/Banner-Welcome-Back-${isMobile ? '1' : '2'}.png`
-                : `/images/banners/Banner-Create-Free-Account-${isMobile ? '1' : '2'}.png`
+                ? `/images/banners/Banner-Welcome-Back-${(isMobile || contentName) ? '1' : '2'}.png`
+                : `/images/banners/Banner-Create-Free-Account-${(isMobile || contentName) ? '1' : '2'}.png`
               }
               alt={isLoginMode ? "Welcome Back" : "Create a Free Account"}
               width={800}
