@@ -323,6 +323,7 @@ function AuthContent() {
               width={800}
               height={200}
               className="w-full h-auto rounded-lg"
+              style={contentName ? { filter: 'grayscale(1)' } : undefined}
               priority
             />
           </div>
