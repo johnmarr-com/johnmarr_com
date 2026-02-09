@@ -213,5 +213,20 @@ service cloud.firestore {
       // Only admins can manage avatars
       allow create, update, delete: if isAdmin();
     }
+    
+    // ─────────────────────────────────────────────────────────────
+    // SIGNUP FUNNEL COLLECTION (Analytics tracking)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /signup_funnel/{funnelId} {
+      // Anyone can create a funnel entry (tracks page visits)
+      allow create: if true;
+      
+      // Anyone can update their funnel entry (tracks signup attempts/completion)
+      allow update: if true;
+      
+      // Only admins can read or delete funnel data
+      allow read, delete: if isAdmin();
+    }
   }
 }
