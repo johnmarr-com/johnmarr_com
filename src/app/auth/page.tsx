@@ -37,6 +37,8 @@ function AuthContent() {
   const [funnelId, setFunnelId] = useState<string | null>(funnelFromUrl);
   const [customBgURL, setCustomBgURL] = useState<string | null>(null);
   const [contentName, setContentName] = useState<string | null>(null);
+  // Track if we've determined which background to show (to avoid flash)
+  const [bgResolved, setBgResolved] = useState(!contentType); // Already resolved if no content type
 
   // Log visit for analytics tracking (only if NOT returning from email link)
   useEffect(() => {
@@ -55,7 +57,10 @@ function AuthContent() {
   // Fetch custom background and content name based on content type
   useEffect(() => {
     const fetchContentInfo = async () => {
-      if (!contentType || !contentSlug) return;
+      if (!contentType || !contentSlug) {
+        setBgResolved(true);
+        return;
+      }
       
       try {
         if (contentType === "artist") {
@@ -70,7 +75,10 @@ function AuthContent() {
         // Add support for shows later:
         // else if (contentType === "show") { ... }
       } catch (err) {
-        console.error("Failed to fetch content info:", err);
+        // Silently handle - we'll just use the default background
+        console.warn("Could not fetch content info:", err);
+      } finally {
+        setBgResolved(true);
       }
     };
     
@@ -207,8 +215,8 @@ function AuthContent() {
   // Email sent confirmation
   if (emailSent) {
     return (
-      <div className="relative min-h-screen overflow-hidden">
-        <BackgroundImage customUrl={customBgURL} />
+      <div className="relative min-h-screen overflow-hidden" style={{ backgroundColor: '#000' }}>
+        {bgResolved && <BackgroundImage customUrl={customBgURL} />}
         <main className="relative z-10 mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-24">
           <div 
             className="opacity-0 animate-fade-in-up rounded-2xl border p-8 backdrop-blur-md"
@@ -260,8 +268,8 @@ function AuthContent() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      <BackgroundImage customUrl={customBgURL} />
+    <div className="relative min-h-screen overflow-hidden" style={{ backgroundColor: '#000' }}>
+      {bgResolved && <BackgroundImage customUrl={customBgURL} />}
 
       <main className="relative z-10 mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-24">
         {/* Header row: Back to home + Content name */}
