@@ -492,7 +492,7 @@ function BackgroundImage({ customUrl }: { customUrl?: string | null }) {
   
   return (
     <div 
-      className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+      className="absolute inset-0 bg-cover bg-center bg-no-repeat animate-fade-in"
       style={{ 
         backgroundImage: `url('${bgUrl}')`,
       }}
