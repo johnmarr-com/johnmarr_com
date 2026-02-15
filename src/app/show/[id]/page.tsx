@@ -493,9 +493,9 @@ export default function ShowDetailPage() {
                     className={`shrink-0 group/episode ${isLocked ? "cursor-not-allowed" : "cursor-pointer"}`}
                     style={{ scrollSnapAlign: "start" }}
                   >
-                    {/* Labels above the card */}
-                    {(isEarlyAccess || (isUnreleased && formattedReleaseDate)) && (
-                      <div className="flex justify-between items-center text-xs mb-1 px-1">
+                    {/* Labels above the card - reserve same height for all to align */}
+                    {(isEarlyAccess || (isUnreleased && formattedReleaseDate)) ? (
+                      <div className="flex justify-between items-center text-xs mb-1 px-1 min-h-5">
                         {/* Early Access - left aligned */}
                         {isEarlyAccess ? (
                           <span 
@@ -515,6 +515,9 @@ export default function ShowDetailPage() {
                           </span>
                         )}
                       </div>
+                    ) : (
+                      /* Spacer so released episodes align with unreleased ones */
+                      <div className="mb-1 min-h-5" aria-hidden="true" />
                     )}
                     
                     {/* Episode card wrapper - for positioning */}
