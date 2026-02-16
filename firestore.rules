@@ -215,6 +215,28 @@ service cloud.firestore {
     }
     
     // ─────────────────────────────────────────────────────────────
+    // AUCTION (Fine Art Auctions)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /auctions/{auctionId} {
+      // Authenticated users can read auctions
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    match /auction_items/{itemId} {
+      // Authenticated users can read auction items when auction is active (filtered client-side)
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+      
+      // Bids subcollection - writes via API (Admin SDK), admins can read bid history
+      match /bids/{bidId} {
+        allow read: if isAdmin();
+        allow create, update, delete: if false;  // Only via API
+      }
+    }
+    
+    // ─────────────────────────────────────────────────────────────
     // SIGNUP FUNNEL COLLECTION (Analytics tracking)
     // ─────────────────────────────────────────────────────────────
     

@@ -103,6 +103,7 @@ export {
   reorderFeaturedItems,
   type JMFeaturedItem,
   type JMFeaturedInput,
+  type JMFeaturedContentType,
   // Alerts
   createAlert,
   getAllAlerts,

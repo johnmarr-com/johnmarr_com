@@ -20,8 +20,8 @@ export interface FeaturedItem {
   description?: string;
   backdropURL: string;
   contentId: string;  // Links to actual content
-  contentType: "show" | "story" | "card" | "game" | "artist";
-  slug?: string;  // For artists - used for navigation
+  contentType: "show" | "story" | "card" | "game" | "artist" | "auction";
+  slug?: string;  // For artists, auctions - used for navigation
 }
 
 interface JMFeaturedCarouselProps {
@@ -173,7 +173,7 @@ export function JMFeaturedCarousel({
                       }}
                     >
                       <Play className="h-3 w-3 sm:h-4 sm:w-4" fill="currentColor" />
-                      {item.contentType === "show" ? "Watch Now" : "View"}
+                      {item.contentType === "show" ? "Watch Now" : item.contentType === "auction" ? "View Auction" : "View"}
                     </button>
                   </div>
                 </div>

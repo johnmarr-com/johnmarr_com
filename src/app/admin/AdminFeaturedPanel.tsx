@@ -15,11 +15,12 @@ import {
   type JMFeaturedItem,
   type JMFeaturedInput,
 } from "@/lib/content";
-import type { JMContentType } from "@/lib/content-types";
+import type { JMFeaturedContentType } from "@/lib/content";
+import { getAllAuctions } from "@/lib/auction";
 import { 
   Plus, Trash2, GripVertical, Eye, EyeOff, 
   ChevronDown, Loader2, AlertCircle, X,
-  Film, BookOpen, Gamepad2, CreditCard, Music
+  Film, BookOpen, Gamepad2, CreditCard, Music, Gavel
 } from "lucide-react";
 
 interface ContentOption {
@@ -27,16 +28,17 @@ interface ContentOption {
   name: string;
   backdropURL?: string;
   description?: string;
-  contentType: JMContentType;
-  slug?: string; // For artists - used for navigation
+  contentType: JMFeaturedContentType;
+  slug?: string; // For artists, auctions - used for navigation
 }
 
-const CONTENT_TYPE_ICONS: Record<JMContentType, typeof Film> = {
+const CONTENT_TYPE_ICONS: Record<JMFeaturedContentType, typeof Film> = {
   show: Film,
   story: BookOpen,
   game: Gamepad2,
   card: CreditCard,
   artist: Music,
+  auction: Gavel,
 };
 
 export function AdminFeaturedPanel() {
@@ -55,7 +57,7 @@ export function AdminFeaturedPanel() {
   // Content selection
   const [availableContent, setAvailableContent] = useState<ContentOption[]>([]);
   const [isLoadingContent, setIsLoadingContent] = useState(false);
-  const [selectedContentType, setSelectedContentType] = useState<JMContentType>("show");
+  const [selectedContentType, setSelectedContentType] = useState<JMFeaturedContentType>("show");
   
   // Drag and drop
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -81,7 +83,7 @@ export function AdminFeaturedPanel() {
   }, [loadFeatured]);
 
   // Load available content when opening add modal
-  const loadAvailableContent = useCallback(async (contentType: JMContentType) => {
+  const loadAvailableContent = useCallback(async (contentType: JMFeaturedContentType) => {
     setIsLoadingContent(true);
     try {
       let options: ContentOption[];
@@ -96,6 +98,22 @@ export function AdminFeaturedPanel() {
               id: a.id,
               name: a.name,
               contentType: "artist",
+              backdropURL: a.bannerURL,
+              slug: a.slug,
+            };
+            if (a.description) option.description = a.description;
+            return option;
+          });
+      } else if (contentType === "auction") {
+        // Fetch active auctions with banner - can be featured
+        const auctions = await getAllAuctions(true);
+        options = auctions
+          .filter((a): a is typeof a & { bannerURL: string } => !!a.bannerURL) // Only auctions with banners can be featured
+          .map((a) => {
+            const option: ContentOption = {
+              id: a.id,
+              name: a.name,
+              contentType: "auction",
               backdropURL: a.bannerURL,
               slug: a.slug,
             };
@@ -443,7 +461,7 @@ export function AdminFeaturedPanel() {
               <div className="relative">
                 <select
                   value={selectedContentType}
-                  onChange={(e) => setSelectedContentType(e.target.value as JMContentType)}
+                  onChange={(e) => setSelectedContentType(e.target.value as JMFeaturedContentType)}
                   className="w-full appearance-none rounded-lg px-4 py-2.5 pr-10"
                   style={{
                     backgroundColor: theme.surfaces.elevated2,
@@ -456,6 +474,7 @@ export function AdminFeaturedPanel() {
                   <option value="game">Games</option>
                   <option value="card">Cards</option>
                   <option value="artist">AI Artists</option>
+                  <option value="auction">Auctions</option>
                 </select>
                 <ChevronDown 
                   className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none"
@@ -475,7 +494,7 @@ export function AdminFeaturedPanel() {
                   className="text-center py-8"
                   style={{ color: theme.text.tertiary }}
                 >
-                  No published {selectedContentType}s available
+                  No {selectedContentType === "auction" ? "active" : "published"} {selectedContentType}s available
                 </div>
               ) : (
                 availableContent.map(content => {

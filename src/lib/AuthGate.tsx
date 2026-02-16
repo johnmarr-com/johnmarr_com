@@ -24,8 +24,11 @@ export function AuthGate({ children }: AuthGateProps) {
   const isPublicRoute = pathname === "/auth" || pathname === "/about";
   
   // Content routes: redirect to /auth with redirect param (custom bg support)
-  // These routes pass info to auth page for custom backgrounds
-  const isContentRoute = pathname.startsWith("/artist") || pathname.startsWith("/show");
+  // Auction requires auth - redirect to /auth
+  const isContentRoute =
+    pathname.startsWith("/artist") ||
+    pathname.startsWith("/show") ||
+    pathname.startsWith("/auction");
   
   // Parse content type and slug from pathname
   const getContentInfo = (): { type: string; slug: string } | null => {
@@ -37,6 +40,11 @@ export function AuthGate({ children }: AuthGateProps) {
       const slug = pathname.split("/")[2];
       if (slug) return { type: "show", slug };
     }
+    if (pathname.startsWith("/auction/")) {
+      const slug = pathname.split("/")[2];
+      if (slug) return { type: "auction", slug };
+    }
+    if (pathname === "/auction") return { type: "auction", slug: "" };
     return null;
   };
 
@@ -50,18 +58,16 @@ export function AuthGate({ children }: AuthGateProps) {
     // Don't redirect if user is authenticated
     if (user) return;
 
-    // Content route - redirect to auth with params for custom bg
+    // Content route - redirect to auth with params
     if (isContentRoute) {
+      const params = new URLSearchParams({ redirect: pathname });
       const contentInfo = getContentInfo();
-      if (contentInfo) {
-        const params = new URLSearchParams({
-          redirect: pathname,
-          contentType: contentInfo.type,
-          contentSlug: contentInfo.slug,
-        });
-        window.location.href = `/auth?${params.toString()}`;
-        return;
+      if (contentInfo?.slug) {
+        params.set("contentType", contentInfo.type);
+        params.set("contentSlug", contentInfo.slug);
       }
+      window.location.href = `/auth?${params.toString()}`;
+      return;
     }
 
     // No user on protected route - send to landing page

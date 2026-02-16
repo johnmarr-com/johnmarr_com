@@ -1,0 +1,426 @@
+"use client";
+
+import { useState, useEffect, useCallback, useRef } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { useParams } from "next/navigation";
+import { JMAppHeader } from "@/JMKit";
+import { useJMStyle } from "@/JMStyle";
+import { useAuth } from "@/lib/AuthProvider";
+import { getAuctionBySlug, getAuctionItems } from "@/lib/auction";
+import type { JMAuction, JMAuctionItem, JMAuctionVideoOrientation } from "@/lib/content-types";
+import { ArrowLeft, Play, Loader2, X, DollarSign } from "lucide-react";
+import Player from "@vimeo/player";
+
+function getVimeoId(url: string): string | null {
+  if (!url) return null;
+  const patterns = [
+    /vimeo\.com\/(\d+)/,
+    /player\.vimeo\.com\/video\/(\d+)/,
+    /vimeo\.com\/video\/(\d+)/,
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match?.[1]) return match[1];
+  }
+  return null;
+}
+
+function calculatePlayerDimensions(orientation: JMAuctionVideoOrientation = "landscape") {
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  let playerWidth: number;
+  let playerHeight: number;
+  if (orientation === "portrait") {
+    const aspectRatio = 9 / 16;
+    playerHeight = viewportHeight * 0.95;
+    playerWidth = playerHeight * aspectRatio;
+    if (playerWidth > viewportWidth * 0.95) {
+      playerWidth = viewportWidth * 0.95;
+      playerHeight = playerWidth / aspectRatio;
+    }
+  } else if (orientation === "square") {
+    const smallerDimension = Math.min(viewportWidth, viewportHeight);
+    playerWidth = smallerDimension * 0.8;
+    playerHeight = smallerDimension * 0.8;
+  } else {
+    const aspectRatio = 16 / 9;
+    playerWidth = viewportWidth * 0.95;
+    playerHeight = playerWidth / aspectRatio;
+    if (playerHeight > viewportHeight * 0.95) {
+      playerHeight = viewportHeight * 0.95;
+      playerWidth = playerHeight * aspectRatio;
+    }
+  }
+  return { width: playerWidth, height: playerHeight };
+}
+
+function Countdown({ endDate }: { endDate: Date }) {
+  const [timeLeft, setTimeLeft] = useState<{ d: number; h: number; m: number; s: number } | null>(null);
+  const [ended, setEnded] = useState(false);
+  useEffect(() => {
+    const tick = () => {
+      const diff = endDate.getTime() - new Date().getTime();
+      if (diff <= 0) {
+        setEnded(true);
+        setTimeLeft({ d: 0, h: 0, m: 0, s: 0 });
+        return;
+      }
+      setTimeLeft({
+        d: Math.floor(diff / (1000 * 60 * 60 * 24)),
+        h: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        m: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+        s: Math.floor((diff % (1000 * 60)) / 1000),
+      });
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [endDate]);
+  if (ended)
+    return (
+      <div className="text-xl font-bold" style={{ color: "#e07850" }}>
+        Auction Ended
+      </div>
+    );
+  if (!timeLeft) return null;
+  return (
+    <div className="flex gap-4 sm:gap-6">
+      {[
+        { label: "Days", val: timeLeft.d },
+        { label: "Hours", val: timeLeft.h },
+        { label: "Minutes", val: timeLeft.m },
+        { label: "Seconds", val: timeLeft.s },
+      ].map(({ label, val }) => (
+        <div key={label} className="text-center">
+          <div className="text-2xl sm:text-3xl font-bold tabular-nums" style={{ color: "#e07850" }}>
+            {String(val).padStart(2, "0")}
+          </div>
+          <div className="text-xs uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.6)" }}>
+            {label}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function AuctionDetailPage() {
+  const params = useParams();
+  const slug = params["slug"] as string;
+  const { theme } = useJMStyle();
+  const { user } = useAuth();
+
+  const [auction, setAuction] = useState<JMAuction | null>(null);
+  const [items, setItems] = useState<JMAuctionItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [bidItem, setBidItem] = useState<JMAuctionItem | null>(null);
+  const [bidValue, setBidValue] = useState("");
+  const [isSubmittingBid, setIsSubmittingBid] = useState(false);
+  const [bidError, setBidError] = useState<string | null>(null);
+  const [videoItem, setVideoItem] = useState<JMAuctionItem | null>(null);
+  const playerContainerRef = useRef<HTMLDivElement>(null);
+  const playerRef = useRef<Player | null>(null);
+
+  const load = useCallback(async () => {
+    if (!slug) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const au = await getAuctionBySlug(slug);
+      if (!au || !au.isActive) {
+        setAuction(null);
+        setItems([]);
+        return;
+      }
+      setAuction(au);
+      const list = await getAuctionItems(au.id, true);
+      setItems(list);
+    } catch (err) {
+      console.error("Failed to load auction:", err);
+      setError("Failed to load auction");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [slug]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    if (!videoItem || !playerContainerRef.current) return;
+    const vimeoId = getVimeoId(videoItem.videoURL || "");
+    if (!vimeoId) return;
+    if (playerRef.current) {
+      playerRef.current.destroy();
+      playerRef.current = null;
+    }
+    const orientation: JMAuctionVideoOrientation = videoItem.videoOrientation ?? "landscape";
+    const { width, height } = calculatePlayerDimensions(orientation);
+    const player = new Player(playerContainerRef.current, {
+      id: parseInt(vimeoId),
+      width,
+      height,
+      autoplay: false,
+      muted: false,
+      controls: true,
+      responsive: false,
+      title: false,
+      byline: false,
+      portrait: false,
+      playsinline: true,
+    });
+    playerRef.current = player;
+    return () => {
+      if (playerRef.current) {
+        playerRef.current.destroy();
+        playerRef.current = null;
+      }
+    };
+  }, [videoItem]);
+
+  const handleBid = async () => {
+    if (!bidItem || !user) return;
+    const val = parseFloat(bidValue);
+    if (isNaN(val) || val < 0) {
+      setBidError("Enter a valid bid amount");
+      return;
+    }
+    const effectiveMin =
+      bidItem.currentBid > 0 ? Math.max(bidItem.minimumBid, bidItem.currentBid) : bidItem.minimumBid;
+    if (val < effectiveMin) {
+      setBidError(`Minimum bid is $${effectiveMin}`);
+      return;
+    }
+    setIsSubmittingBid(true);
+    setBidError(null);
+    try {
+      const auth = await import("@/lib/auth").then((m) => m.getAuth());
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("Not signed in");
+      const token = await currentUser.getIdToken();
+      const res = await fetch("/api/auction/bid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ itemId: bidItem.id, value: val }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to place bid");
+      setBidItem(null);
+      setBidValue("");
+      await load();
+    } catch (err) {
+      setBidError(err instanceof Error ? err.message : "Failed to place bid");
+    } finally {
+      setIsSubmittingBid(false);
+    }
+  };
+
+  const openBidModal = (item: JMAuctionItem) => {
+    setBidItem(item);
+    setBidValue("");
+    setBidError(null);
+  };
+
+  const endDate = auction?.endDate?.toDate?.();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: theme.surfaces.base }}>
+        <Loader2 className="h-10 w-10 animate-spin" style={{ color: theme.accents.goldenGlow }} />
+      </div>
+    );
+  }
+
+  if (error || !auction) {
+    return (
+      <div className="min-h-screen" style={{ backgroundColor: theme.surfaces.base }}>
+        <JMAppHeader />
+        <div className="flex flex-col items-center justify-center pt-32 px-4">
+          <h1 className="text-2xl font-bold mb-4" style={{ color: theme.text.primary }}>
+            {error || "Auction not found"}
+          </h1>
+          <Link
+            href="/auction"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg"
+            style={{ backgroundColor: theme.surfaces.elevated1, color: theme.text.primary }}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Auctions
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen" style={{ backgroundColor: theme.surfaces.base }}>
+      <JMAppHeader />
+
+      <div className="px-4 sm:px-6 lg:px-8 py-6">
+        <Link
+          href="/auction"
+          className="inline-flex items-center gap-2 text-sm mb-6 hover:opacity-80"
+          style={{ color: theme.text.secondary }}
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Auctions
+        </Link>
+
+        <header className="mb-10">
+          <h1 className="text-3xl sm:text-4xl font-bold mb-2" style={{ color: theme.text.primary }}>
+            {auction.name}
+          </h1>
+          <p className="text-base mb-6" style={{ color: theme.text.secondary }}>
+            Silent auction for original artwork. Place your bid—if you win, we&apos;ll reach out for collection and shipping.
+          </p>
+          {endDate && (
+            <div
+              className="inline-flex items-center gap-4 px-6 py-4 rounded-xl"
+              style={{ backgroundColor: theme.surfaces.elevated1 }}
+            >
+              <Countdown endDate={endDate} />
+            </div>
+          )}
+        </header>
+
+        <div className="space-y-12">
+          {items.map((item) => (
+            <article
+              key={item.id}
+              className="w-full flex flex-col sm:flex-row gap-6 sm:gap-8 items-start"
+              style={{ paddingBottom: "2rem", borderBottom: `1px solid ${theme.surfaces.elevated2}` }}
+            >
+              <div className="w-full sm:w-80 shrink-0 aspect-square rounded-xl overflow-hidden relative bg-black">
+                <Image
+                  src={item.detailImageURL || item.thumbnailURL}
+                  alt={item.title}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 640px) 100vw, 320px"
+                />
+              </div>
+              <div className="flex-1 min-w-0 space-y-4">
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-bold" style={{ color: theme.text.primary }}>
+                    {item.title}
+                  </h2>
+                  {item.subtitle && (
+                    <p className="text-base mt-1" style={{ color: theme.text.secondary }}>{item.subtitle}</p>
+                  )}
+                </div>
+                {item.description && (
+                  <p className="text-sm" style={{ color: theme.text.secondary }}>{item.description}</p>
+                )}
+                {item.videoURL && getVimeoId(item.videoURL) && (
+                  <button
+                    onClick={() => setVideoItem(item)}
+                    className="flex items-center gap-2 text-sm font-medium hover:opacity-80"
+                    style={{ color: theme.accents.goldenGlow }}
+                  >
+                    <Play className="h-4 w-4" fill="currentColor" />
+                    Watch Video Preview
+                  </button>
+                )}
+                {(item.dimensions || item.media) && (
+                  <div className="text-sm" style={{ color: theme.text.tertiary }}>
+                    {item.dimensions && <span>{item.dimensions}</span>}
+                    {item.dimensions && item.media && " • "}
+                    {item.media && <span>{item.media}</span>}
+                  </div>
+                )}
+                <div className="flex flex-wrap items-center gap-4 pt-2">
+                  {item.currentBidWinnerName ? (
+                    <p className="text-base font-medium" style={{ color: theme.accents.goldenGlow }}>
+                      Current leading bid: {item.currentBidWinnerName}
+                    </p>
+                  ) : (
+                    <p className="text-sm" style={{ color: theme.text.tertiary }}>No bids yet</p>
+                  )}
+                  <button
+                    onClick={() => openBidModal(item)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-opacity hover:opacity-90"
+                    style={{ backgroundColor: theme.accents.goldenGlow, color: theme.surfaces.base }}
+                  >
+                    <DollarSign className="h-4 w-4" />
+                    Place Bid
+                  </button>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      {bidItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setBidItem(null)} />
+          <div
+            className="relative w-full max-w-md rounded-xl p-6"
+            style={{ backgroundColor: theme.surfaces.elevated1 }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold" style={{ color: theme.text.primary }}>
+                Place Bid: {bidItem.title}
+              </h3>
+              <button onClick={() => setBidItem(null)} className="p-2 rounded-lg hover:bg-white/10" style={{ color: theme.text.tertiary }}>
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-sm mb-4" style={{ color: theme.text.secondary }}>
+              Enter your bid for this artwork. {bidItem.currentBidWinnerName && (
+                <>The current leading bid is <strong style={{ color: theme.accents.goldenGlow }}>{bidItem.currentBidWinnerName}</strong> at <strong>${bidItem.currentBid}</strong>.</>
+              )} Should you win, we&apos;ll reach out to arrange collection and shipping.
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2" style={{ color: theme.text.secondary }}>Your bid ($)</label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={bidValue}
+                onChange={(e) => setBidValue(e.target.value)}
+                placeholder={`Min $${bidItem.currentBid > 0 ? Math.max(bidItem.minimumBid, bidItem.currentBid) : bidItem.minimumBid}`}
+                className="w-full rounded-lg px-4 py-3"
+                style={{ backgroundColor: theme.surfaces.elevated2, color: theme.text.primary, border: `1px solid ${theme.surfaces.elevated3}` }}
+              />
+              <p className="text-xs mt-2" style={{ color: theme.text.tertiary }}>
+                Minimum bid: ${bidItem.currentBid > 0 ? Math.max(bidItem.minimumBid, bidItem.currentBid) : bidItem.minimumBid}
+              </p>
+            </div>
+            {bidError && (
+              <p className="text-sm mb-4" style={{ color: theme.semantic.error }}>{bidError}</p>
+            )}
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setBidItem(null)} className="px-4 py-2 rounded-lg" style={{ backgroundColor: theme.surfaces.elevated2, color: theme.text.primary }}>Cancel</button>
+              <button
+                onClick={handleBid}
+                disabled={isSubmittingBid}
+                className="px-4 py-2 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2"
+                style={{ backgroundColor: theme.accents.goldenGlow, color: theme.surfaces.base }}
+              >
+                {isSubmittingBid && <Loader2 className="h-4 w-4 animate-spin" />}
+                Submit Bid
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {videoItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
+          <button
+            onClick={() => setVideoItem(null)}
+            className="absolute top-4 right-4 z-10 p-2 rounded-full hover:opacity-80"
+            style={{ backgroundColor: "rgba(0,0,0,0.6)", border: "2px solid rgba(255,255,255,0.3)" }}
+          >
+            <X className="h-6 w-6 text-white" />
+          </button>
+          <div ref={playerContainerRef} className="h-full flex items-center justify-center w-full" />
+        </div>
+      )}
+    </div>
+  );
+}

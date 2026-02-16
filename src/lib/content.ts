@@ -948,6 +948,9 @@ export async function uploadMusicVideoThumbnail(
 // FEATURED CONTENT
 // ─────────────────────────────────────────────────────────────
 
+/** Content types that can be featured (includes auction) */
+export type JMFeaturedContentType = JMContentType | "auction";
+
 export interface JMFeaturedItem {
   id: string;
   contentId: string;
@@ -955,8 +958,8 @@ export interface JMFeaturedItem {
   subtitle?: string;
   description?: string;
   backdropURL: string;
-  contentType: JMContentType;
-  slug?: string; // For artists - used for navigation
+  contentType: JMFeaturedContentType;
+  slug?: string; // For artists, auctions - used for navigation
   order: number;
   isActive: boolean;
   createdAt: import("firebase/firestore").Timestamp;
@@ -969,8 +972,8 @@ export interface JMFeaturedInput {
   subtitle?: string;
   description?: string;
   backdropURL: string;
-  contentType: JMContentType;
-  slug?: string; // For artists - used for navigation
+  contentType: JMFeaturedContentType;
+  slug?: string; // For artists, auctions - used for navigation
   order: number;
   isActive?: boolean;
 }
@@ -982,8 +985,8 @@ interface FeaturedContentResult {
   description?: string;
   backdropURL: string;
   contentId: string;
-  contentType: "show" | "story" | "card" | "game" | "artist";
-  slug?: string; // For artists - used for navigation
+  contentType: JMFeaturedContentType;
+  slug?: string; // For artists, auctions - used for navigation
 }
 
 /**

@@ -568,6 +568,123 @@ export interface JMMusicVideoInput {
  */
 export type JMMusicVideoUpdate = Partial<Omit<JMMusicVideo, "id" | "artistId" | "creatorId" | "createdAt">>;
 
+// ─────────────────────────────────────────────────────────────
+// AUCTION TYPES
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Video orientation for auction art preview
+ */
+export type JMAuctionVideoOrientation = "landscape" | "portrait" | "square";
+
+export const JMAuctionVideoOrientationLabels: Record<JMAuctionVideoOrientation, string> = {
+  landscape: "Landscape (16:9)",
+  portrait: "Portrait (9:16)",
+  square: "Square (1:1)",
+};
+
+/**
+ * Auction - a named auction with its own items and countdown
+ * Stored in Firestore: /auctions/{auctionId}
+ */
+export interface JMAuction {
+  id: string;
+  name: string;
+  slug: string;                   // URL-safe identifier (e.g. "spring-2025")
+  description?: string;           // For featured carousel card
+  bannerURL?: string;             // 16:9 feature image for carousel
+  endDate: Timestamp;             // When auction closes
+  isActive: boolean;              // Whether auction is visible/active
+  order: number;                  // Display order (for listing)
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/**
+ * Input for creating an auction
+ */
+export interface JMAuctionInput {
+  name: string;
+  slug: string;
+  description?: string;
+  bannerURL?: string;
+  endDate: Timestamp;
+  isActive?: boolean;
+  order?: number;
+}
+
+/**
+ * Input for updating an auction (partial)
+ */
+export type JMAuctionUpdate = Partial<Omit<JMAuction, "id" | "createdAt">>;
+
+/**
+ * Auction item - artwork available for silent auction
+ * Stored in Firestore: /auction_items/{itemId}
+ */
+export interface JMAuctionItem {
+  id: string;
+  auctionId: string;              // Reference to parent auction
+  title: string;
+  subtitle: string;
+  thumbnailURL: string;           // Square, for list display
+  detailImageURL: string;         // Hi-res for detail view
+  description: string;
+  videoURL?: string;              // Vimeo preview
+  videoOrientation?: JMAuctionVideoOrientation;
+  minimumBid: number;             // Dollars
+  currentBid: number;             // Highest bid so far (denormalized)
+  currentBidWinnerName: string | null;  // Display name of leading bidder
+  dimensions: string;             // e.g. "24\" x 36\""
+  media: string;                  // e.g. "Acrylic on canvas"
+  order: number;                  // Display order
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/**
+ * Bid on an auction item
+ * Stored in Firestore: /auction_items/{itemId}/bids/{bidId}
+ */
+export interface JMAuctionBid {
+  id: string;
+  auctionItemId: string;
+  userId: string;
+  userName: string;               // Denormalized for display
+  value: number;                  // Dollars
+  bidAt: Timestamp;
+}
+
+/**
+ * Input for creating an auction item
+ */
+export interface JMAuctionItemInput {
+  auctionId: string;
+  title: string;
+  subtitle: string;
+  thumbnailURL: string;
+  detailImageURL: string;
+  description: string;
+  videoURL?: string;
+  videoOrientation?: JMAuctionVideoOrientation;
+  minimumBid: number;
+  dimensions: string;
+  media: string;
+  order?: number;
+}
+
+/**
+ * Input for updating an auction item (partial)
+ */
+export type JMAuctionItemUpdate = Partial<Omit<JMAuctionItem, "id" | "createdAt">>;
+
+/**
+ * Auction item with bids (for admin)
+ */
+export interface JMAuctionItemWithBids extends JMAuctionItem {
+  bids: JMAuctionBid[];
+}
+
 /**
  * Artist with resolved albums, songs, and music videos (for UI display)
  */

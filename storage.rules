@@ -206,6 +206,22 @@ service firebase.storage {
     }
     
     // ─────────────────────────────────────────────────────────────
+    // AUCTION IMAGES (thumbnails and detail images)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /auction-images/{itemId}/{fileName} {
+      // Anyone can read auction images (public)
+      allow read: if true;
+      
+      // Only admins can upload auction images
+      // Must be an image under 10MB
+      allow write: if isAdmin() && isImage() && maxSize(10);
+      
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
     // FEATURED IMAGES (if separate from content images)
     // ─────────────────────────────────────────────────────────────
     
