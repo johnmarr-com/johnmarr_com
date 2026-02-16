@@ -473,6 +473,7 @@ function AuctionModal({
   const [slug, setSlug] = useState(auction?.slug ?? "");
   const [description, setDescription] = useState(auction?.description ?? "");
   const [bannerURL, setBannerURL] = useState(auction?.bannerURL ?? "");
+  const [pitchVideoURL, setPitchVideoURL] = useState(auction?.pitchVideoURL ?? "");
   const [endDate, setEndDate] = useState(
     auction?.endDate?.toDate?.() ? auction.endDate.toDate().toISOString().slice(0, 16) : ""
   );
@@ -502,11 +503,13 @@ function AuctionModal({
         const updates: Parameters<typeof updateAuction>[1] = { ...base };
         if (description.trim()) updates.description = description.trim();
         if (bannerURL) updates.bannerURL = bannerURL;
+        if (pitchVideoURL.trim()) updates.pitchVideoURL = pitchVideoURL.trim();
         await updateAuction(auction.id, updates);
       } else {
         const input: Parameters<typeof createAuction>[0] = { ...base };
         if (description.trim()) input.description = description.trim();
         if (bannerURL) input.bannerURL = bannerURL;
+        if (pitchVideoURL.trim()) input.pitchVideoURL = pitchVideoURL.trim();
         await createAuction(input);
       }
       onClose();
@@ -559,6 +562,18 @@ function AuctionModal({
               className="w-full rounded-lg px-4 py-2 resize-none"
               style={{ backgroundColor: theme.surfaces.elevated2, color: theme.text.primary, border: `1px solid ${theme.surfaces.elevated3}` }}
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: theme.text.secondary }}>Pitch Video (Vimeo URL)</label>
+            <input
+              type="url"
+              value={pitchVideoURL}
+              onChange={(e) => setPitchVideoURL(e.target.value)}
+              placeholder="https://vimeo.com/123456789"
+              className="w-full rounded-lg px-4 py-2"
+              style={{ backgroundColor: theme.surfaces.elevated2, color: theme.text.primary, border: `1px solid ${theme.surfaces.elevated3}` }}
+            />
+            <p className="text-xs mt-1" style={{ color: theme.text.tertiary }}>Video that tells the story of the auction</p>
           </div>
           <div>
             <JMImageUpload

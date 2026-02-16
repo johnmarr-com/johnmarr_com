@@ -259,61 +259,84 @@ export default function AuctionDetailPage() {
     <div className="min-h-screen" style={{ backgroundColor: theme.surfaces.base }}>
       <JMAppHeader />
 
-      <div className="px-4 sm:px-6 lg:px-8 py-6">
+      {/* Hero Banner */}
+      <div className="relative w-full aspect-21/9 sm:aspect-3/1 max-h-[500px]">
+        {auction.bannerURL ? (
+          <Image
+            src={auction.bannerURL}
+            alt={auction.name}
+            fill
+            className="object-cover"
+            sizes="100vw"
+          />
+        ) : (
+          <div
+            className="w-full h-full"
+            style={{ backgroundColor: theme.surfaces.elevated1 }}
+          />
+        )}
         <Link
           href="/auction"
-          className="inline-flex items-center gap-2 text-sm mb-6 hover:opacity-80"
-          style={{ color: theme.text.secondary }}
+          className="absolute top-20 left-4 sm:left-6 flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-colors hover:opacity-90 w-fit"
+          style={{
+            backgroundColor: `${theme.surfaces.base}80`,
+            color: theme.text.primary,
+          }}
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Auctions
+          <span className="hidden sm:inline">Back to Auctions</span>
         </Link>
+      </div>
 
-        <header className="mb-10">
-          <h1 className="text-3xl sm:text-4xl font-bold mb-2" style={{ color: theme.text.primary }}>
-            {auction.name}
-          </h1>
-          <p className="text-base mb-6" style={{ color: theme.text.secondary }}>
-            Silent auction for original artwork. Place your bid—if you win, we&apos;ll reach out for collection and shipping.
-          </p>
-          {endDate && (
-            <div
-              className="inline-flex items-center gap-4 px-6 py-4 rounded-xl"
-              style={{ backgroundColor: theme.surfaces.elevated1 }}
-            >
-              <Countdown endDate={endDate} />
-            </div>
-          )}
-        </header>
+      <div className="px-4 sm:px-6 lg:px-8 py-6">
+        <div className="mx-auto max-w-[800px]">
+          <header className="mb-10">
+            <h1 className="text-3xl sm:text-4xl font-bold mb-2" style={{ color: theme.text.primary }}>
+              {auction.name}
+            </h1>
+            <p className="text-base mb-6" style={{ color: theme.text.secondary }}>
+              {auction.description || "Silent auction for original artwork. Place your bid—if you win, we'll reach out for collection and shipping."}
+            </p>
+            {endDate && (
+              <div className="flex justify-center">
+                <div
+                  className="inline-flex items-center gap-4 px-6 py-4 rounded-xl"
+                  style={{ backgroundColor: theme.surfaces.elevated1 }}
+                >
+                  <Countdown endDate={endDate} />
+                </div>
+              </div>
+            )}
+          </header>
 
-        <div className="space-y-12">
-          {items.map((item) => (
-            <article
-              key={item.id}
-              className="w-full flex flex-col sm:flex-row gap-6 sm:gap-8 items-start"
-              style={{ paddingBottom: "2rem", borderBottom: `1px solid ${theme.surfaces.elevated2}` }}
-            >
-              <div className="w-full sm:w-80 shrink-0 aspect-square rounded-xl overflow-hidden relative bg-black">
-                <Image
+          <div className="space-y-12">
+            {items.map((item) => (
+              <article
+                key={item.id}
+                className="w-full flex flex-col sm:flex-row gap-6 sm:gap-8 items-start"
+                style={{ paddingBottom: "2rem", borderBottom: `1px solid ${theme.surfaces.elevated2}` }}
+              >
+                <div className="w-full sm:w-80 shrink-0 aspect-square rounded-xl overflow-hidden relative bg-black">
+                  <Image
                   src={item.detailImageURL || item.thumbnailURL}
                   alt={item.title}
                   fill
                   className="object-cover"
                   sizes="(max-width: 640px) 100vw, 320px"
-                />
-              </div>
-              <div className="flex-1 min-w-0 space-y-4">
-                <div>
-                  <h2 className="text-xl sm:text-2xl font-bold" style={{ color: theme.text.primary }}>
-                    {item.title}
-                  </h2>
-                  {item.subtitle && (
-                    <p className="text-base mt-1" style={{ color: theme.text.secondary }}>{item.subtitle}</p>
-                  )}
+                  />
                 </div>
-                {item.description && (
-                  <p className="text-sm" style={{ color: theme.text.secondary }}>{item.description}</p>
-                )}
+                <div className="flex-1 min-w-0 space-y-4">
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-bold" style={{ color: theme.text.primary }}>
+                      {item.title}
+                    </h2>
+                    {item.subtitle && (
+                      <p className="text-base mt-1" style={{ color: theme.text.secondary }}>{item.subtitle}</p>
+                    )}
+                  </div>
+                  {item.description && (
+                    <p className="text-sm" style={{ color: theme.text.tertiary }}>{item.description}</p>
+                  )}
                 {item.videoURL && getVimeoId(item.videoURL) && (
                   <button
                     onClick={() => setVideoItem(item)}
@@ -348,9 +371,10 @@ export default function AuctionDetailPage() {
                     Place Bid
                   </button>
                 </div>
-              </div>
-            </article>
-          ))}
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
       </div>
 

@@ -593,6 +593,7 @@ export interface JMAuction {
   slug: string;                   // URL-safe identifier (e.g. "spring-2025")
   description?: string;           // For featured carousel card
   bannerURL?: string;             // 16:9 feature image for carousel
+  pitchVideoURL?: string;         // Vimeo URL - "Pitch Video" telling the auction story
   endDate: Timestamp;             // When auction closes
   isActive: boolean;              // Whether auction is visible/active
   order: number;                  // Display order (for listing)
@@ -608,6 +609,7 @@ export interface JMAuctionInput {
   slug: string;
   description?: string;
   bannerURL?: string;
+  pitchVideoURL?: string;
   endDate: Timestamp;
   isActive?: boolean;
   order?: number;
