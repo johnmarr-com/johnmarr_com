@@ -325,7 +325,7 @@ export default function AuctionDetailPage() {
                   sizes="(max-width: 640px) 100vw, 320px"
                   />
                 </div>
-                <div className="flex-1 min-w-0 space-y-4">
+                <div className="flex-1 min-w-0 flex flex-col gap-4">
                   <div>
                     <h2 className="text-xl sm:text-2xl font-bold" style={{ color: theme.text.primary }}>
                       {item.title}
@@ -354,17 +354,29 @@ export default function AuctionDetailPage() {
                     {item.media && <span>{item.media}</span>}
                   </div>
                 )}
-                <div className="flex flex-wrap items-center gap-4 pt-2">
-                  {item.currentBidWinnerName ? (
-                    <p className="text-base font-medium" style={{ color: theme.accents.goldenGlow }}>
-                      Current leading bid: {item.currentBidWinnerName}
-                    </p>
-                  ) : (
-                    <p className="text-sm" style={{ color: theme.text.tertiary }}>No bids yet</p>
-                  )}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-2 mt-auto">
+                  <div>
+                    {item.currentBidWinnerName ? (
+                      <p className="text-base font-medium" style={{ color: theme.accents.goldenGlow }}>
+                        Current leading bid:
+                        <br />
+                        {item.currentBidWinnerName} @ ${item.currentBid}
+                      </p>
+                    ) : (
+                      <p className="text-sm" style={{ color: theme.text.tertiary }}>
+                        No bids yet
+                        {item.minimumBid > 0 && (
+                          <>
+                            <br />
+                            Minimum bid: ${item.minimumBid}
+                          </>
+                        )}
+                      </p>
+                    )}
+                  </div>
                   <button
                     onClick={() => openBidModal(item)}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-opacity hover:opacity-90"
+                    className="flex items-center justify-center sm:justify-end gap-2 px-4 py-2 rounded-lg font-medium transition-opacity hover:opacity-90 shrink-0"
                     style={{ backgroundColor: theme.accents.goldenGlow, color: theme.surfaces.base }}
                   >
                     <DollarSign className="h-4 w-4" />

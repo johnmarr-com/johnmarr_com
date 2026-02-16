@@ -67,7 +67,7 @@ export function JMContentScroller({
   }
 
   return (
-    <div className="relative group">
+    <div className="relative group max-w-[1500px] mx-auto">
       {/* Row title */}
       <h2 
         className="mb-3 sm:mb-4 px-4 sm:px-6 lg:px-8 text-lg sm:text-xl md:text-2xl font-semibold"

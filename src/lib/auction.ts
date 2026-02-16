@@ -317,7 +317,7 @@ export async function placeBid(
 export async function uploadAuctionImage(
   file: File,
   itemId: string,
-  imageType: "thumbnail" | "detail" | "banner"
+  imageType: "thumbnail" | "detail" | "banner" | "rowBanner"
 ): Promise<string> {
   const { initializeFirebase } = await import("./firebase");
   const { getStorage, ref, uploadBytes } = await import("firebase/storage");

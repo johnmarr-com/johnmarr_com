@@ -230,9 +230,10 @@ export interface JMExperience {
   updatedAt: Timestamp;
   
   // ─── Content Configuration ────────────────────────────────
-  contentType?: JMContentType;    // Optional: filter row to one type
-  contentIds: string[];           // Ordered array of JMContent IDs (for curated rows)
-  autoPopulate?: boolean;         // If true, auto-populate from contentType instead of using contentIds
+  rowKind?: "content" | "feature";  // "feature" = single row-banner (from content with rowBannerURL)
+  contentType?: JMContentType | "auction";  // For feature rows: "auction" (more types later)
+  contentIds: string[];           // Ordered array of content IDs; for feature: [singleId]
+  autoPopulate?: boolean;         // If true, auto-populate from contentType (content rows only)
   
   // ─── Display ──────────────────────────────────────────────
   order: number;                  // Position on homepage (lower = higher)
@@ -245,7 +246,8 @@ export interface JMExperience {
 export interface JMExperienceInput {
   title: string;
   description?: string;
-  contentType?: JMContentType;
+  rowKind?: "content" | "feature";
+  contentType?: JMContentType | "auction";
   contentIds?: string[];
   autoPopulate?: boolean;
   order?: number;
@@ -269,12 +271,23 @@ export interface JMContentWithChildren extends JMContent {
   children?: JMContentWithChildren[];
 }
 
+/** Item displayed in a feature row (content with rowBannerURL) */
+export interface JMFeatureRowItem {
+  id: string;
+  name: string;
+  slug?: string;
+  rowBannerURL: string;
+  contentType: "auction";
+}
+
 /**
  * Experience with resolved content items (for UI display)
  * Used when fetching an experience row with all its content
  */
 export interface JMExperienceWithContent extends JMExperience {
   content: JMContent[];
+  /** Set when rowKind is "feature" and content has rowBannerURL */
+  featureItem?: JMFeatureRowItem;
 }
 
 /**
@@ -593,6 +606,7 @@ export interface JMAuction {
   slug: string;                   // URL-safe identifier (e.g. "spring-2025")
   description?: string;           // For featured carousel card
   bannerURL?: string;             // 16:9 feature image for carousel
+  rowBannerURL?: string;          // 1500×height px - for feature row on home (same height as row covers)
   pitchVideoURL?: string;         // Vimeo URL - "Pitch Video" telling the auction story
   endDate: Timestamp;             // When auction closes
   isActive: boolean;              // Whether auction is visible/active
@@ -609,6 +623,7 @@ export interface JMAuctionInput {
   slug: string;
   description?: string;
   bannerURL?: string;
+  rowBannerURL?: string;
   pitchVideoURL?: string;
   endDate: Timestamp;
   isActive?: boolean;

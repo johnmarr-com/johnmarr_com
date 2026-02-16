@@ -452,10 +452,24 @@ export async function getExperienceWithContent(
     return null;
   }
   
-  let resolvedContent: JMContent[];
-  
-  // If autoPopulate is enabled and contentType is set, fetch all content of that type
-  if (experience.autoPopulate && experience.contentType) {
+  let resolvedContent: JMContent[] = [];
+  let featureItem: JMExperienceWithContent["featureItem"];
+
+  // Feature row: single row-banner from content (e.g. auction)
+  const firstContentId = experience.contentIds[0];
+  if (experience.rowKind === "feature" && experience.contentType === "auction" && firstContentId) {
+    const { getAuction } = await import("./auction");
+    const auction = await getAuction(firstContentId);
+    if (auction && auction.rowBannerURL && (!publishedOnly || auction.isActive)) {
+      featureItem = {
+        id: auction.id,
+        name: auction.name,
+        slug: auction.slug,
+        rowBannerURL: auction.rowBannerURL,
+        contentType: "auction",
+      };
+    }
+  } else if (experience.autoPopulate && experience.contentType && experience.contentType !== "auction") {
     if (experience.contentType === "artist") {
       // Fetch artists and convert to JMContent-like format
       const artists = await getAllArtists(publishedOnly);
@@ -499,8 +513,8 @@ export async function getExperienceWithContent(
         order: artist.order,
         isPublished: artist.isPublished,
       }));
-  } else {
-    // Otherwise use the curated contentIds list
+  } else if (experience.contentType !== "auction") {
+    // Otherwise use the curated contentIds list (content rows only, not auction)
     const content = await Promise.all(
       experience.contentIds.map((id) => getContent(id))
     );
@@ -514,6 +528,7 @@ export async function getExperienceWithContent(
   return {
     ...experience,
     content: resolvedContent,
+    ...(featureItem && { featureItem }),
   };
 }
 

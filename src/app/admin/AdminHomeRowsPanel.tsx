@@ -14,6 +14,7 @@ import {
   Layers,
   Zap,
   List,
+  Image as ImageIcon,
 } from "lucide-react";
 import {
   DndContext,
@@ -42,7 +43,9 @@ import {
   getTopLevelContent,
   getAllArtists,
 } from "@/lib/content";
+import { getAllAuctions } from "@/lib/auction";
 import type { JMExperience, JMContent, JMContentType } from "@/lib/content-types";
+import type { JMAuction } from "@/lib/content-types";
 import { JMContentTypeLabels } from "@/lib/content-types";
 
 // Sortable content item for curated row editor
@@ -153,7 +156,18 @@ function SortableRowItem({ row, onEdit, onTogglePublish, onDelete }: SortableRow
           <span className="font-medium" style={{ color: theme.text.primary }}>
             {row.title}
           </span>
-          {row.autoPopulate ? (
+          {row.rowKind === "feature" ? (
+            <span
+              className="text-xs px-2 py-0.5 rounded-full flex items-center gap-1"
+              style={{
+                backgroundColor: `${theme.accents.goldenGlow}30`,
+                color: theme.accents.goldenGlow,
+              }}
+            >
+              <ImageIcon size={10} />
+              Feature
+            </span>
+          ) : row.autoPopulate ? (
             <span
               className="text-xs px-2 py-0.5 rounded-full flex items-center gap-1"
               style={{
@@ -189,9 +203,11 @@ function SortableRowItem({ row, onEdit, onTogglePublish, onDelete }: SortableRow
           )}
         </div>
         <div className="text-sm mt-0.5" style={{ color: theme.text.tertiary }}>
-          {row.autoPopulate && row.contentType
-            ? `All ${JMContentTypeLabels[row.contentType]}s`
-            : `${row.contentIds.length} item${row.contentIds.length !== 1 ? "s" : ""}`}
+          {row.rowKind === "feature"
+            ? `Row banner: ${row.contentType === "auction" ? "Auction" : row.contentType}`
+            : row.autoPopulate && row.contentType
+              ? `All ${row.contentType === "auction" ? "Auctions" : JMContentTypeLabels[row.contentType as JMContentType]}s`
+              : `${row.contentIds.length} item${row.contentIds.length !== 1 ? "s" : ""}`}
         </div>
       </div>
 
@@ -242,12 +258,14 @@ export function AdminHomeRowsPanel() {
 
   // Form state
   const [formTitle, setFormTitle] = useState("");
-  const [formContentType, setFormContentType] = useState<JMContentType | "">("");
+  const [formRowKind, setFormRowKind] = useState<"content" | "feature">("content");
+  const [formContentType, setFormContentType] = useState<JMContentType | "auction" | "">("");
   const [formAutoPopulate, setFormAutoPopulate] = useState(false);
   const [formContentIds, setFormContentIds] = useState<string[]>([]);
 
   // Content picker state
   const [availableContent, setAvailableContent] = useState<JMContent[]>([]);
+  const [availableAuctions, setAvailableAuctions] = useState<JMAuction[]>([]);
   const [isLoadingContent, setIsLoadingContent] = useState(false);
 
   // DnD sensors
@@ -275,6 +293,18 @@ export function AdminHomeRowsPanel() {
   }, [loadRows]);
 
   // Load available content when modal opens for curated rows
+  const loadAvailableAuctions = useCallback(async () => {
+    setIsLoadingContent(true);
+    try {
+      const auctions = await getAllAuctions(false);
+      setAvailableAuctions(auctions.filter((a): a is JMAuction & { rowBannerURL: string } => !!a.rowBannerURL));
+    } catch (err) {
+      console.error("Failed to load auctions:", err);
+    } finally {
+      setIsLoadingContent(false);
+    }
+  }, []);
+
   const loadAvailableContent = useCallback(async (contentType?: JMContentType) => {
     setIsLoadingContent(true);
     try {
@@ -311,21 +341,27 @@ export function AdminHomeRowsPanel() {
   const openCreateModal = () => {
     setEditingRow(null);
     setFormTitle("");
+    setFormRowKind("content");
     setFormContentType("");
     setFormAutoPopulate(false);
     setFormContentIds([]);
     setAvailableContent([]);
+    setAvailableAuctions([]);
     setShowModal(true);
   };
 
   const openEditModal = (row: JMExperience) => {
     setEditingRow(row);
     setFormTitle(row.title);
-    setFormContentType(row.contentType || "");
-    setFormAutoPopulate(row.autoPopulate || false);
+    const isFeature = row.rowKind === "feature";
+    setFormRowKind(isFeature ? "feature" : "content");
+    setFormContentType((row.contentType as JMContentType | "auction") || "");
+    setFormAutoPopulate(isFeature ? false : (row.autoPopulate || false));
     setFormContentIds(row.contentIds || []);
-    if (!row.autoPopulate) {
-      loadAvailableContent(row.contentType);
+    if (isFeature) {
+      loadAvailableAuctions();
+    } else if (!row.autoPopulate) {
+      loadAvailableContent(row.contentType === "auction" ? undefined : (row.contentType as JMContentType));
     }
     setShowModal(true);
   };
@@ -335,10 +371,25 @@ export function AdminHomeRowsPanel() {
     setEditingRow(null);
   };
 
-  const handleContentTypeChange = (type: JMContentType | "") => {
+  const handleRowKindChange = (kind: "content" | "feature") => {
+    setFormRowKind(kind);
+    setFormContentIds([]);
+    if (kind === "feature") {
+      setFormContentType("auction");
+      setFormAutoPopulate(false);
+      loadAvailableAuctions();
+    } else {
+      setFormContentType("");
+      loadAvailableContent();
+    }
+  };
+
+  const handleContentTypeChange = (type: JMContentType | "auction" | "") => {
     setFormContentType(type);
-    if (!formAutoPopulate && type) {
-      loadAvailableContent(type);
+    if (formRowKind === "feature" && type === "auction") {
+      loadAvailableAuctions();
+    } else if (!formAutoPopulate && type && type !== "auction") {
+      loadAvailableContent(type as JMContentType);
     } else if (!type) {
       loadAvailableContent();
     }
@@ -347,7 +398,7 @@ export function AdminHomeRowsPanel() {
   const handleAutoPopulateChange = (auto: boolean) => {
     setFormAutoPopulate(auto);
     if (!auto) {
-      loadAvailableContent(formContentType || undefined);
+      loadAvailableContent(formContentType && formContentType !== "auction" ? (formContentType as JMContentType) : undefined);
     }
   };
 
@@ -364,36 +415,31 @@ export function AdminHomeRowsPanel() {
       setError("Row title is required");
       return;
     }
+    if (formRowKind === "feature" && formContentIds.length === 0) {
+      setError("Please select an auction with a row banner");
+      return;
+    }
     if (!user?.uid) return;
 
     setIsSaving(true);
     setError(null);
 
     try {
+      const baseUpdate: Record<string, unknown> = {
+        title: formTitle.trim(),
+        rowKind: formRowKind,
+        autoPopulate: formRowKind === "content" ? formAutoPopulate : false,
+        contentIds: formRowKind === "feature" ? formContentIds : (formAutoPopulate ? [] : formContentIds),
+      };
+      if (formContentType) baseUpdate["contentType"] = formContentType;
       if (editingRow) {
-        // Update existing row
-        const updateData: Parameters<typeof updateExperience>[1] = {
-          title: formTitle.trim(),
-          autoPopulate: formAutoPopulate,
-          contentIds: formAutoPopulate ? [] : formContentIds,
-        };
-        if (formContentType) {
-          updateData.contentType = formContentType;
-        }
-        await updateExperience(editingRow.id, updateData);
+        await updateExperience(editingRow.id, baseUpdate as Parameters<typeof updateExperience>[1]);
       } else {
-        // Create new row
-        const nextOrder = rows.length;
         const createData: Parameters<typeof createExperience>[0] = {
-          title: formTitle.trim(),
-          autoPopulate: formAutoPopulate,
-          contentIds: formAutoPopulate ? [] : formContentIds,
-          order: nextOrder,
+          ...baseUpdate,
+          order: rows.length,
           isPublished: false,
-        };
-        if (formContentType) {
-          createData.contentType = formContentType;
-        }
+        } as Parameters<typeof createExperience>[0];
         await createExperience(createData, user.uid);
       }
 
@@ -561,6 +607,36 @@ export function AdminHomeRowsPanel() {
 
             {/* Form */}
             <div className="p-6 space-y-5">
+              {/* Row Kind */}
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: theme.text.secondary }}>
+                  Row Type
+                </label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="rowKind"
+                      checked={formRowKind === "content"}
+                      onChange={() => handleRowKindChange("content")}
+                    />
+                    <span style={{ color: theme.text.primary }}>Content Row</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="rowKind"
+                      checked={formRowKind === "feature"}
+                      onChange={() => handleRowKindChange("feature")}
+                    />
+                    <span style={{ color: theme.text.primary }}>Feature Row</span>
+                  </label>
+                </div>
+                <p className="text-xs mt-1" style={{ color: theme.text.tertiary }}>
+                  {formRowKind === "feature" ? "Single row-banner image (1500×750px) from content" : "Horizontal scroller of content covers"}
+                </p>
+              </div>
+
               {/* Title */}
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: theme.text.secondary }}>
@@ -580,14 +656,69 @@ export function AdminHomeRowsPanel() {
                 />
               </div>
 
-              {/* Content Type Filter */}
+              {/* Feature Row: Pick content with row-banner */}
+              {formRowKind === "feature" && (
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: theme.text.secondary }}>
+                    Select Auction (with row banner) *
+                  </label>
+                  {isLoadingContent ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin" style={{ color: theme.accents.goldenGlow }} />
+                    </div>
+                  ) : availableAuctions.length === 0 ? (
+                    <p className="text-sm py-4" style={{ color: theme.text.tertiary }}>
+                      No auctions with row banner. Add a row banner image in the Auctions admin.
+                    </p>
+                  ) : (
+                    <div
+                      className="max-h-48 overflow-y-auto rounded-lg border"
+                      style={{ backgroundColor: theme.surfaces.elevated1, borderColor: theme.surfaces.elevated2 }}
+                    >
+                      {availableAuctions.map((auction) => (
+                        <button
+                          key={auction.id}
+                          type="button"
+                          onClick={() => setFormContentIds(formContentIds.includes(auction.id) ? [] : [auction.id])}
+                          className="w-full flex items-center gap-3 p-3 hover:bg-white/5 border-b last:border-b-0 text-left"
+                          style={{
+                            borderColor: theme.surfaces.elevated2,
+                            backgroundColor: formContentIds.includes(auction.id) ? `${theme.accents.goldenGlow}20` : undefined,
+                          }}
+                        >
+                          {auction.rowBannerURL && (
+                            <div className="w-16 h-8 rounded overflow-hidden shrink-0">
+                              <Image
+                                src={auction.rowBannerURL}
+                                alt=""
+                                width={64}
+                                height={32}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          )}
+                          <span className="flex-1 truncate" style={{ color: theme.text.primary }}>
+                            {auction.name}
+                          </span>
+                          {formContentIds.includes(auction.id) && (
+                            <span className="text-xs font-medium" style={{ color: theme.accents.goldenGlow }}>Selected</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Content Type Filter (content rows only) */}
+              {formRowKind === "content" && (
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: theme.text.secondary }}>
                   Content Type
                 </label>
                 <select
                   value={formContentType}
-                  onChange={(e) => handleContentTypeChange(e.target.value as JMContentType | "")}
+                  onChange={(e) => handleContentTypeChange(e.target.value as JMContentType | "auction" | "")}
                   className="w-full px-4 py-3 rounded-lg outline-none"
                   style={{
                     backgroundColor: theme.surfaces.elevated1,
@@ -603,8 +734,10 @@ export function AdminHomeRowsPanel() {
                   <option value="artist">AI Artists</option>
                 </select>
               </div>
+              )}
 
-              {/* Auto-populate toggle */}
+              {/* Auto-populate toggle (content rows only) */}
+              {formRowKind === "content" && (
               <div>
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
@@ -623,9 +756,10 @@ export function AdminHomeRowsPanel() {
                   </div>
                 </label>
               </div>
+              )}
 
-              {/* Content picker (only for curated rows) */}
-              {!formAutoPopulate && (
+              {/* Content picker (only for curated content rows) */}
+              {formRowKind === "content" && !formAutoPopulate && (
                 <div className="space-y-4">
                   {/* Selected items - draggable */}
                   {formContentIds.length > 0 && (

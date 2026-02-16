@@ -473,6 +473,7 @@ function AuctionModal({
   const [slug, setSlug] = useState(auction?.slug ?? "");
   const [description, setDescription] = useState(auction?.description ?? "");
   const [bannerURL, setBannerURL] = useState(auction?.bannerURL ?? "");
+  const [rowBannerURL, setRowBannerURL] = useState(auction?.rowBannerURL ?? "");
   const [pitchVideoURL, setPitchVideoURL] = useState(auction?.pitchVideoURL ?? "");
   const [endDate, setEndDate] = useState(
     auction?.endDate?.toDate?.() ? auction.endDate.toDate().toISOString().slice(0, 16) : ""
@@ -483,6 +484,10 @@ function AuctionModal({
 
   const handleBannerUpload = useCallback(async (file: File) => {
     return uploadAuctionImage(file, auction?.id ?? tempIdRef.current, "banner");
+  }, [auction?.id]);
+
+  const handleRowBannerUpload = useCallback(async (file: File) => {
+    return uploadAuctionImage(file, auction?.id ?? tempIdRef.current, "rowBanner");
   }, [auction?.id]);
 
   const handleSave = async () => {
@@ -503,12 +508,14 @@ function AuctionModal({
         const updates: Parameters<typeof updateAuction>[1] = { ...base };
         if (description.trim()) updates.description = description.trim();
         if (bannerURL) updates.bannerURL = bannerURL;
+        if (rowBannerURL) updates.rowBannerURL = rowBannerURL;
         if (pitchVideoURL.trim()) updates.pitchVideoURL = pitchVideoURL.trim();
         await updateAuction(auction.id, updates);
       } else {
         const input: Parameters<typeof createAuction>[0] = { ...base };
         if (description.trim()) input.description = description.trim();
         if (bannerURL) input.bannerURL = bannerURL;
+        if (rowBannerURL) input.rowBannerURL = rowBannerURL;
         if (pitchVideoURL.trim()) input.pitchVideoURL = pitchVideoURL.trim();
         await createAuction(input);
       }
@@ -582,6 +589,15 @@ function AuctionModal({
               onChange={(url) => setBannerURL(url ?? "")}
               onUpload={handleBannerUpload}
               aspectRatio="landscape"
+            />
+          </div>
+          <div>
+            <JMImageUpload
+              label="Row Banner (2:1, 1500×750px) - for feature row on home"
+              value={rowBannerURL}
+              onChange={(url) => setRowBannerURL(url ?? "")}
+              onUpload={handleRowBannerUpload}
+              aspectRatio="wide"
             />
           </div>
           <div>

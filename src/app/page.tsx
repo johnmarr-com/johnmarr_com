@@ -1,15 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { useAuth } from "@/lib/AuthProvider";
 import { getAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
-import { JMAppHeader, JMWelcomeAvatarModal, JMFeaturedCarousel, JMContentScroller } from "@/JMKit";
+import { JMAppHeader, JMWelcomeAvatarModal, JMFeaturedCarousel, JMContentScroller, JMFeatureRowBanner } from "@/JMKit";
 import type { FeaturedItem, ContentItem } from "@/JMKit";
 import { useJMStyle } from "@/JMStyle";
 import { getFeaturedContent, getPublishedAlert, getExperiencesWithContent } from "@/lib/content";
-import { hasActiveAuction } from "@/lib/auction";
 import type { JMAlert, JMExperienceWithContent } from "@/lib/content-types";
 
 export default function Home() {
@@ -25,9 +23,6 @@ export default function Home() {
   // Content rows state - now using experiences
   const [experienceRows, setExperienceRows] = useState<JMExperienceWithContent[]>([]);
   const [isContentLoading, setIsContentLoading] = useState(true);
-
-  // Auction banner - show when auction is active
-  const [auctionActive, setAuctionActive] = useState(false);
 
   // Load featured content and alert
   useEffect(() => {
@@ -68,19 +63,6 @@ export default function Home() {
       }
     };
     loadContentRows();
-  }, []);
-
-  // Load auction status for banner
-  useEffect(() => {
-    const loadAuction = async () => {
-      try {
-        const active = await hasActiveAuction();
-        setAuctionActive(active);
-      } catch {
-        setAuctionActive(false);
-      }
-    };
-    loadAuction();
   }, []);
 
   // Check if this is a first-time user (no avatar)
@@ -199,51 +181,26 @@ export default function Home() {
           ) : null}
         </section>
 
-        {/* Auction Banner - shown when auction is active */}
-        {auctionActive && (
-          <section className="mt-6 px-4 sm:px-6 lg:px-8">
-            <Link
-              href="/auction"
-              className="block w-full rounded-xl overflow-hidden transition-opacity hover:opacity-90"
-              style={{
-                backgroundColor: theme.surfaces.elevated1,
-                border: `2px solid ${theme.accents.goldenGlow}`,
-                boxShadow: `0 4px 20px ${theme.accents.goldenGlow}30`,
-              }}
-            >
-              <div className="px-6 py-5 sm:px-8 sm:py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div>
-                  <h2
-                    className="text-xl sm:text-2xl font-bold"
-                    style={{ color: theme.text.primary }}
-                  >
-                    Fine Art Auctions
-                  </h2>
-                  <p
-                    className="text-sm sm:text-base mt-1"
-                    style={{ color: theme.text.secondary }}
-                  >
-                    Posters, originals & more—place your silent bids now
-                  </p>
-                </div>
-                <span
-                  className="shrink-0 px-4 py-2 rounded-lg font-medium"
-                  style={{
-                    backgroundColor: theme.accents.goldenGlow,
-                    color: theme.surfaces.base,
-                  }}
-                >
-                  View Auction →
-                </span>
-              </div>
-            </Link>
-          </section>
-        )}
-
         {/* Content Rows (from Experiences) */}
         {!isContentLoading && experienceRows.length > 0 && (
           <section className="mt-4 sm:mt-6 space-y-6 sm:space-y-8">
             {experienceRows.map((experience) => {
+              // Feature row: single row-banner
+              if (experience.featureItem) {
+                return (
+                  <div key={experience.id} className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+                    <JMFeatureRowBanner
+                      item={experience.featureItem}
+                      onClick={() => {
+                        if (experience.featureItem?.contentType === "auction" && experience.featureItem?.slug) {
+                          router.push(`/auction/${experience.featureItem.slug}`);
+                        }
+                      }}
+                    />
+                  </div>
+                );
+              }
+
               if (experience.content.length === 0) return null;
               
               const items: ContentItem[] = experience.content.map(c => ({
