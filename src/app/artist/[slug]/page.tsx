@@ -529,7 +529,7 @@ export default function ArtistPage() {
               Music Videos
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
               {musicVideos.map((video) => {
                 const vimeoId = getVimeoId(video.vimeoURL);
                 const thumbnailURL = video.thumbnailURL || (vimeoId ? getVimeoThumbnail(vimeoId) : "");
@@ -542,11 +542,7 @@ export default function ArtistPage() {
                     onClick={() => setPlayingVideo(video)}
                   >
                     {/* Thumbnail */}
-                    <div
-                      className={`relative ${
-                        video.orientation === "portrait" ? "aspect-9/16" : "aspect-video"
-                      }`}
-                    >
+                    <div className="relative aspect-9/16">
                       {thumbnailURL && (
                         <Image
                           src={thumbnailURL}

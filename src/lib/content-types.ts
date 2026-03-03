@@ -237,6 +237,8 @@ export interface JMExperience {
   
   // ─── Display ──────────────────────────────────────────────
   order: number;                  // Position on homepage (lower = higher)
+  rowScaleMobile?: number;        // Height multiplier for mobile (< md): 1, 1.5, or 2
+  rowScaleDesktop?: number;       // Height multiplier for desktop (>= md): 1, 1.5, or 2
   isPublished: boolean;           // Draft vs live
 }
 
@@ -251,6 +253,8 @@ export interface JMExperienceInput {
   contentIds?: string[];
   autoPopulate?: boolean;
   order?: number;
+  rowScaleMobile?: number;
+  rowScaleDesktop?: number;
   isPublished?: boolean;
 }
 
@@ -649,6 +653,8 @@ export interface JMAuctionItem {
   description: string;
   videoURL?: string;              // Vimeo preview
   videoOrientation?: JMAuctionVideoOrientation;
+  videoStoryURL?: string;         // Vimeo "art story" video
+  videoStoryOrientation?: JMAuctionVideoOrientation;
   minimumBid: number;             // Dollars
   currentBid: number;             // Highest bid so far (denormalized)
   currentBidWinnerName: string | null;  // Display name of leading bidder
@@ -684,6 +690,8 @@ export interface JMAuctionItemInput {
   description: string;
   videoURL?: string;
   videoOrientation?: JMAuctionVideoOrientation;
+  videoStoryURL?: string;
+  videoStoryOrientation?: JMAuctionVideoOrientation;
   minimumBid: number;
   dimensions: string;
   media: string;
@@ -708,6 +716,80 @@ export interface JMAuctionItemWithBids extends JMAuctionItem {
 export interface JMArtistWithContent extends JMArtist {
   albums: JMAlbumWithSongs[];
   musicVideos: JMMusicVideo[];
+}
+
+// ─────────────────────────────────────────────────────────────
+// STORY TYPES (Reading Experience)
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Per-book rendering rules applied inside the EPUB reader
+ */
+export interface JMStoryReaderConfig {
+  [key: string]: unknown;
+}
+
+/**
+ * A story (novel or short story) backed by an EPUB file
+ * Stored in Firestore: /stories/{storyId}
+ */
+export interface JMStory {
+  id: string;
+  title: string;
+  subtitle?: string;
+  author: string;
+  slug: string;
+  description?: string;
+  coverImageURL?: string;
+  coverThumbnailURL?: string;
+  coverVideoURL?: string;
+  epubURL?: string;
+  readerConfig?: JMStoryReaderConfig;
+  creatorId: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  isPublished: boolean;
+}
+
+/**
+ * Input for creating a new story
+ */
+export interface JMStoryInput {
+  title: string;
+  subtitle?: string;
+  author: string;
+  slug: string;
+  description?: string;
+  coverImageURL?: string;
+  coverThumbnailURL?: string;
+  coverVideoURL?: string;
+  epubURL?: string;
+  readerConfig?: JMStoryReaderConfig;
+  isPublished?: boolean;
+}
+
+/**
+ * Input for updating a story
+ */
+export type JMStoryUpdate = Partial<Omit<JMStory, "id" | "creatorId" | "createdAt">>;
+
+/**
+ * User reading preferences (applies to all stories)
+ * Stored in Firestore: /users/{userId}/story-settings/preferences
+ */
+export interface JMStorySettings {
+  fontSize: number;
+  darkMode: boolean;
+}
+
+/**
+ * Per-story reading progress using EPUB CFI location
+ * Stored in Firestore: /users/{userId}/reading-progress/{storyId}
+ */
+export interface JMReadingProgress {
+  storyId: string;
+  location: string;
+  lastReadAt: Timestamp;
 }
 
 /**

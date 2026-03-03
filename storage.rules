@@ -222,6 +222,42 @@ service firebase.storage {
     }
     
     // ─────────────────────────────────────────────────────────────
+    // STORY COVERS
+    // ─────────────────────────────────────────────────────────────
+    
+    match /story-covers/{storyId}/{fileName} {
+      // Anyone can read story covers (they're public)
+      allow read: if true;
+      
+      // Only admins can upload story covers
+      // Must be an image under 10MB
+      allow write: if isAdmin() && isImage() && maxSize(10);
+      
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // STORY COVER THUMBNAILS (1:2 portrait, for scroller rows)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /story-thumbnails/{storyId}/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin() && isImage() && maxSize(5);
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // STORY EPUB FILES
+    // ─────────────────────────────────────────────────────────────
+    
+    match /story-epubs/{storyId}/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin() && request.resource.size < 50 * 1024 * 1024;
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
     // FEATURED IMAGES (if separate from content images)
     // ─────────────────────────────────────────────────────────────
     

@@ -4,8 +4,25 @@ import { useState, useEffect, useCallback } from "react";
 import { 
   X, Save, Trash2, Plus, ChevronRight, ChevronDown, 
   Music, Video, Check, Loader2, ArrowLeft,
-  Disc, Eye, EyeOff, Pencil, Play
+  Disc, Eye, EyeOff, Pencil, Play, GripVertical
 } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useJMStyle } from "@/JMStyle";
 import { JMImageUpload, JMVideoUpload, JMAudioUpload } from "@/JMKit";
 import { useAuth } from "@/lib/AuthProvider";
@@ -54,6 +71,80 @@ type View = "main" | "add-album" | "edit-album" | "add-song" | "edit-song" | "ad
 
 interface AlbumWithSongs extends JMAlbum {
   songs: JMSong[];
+}
+
+function SortableVideoRow({
+  video,
+  theme,
+  onTogglePublish,
+  onEdit,
+  onDelete,
+}: {
+  video: JMMusicVideo;
+  theme: ReturnType<typeof useJMStyle>["theme"];
+  onTogglePublish: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: video.id,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5"
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="cursor-grab touch-none"
+        style={{ color: theme.text.tertiary }}
+      >
+        <GripVertical size={16} />
+      </div>
+      <Play size={16} style={{ color: theme.accents.neonPink }} />
+      <span className="flex-1" style={{ color: theme.text.primary }}>
+        {video.title}
+      </span>
+      <span
+        className="text-xs px-2 py-0.5 rounded"
+        style={{
+          backgroundColor: theme.surfaces.elevated2,
+          color: theme.text.tertiary,
+        }}
+      >
+        {video.orientation}
+      </span>
+      <button
+        onClick={onTogglePublish}
+        className="p-1 rounded hover:bg-white/10 transition-colors"
+        style={{ color: video.isPublished ? theme.semantic.success : theme.text.tertiary }}
+      >
+        {video.isPublished ? <Eye size={14} /> : <EyeOff size={14} />}
+      </button>
+      <button
+        onClick={onEdit}
+        className="p-1 rounded hover:bg-white/10 transition-colors"
+        style={{ color: theme.text.tertiary }}
+      >
+        <Pencil size={14} />
+      </button>
+      <button
+        onClick={onDelete}
+        className="p-1 rounded hover:bg-red-500/20 transition-colors"
+        style={{ color: theme.text.tertiary }}
+      >
+        <Trash2 size={14} />
+      </button>
+    </div>
+  );
 }
 
 /**
@@ -586,6 +677,29 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
     }
   };
 
+  const videoSensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleVideoDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = musicVideos.findIndex((v) => v.id === active.id);
+    const newIndex = musicVideos.findIndex((v) => v.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(musicVideos, oldIndex, newIndex);
+    setMusicVideos(reordered);
+    try {
+      await Promise.all(
+        reordered.map((video, idx) => updateMusicVideo(video.id, { order: idx }))
+      );
+      onUpdated();
+    } catch {
+      await fetchArtist();
+    }
+  };
+
   // Upload handlers for forms
   const handleAlbumCoverUpload = useCallback(async (file: File) => {
     const id = selectedAlbum?.id || `new-album-${Date.now()}`;
@@ -1008,52 +1122,29 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
 
                     {/* Videos list */}
                     {musicVideos.length > 0 ? (
-                      <div className="space-y-2">
-                        {musicVideos.map((video) => (
-                          <div 
-                            key={video.id}
-                            className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5"
-                          >
-                            <Play size={16} style={{ color: theme.accents.neonPink }} />
-                            <span 
-                              className="flex-1"
-                              style={{ color: theme.text.primary }}
-                            >
-                              {video.title}
-                            </span>
-                            <span 
-                              className="text-xs px-2 py-0.5 rounded"
-                              style={{ 
-                                backgroundColor: theme.surfaces.elevated2,
-                                color: theme.text.tertiary,
-                              }}
-                            >
-                              {video.orientation}
-                            </span>
-                            <button
-                              onClick={() => handleToggleVideoPublish(video)}
-                              className="p-1 rounded hover:bg-white/10 transition-colors"
-                              style={{ color: video.isPublished ? theme.semantic.success : theme.text.tertiary }}
-                            >
-                              {video.isPublished ? <Eye size={14} /> : <EyeOff size={14} />}
-                            </button>
-                            <button
-                              onClick={() => startEditVideo(video)}
-                              className="p-1 rounded hover:bg-white/10 transition-colors"
-                              style={{ color: theme.text.tertiary }}
-                            >
-                              <Pencil size={14} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteVideo(video)}
-                              className="p-1 rounded hover:bg-red-500/20 transition-colors"
-                              style={{ color: theme.text.tertiary }}
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                      <DndContext
+                        sensors={videoSensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleVideoDragEnd}
+                      >
+                        <SortableContext
+                          items={musicVideos.map((v) => v.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <div className="space-y-2">
+                            {musicVideos.map((video) => (
+                              <SortableVideoRow
+                                key={video.id}
+                                video={video}
+                                theme={theme}
+                                onTogglePublish={() => handleToggleVideoPublish(video)}
+                                onEdit={() => startEditVideo(video)}
+                                onDelete={() => handleDeleteVideo(video)}
+                              />
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        </SortableContext>
+                      </DndContext>
                     ) : (
                       <p className="text-sm" style={{ color: theme.text.tertiary }}>
                         No music videos yet. Add your first video above.

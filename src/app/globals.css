@@ -94,3 +94,82 @@ select:focus-visible {
 .animation-delay-600 {
   animation-delay: 600ms;
 }
+
+/* ─── JMPageTransition module (src/JMKit/JMPageTransition.tsx) ─── */
+/* Diagonal glow wipe, blur pulse, and outgoing-page fade.        */
+/* Keep these in sync with the component's default 450ms duration. */
+
+@keyframes pageFlipForward {
+  0%   { transform: translateX(100%); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translateX(-100%); opacity: 0; }
+}
+
+@keyframes pageFlipBackward {
+  0%   { transform: translateX(-100%); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translateX(100%); opacity: 0; }
+}
+
+.animate-page-flip-forward {
+  animation: pageFlipForward 450ms ease-out forwards;
+}
+
+.animate-page-flip-backward {
+  animation: pageFlipBackward 450ms ease-out forwards;
+}
+
+@keyframes pageFadeOut {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.animate-page-fade-out {
+  animation: pageFadeOut 450ms ease-out forwards;
+}
+
+@keyframes pageBlurPulse {
+  0%   { filter: blur(0px); }
+  50%  { filter: blur(5px); }
+  100% { filter: blur(0px); }
+}
+
+.animate-page-blur-pulse {
+  animation: pageBlurPulse 450ms ease-in-out forwards;
+}
+
+/* ─── Story Reader: Prose Styling ─── */
+
+.prose-reader p {
+  margin-bottom: 1.5em;
+}
+
+.prose-reader em {
+  font-style: italic;
+}
+
+.prose-reader strong {
+  font-weight: 700;
+}
+
+.prose-reader hr {
+  border: none;
+  text-align: center;
+  margin: 2em 0;
+}
+
+.prose-reader hr::after {
+  content: "* * *";
+  letter-spacing: 0.5em;
+  opacity: 0.4;
+}
+
+.prose-reader blockquote {
+  padding-left: 1.5em;
+  border-left: 2px solid currentColor;
+  opacity: 0.8;
+  font-style: italic;
+  margin: 1.5em 0;
+}

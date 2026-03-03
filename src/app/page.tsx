@@ -100,20 +100,22 @@ export default function Home() {
   }, [user, isLoading, hasCheckedAvatar]);
 
   const handleFeaturedClick = (item: FeaturedItem) => {
-    // Navigate to content detail page
     if (item.contentType === "artist" && item.slug) {
       router.push(`/artist/${item.slug}`);
     } else if (item.contentType === "auction" && item.slug) {
       router.push(`/auction/${item.slug}`);
+    } else if (item.contentType === "story" && item.slug) {
+      router.push(`/story/${item.slug}`);
     } else {
       router.push(`/${item.contentType}/${item.contentId}`);
     }
   };
 
   const handleContentClick = (item: ContentItem) => {
-    // Navigate to content detail page
     if (item.contentType === "artist" && item.slug) {
       router.push(`/artist/${item.slug}`);
+    } else if (item.contentType === "story" && item.slug) {
+      router.push(`/story/${item.slug}`);
     } else {
       router.push(`/${item.contentType}/${item.id}`);
     }
@@ -191,6 +193,8 @@ export default function Home() {
                   <div key={experience.id} className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
                     <JMFeatureRowBanner
                       item={experience.featureItem}
+                      rowScaleMobile={experience.rowScaleMobile}
+                      rowScaleDesktop={experience.rowScaleDesktop}
                       onClick={() => {
                         if (experience.featureItem?.contentType === "auction" && experience.featureItem?.slug) {
                           router.push(`/auction/${experience.featureItem.slug}`);
@@ -216,6 +220,8 @@ export default function Home() {
                   key={experience.id}
                   title={experience.title}
                   items={items}
+                  rowScaleMobile={experience.rowScaleMobile}
+                  rowScaleDesktop={experience.rowScaleDesktop}
                   onItemClick={handleContentClick}
                 />
               );

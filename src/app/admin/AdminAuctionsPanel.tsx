@@ -663,6 +663,10 @@ function AuctionItemModal({ auctionId, item, onClose }: AuctionItemModalProps) {
   const [videoOrientation, setVideoOrientation] = useState<JMAuctionVideoOrientation>(
     item?.videoOrientation ?? "landscape"
   );
+  const [videoStoryURL, setVideoStoryURL] = useState(item?.videoStoryURL ?? "");
+  const [videoStoryOrientation, setVideoStoryOrientation] = useState<JMAuctionVideoOrientation>(
+    item?.videoStoryOrientation ?? "landscape"
+  );
   const [minimumBid, setMinimumBid] = useState(item ? String(item.minimumBid) : "");
   const [dimensions, setDimensions] = useState(item?.dimensions ?? "");
   const [media, setMedia] = useState(item?.media ?? "");
@@ -695,11 +699,13 @@ function AuctionItemModal({ auctionId, item, onClose }: AuctionItemModalProps) {
           detailImageURL,
           description: description.trim(),
           videoOrientation,
+          videoStoryOrientation,
           minimumBid: minBid,
           dimensions: dimensions.trim(),
           media: media.trim(),
         };
         if (videoURL.trim()) updates.videoURL = videoURL.trim();
+        if (videoStoryURL.trim()) updates.videoStoryURL = videoStoryURL.trim();
         await updateAuctionItem(item.id, updates);
       } else {
         const input: Parameters<typeof createAuctionItem>[0] = {
@@ -710,12 +716,14 @@ function AuctionItemModal({ auctionId, item, onClose }: AuctionItemModalProps) {
           detailImageURL,
           description: description.trim(),
           videoOrientation,
+          videoStoryOrientation,
           minimumBid: minBid,
           dimensions: dimensions.trim(),
           media: media.trim(),
           order: 999,
         };
         if (videoURL.trim()) input.videoURL = videoURL.trim();
+        if (videoStoryURL.trim()) input.videoStoryURL = videoStoryURL.trim();
         await createAuctionItem(input);
       }
       onClose();
@@ -798,7 +806,7 @@ function AuctionItemModal({ auctionId, item, onClose }: AuctionItemModalProps) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: theme.text.secondary }}>Vimeo Video URL (preview)</label>
+            <label className="block text-sm font-medium mb-1" style={{ color: theme.text.secondary }}>Video Preview URL</label>
             <input
               type="url"
               value={videoURL}
@@ -809,10 +817,34 @@ function AuctionItemModal({ auctionId, item, onClose }: AuctionItemModalProps) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: theme.text.secondary }}>Video Orientation</label>
+            <label className="block text-sm font-medium mb-1" style={{ color: theme.text.secondary }}>Video Preview Orientation</label>
             <select
               value={videoOrientation}
               onChange={(e) => setVideoOrientation(e.target.value as JMAuctionVideoOrientation)}
+              className="w-full rounded-lg px-4 py-2"
+              style={{ backgroundColor: theme.surfaces.elevated2, color: theme.text.primary, border: `1px solid ${theme.surfaces.elevated3}` }}
+            >
+              {(Object.keys(JMAuctionVideoOrientationLabels) as JMAuctionVideoOrientation[]).map((k) => (
+                <option key={k} value={k}>{JMAuctionVideoOrientationLabels[k]}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: theme.text.secondary }}>Video Story URL (Art Story)</label>
+            <input
+              type="url"
+              value={videoStoryURL}
+              onChange={(e) => setVideoStoryURL(e.target.value)}
+              placeholder="https://vimeo.com/..."
+              className="w-full rounded-lg px-4 py-2"
+              style={{ backgroundColor: theme.surfaces.elevated2, color: theme.text.primary, border: `1px solid ${theme.surfaces.elevated3}` }}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: theme.text.secondary }}>Video Story Orientation</label>
+            <select
+              value={videoStoryOrientation}
+              onChange={(e) => setVideoStoryOrientation(e.target.value as JMAuctionVideoOrientation)}
               className="w-full rounded-lg px-4 py-2"
               style={{ backgroundColor: theme.surfaces.elevated2, color: theme.text.primary, border: `1px solid ${theme.surfaces.elevated3}` }}
             >

@@ -488,6 +488,24 @@ export async function getExperienceWithContent(
         order: artist.order,
         isPublished: artist.isPublished,
       }));
+    } else if (experience.contentType === "story") {
+      const { getAllStories } = await import("./stories");
+      const stories = await getAllStories(publishedOnly);
+      resolvedContent = stories.map(story => ({
+        id: story.id,
+        name: story.title,
+        slug: story.slug,
+        description: story.subtitle || "",
+        coverURL: story.coverThumbnailURL || story.coverImageURL || "",
+        contentType: "story" as const,
+        contentLevel: "standalone" as const,
+        parentId: null,
+        creatorId: story.creatorId,
+        createdAt: story.createdAt,
+        updatedAt: story.updatedAt,
+        order: 0,
+        isPublished: story.isPublished,
+      }));
     } else {
       resolvedContent = await getTopLevelContent(experience.contentType, publishedOnly);
     }
@@ -512,6 +530,28 @@ export async function getExperienceWithContent(
         updatedAt: artist.updatedAt,
         order: artist.order,
         isPublished: artist.isPublished,
+      }));
+  } else if (experience.contentType === "story") {
+    const { getStory: getStoryById } = await import("./stories");
+    const stories = await Promise.all(
+      experience.contentIds.map((id) => getStoryById(id))
+    );
+    resolvedContent = stories
+      .filter((s): s is import("./content-types").JMStory => s !== null && (!publishedOnly || s.isPublished))
+      .map(story => ({
+        id: story.id,
+        name: story.title,
+        slug: story.slug,
+        description: story.subtitle || "",
+        coverURL: story.coverThumbnailURL || story.coverImageURL || "",
+        contentType: "story" as const,
+        contentLevel: "standalone" as const,
+        parentId: null,
+        creatorId: story.creatorId,
+        createdAt: story.createdAt,
+        updatedAt: story.updatedAt,
+        order: 0,
+        isPublished: story.isPublished,
       }));
   } else if (experience.contentType !== "auction") {
     // Otherwise use the curated contentIds list (content rows only, not auction)

@@ -10,8 +10,8 @@ export interface JMImageUploadProps {
   value?: string;
   /** Called when image is uploaded or removed */
   onChange: (url: string | null) => void;
-  /** Aspect ratio: "square" (1:1), "wide" (2:1), or "landscape" (16:9) */
-  aspectRatio?: "square" | "wide" | "landscape";
+  /** Aspect ratio: "square" (1:1), "wide" (2:1), "landscape" (16:9), or "portrait" (3:4) */
+  aspectRatio?: "square" | "wide" | "landscape" | "portrait";
   /** Upload function - receives file, returns URL */
   onUpload: (file: File) => Promise<string>;
   /** Label shown above the upload area */
@@ -110,13 +110,14 @@ export function JMImageUpload({
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Calculate dimensions based on aspect ratio
-  const width = previewSize;
-  const height = aspectRatio === "square" 
-    ? previewSize 
-    : aspectRatio === "wide" 
-      ? Math.round(previewSize / 2)  // 2:1
-      : Math.round(previewSize * 9 / 16);  // 16:9
+  const width = aspectRatio === "portrait" ? Math.round(previewSize * 3 / 4) : previewSize;
+  const height = aspectRatio === "square"
+    ? previewSize
+    : aspectRatio === "wide"
+      ? Math.round(previewSize / 2)
+      : aspectRatio === "portrait"
+        ? previewSize
+        : Math.round(previewSize * 9 / 16);
 
   const handleFile = useCallback(async (file: File) => {
     // Validate file type
@@ -306,7 +307,7 @@ export function JMImageUpload({
               className="text-xs mt-1"
               style={{ color: theme.text.tertiary }}
             >
-              {aspectRatio === "square" ? "1:1" : aspectRatio === "wide" ? "2:1 (640×320)" : "16:9"} • Max 5MB
+              {aspectRatio === "square" ? "1:1" : aspectRatio === "wide" ? "2:1" : aspectRatio === "portrait" ? "3:4" : "16:9"} • Max 5MB
             </span>
           </div>
         )}

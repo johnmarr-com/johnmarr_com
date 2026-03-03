@@ -10,26 +10,55 @@ export interface ContentItem {
   name: string;
   coverURL: string;
   contentType: "show" | "story" | "card" | "game" | "artist";
-  slug?: string | undefined; // For artists, used for navigation
+  slug?: string | undefined;
 }
 
 interface JMContentScrollerProps {
   title: string;
   items: ContentItem[];
+  rowScaleMobile?: number | undefined;
+  rowScaleDesktop?: number | undefined;
   onItemClick?: (item: ContentItem) => void;
+}
+
+const BASE_HEIGHT = 130;
+const MD_BREAKPOINT = 768;
+
+function getAspectRatio(contentType: ContentItem["contentType"]): number {
+  switch (contentType) {
+    case "story":
+      return 3 / 4;
+    default:
+      return 2 / 1;
+  }
+}
+
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia(`(min-width: ${MD_BREAKPOINT}px)`).matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(`(min-width: ${MD_BREAKPOINT}px)`);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  return isDesktop;
 }
 
 export function JMContentScroller({ 
   title, 
-  items, 
+  items,
+  rowScaleMobile = 1,
+  rowScaleDesktop = 1,
   onItemClick 
 }: JMContentScrollerProps) {
   const { theme } = useJMStyle();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const isDesktop = useIsDesktop();
 
-  // Check scroll position to show/hide arrows
   const checkScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
@@ -65,6 +94,9 @@ export function JMContentScroller({
   if (items.length === 0) {
     return null;
   }
+
+  const rowScale = isDesktop ? rowScaleDesktop : rowScaleMobile;
+  const rowHeight = BASE_HEIGHT * rowScale;
 
   return (
     <div className="relative group max-w-[1500px] mx-auto">
@@ -106,39 +138,59 @@ export function JMContentScroller({
             WebkitOverflowScrolling: "touch",
           }}
         >
-          {items.map((item) => (
-            <div
-              key={item.id}
-              onClick={() => onItemClick?.(item)}
-              className="shrink-0 cursor-pointer group/item"
-              style={{ scrollSnapAlign: "start" }}
-            >
-              {/* 2:1 wide cover */}
-              <div 
-                className="relative w-44 sm:w-56 md:w-64 lg:w-72 aspect-2/1 rounded-lg overflow-hidden"
-                style={{ 
-                  backgroundColor: theme.surfaces.elevated2,
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-                }}
+          {items.map((item) => {
+            const isStory = item.contentType === "story";
+            const aspect = getAspectRatio(item.contentType);
+            const itemWidth = rowHeight * aspect;
+
+            return (
+              <div
+                key={item.id}
+                onClick={() => onItemClick?.(item)}
+                className="shrink-0 cursor-pointer group/item"
+                style={{ scrollSnapAlign: "start" }}
               >
-                {item.coverURL ? (
-                  <Image
-                    src={item.coverURL}
-                    alt={item.name}
-                    fill
-                    className="object-cover transition-transform duration-300 group-hover/item:scale-110"
-                  />
-                ) : (
-                  <div 
-                    className="h-full w-full flex items-center justify-center text-2xl font-bold transition-transform duration-300 group-hover/item:scale-110"
-                    style={{ color: theme.text.tertiary }}
-                  >
-                    {item.name.charAt(0)}
-                  </div>
-                )}
+                <div
+                  className="relative overflow-hidden rounded-lg"
+                  style={{
+                    height: rowHeight,
+                    width: itemWidth,
+                    backgroundColor: theme.surfaces.elevated2,
+                    boxShadow: isStory
+                      ? "0 2px 16px rgba(0,0,0,0.5)"
+                      : "0 4px 12px rgba(0,0,0,0.3)",
+                  }}
+                >
+                  {item.coverURL ? (
+                    <Image
+                      src={item.coverURL}
+                      alt={item.name}
+                      fill
+                      className="object-cover transition-transform duration-300 group-hover/item:scale-110"
+                    />
+                  ) : (
+                    <div
+                      className={`h-full w-full flex flex-col items-center justify-center transition-transform duration-300 group-hover/item:scale-110 ${
+                        isStory ? "gap-2 px-3" : ""
+                      }`}
+                      style={{ color: theme.text.tertiary }}
+                    >
+                      {isStory ? (
+                        <>
+                          <span className="text-3xl font-serif">{item.name.charAt(0)}</span>
+                          <span className="text-xs text-center leading-tight opacity-70">
+                            {item.name}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-2xl font-bold">{item.name.charAt(0)}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Right arrow */}

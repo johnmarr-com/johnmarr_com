@@ -119,7 +119,8 @@ export default function AuctionDetailPage() {
   const [bidValue, setBidValue] = useState("");
   const [isSubmittingBid, setIsSubmittingBid] = useState(false);
   const [bidError, setBidError] = useState<string | null>(null);
-  const [videoItem, setVideoItem] = useState<JMAuctionItem | null>(null);
+  const [videoItem, setVideoItem] = useState<{ item: JMAuctionItem; videoType: "preview" | "story" } | null>(null);
+  const [imagePreviewItem, setImagePreviewItem] = useState<JMAuctionItem | null>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<Player | null>(null);
 
@@ -151,13 +152,17 @@ export default function AuctionDetailPage() {
 
   useEffect(() => {
     if (!videoItem || !playerContainerRef.current) return;
-    const vimeoId = getVimeoId(videoItem.videoURL || "");
+    const url = videoItem.videoType === "story" ? videoItem.item.videoStoryURL : videoItem.item.videoURL;
+    const vimeoId = getVimeoId(url || "");
     if (!vimeoId) return;
     if (playerRef.current) {
       playerRef.current.destroy();
       playerRef.current = null;
     }
-    const orientation: JMAuctionVideoOrientation = videoItem.videoOrientation ?? "landscape";
+    const orientation: JMAuctionVideoOrientation =
+      videoItem.videoType === "story"
+        ? (videoItem.item.videoStoryOrientation ?? "landscape")
+        : (videoItem.item.videoOrientation ?? "landscape");
     const { width, height } = calculatePlayerDimensions(orientation);
     const player = new Player(playerContainerRef.current, {
       id: parseInt(vimeoId),
@@ -316,15 +321,19 @@ export default function AuctionDetailPage() {
                 className="w-full flex flex-col sm:flex-row gap-6 sm:gap-8 items-start"
                 style={{ paddingBottom: "2rem", borderBottom: `1px solid ${theme.surfaces.elevated2}` }}
               >
-                <div className="w-full sm:w-80 shrink-0 aspect-square rounded-xl overflow-hidden relative bg-black">
+                <button
+                  type="button"
+                  onClick={() => setImagePreviewItem(item)}
+                  className="w-full sm:w-80 shrink-0 aspect-square rounded-xl overflow-hidden relative bg-black cursor-pointer"
+                >
                   <Image
-                  src={item.detailImageURL || item.thumbnailURL}
-                  alt={item.title}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 640px) 100vw, 320px"
+                    src={item.detailImageURL || item.thumbnailURL}
+                    alt={item.title}
+                    fill
+                    className="object-cover transition-opacity hover:opacity-90"
+                    sizes="(max-width: 640px) 100vw, 320px"
                   />
-                </div>
+                </button>
                 <div className="flex-1 min-w-0 flex flex-col gap-4">
                   <div>
                     <h2 className="text-xl sm:text-2xl font-bold" style={{ color: theme.text.primary }}>
@@ -337,16 +346,28 @@ export default function AuctionDetailPage() {
                   {item.description && (
                     <p className="text-sm" style={{ color: theme.text.tertiary }}>{item.description}</p>
                   )}
-                {item.videoURL && getVimeoId(item.videoURL) && (
-                  <button
-                    onClick={() => setVideoItem(item)}
-                    className="flex items-center gap-2 text-sm font-medium hover:opacity-80"
-                    style={{ color: theme.accents.goldenGlow }}
-                  >
-                    <Play className="h-4 w-4" fill="currentColor" />
-                    Watch Video Preview
-                  </button>
-                )}
+                <div className="flex flex-wrap gap-4">
+                  {item.videoURL && getVimeoId(item.videoURL) && (
+                    <button
+                      onClick={() => setVideoItem({ item, videoType: "preview" })}
+                      className="flex items-center gap-2 text-sm font-medium hover:opacity-80"
+                      style={{ color: theme.accents.goldenGlow }}
+                    >
+                      <Play className="h-4 w-4" fill="currentColor" />
+                      Watch Video Preview
+                    </button>
+                  )}
+                  {item.videoStoryURL && getVimeoId(item.videoStoryURL) && (
+                    <button
+                      onClick={() => setVideoItem({ item, videoType: "story" })}
+                      className="flex items-center gap-2 text-sm font-medium hover:opacity-80"
+                      style={{ color: theme.accents.goldenGlow }}
+                    >
+                      <Play className="h-4 w-4" fill="currentColor" />
+                      Watch the Art Story
+                    </button>
+                  )}
+                </div>
                 {(item.dimensions || item.media) && (
                   <div className="text-sm" style={{ color: theme.text.tertiary }}>
                     {item.dimensions && <span>{item.dimensions}</span>}
@@ -455,6 +476,30 @@ export default function AuctionDetailPage() {
             <X className="h-6 w-6 text-white" />
           </button>
           <div ref={playerContainerRef} className="h-full flex items-center justify-center w-full" />
+        </div>
+      )}
+
+      {imagePreviewItem && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black"
+          onClick={() => setImagePreviewItem(null)}
+        >
+          <button
+            onClick={() => setImagePreviewItem(null)}
+            className="absolute top-4 right-4 z-10 p-2 rounded-full hover:opacity-80"
+            style={{ backgroundColor: "rgba(0,0,0,0.6)", border: "2px solid rgba(255,255,255,0.3)" }}
+          >
+            <X className="h-6 w-6 text-white" />
+          </button>
+          <div className="relative w-full h-full flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
+            <Image
+              src={imagePreviewItem.detailImageURL || imagePreviewItem.thumbnailURL}
+              alt={imagePreviewItem.title}
+              fill
+              className="object-contain"
+              sizes="100vw"
+            />
+          </div>
         </div>
       )}
     </div>

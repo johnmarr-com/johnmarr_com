@@ -42,3 +42,4 @@ export { JMFeaturedCarousel, type FeaturedItem } from "./JMFeaturedCarousel";
 export { JMContentScroller, type ContentItem } from "./JMContentScroller";
 export { JMFeatureRowBanner } from "./JMFeatureRowBanner";
 export { JMAuthModal } from "./JMAuthModal";
+export { JMEpubReader } from "./JMEpubReader";

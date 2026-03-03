@@ -262,6 +262,8 @@ export function AdminHomeRowsPanel() {
   const [formContentType, setFormContentType] = useState<JMContentType | "auction" | "">("");
   const [formAutoPopulate, setFormAutoPopulate] = useState(false);
   const [formContentIds, setFormContentIds] = useState<string[]>([]);
+  const [formRowScaleMobile, setFormRowScaleMobile] = useState<number>(1);
+  const [formRowScaleDesktop, setFormRowScaleDesktop] = useState<number>(1);
 
   // Content picker state
   const [availableContent, setAvailableContent] = useState<JMContent[]>([]);
@@ -309,8 +311,7 @@ export function AdminHomeRowsPanel() {
     setIsLoadingContent(true);
     try {
       if (contentType === "artist") {
-        // Fetch artists and convert to JMContent format for display
-        const artists = await getAllArtists(false); // Include drafts
+        const artists = await getAllArtists(false);
         const artistContent: JMContent[] = artists.map(artist => ({
           id: artist.id,
           name: artist.name,
@@ -327,8 +328,27 @@ export function AdminHomeRowsPanel() {
           isPublished: artist.isPublished,
         }));
         setAvailableContent(artistContent);
+      } else if (contentType === "story") {
+        const { getAllStories } = await import("@/lib/stories");
+        const stories = await getAllStories(false);
+        const storyContent: JMContent[] = stories.map(story => ({
+          id: story.id,
+          name: story.title,
+          slug: story.slug,
+          description: story.subtitle || "",
+          coverURL: story.coverThumbnailURL || story.coverImageURL || "",
+          contentType: "story" as const,
+          contentLevel: "standalone" as const,
+          parentId: null,
+          creatorId: story.creatorId,
+          createdAt: story.createdAt,
+          updatedAt: story.updatedAt,
+          order: 0,
+          isPublished: story.isPublished,
+        }));
+        setAvailableContent(storyContent);
       } else {
-        const content = await getTopLevelContent(contentType, false); // Include drafts
+        const content = await getTopLevelContent(contentType, false);
         setAvailableContent(content);
       }
     } catch (err) {
@@ -345,6 +365,8 @@ export function AdminHomeRowsPanel() {
     setFormContentType("");
     setFormAutoPopulate(false);
     setFormContentIds([]);
+    setFormRowScaleMobile(1);
+    setFormRowScaleDesktop(1);
     setAvailableContent([]);
     setAvailableAuctions([]);
     setShowModal(true);
@@ -358,6 +380,8 @@ export function AdminHomeRowsPanel() {
     setFormContentType((row.contentType as JMContentType | "auction") || "");
     setFormAutoPopulate(isFeature ? false : (row.autoPopulate || false));
     setFormContentIds(row.contentIds || []);
+    setFormRowScaleMobile(row.rowScaleMobile || 1);
+    setFormRowScaleDesktop(row.rowScaleDesktop || 1);
     if (isFeature) {
       loadAvailableAuctions();
     } else if (!row.autoPopulate) {
@@ -430,6 +454,8 @@ export function AdminHomeRowsPanel() {
         rowKind: formRowKind,
         autoPopulate: formRowKind === "content" ? formAutoPopulate : false,
         contentIds: formRowKind === "feature" ? formContentIds : (formAutoPopulate ? [] : formContentIds),
+        rowScaleMobile: formRowScaleMobile,
+        rowScaleDesktop: formRowScaleDesktop,
       };
       if (formContentType) baseUpdate["contentType"] = formContentType;
       if (editingRow) {
@@ -654,6 +680,48 @@ export function AdminHomeRowsPanel() {
                     border: `1px solid ${theme.surfaces.elevated2}`,
                   }}
                 />
+              </div>
+
+              {/* Row Height */}
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium mb-2" style={{ color: theme.text.secondary }}>
+                    Height — Mobile
+                  </label>
+                  <select
+                    value={formRowScaleMobile}
+                    onChange={(e) => setFormRowScaleMobile(Number(e.target.value))}
+                    className="w-full px-4 py-3 rounded-lg outline-none transition-colors"
+                    style={{
+                      backgroundColor: theme.surfaces.elevated1,
+                      color: theme.text.primary,
+                      border: `1px solid ${theme.surfaces.elevated2}`,
+                    }}
+                  >
+                    <option value={1}>1x (default)</option>
+                    <option value={1.5}>1.5x</option>
+                    <option value={2}>2x</option>
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium mb-2" style={{ color: theme.text.secondary }}>
+                    Height — Desktop
+                  </label>
+                  <select
+                    value={formRowScaleDesktop}
+                    onChange={(e) => setFormRowScaleDesktop(Number(e.target.value))}
+                    className="w-full px-4 py-3 rounded-lg outline-none transition-colors"
+                    style={{
+                      backgroundColor: theme.surfaces.elevated1,
+                      color: theme.text.primary,
+                      border: `1px solid ${theme.surfaces.elevated2}`,
+                    }}
+                  >
+                    <option value={1}>1x (default)</option>
+                    <option value={1.5}>1.5x</option>
+                    <option value={2}>2x</option>
+                  </select>
+                </div>
               </div>
 
               {/* Feature Row: Pick content with row-banner */}

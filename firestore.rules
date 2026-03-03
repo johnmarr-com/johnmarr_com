@@ -237,6 +237,27 @@ service cloud.firestore {
     }
     
     // ─────────────────────────────────────────────────────────────
+    // STORIES COLLECTION (Reading Experience)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /stories/{storyId} {
+      allow read: if resource.data.isPublished == true || isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // USER STORY SETTINGS & READING PROGRESS
+    // ─────────────────────────────────────────────────────────────
+    
+    match /users/{userId}/story-settings/{doc} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    match /users/{userId}/reading-progress/{doc} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // ─────────────────────────────────────────────────────────────
     // SIGNUP FUNNEL COLLECTION (Analytics tracking)
     // ─────────────────────────────────────────────────────────────
     
