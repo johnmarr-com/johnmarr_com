@@ -12,9 +12,11 @@ import {
   reorderFeaturedItems,
   getTopLevelContent,
   getAllArtists,
+  uploadFeaturedBackdrop,
   type JMFeaturedItem,
   type JMFeaturedInput,
 } from "@/lib/content";
+import { JMImageUpload } from "@/JMKit";
 import type { JMFeaturedContentType } from "@/lib/content";
 import { getAllAuctions } from "@/lib/auction";
 import { 
@@ -224,6 +226,13 @@ export function AdminFeaturedPanel() {
     setEditSubtitle(item.subtitle || "");
     setEditDescription(item.description || "");
     setEditBackdropURL(item.backdropURL);
+  };
+
+  const handleBackdropUpload = async (file: File): Promise<string> => {
+    if (!editingItem) throw new Error("No item being edited");
+    const url = await uploadFeaturedBackdrop(file, editingItem.id);
+    setEditBackdropURL(url);
+    return url;
   };
 
   const handleSaveEdit = async () => {
@@ -548,27 +557,15 @@ export function AdminFeaturedPanel() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: theme.text.secondary }}>
-                  Backdrop Image URL
-                </label>
-                <input
-                  type="text"
-                  value={editBackdropURL}
-                  onChange={(e) => setEditBackdropURL(e.target.value)}
-                  className="w-full rounded-lg px-3 py-2"
-                  style={{
-                    backgroundColor: theme.surfaces.elevated2,
-                    color: theme.text.primary,
-                    border: `1px solid ${theme.surfaces.elevated3}`,
-                  }}
-                />
-                {editBackdropURL && (
-                  <div className="mt-2 relative h-24 w-full rounded-lg overflow-hidden" style={{ backgroundColor: theme.surfaces.elevated2 }}>
-                    <Image src={editBackdropURL} alt="Preview" fill className="object-cover" />
-                  </div>
-                )}
-              </div>
+              <JMImageUpload
+                label="Backdrop Image (16:9)"
+                value={editBackdropURL}
+                onChange={(url) => setEditBackdropURL(url || "")}
+                onUpload={handleBackdropUpload}
+                aspectRatio="landscape"
+                previewSize={300}
+                maxWidth={1920}
+              />
             </div>
 
             <div className="flex justify-end gap-3 mt-6">

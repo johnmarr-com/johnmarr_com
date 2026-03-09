@@ -272,5 +272,15 @@ service firebase.storage {
       // Only admins can delete
       allow delete: if isAdmin();
     }
+
+    // ─────────────────────────────────────────────────────────────
+    // FEATURED BACKDROP IMAGES
+    // ─────────────────────────────────────────────────────────────
+
+    match /featured-backdrops/{featuredId}/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin() && isImage() && maxSize(10);
+      allow delete: if isAdmin();
+    }
   }
 }

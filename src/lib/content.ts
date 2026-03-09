@@ -1186,6 +1186,32 @@ export async function reorderFeaturedItems(
   await batch.commit();
 }
 
+export async function uploadFeaturedBackdrop(
+  file: File,
+  featuredId: string
+): Promise<string> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getStorage, ref, uploadBytes } = await import("firebase/storage");
+
+  const { app } = await initializeFirebase();
+  const storage = getStorage(app);
+
+  const ext = file.type.split("/")[1] || "jpg";
+  const storagePath = `featured-backdrops/${featuredId}/backdrop.${ext}`;
+  const storageRef = ref(storage, storagePath);
+
+  await uploadBytes(storageRef, file, {
+    contentType: file.type,
+    cacheControl: "public, max-age=31536000",
+  });
+
+  const bucket = storage.app.options.storageBucket;
+  if (!bucket) throw new Error("Storage bucket not configured");
+
+  const baseUrl = getPublicStorageUrl(bucket, storagePath);
+  return `${baseUrl}&t=${Date.now()}`;
+}
+
 // ─────────────────────────────────────────────────────────────
 // ALERT CRUD OPERATIONS
 // ─────────────────────────────────────────────────────────────
