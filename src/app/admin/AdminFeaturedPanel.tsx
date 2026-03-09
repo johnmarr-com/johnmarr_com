@@ -18,7 +18,7 @@ import {
 import type { JMFeaturedContentType } from "@/lib/content";
 import { getAllAuctions } from "@/lib/auction";
 import { 
-  Plus, Trash2, GripVertical, Eye, EyeOff, 
+  Plus, Trash2, GripVertical, Eye, EyeOff, Pencil,
   ChevronDown, Loader2, AlertCircle, X,
   Film, BookOpen, Gamepad2, CreditCard, Music, Gavel
 } from "lucide-react";
@@ -50,9 +50,16 @@ export function AdminFeaturedPanel() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Add/Edit modal state
+  // Add modal state
   const [showAddModal, setShowAddModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Edit modal state
+  const [editingItem, setEditingItem] = useState<JMFeaturedItem | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editSubtitle, setEditSubtitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editBackdropURL, setEditBackdropURL] = useState("");
   
   // Content selection
   const [availableContent, setAvailableContent] = useState<ContentOption[]>([]);
@@ -207,6 +214,36 @@ export function AdminFeaturedPanel() {
     } catch (err) {
       console.error("Failed to delete:", err);
       setError("Failed to delete item");
+    }
+  };
+
+  // Edit featured item
+  const startEdit = (item: JMFeaturedItem) => {
+    setEditingItem(item);
+    setEditTitle(item.title);
+    setEditSubtitle(item.subtitle || "");
+    setEditDescription(item.description || "");
+    setEditBackdropURL(item.backdropURL);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingItem) return;
+    setIsSaving(true);
+    try {
+      const updates: Record<string, string> = {
+        title: editTitle,
+        backdropURL: editBackdropURL,
+      };
+      if (editSubtitle) updates["subtitle"] = editSubtitle;
+      if (editDescription) updates["description"] = editDescription;
+      await updateFeaturedItem(editingItem.id, updates);
+      await loadFeatured();
+      setEditingItem(null);
+    } catch (err) {
+      console.error("Failed to update featured item:", err);
+      setError("Failed to update featured item");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -407,6 +444,14 @@ export function AdminFeaturedPanel() {
                     {item.isActive ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                   </button>
                   <button
+                    onClick={() => startEdit(item)}
+                    className="p-2 rounded-lg transition-colors hover:bg-white/5"
+                    title="Edit"
+                    style={{ color: theme.text.tertiary }}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
                     onClick={() => handleDelete(item)}
                     className="p-2 rounded-lg transition-colors hover:bg-red-500/10"
                     style={{ color: theme.semantic.error }}
@@ -418,6 +463,136 @@ export function AdminFeaturedPanel() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editingItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0"
+            style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
+            onClick={() => setEditingItem(null)}
+          />
+          <div
+            className="relative w-full max-w-lg rounded-xl p-6"
+            style={{ backgroundColor: theme.surfaces.elevated1 }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3
+                className="text-xl font-semibold"
+                style={{ color: theme.text.primary }}
+              >
+                Edit Featured Item
+              </h3>
+              <button
+                onClick={() => setEditingItem(null)}
+                className="p-1 rounded-lg hover:bg-white/10"
+                style={{ color: theme.text.tertiary }}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: theme.text.secondary }}>
+                  Title
+                </label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full rounded-lg px-3 py-2"
+                  style={{
+                    backgroundColor: theme.surfaces.elevated2,
+                    color: theme.text.primary,
+                    border: `1px solid ${theme.surfaces.elevated3}`,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: theme.text.secondary }}>
+                  Subtitle
+                </label>
+                <input
+                  type="text"
+                  value={editSubtitle}
+                  onChange={(e) => setEditSubtitle(e.target.value)}
+                  placeholder="Optional"
+                  className="w-full rounded-lg px-3 py-2"
+                  style={{
+                    backgroundColor: theme.surfaces.elevated2,
+                    color: theme.text.primary,
+                    border: `1px solid ${theme.surfaces.elevated3}`,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: theme.text.secondary }}>
+                  Description
+                </label>
+                <textarea
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="Optional"
+                  rows={3}
+                  className="w-full rounded-lg px-3 py-2 resize-none"
+                  style={{
+                    backgroundColor: theme.surfaces.elevated2,
+                    color: theme.text.primary,
+                    border: `1px solid ${theme.surfaces.elevated3}`,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: theme.text.secondary }}>
+                  Backdrop Image URL
+                </label>
+                <input
+                  type="text"
+                  value={editBackdropURL}
+                  onChange={(e) => setEditBackdropURL(e.target.value)}
+                  className="w-full rounded-lg px-3 py-2"
+                  style={{
+                    backgroundColor: theme.surfaces.elevated2,
+                    color: theme.text.primary,
+                    border: `1px solid ${theme.surfaces.elevated3}`,
+                  }}
+                />
+                {editBackdropURL && (
+                  <div className="mt-2 relative h-24 w-full rounded-lg overflow-hidden" style={{ backgroundColor: theme.surfaces.elevated2 }}>
+                    <Image src={editBackdropURL} alt="Preview" fill className="object-cover" />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setEditingItem(null)}
+                className="px-4 py-2 rounded-lg text-sm font-medium"
+                style={{ color: theme.text.secondary }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={isSaving || !editTitle.trim()}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                style={{
+                  backgroundColor: theme.accents.goldenGlow,
+                  color: theme.surfaces.base,
+                }}
+              >
+                {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                Save Changes
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

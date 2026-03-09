@@ -70,8 +70,9 @@ export function AuthGate({ children }: AuthGateProps) {
       return;
     }
 
-    // No user on protected route - send to landing page
-    window.location.href = "/about";
+    // No user on protected route - send to auth with redirect back
+    const params = new URLSearchParams({ redirect: pathname });
+    window.location.href = `/auth?${params.toString()}`;
   }, [user, isLoading, isPublicRoute, isContentRoute, pathname]);
 
   // Show loading spinner while checking auth
