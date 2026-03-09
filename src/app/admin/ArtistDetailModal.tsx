@@ -147,6 +147,86 @@ function SortableVideoRow({
   );
 }
 
+function SortableSongRow({
+  song,
+  theme,
+  onTogglePublish,
+  onEdit,
+  onDelete,
+}: {
+  song: JMSong;
+  theme: ReturnType<typeof useJMStyle>["theme"];
+  onTogglePublish: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: song.id,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/5"
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="cursor-grab touch-none"
+        style={{ color: theme.text.tertiary }}
+      >
+        <GripVertical size={14} />
+      </div>
+      <span
+        className="text-xs font-mono w-6 text-center"
+        style={{ color: theme.accents.neonPink }}
+      >
+        {song.trackNumber}
+      </span>
+      <Music size={14} style={{ color: theme.text.tertiary }} />
+      <span
+        className="flex-1 text-sm"
+        style={{ color: theme.text.secondary }}
+      >
+        {song.title}
+      </span>
+      <span
+        className="text-xs"
+        style={{ color: theme.text.tertiary }}
+      >
+        {Math.floor(song.duration / 60)}:{(song.duration % 60).toString().padStart(2, "0")}
+      </span>
+      <button
+        onClick={onTogglePublish}
+        className="p-1 rounded hover:bg-white/10 transition-colors"
+        style={{ color: song.isPublished ? theme.semantic.success : theme.text.tertiary }}
+      >
+        {song.isPublished ? <Eye size={12} /> : <EyeOff size={12} />}
+      </button>
+      <button
+        onClick={onEdit}
+        className="p-1 rounded hover:bg-white/10 transition-colors"
+        style={{ color: theme.text.tertiary }}
+      >
+        <Pencil size={12} />
+      </button>
+      <button
+        onClick={onDelete}
+        className="p-1 rounded hover:bg-red-500/20 transition-colors"
+        style={{ color: theme.text.tertiary }}
+      >
+        <Trash2 size={12} />
+      </button>
+    </div>
+  );
+}
+
 /**
  * ArtistDetailModal - Manage an AI artist's details, albums, songs, and music videos
  */
@@ -504,6 +584,42 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
     setView("edit-song");
   };
 
+  /**
+   * Re-index every song in an album to a clean 1..N sequence and persist.
+   * `prioritySongId` (if provided) is pinned at `priorityIndex` (1-based);
+   * all other songs fill around it in their existing relative order.
+   */
+  const normalizeSongOrder = async (
+    albumId: string,
+    prioritySongId?: string,
+    priorityIndex?: number,
+  ) => {
+    const freshSongs = await getSongsByAlbum(albumId, false);
+
+    let ordered: JMSong[];
+    if (prioritySongId && priorityIndex !== undefined) {
+      const pinned = freshSongs.find((s) => s.id === prioritySongId);
+      const rest = freshSongs.filter((s) => s.id !== prioritySongId);
+      ordered = [...rest];
+      if (pinned) {
+        const idx = Math.max(0, Math.min(priorityIndex - 1, ordered.length));
+        ordered.splice(idx, 0, pinned);
+      }
+    } else {
+      ordered = freshSongs;
+    }
+
+    const updates = ordered
+      .map((song, i) => ({ song, newTrack: i + 1 }))
+      .filter(({ song, newTrack }) => song.trackNumber !== newTrack);
+
+    if (updates.length > 0) {
+      await Promise.all(
+        updates.map(({ song, newTrack }) => updateSong(song.id, { trackNumber: newTrack }))
+      );
+    }
+  };
+
   const handleSaveSong = async () => {
     if (!formState.title.trim() || !formState.audioURL) {
       setError("Song title and audio file are required");
@@ -527,7 +643,8 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
         };
         if (formState.lyrics) input.lyrics = formState.lyrics;
         
-        await createSong(input, user.uid);
+        const created = await createSong(input, user.uid);
+        await normalizeSongOrder(selectedAlbumId, created.id, formState.trackNumber);
       } else if (selectedSong) {
         const updates: Parameters<typeof updateSong>[1] = {
           title: formState.title.trim(),
@@ -539,6 +656,8 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
         if (formState.lyrics) updates.lyrics = formState.lyrics;
         
         await updateSong(selectedSong.id, updates);
+        const albumId = selectedSong.albumId;
+        await normalizeSongOrder(albumId, selectedSong.id, formState.trackNumber);
       }
       
       await fetchArtist();
@@ -559,6 +678,7 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
     
     try {
       await deleteSong(song.id);
+      await normalizeSongOrder(song.albumId);
       await fetchArtist();
       onUpdated();
     } catch (err) {
@@ -694,6 +814,40 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
       await Promise.all(
         reordered.map((video, idx) => updateMusicVideo(video.id, { order: idx }))
       );
+      onUpdated();
+    } catch {
+      await fetchArtist();
+    }
+  };
+
+  const songSensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleSongDragEnd = async (albumId: string, event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const albumIdx = albums.findIndex((a) => a.id === albumId);
+    const album = albums[albumIdx];
+    if (albumIdx === -1 || !album) return;
+
+    const oldIndex = album.songs.findIndex((s) => s.id === active.id);
+    const newIndex = album.songs.findIndex((s) => s.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(album.songs, oldIndex, newIndex);
+    const updatedAlbums = [...albums];
+    updatedAlbums[albumIdx] = { ...album, songs: reordered };
+    setAlbums(updatedAlbums);
+
+    try {
+      await Promise.all(
+        reordered.map((song, idx) => updateSong(song.id, { trackNumber: idx + 1 }))
+      );
+      await normalizeSongOrder(albumId);
+      await fetchArtist();
       onUpdated();
     } catch {
       await fetchArtist();
@@ -1032,53 +1186,27 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
                             {/* Songs in album */}
                             {expandedAlbums.has(album.id) && (
                               <div className="ml-8 mt-1 space-y-1">
-                                {album.songs.map((song) => (
-                                  <div 
-                                    key={song.id}
-                                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/5"
+                                <DndContext
+                                  sensors={songSensors}
+                                  collisionDetection={closestCenter}
+                                  onDragEnd={(e) => handleSongDragEnd(album.id, e)}
+                                >
+                                  <SortableContext
+                                    items={album.songs.map((s) => s.id)}
+                                    strategy={verticalListSortingStrategy}
                                   >
-                                    <span 
-                                      className="text-xs font-mono w-6 text-center"
-                                      style={{ color: theme.accents.neonPink }}
-                                    >
-                                      {song.trackNumber}
-                                    </span>
-                                    <Music size={14} style={{ color: theme.text.tertiary }} />
-                                    <span 
-                                      className="flex-1 text-sm"
-                                      style={{ color: theme.text.secondary }}
-                                    >
-                                      {song.title}
-                                    </span>
-                                    <span 
-                                      className="text-xs"
-                                      style={{ color: theme.text.tertiary }}
-                                    >
-                                      {Math.floor(song.duration / 60)}:{(song.duration % 60).toString().padStart(2, "0")}
-                                    </span>
-                                    <button
-                                      onClick={() => handleToggleSongPublish(song)}
-                                      className="p-1 rounded hover:bg-white/10 transition-colors"
-                                      style={{ color: song.isPublished ? theme.semantic.success : theme.text.tertiary }}
-                                    >
-                                      {song.isPublished ? <Eye size={12} /> : <EyeOff size={12} />}
-                                    </button>
-                                    <button
-                                      onClick={() => startEditSong(song)}
-                                      className="p-1 rounded hover:bg-white/10 transition-colors"
-                                      style={{ color: theme.text.tertiary }}
-                                    >
-                                      <Pencil size={12} />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteSong(song)}
-                                      className="p-1 rounded hover:bg-red-500/20 transition-colors"
-                                      style={{ color: theme.text.tertiary }}
-                                    >
-                                      <Trash2 size={12} />
-                                    </button>
-                                  </div>
-                                ))}
+                                    {album.songs.map((song) => (
+                                      <SortableSongRow
+                                        key={song.id}
+                                        song={song}
+                                        theme={theme}
+                                        onTogglePublish={() => handleToggleSongPublish(song)}
+                                        onEdit={() => startEditSong(song)}
+                                        onDelete={() => handleDeleteSong(song)}
+                                      />
+                                    ))}
+                                  </SortableContext>
+                                </DndContext>
                                 
                                 {/* Add song to album */}
                                 <button

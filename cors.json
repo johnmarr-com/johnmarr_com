@@ -1,8 +1,8 @@
 [
   {
     "origin": ["http://localhost:3000", "https://johnmarr.com", "https://www.johnmarr.com"],
-    "method": ["GET", "HEAD"],
+    "method": ["GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS"],
     "maxAgeSeconds": 3600,
-    "responseHeader": ["Content-Type", "Content-Range", "Accept-Ranges", "Content-Length"]
+    "responseHeader": ["Content-Type", "Content-Range", "Accept-Ranges", "Content-Length", "Authorization", "X-Goog-Upload-Protocol", "X-Goog-Upload-Command", "X-Goog-Upload-Header-Content-Type", "X-Goog-Upload-Offset", "X-Goog-Upload-URL"]
   }
 ]
