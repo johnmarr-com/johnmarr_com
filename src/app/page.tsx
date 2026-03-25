@@ -121,6 +121,27 @@ export default function Home() {
     }
   };
 
+  // No user after auth resolves → redirect to the Carrd landing page
+  useEffect(() => {
+    if (isLoading || user) return;
+    const isMobile = window.innerWidth < 737;
+    window.location.replace(
+      isMobile ? "https://mobile.johnmarr.com" : "https://about.johnmarr.com"
+    );
+  }, [isLoading, user]);
+
+  // While loading auth or redirecting unauthenticated visitors, show spinner
+  if (isLoading || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <div
+          className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
+          style={{ borderColor: "#FF36AB", borderTopColor: "transparent" }}
+        />
+      </div>
+    );
+  }
+
   // Check if there's any content at all
   const hasAnyContent = experienceRows.some(exp => exp.content.length > 0);
 
