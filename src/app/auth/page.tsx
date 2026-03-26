@@ -144,7 +144,7 @@ function AuthContent() {
     };
 
     checkEmailLink();
-  }, [emailFromUrl, nameFromUrl, funnelFromUrl, router]);
+  }, [emailFromUrl, nameFromUrl, funnelFromUrl, router, redirectUrl]);
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
@@ -275,7 +275,7 @@ function AuthContent() {
         {/* Header row: Back to home + Content name */}
         <div className="opacity-0 animate-fade-in mb-8 flex items-center justify-between">
           <Link
-            href="/"
+            href="/about"
             className="inline-flex items-center gap-2 font-mono text-sm transition-colors"
             style={{ color: theme.text.secondary }}
           >
@@ -398,7 +398,7 @@ function AuthContent() {
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   required
-                  placeholder="John"
+                  placeholder="Name"
                   className="w-full rounded-xl border px-4 py-3 transition-all focus:outline-none focus-visible:outline-none focus:ring-1"
                   style={{ 
                     borderColor: theme.surfaces.elevated2,

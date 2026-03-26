@@ -140,6 +140,15 @@ select:focus-visible {
   animation: pageBlurPulse 450ms ease-in-out forwards;
 }
 
+@keyframes gentlePulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.06); }
+}
+
+.animate-gentle-pulse {
+  animation: gentlePulse 2.5s ease-in-out infinite;
+}
+
 /* ─── Story Reader: Prose Styling ─── */
 
 .prose-reader p {
