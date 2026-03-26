@@ -2,9 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRef, useState } from "react";
 import { Button } from "@/JMKit";
 
 export default function AboutPage() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [videoLoaded, setVideoLoaded] = useState(false);
+
   return (
     <div className="flex h-dvh items-center justify-center overflow-hidden bg-black p-[40px]">
       {/* Window/mask: width capped to image size OR viewport, height by viewport. Always 40px margins. */}
@@ -34,13 +38,26 @@ export default function AboutPage() {
             height: "min(1024px, calc(100dvh - 80px))",
           }}
         >
+          {/* Placeholder image — shown until video loads */}
           <Image
             src="/images/bgs/JMP-Magical-Door-SM-Web.jpg"
             alt="John Marr Presents Super Cool Stuff"
             width={1024}
             height={1024}
-            className="h-full w-full object-cover"
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${videoLoaded ? "opacity-0" : "opacity-100"}`}
             priority
+          />
+
+          {/* Looping video — replaces image once loaded */}
+          <video
+            ref={videoRef}
+            src="/images/bgs/JMP-Magical-Door.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+            onCanPlay={() => setVideoLoaded(true)}
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${videoLoaded ? "opacity-100" : "opacity-0"}`}
           />
 
           {/* Sign Up button positioned relative to the image container */}
