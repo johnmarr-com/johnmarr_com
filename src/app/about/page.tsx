@@ -79,7 +79,7 @@ export default function AboutPage() {
           {/* Looping video — replaces image once loaded */}
           <video
             ref={videoRef}
-            src="/images/bgs/JMP-Magical-Door-Long.mp4"
+            src="/images/bgs/JMP-Magical-Door-Open.mp4"
             autoPlay
             loop
             muted
