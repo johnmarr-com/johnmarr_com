@@ -24,10 +24,8 @@ export default function Home() {
   const [experienceRows, setExperienceRows] = useState<JMExperienceWithContent[]>([]);
   const [isContentLoading, setIsContentLoading] = useState(true);
 
-  // Load featured content and alert — only after user is authenticated
+  // Load featured content and alert
   useEffect(() => {
-    if (!user) return;
-
     const loadFeatured = async () => {
       try {
         const items = await getFeaturedContent();
@@ -50,12 +48,10 @@ export default function Home() {
     
     loadFeatured();
     loadAlert();
-  }, [user]);
+  }, []);
 
-  // Load content rows (from experiences) — only after user is authenticated
+  // Load content rows (from experiences)
   useEffect(() => {
-    if (!user) return;
-
     const loadContentRows = async () => {
       try {
         const experiences = await getExperiencesWithContent(true); // Only published
@@ -67,7 +63,7 @@ export default function Home() {
       }
     };
     loadContentRows();
-  }, [user]);
+  }, []);
 
   // Check if this is a first-time user (no avatar)
   useEffect(() => {
@@ -124,24 +120,6 @@ export default function Home() {
       router.push(`/${item.contentType}/${item.id}`);
     }
   };
-
-  // No user after auth resolves → redirect to the landing page
-  useEffect(() => {
-    if (isLoading || user) return;
-    router.replace("/about");
-  }, [isLoading, user, router]);
-
-  // While loading auth or redirecting unauthenticated visitors, show spinner
-  if (isLoading || !user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-black">
-        <div
-          className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
-          style={{ borderColor: "#FF36AB", borderTopColor: "transparent" }}
-        />
-      </div>
-    );
-  }
 
   // Check if there's any content at all
   const hasAnyContent = experienceRows.some(exp => exp.content.length > 0);
