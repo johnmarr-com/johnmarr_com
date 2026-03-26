@@ -2,12 +2,31 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/AuthProvider";
 import { Button } from "@/JMKit";
 
 export default function AboutPage() {
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoLoaded, setVideoLoaded] = useState(false);
+
+  // If user is already logged in, send them to the dashboard
+  useEffect(() => {
+    if (!isLoading && user) {
+      router.replace("/");
+    }
+  }, [isLoading, user, router]);
+
+  if (!isLoading && user) {
+    return (
+      <div className="flex h-dvh items-center justify-center bg-black">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: "#FF36AB", borderTopColor: "transparent" }} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-dvh items-center justify-center overflow-hidden bg-black p-[40px]">
@@ -22,7 +41,7 @@ export default function AboutPage() {
         {/* Login link: follows the mask edges — 35px from right, 25px from top */}
         <Link
           href="/auth?login=true"
-          className="absolute right-[35px] top-[25px] z-10 font-medium text-white transition-opacity hover:opacity-80"
+          className="absolute right-[35px] top-[25px] z-10 rounded-full px-5 py-2 font-medium text-white transition-all duration-300 hover:scale-110 hover:bg-white/20 hover:font-bold"
           style={{
             fontSize: "calc(min(1024px, calc(100dvh - 80px)) / 45)",
           }}

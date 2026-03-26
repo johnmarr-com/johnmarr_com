@@ -107,12 +107,33 @@ function AuthContent() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated (covers: returning from mobile Google redirect,
+  // page reload with persisted auth, or any case where user is already signed in)
   useEffect(() => {
     if (user && !authLoading) {
-      router.push(redirectUrl);
+      router.replace(redirectUrl);
     }
   }, [user, authLoading, router, redirectUrl]);
+
+  // Handle Google redirect result on mobile (signInWithPopup can become a redirect)
+  useEffect(() => {
+    const checkRedirectResult = async () => {
+      try {
+        const [{ getAuth: getAuthInstance }, { getRedirectResult }] = await Promise.all([
+          import("@/lib/auth"),
+          import("firebase/auth"),
+        ]);
+        const auth = await getAuthInstance();
+        const result = await getRedirectResult(auth);
+        if (result?.user) {
+          router.replace(redirectUrl);
+        }
+      } catch {
+        // No redirect result or error — that's fine, popup worked normally
+      }
+    };
+    checkRedirectResult();
+  }, [router, redirectUrl]);
 
   // Check for email sign-in link on mount
   useEffect(() => {
@@ -130,7 +151,7 @@ function AuthContent() {
             // Pass the name and funnel ID from URL (for new signups coming from email link)
             const user = await completeSignInWithEmailLink(emailFromUrl, url, nameFromUrl, funnelFromUrl);
             if (user) {
-              router.push(redirectUrl);
+              router.replace(redirectUrl);
             }
           } catch (err) {
             console.error("Error completing sign-in:", err);
@@ -150,10 +171,13 @@ function AuthContent() {
     setIsLoading(true);
     setError(null);
     try {
-      // Log the signup attempt (Google method) - fire and forget
       logSignupAttempt({ funnelId, method: "google" });
-      await signInWithGoogle(funnelId);
-      router.push(redirectUrl);
+      const result = await signInWithGoogle(funnelId);
+      if (result) {
+        // Popup succeeded — navigate to dashboard
+        router.replace(redirectUrl);
+      }
+      // If null, redirect flow is in progress (mobile fallback) — page will reload
     } catch (err) {
       console.error("Google sign-in error:", err);
       setError("Failed to sign in with Google. Please try again.");

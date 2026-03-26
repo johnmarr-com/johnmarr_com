@@ -257,34 +257,48 @@ export async function saveUserProfile(user: User): Promise<void> {
 }
 
 /**
- * Sign in with Google popup
+ * Sign in with Google — uses popup, falls back to redirect on mobile if popup is blocked.
+ * When redirect is used, the result is picked up by getRedirectResult on page reload.
  * @param funnelId - Funnel doc ID for tracking signup success
  */
-export async function signInWithGoogle(funnelId?: string | null): Promise<User> {
-  const [authInstance, { GoogleAuthProvider, signInWithPopup, getAdditionalUserInfo }] =
+export async function signInWithGoogle(funnelId?: string | null): Promise<User | null> {
+  const [authInstance, { GoogleAuthProvider, signInWithPopup, signInWithRedirect, getAdditionalUserInfo }] =
     await Promise.all([
       getAuth(),
       import("firebase/auth"),
     ]);
 
   const provider = new GoogleAuthProvider();
-  const result = await signInWithPopup(authInstance, provider);
-  
-  // Only save user profile to Firestore for NEW users (signup, not login)
-  const additionalInfo = getAdditionalUserInfo(result);
-  if (additionalInfo?.isNewUser) {
-    await saveUserProfile(result.user);
-    // Log signup success - fire and forget
-    logSignupSuccess({
-      funnelId: funnelId || null,
-      method: "google",
-      userId: result.user.uid,
-      email: result.user.email,
-      displayName: result.user.displayName,
-    });
+
+  try {
+    const result = await signInWithPopup(authInstance, provider);
+
+    const additionalInfo = getAdditionalUserInfo(result);
+    if (additionalInfo?.isNewUser) {
+      await saveUserProfile(result.user);
+      logSignupSuccess({
+        funnelId: funnelId || null,
+        method: "google",
+        userId: result.user.uid,
+        email: result.user.email,
+        displayName: result.user.displayName,
+      });
+    }
+
+    return result.user;
+  } catch (error: unknown) {
+    const firebaseError = error as { code?: string };
+    // Popup blocked or unavailable on mobile — fall back to redirect
+    if (
+      firebaseError.code === "auth/popup-blocked" ||
+      firebaseError.code === "auth/popup-closed-by-user" ||
+      firebaseError.code === "auth/cancelled-popup-request"
+    ) {
+      await signInWithRedirect(authInstance, provider);
+      return null; // Page will redirect; result picked up on reload via getRedirectResult
+    }
+    throw error;
   }
-  
-  return result.user;
 }
 
 /**
