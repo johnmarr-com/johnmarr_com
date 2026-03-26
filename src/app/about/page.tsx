@@ -49,6 +49,15 @@ export default function AboutPage() {
           Log In
         </Link>
 
+        {/* Featured By banner: locked to bottom of mask, centered horizontally */}
+        <Image
+          src="/images/bgs/JMP-Featured-By.png"
+          alt="Featured by Apple, Popular Science, TEDx, Rolling Stone, Billboard"
+          width={525}
+          height={73}
+          className="absolute bottom-0 left-1/2 z-10 -translate-x-1/2"
+        />
+
         {/* Image container: square, sized only by viewport height, centered horizontally */}
         <div
           className="absolute left-1/2 top-0 -translate-x-1/2"

@@ -24,8 +24,10 @@ export default function Home() {
   const [experienceRows, setExperienceRows] = useState<JMExperienceWithContent[]>([]);
   const [isContentLoading, setIsContentLoading] = useState(true);
 
-  // Load featured content and alert
+  // Load featured content and alert — only after user is authenticated
   useEffect(() => {
+    if (!user) return;
+
     const loadFeatured = async () => {
       try {
         const items = await getFeaturedContent();
@@ -48,10 +50,12 @@ export default function Home() {
     
     loadFeatured();
     loadAlert();
-  }, []);
+  }, [user]);
 
-  // Load content rows (from experiences)
+  // Load content rows (from experiences) — only after user is authenticated
   useEffect(() => {
+    if (!user) return;
+
     const loadContentRows = async () => {
       try {
         const experiences = await getExperiencesWithContent(true); // Only published
@@ -63,7 +67,7 @@ export default function Home() {
       }
     };
     loadContentRows();
-  }, []);
+  }, [user]);
 
   // Check if this is a first-time user (no avatar)
   useEffect(() => {
