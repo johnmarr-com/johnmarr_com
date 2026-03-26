@@ -54,7 +54,7 @@ export default function Home() {
   useEffect(() => {
     const loadContentRows = async () => {
       try {
-        const experiences = await getExperiencesWithContent(true); // Only published
+        const experiences = await getExperiencesWithContent(true);
         setExperienceRows(experiences);
       } catch (error) {
         console.error("Failed to load content:", error);

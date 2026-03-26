@@ -458,16 +458,20 @@ export async function getExperienceWithContent(
   // Feature row: single row-banner from content (e.g. auction)
   const firstContentId = experience.contentIds[0];
   if (experience.rowKind === "feature" && experience.contentType === "auction" && firstContentId) {
-    const { getAuction } = await import("./auction");
-    const auction = await getAuction(firstContentId);
-    if (auction && auction.rowBannerURL && (!publishedOnly || auction.isActive)) {
-      featureItem = {
-        id: auction.id,
-        name: auction.name,
-        slug: auction.slug,
-        rowBannerURL: auction.rowBannerURL,
-        contentType: "auction",
-      };
+    try {
+      const { getAuction } = await import("./auction");
+      const auction = await getAuction(firstContentId);
+      if (auction && auction.rowBannerURL && (!publishedOnly || auction.isActive)) {
+        featureItem = {
+          id: auction.id,
+          name: auction.name,
+          slug: auction.slug,
+          rowBannerURL: auction.rowBannerURL,
+          contentType: "auction",
+        };
+      }
+    } catch (error) {
+      console.error(`Failed to load auction ${firstContentId} for experience ${experienceId}:`, error);
     }
   } else if (experience.autoPopulate && experience.contentType && experience.contentType !== "auction") {
     if (experience.contentType === "artist") {
@@ -510,10 +514,13 @@ export async function getExperienceWithContent(
       resolvedContent = await getTopLevelContent(experience.contentType, publishedOnly);
     }
   } else if (experience.contentType === "artist") {
-    // Curated artist row - fetch artists by IDs
-    const artists = await Promise.all(
+    // Curated artist row — allSettled so an unpublished/missing doc doesn't kill the row
+    const results = await Promise.allSettled(
       experience.contentIds.map((id) => getArtist(id))
     );
+    const artists = results
+      .filter((r): r is PromiseFulfilledResult<JMArtist | null> => r.status === "fulfilled")
+      .map((r) => r.value);
     resolvedContent = artists
       .filter((a): a is JMArtist => a !== null && (!publishedOnly || a.isPublished))
       .map(artist => ({
@@ -533,9 +540,12 @@ export async function getExperienceWithContent(
       }));
   } else if (experience.contentType === "story") {
     const { getStory: getStoryById } = await import("./stories");
-    const stories = await Promise.all(
+    const results = await Promise.allSettled(
       experience.contentIds.map((id) => getStoryById(id))
     );
+    const stories = results
+      .filter((r): r is PromiseFulfilledResult<import("./content-types").JMStory | null> => r.status === "fulfilled")
+      .map((r) => r.value);
     resolvedContent = stories
       .filter((s): s is import("./content-types").JMStory => s !== null && (!publishedOnly || s.isPublished))
       .map(story => ({
@@ -554,12 +564,13 @@ export async function getExperienceWithContent(
         isPublished: story.isPublished,
       }));
   } else if (experience.contentType !== "auction") {
-    // Otherwise use the curated contentIds list (content rows only, not auction)
-    const content = await Promise.all(
+    // Curated content row — allSettled so an unpublished/missing doc doesn't kill the row
+    const results = await Promise.allSettled(
       experience.contentIds.map((id) => getContent(id))
     );
-    
-    // Filter out nulls and unpublished content
+    const content = results
+      .filter((r): r is PromiseFulfilledResult<JMContent | null> => r.status === "fulfilled")
+      .map((r) => r.value);
     resolvedContent = content.filter(
       (c): c is JMContent => c !== null && (!publishedOnly || c.isPublished)
     );
@@ -573,18 +584,25 @@ export async function getExperienceWithContent(
 }
 
 /**
- * Get all experiences with resolved content (for homepage)
+ * Get all experiences with resolved content (for homepage).
+ * Uses allSettled so a single failing experience doesn't kill every row.
  */
 export async function getExperiencesWithContent(
   publishedOnly: boolean = true
 ): Promise<JMExperienceWithContent[]> {
   const experiences = await getExperiences(publishedOnly);
   
-  const resolved = await Promise.all(
+  const results = await Promise.allSettled(
     experiences.map((exp) => getExperienceWithContent(exp.id, publishedOnly))
   );
   
-  return resolved.filter((exp): exp is JMExperienceWithContent => exp !== null);
+  return results
+    .filter(
+      (r): r is PromiseFulfilledResult<JMExperienceWithContent | null> =>
+        r.status === "fulfilled"
+    )
+    .map((r) => r.value)
+    .filter((exp): exp is JMExperienceWithContent => exp !== null);
 }
 
 /**
