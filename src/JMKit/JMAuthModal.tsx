@@ -299,7 +299,7 @@ export function JMAuthModal({ onAuthenticated }: JMAuthModalProps) {
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   required
-                  placeholder="John"
+                  placeholder="Name"
                   className="w-full rounded-xl border px-4 py-3 transition-all focus:outline-none focus-visible:outline-none focus:ring-1"
                   style={{ 
                     borderColor: theme.surfaces.elevated2,
