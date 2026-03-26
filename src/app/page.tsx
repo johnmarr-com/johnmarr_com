@@ -121,14 +121,11 @@ export default function Home() {
     }
   };
 
-  // No user after auth resolves → redirect to the Carrd landing page
+  // No user after auth resolves → redirect to the landing page
   useEffect(() => {
     if (isLoading || user) return;
-    const isMobile = window.innerWidth < 737;
-    window.location.replace(
-      isMobile ? "https://mobile.johnmarr.com" : "https://about.johnmarr.com"
-    );
-  }, [isLoading, user]);
+    router.replace("/about");
+  }, [isLoading, user, router]);
 
   // While loading auth or redirecting unauthenticated visitors, show spinner
   if (isLoading || !user) {
