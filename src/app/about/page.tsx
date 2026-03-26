@@ -41,7 +41,7 @@ export default function AboutPage() {
         {/* Login link: follows the mask edges — 35px from right, 25px from top */}
         <Link
           href="/auth?login=true"
-          className="absolute right-[35px] top-[25px] z-10 rounded-full px-5 py-2 font-medium text-white transition-all duration-300 hover:scale-110 hover:bg-white/20 hover:font-bold"
+          className="absolute right-[35px] top-[25px] z-10 rounded-full px-5 py-2 font-medium text-white transition-all duration-300 hover:scale-110 hover:bg-white/30 hover:font-bold"
           style={{
             fontSize: "calc(min(1024px, calc(100dvh - 80px)) / 45)",
           }}
@@ -70,7 +70,7 @@ export default function AboutPage() {
           {/* Looping video — replaces image once loaded */}
           <video
             ref={videoRef}
-            src="/images/bgs/JMP-Magical-Door.mp4"
+            src="/images/bgs/JMP-Magical-Door-2.mp4"
             autoPlay
             loop
             muted
