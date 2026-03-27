@@ -299,7 +299,7 @@ function AuthContent() {
         {/* Header row: Back to home + Content name */}
         <div className="opacity-0 animate-fade-in mb-8 flex items-center justify-between">
           <Link
-            href="/about"
+            href="/"
             className="inline-flex items-center gap-2 font-mono text-sm transition-colors"
             style={{ color: theme.text.secondary }}
           >

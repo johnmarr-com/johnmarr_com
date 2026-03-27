@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthProvider";
 import { Button } from "@/JMKit";
 
-export default function AboutPage() {
+export default function LandingPageY() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);

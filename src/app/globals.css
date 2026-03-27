@@ -142,11 +142,20 @@ select:focus-visible {
 
 @keyframes gentlePulse {
   0%, 100% { transform: scale(1); }
-  50%      { transform: scale(1.06); }
+  50%      { transform: scale(1.1); }
 }
 
 .animate-gentle-pulse {
-  animation: gentlePulse 2.5s ease-in-out infinite;
+  animation: gentlePulse 2s ease-in-out infinite;
+}
+
+@keyframes gentleFloat {
+  0%, 100% { translate: 0 0; }
+  50%      { translate: 0 -8px; }
+}
+
+.animate-gentle-float {
+  animation: gentleFloat 3s ease-in-out infinite;
 }
 
 /* ─── Story Reader: Prose Styling ─── */
