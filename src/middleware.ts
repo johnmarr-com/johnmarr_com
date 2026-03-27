@@ -8,8 +8,8 @@ import type { NextRequest } from "next/server";
  * The matcher config below tells Next.js to SKIP middleware for these paths,
  * meaning they get served as static files before any app logic runs.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function middleware(_request: NextRequest) {
-  // For any request that makes it here, just continue normally
   return NextResponse.next();
 }
 

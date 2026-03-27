@@ -150,14 +150,16 @@ export function AdminAuctionsPanel() {
 
   const [expandedAuctionId, setExpandedAuctionId] = useState<string | null>(null);
 
+  const selectedAuctionId = selectedAuction?.id ?? null;
+
   const loadAuctions = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
       const list = await getAllAuctions(false);
       setAuctions(list);
-      if (selectedAuction) {
-        const updated = list.find((a) => a.id === selectedAuction.id);
+      if (selectedAuctionId) {
+        const updated = list.find((a) => a.id === selectedAuctionId);
         if (updated) setSelectedAuction(updated);
       }
     } catch (err) {
@@ -166,7 +168,7 @@ export function AdminAuctionsPanel() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedAuction?.id]);
+  }, [selectedAuctionId]);
 
   const loadItems = useCallback(
     async (auctionId: string) => {
@@ -186,12 +188,12 @@ export function AdminAuctionsPanel() {
   }, [loadAuctions]);
 
   useEffect(() => {
-    if (selectedAuction) {
-      loadItems(selectedAuction.id);
+    if (selectedAuctionId) {
+      loadItems(selectedAuctionId);
     } else {
       setItems([]);
     }
-  }, [selectedAuction?.id, loadItems]);
+  }, [selectedAuctionId, loadItems]);
 
   const handleSelectAuction = (auction: JMAuction) => {
     setSelectedAuction(auction);

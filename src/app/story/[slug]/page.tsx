@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
 import { BookOpen, Download, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
 import { JMEpubReader } from "@/JMKit/JMEpubReader";
@@ -163,9 +164,11 @@ export default function StoryPage() {
         {/* Cover */}
         {story.coverImageURL && (
           <div className="w-48 sm:w-56 md:w-64 aspect-3/4 mb-8">
-            <img
+            <Image
               src={story.coverImageURL}
               alt={story.title}
+              width={256}
+              height={341}
               className="w-full h-full object-cover"
               style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.6)" }}
             />

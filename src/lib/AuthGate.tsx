@@ -31,24 +31,6 @@ export function AuthGate({ children }: AuthGateProps) {
     pathname.startsWith("/show") ||
     pathname.startsWith("/auction");
   
-  // Parse content type and slug from pathname
-  const getContentInfo = (): { type: string; slug: string } | null => {
-    if (pathname.startsWith("/artist/")) {
-      const slug = pathname.split("/")[2];
-      if (slug) return { type: "artist", slug };
-    }
-    if (pathname.startsWith("/show/")) {
-      const slug = pathname.split("/")[2];
-      if (slug) return { type: "show", slug };
-    }
-    if (pathname.startsWith("/auction/")) {
-      const slug = pathname.split("/")[2];
-      if (slug) return { type: "auction", slug };
-    }
-    if (pathname === "/auction") return { type: "auction", slug: "" };
-    return null;
-  };
-
   useEffect(() => {
     // Wait for auth to load
     if (isLoading) return;
@@ -62,10 +44,12 @@ export function AuthGate({ children }: AuthGateProps) {
     // Content route - redirect to auth with params
     if (isContentRoute) {
       const params = new URLSearchParams({ redirect: pathname });
-      const contentInfo = getContentInfo();
-      if (contentInfo?.slug) {
-        params.set("contentType", contentInfo.type);
-        params.set("contentSlug", contentInfo.slug);
+      const segments = pathname.split("/");
+      const type = segments[1];
+      const slug = segments[2];
+      if (type && slug) {
+        params.set("contentType", type);
+        params.set("contentSlug", slug);
       }
       window.location.href = `/auth?${params.toString()}`;
       return;

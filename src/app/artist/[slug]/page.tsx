@@ -102,6 +102,17 @@ export default function ArtistPage() {
     loadArtist();
   }, [slug]);
 
+  // Play a specific song
+  const playSong = useCallback((index: number) => {
+    if (!currentAlbum || !audioRef.current) return;
+    const song = currentAlbum.songs[index];
+    if (!song) return;
+
+    setCurrentSongIndex(index);
+    audioRef.current.src = song.audioURL;
+    audioRef.current.play();
+  }, [currentAlbum]);
+
   // Audio event handlers
   useEffect(() => {
     const audio = audioRef.current;
@@ -110,7 +121,6 @@ export default function ArtistPage() {
     const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
     const handleLoadedMetadata = () => setDuration(audio.duration);
     const handleEnded = () => {
-      // Play next song in list
       if (currentSongIndex !== null && currentAlbum) {
         const nextIndex = currentSongIndex + 1;
         if (nextIndex < currentAlbum.songs.length) {
@@ -137,18 +147,7 @@ export default function ArtistPage() {
       audio.removeEventListener("play", handlePlay);
       audio.removeEventListener("pause", handlePause);
     };
-  }, [currentSongIndex, currentAlbum]);
-
-  // Play a specific song
-  const playSong = useCallback((index: number) => {
-    if (!currentAlbum || !audioRef.current) return;
-    const song = currentAlbum.songs[index];
-    if (!song) return;
-
-    setCurrentSongIndex(index);
-    audioRef.current.src = song.audioURL;
-    audioRef.current.play();
-  }, [currentAlbum]);
+  }, [currentSongIndex, currentAlbum, playSong]);
 
   // Toggle play/pause
   const togglePlayPause = () => {
