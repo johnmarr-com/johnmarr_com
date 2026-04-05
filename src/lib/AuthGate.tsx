@@ -12,8 +12,8 @@ interface AuthGateProps {
  * Global auth gate that protects all routes.
  * 
  * Route types:
- * - Public routes (/auth, /x, /y): No auth required
- * - Home (/): Redirects to random landing (/x or /y) if not authenticated
+ * - Public routes (/auth, /landing, /landing-2): No auth required
+ * - Home (/): Redirects to /landing if not authenticated (A/B logic preserved but bypassed to /landing)
  * - Content routes (/artist/*, /show/*, /auction/*): Redirect to /auth with custom bg, then back after login
  * - Protected routes (everything else): Redirects to /auth if not authenticated
  */
@@ -22,7 +22,7 @@ export function AuthGate({ children }: AuthGateProps) {
   const pathname = usePathname();
 
   // Public routes that don't require auth at all
-  const isPublicRoute = pathname === "/auth" || pathname === "/x" || pathname === "/y";
+  const isPublicRoute = pathname === "/auth" || pathname === "/landing" || pathname === "/landing-2";
   
   // Content routes: redirect to /auth with redirect param (custom bg support)
   // Auction requires auth - redirect to /auth
@@ -55,10 +55,10 @@ export function AuthGate({ children }: AuthGateProps) {
       return;
     }
 
-    // Home page — send unauthenticated users to a random landing variant
+    // Home page — send unauthenticated users to landing
+    // A/B logic preserved: swap to `Math.random() < 0.5 ? "/landing" : "/landing-2"` to re-enable
     if (pathname === "/") {
-      const landing = Math.random() < 0.5 ? "/x" : "/y";
-      window.location.href = landing;
+      window.location.href = "/landing";
       return;
     }
 
