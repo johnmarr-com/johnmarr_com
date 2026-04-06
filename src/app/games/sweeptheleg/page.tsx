@@ -15,18 +15,18 @@ type ChapterName =
 type GamePhase = "idle" | "ready" | "animating" | "finished";
 
 const CHAPTERS: Record<ChapterName, { start: number; end: number }> = {
-  Ready: { start: 0.0,    end: 0.458  },
-  "H-L": { start: 0.458,  end: 3.875  },
-  "H-M": { start: 3.875,  end: 8.083  },
-  "H-H": { start: 8.083,  end: 11.167 },
-  "M-H": { start: 11.167, end: 14.542 },
-  "M-L": { start: 14.542, end: 19.0   },
-  "M-M": { start: 19.0,   end: 22.167 },
-  "L-M": { start: 22.167, end: 27.5   },
-  "L-H": { start: 27.5,   end: 33.458 },
-  "L-L": { start: 33.458, end: 36.208 },
-  "W-W": { start: 36.208, end: 38.917 },
-  "R-W": { start: 38.917, end: 41.667 },
+  Ready: { start: 0.0,     end: 0.417  },
+  "H-L": { start: 0.417,   end: 3.833  },
+  "H-M": { start: 4.375,   end: 8.583  },
+  "H-H": { start: 9.125,   end: 12.208 },
+  "M-H": { start: 12.750,  end: 16.125 },
+  "M-L": { start: 16.667,  end: 21.125 },
+  "M-M": { start: 21.667,  end: 24.833 },
+  "L-M": { start: 25.375,  end: 30.708 },
+  "L-H": { start: 31.250,  end: 37.208 },
+  "L-L": { start: 37.750,  end: 40.500 },
+  "W-W": { start: 41.042,  end: 43.750 },
+  "R-W": { start: 44.292,  end: 47.042 },
 };
 
 // High beats Low, Mid beats High, Low beats Mid
@@ -86,8 +86,10 @@ export default function SweepTheLegPage() {
   );
 
   // rAF loop — watches currentTime and enforces chapter boundaries
+  // Also pauses video when tab is hidden so it doesn't play unchecked.
   useEffect(() => {
     let active = true;
+    const wasPlayingRef = { current: false };
 
     function tick() {
       if (!active) return;
@@ -109,10 +111,24 @@ export default function SweepTheLegPage() {
       rafRef.current = requestAnimationFrame(tick);
     }
 
+    function onVisibilityChange() {
+      const v = videoRef.current;
+      if (!v) return;
+      if (document.hidden) {
+        wasPlayingRef.current = !v.paused;
+        if (!v.paused) v.pause();
+      } else if (wasPlayingRef.current) {
+        v.currentTime = CHAPTERS[chapterRef.current].start;
+        v.play().catch(() => {});
+      }
+    }
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
     rafRef.current = requestAnimationFrame(tick);
     return () => {
       active = false;
       cancelAnimationFrame(rafRef.current);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, []);
 
@@ -145,8 +161,8 @@ export default function SweepTheLegPage() {
 
       playChapter(chapter, {
         onEnd: () => {
-          if (rw === "red") redRef.current++;
-          else if (rw === "white") whiteRef.current++;
+          if (rw === "red") redRef.current += chapter === "L-M" ? 2 : 1;
+          else if (rw === "white") whiteRef.current += chapter === "L-H" ? 2 : 1;
           setRedScore(redRef.current);
           setWhiteScore(whiteRef.current);
 
@@ -259,7 +275,10 @@ export default function SweepTheLegPage() {
                 {redScore} &ndash; {whiteScore}
               </p>
               <button
-                onClick={() => handleStart(playerSide)}
+                onClick={() => {
+                  videoRef.current?.pause();
+                  setP("idle");
+                }}
                 className="mt-1 rounded-full px-8 py-3 text-sm font-bold uppercase tracking-wider text-black transition-transform hover:scale-105 active:scale-95"
                 style={{ backgroundColor: theme.accents.goldenGlow }}
               >
@@ -290,9 +309,13 @@ export default function SweepTheLegPage() {
                   flex-1 rounded-xl border-2 py-4 text-base font-bold uppercase tracking-wider
                   transition-all sm:text-lg
                   ${
-                    phase === "ready"
-                      ? "border-white/30 bg-white/6 text-white hover:scale-105 hover:border-white/60 hover:bg-white/12 active:scale-95"
-                      : "cursor-not-allowed border-white/10 bg-white/2 text-white/25"
+                    phase === "ready" && playerSide === "red"
+                      ? "border-red-500/30 bg-red-500/6 text-red-400 hover:scale-105 hover:border-red-500/60 hover:bg-red-500/12 active:scale-95"
+                      : phase === "ready"
+                        ? "border-white/30 bg-white/6 text-white hover:scale-105 hover:border-white/60 hover:bg-white/12 active:scale-95"
+                        : playerSide === "red"
+                          ? "cursor-not-allowed border-red-500/10 bg-red-500/2 text-red-400/25"
+                          : "cursor-not-allowed border-white/10 bg-white/2 text-white/25"
                   }
                 `}
               >
