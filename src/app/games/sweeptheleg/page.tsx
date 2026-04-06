@@ -15,18 +15,18 @@ type ChapterName =
 type GamePhase = "idle" | "ready" | "animating" | "finished";
 
 const CHAPTERS: Record<ChapterName, { start: number; end: number }> = {
-  Ready: { start: 0.0,     end: 0.417  },
-  "H-L": { start: 0.417,   end: 3.833  },
-  "H-M": { start: 4.375,   end: 8.583  },
-  "H-H": { start: 9.125,   end: 12.208 },
-  "M-H": { start: 12.750,  end: 16.125 },
-  "M-L": { start: 16.667,  end: 21.125 },
-  "M-M": { start: 21.667,  end: 24.833 },
-  "L-M": { start: 25.375,  end: 30.708 },
-  "L-H": { start: 31.250,  end: 37.208 },
-  "L-L": { start: 37.750,  end: 40.500 },
-  "W-W": { start: 41.042,  end: 43.750 },
-  "R-W": { start: 44.292,  end: 47.042 },
+  Ready: { start: 0.0,     end: 1.5  },
+  "H-L": { start: 1.667,   end: 5.083  },
+  "H-M": { start: 5.625,   end: 9.833  },
+  "H-H": { start: 10.375,  end: 13.458 },
+  "M-H": { start: 14.0,    end: 17.375 },
+  "M-L": { start: 17.917,  end: 22.375 },
+  "M-M": { start: 22.917,  end: 26.083 },
+  "L-M": { start: 26.625,  end: 31.958 },
+  "L-H": { start: 32.5,    end: 38.458 },
+  "L-L": { start: 39.0,    end: 41.75  },
+  "W-W": { start: 42.292,  end: 45.0   },
+  "R-W": { start: 45.542,  end: 48.292 },
 };
 
 // High beats Low, Mid beats High, Low beats Mid
@@ -35,6 +35,7 @@ const FRAME = 1 / 24;
 const POINTS_TO_WIN = 5;
 const ATTACKS: Attack[] = ["H", "M", "L"];
 const ATTACK_LABEL: Record<Attack, string> = { H: "HIGH", M: "MID", L: "LOW" };
+const ATTACK_BEATS: Record<Attack, string> = { H: "beats Low", M: "beats High", L: "beats Mid" };
 type PlayerSide = "red" | "white";
 
 function roundWinner(left: Attack, right: Attack): "red" | "white" | null {
@@ -306,8 +307,8 @@ export default function SweepTheLegPage() {
                 onClick={() => handleAttack(a)}
                 disabled={phase !== "ready"}
                 className={`
-                  flex-1 rounded-xl border-2 py-4 text-base font-bold uppercase tracking-wider
-                  transition-all sm:text-lg
+                  flex-1 rounded-xl border-2 py-3 text-base font-bold uppercase tracking-wider
+                  transition-all
                   ${
                     phase === "ready" && playerSide === "red"
                       ? "border-red-500/30 bg-red-500/6 text-red-400 hover:scale-105 hover:border-red-500/60 hover:bg-red-500/12 active:scale-95"
@@ -319,7 +320,12 @@ export default function SweepTheLegPage() {
                   }
                 `}
               >
-                {ATTACK_LABEL[a]}
+                <span className="block text-xl font-black sm:text-2xl">
+                  {ATTACK_LABEL[a]}
+                </span>
+                <span className="mt-0.5 block text-[10px] font-medium normal-case tracking-wide text-white/40">
+                  {ATTACK_BEATS[a]}
+                </span>
               </button>
             ))}
           </div>
