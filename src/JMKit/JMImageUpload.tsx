@@ -136,17 +136,28 @@ export function JMImageUpload({
     setIsUploading(true);
 
     try {
-      // Resize if maxWidth is set
       let fileToUpload = file;
       if (maxWidth) {
         fileToUpload = await resizeImage(file, maxWidth);
       }
 
+      console.log("[JMImageUpload] uploading:", {
+        name: fileToUpload.name,
+        type: fileToUpload.type,
+        size: `${(fileToUpload.size / 1024).toFixed(1)} KB`,
+        wasResized: fileToUpload !== file,
+      });
+
       const url = await onUpload(fileToUpload);
+      console.log("[JMImageUpload] upload success:", url);
       onChange(url);
-    } catch (err) {
-      console.error("Upload failed:", err);
-      setError(err instanceof Error ? err.message : "Upload failed");
+    } catch (err: unknown) {
+      const fbErr = err as { customData?: { serverResponse?: string }; code?: string; message?: string };
+      const serverResponse = fbErr?.customData?.serverResponse;
+      console.error("[JMImageUpload] upload failed:", err);
+      console.error("[JMImageUpload] code:", fbErr?.code);
+      if (serverResponse) console.error("[JMImageUpload] server response:", serverResponse);
+      setError(serverResponse || fbErr?.message || "Upload failed");
     } finally {
       setIsUploading(false);
     }

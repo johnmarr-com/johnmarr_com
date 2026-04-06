@@ -173,7 +173,7 @@ export function JMFeaturedCarousel({
                       }}
                     >
                       <Play className="h-3 w-3 sm:h-4 sm:w-4" fill="currentColor" />
-                      {item.contentType === "show" ? "Watch Now" : item.contentType === "auction" ? "View Auction" : "View"}
+                      {item.contentType === "show" ? "Watch Now" : item.contentType === "auction" ? "View Auction" : item.contentType === "game" ? "Play" : "View"}
                     </button>
                   </div>
                 </div>

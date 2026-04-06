@@ -157,6 +157,32 @@ export async function getTopLevelContent(
 }
 
 /**
+ * Get a single content item by slug and type
+ */
+export async function getContentBySlug(
+  contentType: JMContentType,
+  slug: string
+): Promise<JMContent | null> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, collection, query, where, getDocs, limit } = await import("firebase/firestore");
+  
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  
+  const q = query(
+    collection(db, "content"),
+    where("contentType", "==", contentType),
+    where("slug", "==", slug),
+    limit(1),
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  
+  const doc = snap.docs[0]!;
+  return { id: doc.id, ...doc.data() } as JMContent;
+}
+
+/**
  * Get children of a content item (seasons or episodes)
  */
 export async function getContentChildren(
@@ -681,12 +707,12 @@ export function getPublicStorageUrl(bucket: string, path: string): string {
  * 
  * @param file - The image file to upload
  * @param contentId - The content ID (or "new-{timestamp}" for new content)
- * @param imageType - "cover" or "backdrop"
+ * @param imageType - "cover", "backdrop", "splashBg", "splashIcon", or "splashLogo"
  */
 export async function uploadContentImage(
   file: File,
   contentId: string,
-  imageType: "cover" | "backdrop" = "cover"
+  imageType: "cover" | "backdrop" | "splashBg" | "splashIcon" | "splashLogo" = "cover"
 ): Promise<string> {
   const { initializeFirebase } = await import("./firebase");
   const { getStorage, ref, uploadBytes } = await import("firebase/storage");
@@ -694,14 +720,12 @@ export async function uploadContentImage(
   const { app } = await initializeFirebase();
   const storage = getStorage(app);
   
-  // Generate file extension from mime type
   const ext = file.type.split("/")[1] || "jpg";
   
   // Storage path: content-images/{contentId}/{imageType}.{ext}
   const storagePath = `content-images/${contentId}/${imageType}.${ext}`;
   const storageRef = ref(storage, storagePath);
-  
-  // Upload the file
+
   await uploadBytes(storageRef, file, {
     contentType: file.type,
     cacheControl: "public, max-age=31536000", // Cache for 1 year

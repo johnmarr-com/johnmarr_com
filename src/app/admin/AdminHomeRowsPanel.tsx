@@ -701,6 +701,8 @@ export function AdminHomeRowsPanel() {
                     <option value={1}>1x (default)</option>
                     <option value={1.5}>1.5x</option>
                     <option value={2}>2x</option>
+                    <option value={2.5}>2.5x</option>
+                    <option value={3}>3x</option>
                   </select>
                 </div>
                 <div className="flex-1">
@@ -720,6 +722,8 @@ export function AdminHomeRowsPanel() {
                     <option value={1}>1x (default)</option>
                     <option value={1.5}>1.5x</option>
                     <option value={2}>2x</option>
+                    <option value={2.5}>2.5x</option>
+                    <option value={3}>3x</option>
                   </select>
                 </div>
               </div>

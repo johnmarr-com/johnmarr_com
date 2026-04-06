@@ -28,6 +28,8 @@ function getAspectRatio(contentType: ContentItem["contentType"]): number {
   switch (contentType) {
     case "story":
       return 3 / 4;
+    case "game":
+      return 1 / 1;
     default:
       return 2 / 1;
   }
@@ -140,8 +142,12 @@ export function JMContentScroller({
         >
           {items.map((item) => {
             const isStory = item.contentType === "story";
+            const isGame = item.contentType === "game";
             const aspect = getAspectRatio(item.contentType);
             const itemWidth = rowHeight * aspect;
+            const borderRadius = isGame
+              ? `${rowHeight * 0.2}px`
+              : undefined;
 
             return (
               <div
@@ -151,7 +157,7 @@ export function JMContentScroller({
                 style={{ scrollSnapAlign: "start" }}
               >
                 <div
-                  className="relative overflow-hidden rounded-lg"
+                  className={`relative overflow-hidden ${isGame ? "" : "rounded-lg"}`}
                   style={{
                     height: rowHeight,
                     width: itemWidth,
@@ -159,6 +165,7 @@ export function JMContentScroller({
                     boxShadow: isStory
                       ? "0 2px 16px rgba(0,0,0,0.5)"
                       : "0 4px 12px rgba(0,0,0,0.3)",
+                    ...(borderRadius ? { borderRadius } : {}),
                   }}
                 >
                   {item.coverURL ? (

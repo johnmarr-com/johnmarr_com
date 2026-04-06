@@ -152,7 +152,8 @@ export interface JMContent {
   
   // ─── Basic Metadata ───────────────────────────────────────
   name: string;
-  slug?: string;                  // URL-friendly identifier (used by artists)
+  subtitle?: string;              // Optional subtitle (used by games, etc.)
+  slug?: string;                  // URL-friendly identifier (used by artists, games)
   description: string;
   creatorId: string;              // User UID of creator
   brandId?: string;               // Optional: associate with a brand
@@ -163,6 +164,11 @@ export interface JMContent {
   coverURL: string;               // 1:1 square (for scroller tiles)
   backdropURL?: string;           // 16:9 landscape (for detail pages)
   loginBgURL?: string;            // Custom background for auth page when accessing this content
+  
+  // ─── Game Splash (for games) ────────────────────────────
+  splashBgURL?: string;           // Full-screen background for game landing page
+  splashIconURL?: string;         // 4:3 game icon for landing page
+  splashLogoURL?: string;         // 2:1 game title logo for landing page
   
   // ─── Hierarchy & Ordering ─────────────────────────────────
   parentId: string | null;        // null = top-level content
@@ -191,9 +197,14 @@ export interface JMContentInput {
   contentType: JMContentType;
   contentLevel: JMContentLevel;
   name: string;
+  subtitle?: string;
+  slug?: string;
   description: string;
   coverURL: string;
   backdropURL?: string;
+  splashBgURL?: string;
+  splashIconURL?: string;
+  splashLogoURL?: string;
   brandId?: string;
   parentId?: string | null;
   order?: number;
@@ -281,7 +292,7 @@ export interface JMFeatureRowItem {
   name: string;
   slug?: string;
   rowBannerURL: string;
-  contentType: "auction";
+  contentType: "auction" | "game";
 }
 
 /**

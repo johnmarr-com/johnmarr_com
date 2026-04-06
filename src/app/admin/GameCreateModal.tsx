@@ -1,0 +1,340 @@
+"use client";
+
+import { useState, useCallback, useRef } from "react";
+import { X, Check, Loader2, Eye, EyeOff } from "lucide-react";
+import { useJMStyle } from "@/JMStyle";
+import { JMImageUpload } from "@/JMKit";
+import { useAuth } from "@/lib/AuthProvider";
+import { createContent, uploadContentImage } from "@/lib/content";
+
+interface GameCreateModalProps {
+  onClose: () => void;
+  onCreated: () => void;
+}
+
+export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
+  const { theme } = useJMStyle();
+  const { user } = useAuth();
+
+  const [name, setName] = useState("");
+  const [subtitle, setSubtitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [slug, setSlug] = useState("");
+  const [coverURL, setCoverURL] = useState("");
+  const [backdropURL, setBackdropURL] = useState("");
+  const [splashBgURL, setSplashBgURL] = useState("");
+  const [splashIconURL, setSplashIconURL] = useState("");
+  const [splashLogoURL, setSplashLogoURL] = useState("");
+  const [isPublished, setIsPublished] = useState(false);
+
+  const tempIdRef = useRef(`new-${Date.now()}`);
+  const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleCoverUpload = useCallback(async (file: File) => {
+    return uploadContentImage(file, tempIdRef.current, "cover");
+  }, []);
+
+  const handleBannerUpload = useCallback(async (file: File) => {
+    return uploadContentImage(file, tempIdRef.current, "backdrop");
+  }, []);
+
+  const handleSplashBgUpload = useCallback(async (file: File) => {
+    return uploadContentImage(file, tempIdRef.current, "splashBg");
+  }, []);
+
+  const handleSplashIconUpload = useCallback(async (file: File) => {
+    return uploadContentImage(file, tempIdRef.current, "splashIcon");
+  }, []);
+
+  const handleSplashLogoUpload = useCallback(async (file: File) => {
+    return uploadContentImage(file, tempIdRef.current, "splashLogo");
+  }, []);
+
+  const handleCreate = async () => {
+    if (!user || !name.trim() || !slug.trim()) return;
+
+    setIsCreating(true);
+    setError(null);
+
+    try {
+      const input: Parameters<typeof createContent>[0] = {
+        contentType: "game",
+        contentLevel: "standalone",
+        name: name.trim(),
+        slug: slug.trim(),
+        description: description.trim(),
+        coverURL: coverURL.trim() || "",
+        isPublished,
+      };
+      if (subtitle.trim()) input.subtitle = subtitle.trim();
+      if (backdropURL.trim()) input.backdropURL = backdropURL.trim();
+      if (splashBgURL.trim()) input.splashBgURL = splashBgURL.trim();
+      if (splashIconURL.trim()) input.splashIconURL = splashIconURL.trim();
+      if (splashLogoURL.trim()) input.splashLogoURL = splashLogoURL.trim();
+
+      await createContent(input, user.uid);
+      onCreated();
+    } catch (err) {
+      console.error("Failed to create game:", err);
+      setError(err instanceof Error ? err.message : "Failed to create game");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const canCreate = name.trim().length > 0 && slug.trim().length > 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
+
+      <div
+        className="relative w-full max-w-lg overflow-hidden rounded-2xl border-2"
+        style={{
+          backgroundColor: "rgba(20, 20, 20, 1)",
+          borderColor: "rgba(255, 255, 255, 0.2)",
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between border-b px-6 py-4"
+          style={{ borderColor: "rgba(255, 255, 255, 0.15)" }}
+        >
+          <h2 className="text-lg font-semibold" style={{ color: theme.text.primary }}>
+            New Game
+          </h2>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-2 transition-colors hover:bg-white/10"
+            style={{ color: theme.text.secondary }}
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Form */}
+        <div className="max-h-[70vh] overflow-y-auto p-6">
+          <div className="space-y-5">
+            {/* Published toggle */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsPublished(!isPublished)}
+                className="flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor: isPublished
+                    ? `${theme.semantic.success}20`
+                    : theme.surfaces.elevated2,
+                  color: isPublished ? theme.semantic.success : theme.text.tertiary,
+                }}
+              >
+                {isPublished ? <Eye size={14} /> : <EyeOff size={14} />}
+                {isPublished ? "Published" : "Draft"}
+              </button>
+              <span className="text-xs" style={{ color: theme.text.tertiary }}>
+                {isPublished ? "Will be visible to users" : "Only visible to admins"}
+              </span>
+            </div>
+
+            {/* Title */}
+            <div>
+              <label
+                className="mb-2 block text-sm font-medium"
+                style={{ color: theme.text.secondary }}
+              >
+                Title <span style={{ color: theme.semantic.error }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Enter game title..."
+                autoFocus
+                className="w-full rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                style={{
+                  backgroundColor: "rgba(0, 0, 0, 0.4)",
+                  borderColor: "rgba(255, 255, 255, 0.2)",
+                  color: theme.text.primary,
+                  // @ts-expect-error CSS custom property
+                  "--tw-ring-color": theme.accents.goldenGlow,
+                }}
+              />
+            </div>
+
+            {/* Subtitle */}
+            <div>
+              <label
+                className="mb-2 block text-sm font-medium"
+                style={{ color: theme.text.secondary }}
+              >
+                Subtitle
+              </label>
+              <input
+                type="text"
+                value={subtitle}
+                onChange={(e) => setSubtitle(e.target.value)}
+                placeholder="Optional subtitle..."
+                className="w-full rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                style={{
+                  backgroundColor: "rgba(0, 0, 0, 0.4)",
+                  borderColor: "rgba(255, 255, 255, 0.2)",
+                  color: theme.text.primary,
+                  // @ts-expect-error CSS custom property
+                  "--tw-ring-color": theme.accents.goldenGlow,
+                }}
+              />
+            </div>
+
+            {/* Description */}
+            <div>
+              <label
+                className="mb-2 block text-sm font-medium"
+                style={{ color: theme.text.secondary }}
+              >
+                Description
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Brief description of the game..."
+                rows={3}
+                className="w-full resize-none rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                style={{
+                  backgroundColor: "rgba(0, 0, 0, 0.4)",
+                  borderColor: "rgba(255, 255, 255, 0.2)",
+                  color: theme.text.primary,
+                  // @ts-expect-error CSS custom property
+                  "--tw-ring-color": theme.accents.goldenGlow,
+                }}
+              />
+            </div>
+
+            {/* Game Path (slug) */}
+            <div>
+              <label
+                className="mb-2 block text-sm font-medium"
+                style={{ color: theme.text.secondary }}
+              >
+                Game Path <span style={{ color: theme.semantic.error }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={slug}
+                onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                placeholder="sweeptheleg"
+                className="w-full rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                style={{
+                  backgroundColor: "rgba(0, 0, 0, 0.4)",
+                  borderColor: "rgba(255, 255, 255, 0.2)",
+                  color: theme.text.primary,
+                  // @ts-expect-error CSS custom property
+                  "--tw-ring-color": theme.accents.goldenGlow,
+                }}
+              />
+              <p className="mt-1 text-xs" style={{ color: theme.text.tertiary }}>
+                URL: /games/{slug || "..."}
+              </p>
+            </div>
+
+            {/* Cover & Banner Images */}
+            <div className="flex flex-col gap-4">
+              <JMImageUpload
+                label="Cover (1:1)"
+                value={coverURL}
+                onChange={(url) => setCoverURL(url || "")}
+                onUpload={handleCoverUpload}
+                aspectRatio="square"
+                previewSize={200}
+                maxWidth={640}
+                required
+              />
+              <JMImageUpload
+                label="Banner (16:9)"
+                value={backdropURL}
+                onChange={(url) => setBackdropURL(url || "")}
+                onUpload={handleBannerUpload}
+                aspectRatio="landscape"
+                previewSize={200}
+                maxWidth={1920}
+              />
+            </div>
+
+            {/* Splash Screen Images */}
+            <div>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wider" style={{ color: theme.text.tertiary }}>
+                Splash Screen
+              </p>
+              <div className="flex flex-col gap-4">
+                <JMImageUpload
+                  label="Splash Background"
+                  value={splashBgURL}
+                  onChange={(url) => setSplashBgURL(url || "")}
+                  onUpload={handleSplashBgUpload}
+                  aspectRatio="landscape"
+                  previewSize={200}
+                />
+                <JMImageUpload
+                  label="Splash Logo (2:1)"
+                  value={splashLogoURL}
+                  onChange={(url) => setSplashLogoURL(url || "")}
+                  onUpload={handleSplashLogoUpload}
+                  aspectRatio="wide"
+                  previewSize={200}
+                />
+                <JMImageUpload
+                  label="Splash Icon (4:3)"
+                  value={splashIconURL}
+                  onChange={(url) => setSplashIconURL(url || "")}
+                  onUpload={handleSplashIconUpload}
+                  aspectRatio="landscape"
+                  previewSize={200}
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div
+                className="rounded-lg px-4 py-2 text-sm"
+                style={{
+                  backgroundColor: `${theme.semantic.error}20`,
+                  color: theme.semantic.error,
+                }}
+              >
+                {error}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div
+          className="flex items-center justify-end border-t px-6 py-4"
+          style={{ borderColor: "rgba(255, 255, 255, 0.15)" }}
+        >
+          <button
+            onClick={handleCreate}
+            disabled={!canCreate || isCreating}
+            className="flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-medium transition-all hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
+            style={{
+              backgroundColor: theme.accents.goldenGlow,
+              color: theme.surfaces.base,
+            }}
+          >
+            {isCreating ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Creating...
+              </>
+            ) : (
+              <>
+                <Check size={16} />
+                Create Game
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

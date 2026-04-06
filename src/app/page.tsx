@@ -100,7 +100,9 @@ export default function Home() {
   }, [user, isLoading, hasCheckedAvatar]);
 
   const handleFeaturedClick = (item: FeaturedItem) => {
-    if (item.contentType === "artist" && item.slug) {
+    if (item.contentType === "game" && item.slug) {
+      router.push(`/games/${item.slug}`);
+    } else if (item.contentType === "artist" && item.slug) {
       router.push(`/artist/${item.slug}`);
     } else if (item.contentType === "auction" && item.slug) {
       router.push(`/auction/${item.slug}`);
@@ -112,7 +114,9 @@ export default function Home() {
   };
 
   const handleContentClick = (item: ContentItem) => {
-    if (item.contentType === "artist" && item.slug) {
+    if (item.contentType === "game" && item.slug) {
+      router.push(`/games/${item.slug}`);
+    } else if (item.contentType === "artist" && item.slug) {
       router.push(`/artist/${item.slug}`);
     } else if (item.contentType === "story" && item.slug) {
       router.push(`/story/${item.slug}`);
@@ -196,7 +200,9 @@ export default function Home() {
                       rowScaleMobile={experience.rowScaleMobile}
                       rowScaleDesktop={experience.rowScaleDesktop}
                       onClick={() => {
-                        if (experience.featureItem?.contentType === "auction" && experience.featureItem?.slug) {
+                        if (experience.featureItem?.contentType === "game" && experience.featureItem?.slug) {
+                          router.push(`/games/${experience.featureItem.slug}`);
+                        } else if (experience.featureItem?.contentType === "auction" && experience.featureItem?.slug) {
                           router.push(`/auction/${experience.featureItem.slug}`);
                         }
                       }}
