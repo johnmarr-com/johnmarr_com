@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useJMStyle } from "@/JMStyle";
 import { JMAppHeader } from "@/JMKit";
-import type { GameMode } from "../_gamecore";
+import { simpleMove, postGameComment, type GameMode } from "../_gamecore";
 
 type Attack = "H" | "M" | "L";
 
@@ -54,6 +54,71 @@ const ATTACKS: Attack[] = ["H", "M", "L"];
 const ATTACK_LABEL: Record<Attack, string> = { H: "HIGH", M: "MID", L: "LOW" };
 const ATTACK_BEATS: Record<Attack, string> = { H: "beats Low", M: "beats High", L: "beats Mid" };
 type PlayerSide = "red" | "white";
+
+const ACTION_TO_ATTACK: Record<string, Attack> = {
+  high: "H",
+  mid: "M",
+  low: "L",
+};
+
+function parseAttackFromAction(action: string): Attack | null {
+  const key = action.toLowerCase().trim();
+  for (const [word, atk] of Object.entries(ACTION_TO_ATTACK)) {
+    if (key.startsWith(word)) return atk;
+  }
+  return null;
+}
+
+function buildMovePrompt(aiSide: "red" | "white", history: MoveRecord[]): string {
+  const playerSide = aiSide === "red" ? "White" : "Red";
+  const nameMap: Record<string, string> = { H: "High", M: "Mid", L: "Low" };
+
+  const system = `You are the ${aiSide.toUpperCase()} fighter in a martial-arts game. The human player is ${playerSide}. Each round both fighters simultaneously choose High, Mid, or Low.
+
+WHAT BEATS WHAT:
+- High beats Low (if opponent plays Low, you win with High)
+- Mid beats High (if opponent plays High, you win with Mid)
+- Low beats Mid (if opponent plays Mid, you win with Low)
+- Same attack = tie
+
+BONUS POINTS:
+- Red scores 2 points (instead of 1) when Red plays Low and White plays Mid.
+- White scores 2 points (instead of 1) when White plays Low and Red plays High.
+
+First to 5 points wins. Study the player's patterns and choose the move most likely to beat them. Look for tendencies, repeats, sequences, and post-win/post-loss habits.
+
+CRITICAL: Your ACTION must match your reasoning. If you reason that you should counter their Low, your ACTION must be High. If you reason that you should counter their High, your ACTION must be Mid. If you reason you should counter their Mid, your ACTION must be Low.
+
+Format your response EXACTLY as:
+REASONING: <1 brief sentence for the player to read after the game>
+ACTION: <High, Mid, or Low>`;
+
+  if (history.length === 0) {
+    return system + "\n\nThis is the first round — no history yet. Pick your opening move.";
+  }
+
+  const lines = history.map((m, i) => {
+    const result = m.winner === "tie" ? "Tie" : m.winner === "player" ? "Player won" : "You won";
+    return `Round ${i + 1}: Player=${nameMap[m.player]}, You=${nameMap[m.opponent]} → ${result}`;
+  });
+  return system + `\n\nMove history:\n${lines.join("\n")}\n\nRound ${history.length + 1} — what do you play?`;
+}
+
+function buildPostGamePrompt(aiSide: "red" | "white", history: MoveRecord[], aiWon: boolean): string {
+  const playerSide = aiSide === "red" ? "White" : "Red";
+  const nameMap: Record<string, string> = { H: "High", M: "Mid", L: "Low" };
+  const lines = history.map((m, i) => {
+    const result = m.winner === "tie" ? "Tie" : m.winner === "player" ? "Player won" : "You won";
+    return `Round ${i + 1}: Player=${nameMap[m.player]}, You=${nameMap[m.opponent]} → ${result}`;
+  });
+
+  return `You are the ${aiSide.toUpperCase()} fighter in a martial-arts game. The human player is ${playerSide}.
+
+Full match history:
+${lines.join("\n")}
+
+The game is over. ${aiWon ? "You won!" : "You lost."} Give a brief post-game comment (1-2 sentences) reflecting on the match — what patterns you noticed, what worked or didn't, and whether the player surprised you. Be conversational and a good sport. Reply with ONLY your comment, nothing else.`;
+}
 
 function AttackIndicator({
   side,
@@ -271,16 +336,14 @@ export default function SweepTheLegGame({
   );
 
   const fetchAiMove = useCallback((): Promise<{ attack: Attack; reasoning: string }> => {
-    return fetch("/api/games/sweeptheleg", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ history: historyRef.current, playerSide: sideRef.current }),
-    })
-      .then((res) => res.json())
-      .then((data: { attack: Attack; reasoning: string }) => ({
-        attack: data.attack,
-        reasoning: data.reasoning || "",
-      }))
+    const aiSide = sideRef.current === "red" ? "white" : "red";
+    const prompt = buildMovePrompt(aiSide, historyRef.current);
+    return simpleMove(prompt)
+      .then(({ action, reason }) => {
+        const attack = parseAttackFromAction(action);
+        if (attack) return { attack, reasoning: reason };
+        return { attack: ATTACKS[Math.floor(Math.random() * ATTACKS.length)]!, reasoning: reason };
+      })
       .catch(() => ({
         attack: ATTACKS[Math.floor(Math.random() * ATTACKS.length)]!,
         reasoning: "",
@@ -327,22 +390,11 @@ export default function SweepTheLegGame({
       }
 
       if (mode === "ai" && gameOver) {
-        const aiIsRed = sideRef.current === "white";
-        const aiWon = (aiIsRed && nextRed >= POINTS_TO_WIN) || (!aiIsRed && nextWhite >= POINTS_TO_WIN);
-        fetch("/api/games/sweeptheleg", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            history: historyRef.current,
-            playerSide: sideRef.current,
-            gameOver: true,
-            aiWon,
-          }),
-        })
-          .then((res) => res.json())
-          .then((data: { comment: string }) => {
-            if (data.comment) setAiPostGame(data.comment);
-          })
+        const aiSide = sideRef.current === "red" ? "white" : "red";
+        const aiWon = (aiSide === "red" && nextRed >= POINTS_TO_WIN) || (aiSide === "white" && nextWhite >= POINTS_TO_WIN);
+        const prompt = buildPostGamePrompt(aiSide, historyRef.current, aiWon);
+        postGameComment(prompt)
+          .then(({ comment }) => { if (comment) setAiPostGame(comment); })
           .catch(() => {});
       }
 
