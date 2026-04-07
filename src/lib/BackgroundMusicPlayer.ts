@@ -21,6 +21,8 @@ class BackgroundMusicPlayer {
   private pendingURL: string | null = null;
   private interactionBound = false;
   private connectedVideos = new WeakSet<HTMLVideoElement>();
+  private startContextTime = 0;
+  private playbackOffset = 0;
 
   private constructor() {}
 
@@ -94,6 +96,7 @@ class BackgroundMusicPlayer {
   stop(): void {
     this.pendingURL = null;
     this.currentURL = null;
+    this.playbackOffset = 0;
     this.stopSource();
   }
 
@@ -133,10 +136,19 @@ class BackgroundMusicPlayer {
     gain.gain.value = volume;
 
     source.connect(gain).connect(ctx.destination);
-    source.start(0);
+
+    const offset = buffer.duration > 0
+      ? this.playbackOffset % buffer.duration
+      : 0;
+    source.start(0, offset);
+    this.startContextTime = ctx.currentTime - offset;
 
     source.onended = () => {
       if (this.sourceNode === source) {
+        if (this.ctx && buffer.duration > 0) {
+          this.playbackOffset =
+            (this.ctx.currentTime - this.startContextTime) % buffer.duration;
+        }
         this.sourceNode = null;
         this.gainNode = null;
       }
