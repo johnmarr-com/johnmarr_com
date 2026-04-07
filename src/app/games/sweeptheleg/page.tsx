@@ -9,17 +9,8 @@ import SweepTheLegGame from "./SweepTheLegGame";
 export default function SweepTheLegPage() {
   const [mode, setMode] = useState<GameMode | null>(null);
   const [gameData, setGameData] = useState<JMContent | null>(null);
-  const [debugError, setDebugError] = useState<string | null>(null);
-
   useEffect(() => {
-    getContentBySlug("game", "sweeptheleg")
-      .then((data) => {
-        setGameData(data);
-        if (!data) setDebugError("getContentBySlug returned null");
-      })
-      .catch((err) => {
-        setDebugError(err instanceof Error ? err.message : String(err));
-      });
+    getContentBySlug("game", "sweeptheleg").then(setGameData);
   }, []);
 
   if (mode === "ai") {
@@ -41,18 +32,11 @@ export default function SweepTheLegPage() {
   };
 
   return (
-    <>
-      <GameLandingPage
-        {...splashProps}
-        gameSlug="sweeptheleg"
-        enabledModes={["ai"]}
-        onPlay={(m) => setMode(m)}
-      />
-      {debugError && (
-        <div className="fixed bottom-4 left-4 right-4 z-50 rounded-lg bg-red-900/90 px-4 py-2 text-xs text-white">
-          DEBUG: {debugError}
-        </div>
-      )}
-    </>
+    <GameLandingPage
+      {...splashProps}
+      gameSlug="sweeptheleg"
+      enabledModes={["ai"]}
+      onPlay={(m) => setMode(m)}
+    />
   );
 }

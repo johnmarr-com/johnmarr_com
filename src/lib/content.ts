@@ -171,6 +171,7 @@ export async function getContentBySlug(
   
   const q = query(
     collection(db, "content"),
+    where("isPublished", "==", true),
     where("contentType", "==", contentType),
     where("slug", "==", slug),
     limit(1),
