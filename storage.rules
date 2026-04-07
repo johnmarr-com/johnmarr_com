@@ -190,6 +190,16 @@ service firebase.storage {
     }
     
     // ─────────────────────────────────────────────────────────────
+    // GAME BACKGROUND MUSIC
+    // ─────────────────────────────────────────────────────────────
+    
+    match /content-audio/{contentId}/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin() && isAudio() && maxSize(30);
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
     // MUSIC VIDEO THUMBNAILS
     // ─────────────────────────────────────────────────────────────
     

@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { JMAppHeader } from "@/JMKit";
+import { bgMusic } from "@/lib/BackgroundMusicPlayer";
+import { PointsManager, Activity } from "@/lib/points";
 
 export type GameMode = "solo" | "ai" | "friends";
 
@@ -10,6 +12,9 @@ export interface GameLandingPageProps {
   splashBgURL?: string;
   splashIconURL?: string;
   splashLogoURL?: string;
+  gameSlug?: string;
+  backgroundMusicURL?: string;
+  backgroundMusicVolume?: number;
   enabledModes?: GameMode[];
   onPlay: (mode: GameMode) => void;
 }
@@ -24,10 +29,18 @@ export function GameLandingPage({
   splashBgURL,
   splashIconURL,
   splashLogoURL,
+  gameSlug,
+  backgroundMusicURL,
+  backgroundMusicVolume = 0.3,
   enabledModes = ["solo"],
   onPlay,
 }: GameLandingPageProps) {
   const [pressed, setPressed] = useState<GameMode | null>(null);
+
+  useEffect(() => {
+    const url = backgroundMusicURL || (gameSlug ? `/music/${gameSlug}.mp3` : null);
+    if (url) bgMusic.play(url, backgroundMusicVolume);
+  }, [backgroundMusicURL, backgroundMusicVolume, gameSlug]);
 
   const allModes: GameMode[] = ["ai", "friends"];
 
@@ -99,6 +112,7 @@ export function GameLandingPage({
                 disabled={!enabled}
                 onClick={() => {
                   setPressed(mode);
+                  PointsManager.award(Activity.PLAY_GAME);
                   onPlay(mode);
                 }}
                 className={`

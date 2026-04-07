@@ -9,6 +9,7 @@ import type { FeaturedItem, ContentItem } from "@/JMKit";
 import { useJMStyle } from "@/JMStyle";
 import { getFeaturedContent, getPublishedAlert, getExperiencesWithContent } from "@/lib/content";
 import type { JMAlert, JMExperienceWithContent } from "@/lib/content-types";
+import { bgMusic } from "@/lib/BackgroundMusicPlayer";
 
 export default function Home() {
   const { user, isLoading } = useAuth();
@@ -23,6 +24,8 @@ export default function Home() {
   // Content rows state - now using experiences
   const [experienceRows, setExperienceRows] = useState<JMExperienceWithContent[]>([]);
   const [isContentLoading, setIsContentLoading] = useState(true);
+
+  useEffect(() => { bgMusic.stop(); }, []);
 
   // Load featured content and alert
   useEffect(() => {

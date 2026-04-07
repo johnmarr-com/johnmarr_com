@@ -3,9 +3,9 @@
 import { useState, useCallback, useRef } from "react";
 import { X, Check, Loader2, Eye, EyeOff } from "lucide-react";
 import { useJMStyle } from "@/JMStyle";
-import { JMImageUpload } from "@/JMKit";
+import { JMImageUpload, JMAudioUpload } from "@/JMKit";
 import { useAuth } from "@/lib/AuthProvider";
-import { createContent, uploadContentImage } from "@/lib/content";
+import { createContent, uploadContentImage, uploadGameBackgroundMusic } from "@/lib/content";
 
 interface GameCreateModalProps {
   onClose: () => void;
@@ -25,6 +25,8 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
   const [splashBgURL, setSplashBgURL] = useState("");
   const [splashIconURL, setSplashIconURL] = useState("");
   const [splashLogoURL, setSplashLogoURL] = useState("");
+  const [backgroundMusicURL, setBackgroundMusicURL] = useState("");
+  const [backgroundMusicVolume, setBackgroundMusicVolume] = useState(0.3);
   const [isPublished, setIsPublished] = useState(false);
 
   const tempIdRef = useRef(`new-${Date.now()}`);
@@ -51,6 +53,10 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
     return uploadContentImage(file, tempIdRef.current, "splashLogo");
   }, []);
 
+  const handleBgMusicUpload = useCallback(async (file: File) => {
+    return uploadGameBackgroundMusic(file, tempIdRef.current);
+  }, []);
+
   const handleCreate = async () => {
     if (!user || !name.trim() || !slug.trim()) return;
 
@@ -72,6 +78,10 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
       if (splashBgURL.trim()) input.splashBgURL = splashBgURL.trim();
       if (splashIconURL.trim()) input.splashIconURL = splashIconURL.trim();
       if (splashLogoURL.trim()) input.splashLogoURL = splashLogoURL.trim();
+      if (backgroundMusicURL.trim()) {
+        input.backgroundMusicURL = backgroundMusicURL.trim();
+        input.backgroundMusicVolume = backgroundMusicVolume;
+      }
 
       await createContent(input, user.uid);
       onCreated();
@@ -291,6 +301,42 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
                   previewSize={200}
                 />
               </div>
+            </div>
+
+            {/* Background Music */}
+            <div>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wider" style={{ color: theme.text.tertiary }}>
+                Background Music
+              </p>
+              <p className="mb-3 text-xs" style={{ color: theme.text.tertiary }}>
+                Loops during gameplay. Falls back to <code>/music/{slug || "..."}.mp3</code> if not set.
+              </p>
+              <JMAudioUpload
+                label="Music Track"
+                {...(backgroundMusicURL ? { value: backgroundMusicURL } : {})}
+                onChange={(url) => setBackgroundMusicURL(url || "")}
+                onUpload={handleBgMusicUpload}
+                maxSizeMB={30}
+              />
+              {backgroundMusicURL && (
+                <div className="mt-3">
+                  <label
+                    className="mb-1 block text-sm font-medium"
+                    style={{ color: theme.text.secondary }}
+                  >
+                    Volume — {Math.round(backgroundMusicVolume * 100)}%
+                  </label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={backgroundMusicVolume}
+                    onChange={(e) => setBackgroundMusicVolume(parseFloat(e.target.value))}
+                    className="w-full accent-yellow-400"
+                  />
+                </div>
+              )}
             </div>
 
             {error && (

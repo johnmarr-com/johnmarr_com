@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, ChevronRight, X } from "lucide-react";
+import { Plus, ChevronRight, X, Sparkles } from "lucide-react";
 import Image from "next/image";
 import { useJMStyle } from "@/JMStyle";
-import { JMImageUpload } from "@/JMKit";
+import { JMImageUpload, JMConfettiOverlay, Dialog, DialogContent } from "@/JMKit";
 import {
   getAllLevels,
   createLevel,
@@ -280,6 +280,56 @@ function LevelEditModal({ level, onClose, onSaved }: LevelEditModalProps) {
   );
 }
 
+/* ── Test level-up preview ── */
+
+function LevelUpTestPopup({ level, onClose }: { level: UserLevel; onClose: () => void }) {
+  const { theme } = useJMStyle();
+  const iconUrl = level.iconIsometricURL || level.iconRealisticURL;
+
+  return (
+    <>
+      <JMConfettiOverlay />
+
+      <Dialog open onOpenChange={(v) => { if (!v) onClose(); }}>
+        <DialogContent
+          className="border-0 bg-transparent shadow-none max-w-md overflow-visible"
+          overlayClassName="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+          hideCloseButton
+        >
+          <div className="relative flex flex-col items-center text-center py-8 px-4">
+            {iconUrl && (
+              <div className="mb-6">
+                <Image
+                  src={iconUrl}
+                  alt={level.title}
+                  width={512}
+                  height={512}
+                  className="drop-shadow-2xl animate-badge-pulse"
+                  style={{ maxWidth: "350px", height: "auto" }}
+                  unoptimized
+                />
+              </div>
+            )}
+            <p className="text-2xl font-black tracking-wider uppercase mb-2" style={{ color: theme.accents.goldenGlow }}>
+              CONGRATS
+            </p>
+            <p className="text-lg mb-4" style={{ color: theme.text.secondary }}>
+              You reached a new level!
+            </p>
+            <button
+              onClick={onClose}
+              className="mt-8 px-8 py-3 rounded-full font-bold text-sm uppercase tracking-wider transition-transform hover:scale-105"
+              style={{ backgroundColor: theme.accents.goldenGlow, color: "#000" }}
+            >
+              Continue
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 /* ── Panel ── */
 
 export function AdminLevelsPanel() {
@@ -289,6 +339,7 @@ export function AdminLevelsPanel() {
   const [error, setError] = useState<string | null>(null);
 
   const [editingLevel, setEditingLevel] = useState<UserLevel | null | "new">(null);
+  const [testingLevel, setTestingLevel] = useState<UserLevel | null>(null);
 
   const fetchLevels = async () => {
     setIsLoading(true);
@@ -402,6 +453,14 @@ export function AdminLevelsPanel() {
                   {lvl.minPoints.toLocaleString()}
                 </span>
 
+                <button
+                  onClick={(e) => { e.stopPropagation(); setTestingLevel(lvl); }}
+                  className="shrink-0 rounded-lg p-1.5 transition-colors hover:bg-white/10"
+                  title="Test level-up popup"
+                >
+                  <Sparkles size={16} style={{ color: theme.accents.goldenGlow }} />
+                </button>
+
                 <ChevronRight size={16} className="shrink-0" style={{ color: theme.text.tertiary }} />
               </button>
             ))}
@@ -414,6 +473,13 @@ export function AdminLevelsPanel() {
           level={editingLevel === "new" ? null : editingLevel}
           onClose={() => setEditingLevel(null)}
           onSaved={fetchLevels}
+        />
+      )}
+
+      {testingLevel && (
+        <LevelUpTestPopup
+          level={testingLevel}
+          onClose={() => setTestingLevel(null)}
         />
       )}
     </div>

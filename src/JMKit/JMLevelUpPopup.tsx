@@ -1,35 +1,20 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Lottie from "lottie-react";
 import Image from "next/image";
 import { useAuth } from "@/lib/AuthProvider";
 import { useJMStyle } from "@/JMStyle";
 import { getLevelByNumber } from "@/lib/levels";
 import type { UserLevel } from "@/lib/levels";
 import { Dialog, DialogContent } from "./JMDialog";
+import { JMConfettiOverlay } from "./JMConfettiOverlay";
 import { getAuth } from "@/lib/auth";
-
-interface ConfettiData {
-  [key: string]: unknown;
-}
 
 export function JMLevelUpPopup() {
   const { user, level, levelledUp, refreshUserData } = useAuth();
   const { theme } = useJMStyle();
   const [open, setOpen] = useState(false);
   const [levelData, setLevelData] = useState<UserLevel | null>(null);
-  const [confettiData, setConfettiData] = useState<ConfettiData | null>(null);
-
-  useEffect(() => {
-    fetch("/lottie/confetti.json")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: ConfettiData | null) => {
-        if (data) setConfettiData(data);
-      })
-      .catch(() => {});
-  }, []);
-
   useEffect(() => {
     if (!levelledUp || !user) return;
 
@@ -66,24 +51,16 @@ export function JMLevelUpPopup() {
   const iconUrl = levelData.iconIsometricURL || levelData.iconRealisticURL;
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) dismiss(); }}>
-      <DialogContent
-        className="border-0 bg-transparent shadow-none max-w-md overflow-visible"
-        overlayClassName="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
-      >
-        {/* Full-screen confetti layer */}
-        {confettiData && (
-          <div className="fixed inset-0 z-60 pointer-events-none">
-            <Lottie
-              animationData={confettiData}
-              loop={false}
-              autoplay
-              style={{ width: "100%", height: "100%" }}
-            />
-          </div>
-        )}
+    <>
+      <JMConfettiOverlay />
 
-        <div className="relative z-70 flex flex-col items-center text-center py-8 px-4">
+      <Dialog open={open} onOpenChange={(v) => { if (!v) dismiss(); }}>
+        <DialogContent
+          className="border-0 bg-transparent shadow-none max-w-md overflow-visible"
+          overlayClassName="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+          hideCloseButton
+        >
+          <div className="relative flex flex-col items-center text-center py-8 px-4">
           {/* Level icon */}
           {iconUrl && (
             <div className="mb-6">
@@ -92,8 +69,8 @@ export function JMLevelUpPopup() {
                 alt={levelData.title}
                 width={512}
                 height={512}
-                className="drop-shadow-2xl"
-                style={{ maxWidth: "280px", height: "auto" }}
+                className="drop-shadow-2xl animate-badge-pulse"
+                style={{ maxWidth: "350px", height: "auto" }}
                 unoptimized
               />
             </div>
@@ -113,13 +90,6 @@ export function JMLevelUpPopup() {
             You reached a new level!
           </p>
 
-          <p
-            className="text-4xl font-black tracking-wide"
-            style={{ color: theme.text.primary }}
-          >
-            {levelData.title}
-          </p>
-
           <button
             onClick={dismiss}
             className="mt-8 px-8 py-3 rounded-full font-bold text-sm uppercase tracking-wider transition-transform hover:scale-105"
@@ -133,5 +103,6 @@ export function JMLevelUpPopup() {
         </div>
       </DialogContent>
     </Dialog>
+    </>
   );
 }

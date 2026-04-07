@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useJMStyle } from "@/JMStyle";
 import { useAuth } from "@/lib/AuthProvider";
 import { signOut } from "@/lib/auth";
+import { bgMusic } from "@/lib/BackgroundMusicPlayer";
 
 export interface JMMenuOption {
   label: string;
@@ -135,7 +136,8 @@ export function JMBasicMenu({
 
   const handleOptionClick = async (option: JMMenuOption) => {
     setIsOpen(false);
-    
+    bgMusic.stop();
+
     if (option.onClick) {
       await option.onClick();
     } else if (option.href) {

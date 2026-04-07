@@ -169,6 +169,8 @@ export interface JMContent {
   splashBgURL?: string;           // Full-screen background for game landing page
   splashIconURL?: string;         // 4:3 game icon for landing page
   splashLogoURL?: string;         // 2:1 game title logo for landing page
+  backgroundMusicURL?: string;    // Looping background music for gameplay (falls back to /music/{slug}.mp3)
+  backgroundMusicVolume?: number; // 0–1 volume level (default 0.3)
   
   // ─── Hierarchy & Ordering ─────────────────────────────────
   parentId: string | null;        // null = top-level content
@@ -205,6 +207,8 @@ export interface JMContentInput {
   splashBgURL?: string;
   splashIconURL?: string;
   splashLogoURL?: string;
+  backgroundMusicURL?: string;
+  backgroundMusicVolume?: number;
   brandId?: string;
   parentId?: string | null;
   order?: number;

@@ -28,11 +28,14 @@ export default function SweepTheLegPage() {
     ...(gameData?.splashBgURL ? { splashBgURL: gameData.splashBgURL } : {}),
     ...(gameData?.splashIconURL ? { splashIconURL: gameData.splashIconURL } : {}),
     ...(gameData?.splashLogoURL ? { splashLogoURL: gameData.splashLogoURL } : {}),
+    ...(gameData?.backgroundMusicURL ? { backgroundMusicURL: gameData.backgroundMusicURL } : {}),
+    ...(gameData?.backgroundMusicVolume != null ? { backgroundMusicVolume: gameData.backgroundMusicVolume } : {}),
   };
 
   return (
     <GameLandingPage
       {...splashProps}
+      gameSlug="sweeptheleg"
       enabledModes={["ai"]}
       onPlay={(m) => setMode(m)}
     />

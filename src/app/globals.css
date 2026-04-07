@@ -30,6 +30,15 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Level-up badge pulse */
+@keyframes badge-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+.animate-badge-pulse {
+  animation: badge-pulse 1.5s ease-in-out infinite;
+}
+
 /* Selection styling */
 ::selection {
   background: var(--accent);

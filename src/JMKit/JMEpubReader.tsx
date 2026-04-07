@@ -5,6 +5,7 @@ import { ReactReader, ReactReaderStyle } from "react-reader";
 import type { Rendition } from "epubjs";
 import { X, Sun, Moon, Minus, Plus } from "lucide-react";
 import type { JMStorySettings } from "@/lib/content-types";
+import { PointsManager, type ActivityKey } from "@/lib/points";
 
 interface JMEpubReaderProps {
   title: string;
@@ -14,6 +15,8 @@ interface JMEpubReaderProps {
   onSettingsChange: (s: Partial<JMStorySettings>) => void;
   onLocationChange: (cfi: string) => void;
   onClose: () => void;
+  /** Award points each time the reader enters a new chapter */
+  pointsActivity?: ActivityKey;
 }
 
 export function JMEpubReader({
@@ -24,12 +27,15 @@ export function JMEpubReader({
   onSettingsChange,
   onLocationChange,
   onClose,
+  pointsActivity,
 }: JMEpubReaderProps) {
   const [location, setLocation] = useState<string | null>(initialLocation || null);
   const [showSettings, setShowSettings] = useState(false);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const renditionRef = useRef<Rendition | null>(null);
   const locationChangeRef = useRef(onLocationChange);
+  const lastChapterHrefRef = useRef<string | null>(null);
+  const relocatedBoundRef = useRef(false);
   useEffect(() => {
     locationChangeRef.current = onLocationChange;
   }, [onLocationChange]);
@@ -86,6 +92,22 @@ export function JMEpubReader({
       figure { max-width: 100% !important; margin: 1em auto !important; }
       svg { max-width: 100% !important; height: auto !important; }
     `;
+
+    // Detect chapter changes for points (guard prevents StrictMode double-bind)
+    if (pointsActivity && !relocatedBoundRef.current) {
+      relocatedBoundRef.current = true;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      rendition.on("relocated", (loc: any) => {
+        const href = loc?.start?.href;
+        if (href && href !== lastChapterHrefRef.current) {
+          const isFirst = lastChapterHrefRef.current === null;
+          lastChapterHrefRef.current = href;
+          if (!isFirst) {
+            PointsManager.award(pointsActivity);
+          }
+        }
+      });
+    }
 
     // Handle in-content link clicks (Vellum TOC, cross-references)
     rendition.on("linkClicked", (href: string) => {
@@ -155,7 +177,7 @@ export function JMEpubReader({
 
     rendition.themes.select(settings.darkMode ? "dark" : "light");
     rendition.themes.fontSize(`${settings.fontSize}px`);
-  }, [settings.darkMode, settings.fontSize]);
+  }, [settings.darkMode, settings.fontSize, pointsActivity]);
 
   useEffect(() => {
     const r = renditionRef.current;

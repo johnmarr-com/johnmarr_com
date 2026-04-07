@@ -16,7 +16,7 @@ import {
   Play, Pause, SkipForward, SkipBack,
   FileText, X, Loader2, Video,
 } from "lucide-react";
-import { Activity } from "@/lib/points";
+import { PointsManager, Activity } from "@/lib/points";
 
 // Album with songs
 interface AlbumWithSongs extends JMAlbum {
@@ -109,6 +109,7 @@ export default function ArtistPage() {
     setCurrentSongIndex(index);
     audioRef.current.src = song.audioURL;
     audioRef.current.play();
+    PointsManager.award(Activity.LISTEN_SONG);
   }, [currentAlbum]);
 
   // Audio event handlers

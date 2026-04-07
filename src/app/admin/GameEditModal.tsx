@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { X, Save, Trash2, Loader2, Eye, EyeOff } from "lucide-react";
 import { useJMStyle } from "@/JMStyle";
-import { JMImageUpload } from "@/JMKit";
-import { getContent, updateContent, deleteContent, uploadContentImage } from "@/lib/content";
+import { JMImageUpload, JMAudioUpload } from "@/JMKit";
+import { getContent, updateContent, deleteContent, uploadContentImage, uploadGameBackgroundMusic } from "@/lib/content";
 import type { JMContent } from "@/lib/content-types";
 
 interface GameEditModalProps {
@@ -23,6 +23,8 @@ interface EditState {
   splashBgURL: string;
   splashIconURL: string;
   splashLogoURL: string;
+  backgroundMusicURL: string;
+  backgroundMusicVolume: number;
   isPublished: boolean;
 }
 
@@ -37,6 +39,8 @@ function stateFromGame(game: JMContent): EditState {
     splashBgURL: game.splashBgURL ?? "",
     splashIconURL: game.splashIconURL ?? "",
     splashLogoURL: game.splashLogoURL ?? "",
+    backgroundMusicURL: game.backgroundMusicURL ?? "",
+    backgroundMusicVolume: game.backgroundMusicVolume ?? 0.3,
     isPublished: game.isPublished,
   };
 }
@@ -78,6 +82,11 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
 
   const handleSplashLogoUpload = useCallback(
     async (file: File) => uploadContentImage(file, gameId, "splashLogo"),
+    [gameId],
+  );
+
+  const handleBgMusicUpload = useCallback(
+    async (file: File) => uploadGameBackgroundMusic(file, gameId),
     [gameId],
   );
 
@@ -125,6 +134,10 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
       if (editState.splashBgURL.trim()) updates.splashBgURL = editState.splashBgURL.trim();
       if (editState.splashIconURL.trim()) updates.splashIconURL = editState.splashIconURL.trim();
       if (editState.splashLogoURL.trim()) updates.splashLogoURL = editState.splashLogoURL.trim();
+      if (editState.backgroundMusicURL.trim()) {
+        updates.backgroundMusicURL = editState.backgroundMusicURL.trim();
+        updates.backgroundMusicVolume = editState.backgroundMusicVolume;
+      }
 
       await updateContent(gameId, updates);
 
@@ -357,6 +370,42 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
                     previewSize={200}
                   />
                 </div>
+              </div>
+
+              {/* Background Music */}
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider" style={{ color: theme.text.tertiary }}>
+                  Background Music
+                </p>
+                <p className="mb-3 text-xs" style={{ color: theme.text.tertiary }}>
+                  Loops during gameplay. Falls back to <code>/music/{editState.slug || "..."}.mp3</code> if not set.
+                </p>
+                <JMAudioUpload
+                  label="Music Track"
+                  {...(editState.backgroundMusicURL ? { value: editState.backgroundMusicURL } : {})}
+                  onChange={(url) => update({ backgroundMusicURL: url || "" })}
+                  onUpload={handleBgMusicUpload}
+                  maxSizeMB={30}
+                />
+                {editState.backgroundMusicURL && (
+                  <div className="mt-3">
+                    <label
+                      className="mb-1 block text-sm font-medium"
+                      style={{ color: theme.text.secondary }}
+                    >
+                      Volume — {Math.round(editState.backgroundMusicVolume * 100)}%
+                    </label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={editState.backgroundMusicVolume}
+                      onChange={(e) => update({ backgroundMusicVolume: parseFloat(e.target.value) })}
+                      className="w-full accent-yellow-400"
+                    />
+                  </div>
+                )}
               </div>
 
               {error && (

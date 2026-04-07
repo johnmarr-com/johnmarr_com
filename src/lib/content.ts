@@ -743,6 +743,36 @@ export async function uploadContentImage(
 }
 
 /**
+ * Upload background music for a game to Firebase Storage.
+ * Stored at: content-audio/{contentId}/bgMusic.{ext}
+ */
+export async function uploadGameBackgroundMusic(
+  file: File,
+  contentId: string
+): Promise<string> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getStorage, ref, uploadBytes } = await import("firebase/storage");
+
+  const { app } = await initializeFirebase();
+  const storage = getStorage(app);
+
+  const ext = file.name.split(".").pop() || "mp3";
+  const storagePath = `content-audio/${contentId}/bgMusic.${ext}`;
+  const storageRef = ref(storage, storagePath);
+
+  await uploadBytes(storageRef, file, {
+    contentType: file.type,
+    cacheControl: "public, max-age=31536000",
+  });
+
+  const bucket = storage.app.options.storageBucket;
+  if (!bucket) throw new Error("Storage bucket not configured");
+
+  const baseUrl = getPublicStorageUrl(bucket, storagePath);
+  return `${baseUrl}&t=${Date.now()}`;
+}
+
+/**
  * Delete a content image from Firebase Storage
  */
 export async function deleteContentImage(

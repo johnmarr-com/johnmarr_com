@@ -14,6 +14,7 @@ import {
   updateReadingProgress,
 } from "@/lib/stories";
 import type { JMStory, JMStorySettings } from "@/lib/content-types";
+import { Activity } from "@/lib/points";
 
 export default function StoryPage() {
   const params = useParams();
@@ -142,6 +143,7 @@ export default function StoryPage() {
         onSettingsChange={handleSettingsChange}
         onLocationChange={handleLocationChange}
         onClose={handleClose}
+        pointsActivity={Activity.READ_STORY}
       />
     );
   }
