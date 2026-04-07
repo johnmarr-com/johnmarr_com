@@ -36,6 +36,12 @@ class BackgroundMusicPlayer {
       const Ctor = window.AudioContext
         || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new Ctor();
+      this.ctx.onstatechange = () => {
+        if (this.ctx?.state === "running" && this.currentURL && !this.sourceNode) {
+          const cached = this.bufferCache.get(this.currentURL);
+          if (cached) this.startBuffer(cached, this.currentVolume);
+        }
+      };
     }
     if (this.ctx.state === "suspended") {
       this.ctx.resume().catch(() => {});
@@ -55,6 +61,7 @@ class BackgroundMusicPlayer {
 
     if (this.currentURL === url && this.sourceNode) {
       if (this.gainNode) this.gainNode.gain.value = volume;
+      if (this.ctx?.state === "suspended") this.ctx.resume().catch(() => {});
       return;
     }
 
@@ -127,6 +134,13 @@ class BackgroundMusicPlayer {
 
     source.connect(gain).connect(ctx.destination);
     source.start(0);
+
+    source.onended = () => {
+      if (this.sourceNode === source) {
+        this.sourceNode = null;
+        this.gainNode = null;
+      }
+    };
 
     this.sourceNode = source;
     this.gainNode = gain;

@@ -17,8 +17,11 @@ export default function SweepTheLegPage() {
     return (
       <SweepTheLegGame
         mode={mode}
+        gameSlug="sweeptheleg"
         {...(gameData?.splashLogoURL ? { splashLogoURL: gameData.splashLogoURL } : {})}
         {...(gameData?.splashBgURL ? { splashBgURL: gameData.splashBgURL } : {})}
+        {...(gameData?.backgroundMusicURL ? { backgroundMusicURL: gameData.backgroundMusicURL } : {})}
+        {...(gameData?.backgroundMusicVolume != null ? { backgroundMusicVolume: gameData.backgroundMusicVolume } : {})}
       />
     );
   }

@@ -220,12 +220,23 @@ export default function SweepTheLegGame({
   splashLogoURL,
   splashBgURL,
   mode = "solo",
+  gameSlug,
+  backgroundMusicURL,
+  backgroundMusicVolume,
 }: {
   splashLogoURL?: string;
   splashBgURL?: string;
   mode?: GameMode;
+  gameSlug?: string;
+  backgroundMusicURL?: string;
+  backgroundMusicVolume?: number;
 }) {
   const { theme } = useJMStyle();
+
+  useEffect(() => {
+    const url = backgroundMusicURL || (gameSlug ? `/music/${gameSlug}.mp3` : null);
+    if (url) bgMusic.play(url, backgroundMusicVolume ?? 0.3);
+  }, [backgroundMusicURL, backgroundMusicVolume, gameSlug]);
 
   const [phase, setPhase] = useState<GamePhase>("idle");
   const [redScore, setRedScore] = useState(0);
@@ -257,7 +268,6 @@ export default function SweepTheLegGame({
 
   const videoMountRef = useCallback((el: HTMLVideoElement | null) => {
     videoRef.current = el;
-    if (el) bgMusic.connectVideo(el);
   }, []);
 
   const playChapter = useCallback(
@@ -267,6 +277,7 @@ export default function SweepTheLegGame({
     ) => {
       const v = videoRef.current;
       if (!v) return;
+      bgMusic.connectVideo(v);
       chapterRef.current = name;
       loopingRef.current = opts.loop ?? false;
       freezeRef.current = opts.freeze ?? false;
