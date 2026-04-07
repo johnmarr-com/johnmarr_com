@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useJMStyle } from "@/JMStyle";
 import { JMAppHeader } from "@/JMKit";
 import { simpleMove, postGameComment, type GameMode } from "../_gamecore";
+import { bgMusic } from "@/lib/BackgroundMusicPlayer";
 
 type Attack = "H" | "M" | "L";
 
@@ -252,6 +253,10 @@ export default function SweepTheLegGame({
   const setP = useCallback((p: GamePhase) => {
     phaseRef.current = p;
     setPhase(p);
+  }, []);
+
+  useEffect(() => {
+    if (videoRef.current) bgMusic.connectVideo(videoRef.current);
   }, []);
 
   const playChapter = useCallback(

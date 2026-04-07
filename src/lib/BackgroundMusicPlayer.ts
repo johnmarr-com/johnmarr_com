@@ -1,10 +1,12 @@
 /**
  * Singleton background music player.
  *
- * Uses Web Audio API (AudioBufferSourceNode) instead of HTMLAudioElement
- * so iOS Safari can play background music alongside game <video> elements.
- * iOS pauses HTMLAudioElement when a video plays; pure Web Audio API
- * buffers are not subject to that restriction.
+ * Uses Web Audio API so iOS Safari can play background music alongside
+ * game <video> elements. Both audio streams are routed through the same
+ * AudioContext, which iOS treats as a single audio session.
+ *
+ * - Background music: fetched as ArrayBuffer → decoded → AudioBufferSourceNode
+ * - Game video: routed via connectVideo() → MediaElementAudioSourceNode
  */
 
 class BackgroundMusicPlayer {
@@ -18,6 +20,7 @@ class BackgroundMusicPlayer {
   private bufferCache = new Map<string, AudioBuffer>();
   private pendingURL: string | null = null;
   private interactionBound = false;
+  private connectedVideos = new WeakSet<HTMLVideoElement>();
 
   private constructor() {}
 
@@ -77,9 +80,7 @@ class BackgroundMusicPlayer {
           this.bufferCache.set(url, buffer);
           if (this.currentURL === url) this.startBuffer(buffer, this.currentVolume);
         })
-        .catch(() => {
-          // File not found or decode error — silent fail
-        });
+        .catch(() => {});
     }
   }
 
@@ -87,6 +88,25 @@ class BackgroundMusicPlayer {
     this.pendingURL = null;
     this.currentURL = null;
     this.stopSource();
+  }
+
+  /**
+   * Route a <video> element's audio through the shared AudioContext.
+   * Call once per video element (idempotent — safe to call repeatedly).
+   * This allows the video and background music to coexist on iOS.
+   */
+  connectVideo(video: HTMLVideoElement): void {
+    if (typeof window === "undefined") return;
+    if (this.connectedVideos.has(video)) return;
+
+    const ctx = this.ensureContext();
+    try {
+      const source = ctx.createMediaElementSource(video);
+      source.connect(ctx.destination);
+      this.connectedVideos.add(video);
+    } catch {
+      // createMediaElementSource can only be called once per element
+    }
   }
 
   get playing(): boolean {
@@ -163,5 +183,6 @@ export const bgMusic =
     : (({
         play() {},
         stop() {},
+        connectVideo() {},
         playing: false,
       } as unknown) as BackgroundMusicPlayer);
