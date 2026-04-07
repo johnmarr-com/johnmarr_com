@@ -255,8 +255,9 @@ export default function SweepTheLegGame({
     setPhase(p);
   }, []);
 
-  useEffect(() => {
-    if (videoRef.current) bgMusic.connectVideo(videoRef.current);
+  const videoMountRef = useCallback((el: HTMLVideoElement | null) => {
+    videoRef.current = el;
+    if (el) bgMusic.connectVideo(el);
   }, []);
 
   const playChapter = useCallback(
@@ -508,7 +509,7 @@ export default function SweepTheLegGame({
           <div className="relative aspect-square max-h-full max-w-full">
             <div className="relative h-full w-full overflow-hidden rounded-xl">
               <video
-                ref={videoRef}
+                ref={videoMountRef}
                 src="/video/Sweep-The-Leg-Chapters.mp4"
                 playsInline
                 preload="auto"
