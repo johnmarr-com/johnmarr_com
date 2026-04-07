@@ -291,6 +291,27 @@ service cloud.firestore {
     }
     
     // ─────────────────────────────────────────────────────────────
+    // GAME SESSIONS (Multiplayer lobbies)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /gameSessions/{sessionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // INVITE CODES (Multiplayer game join codes)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /inviteCodes/{code} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
     // SIGNUP FUNNEL COLLECTION (Analytics tracking)
     // ─────────────────────────────────────────────────────────────
     

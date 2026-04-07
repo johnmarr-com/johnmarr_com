@@ -47,3 +47,5 @@ export { JMEpubReader } from "./JMEpubReader";
 export { JMVimeoPlayer, getVimeoId, getVimeoThumbnail, type JMVimeoPlayerProps, type VideoOrientation } from "./JMVimeoPlayer";
 export { JMLevelUpPopup } from "./JMLevelUpPopup";
 export { JMConfettiOverlay, type JMConfettiOverlayProps } from "./JMConfettiOverlay";
+export { JMInviteCodeView } from "./JMInviteCodeView";
+export { JMInviteCodeInput } from "./JMInviteCodeInput";

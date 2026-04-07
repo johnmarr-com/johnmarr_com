@@ -5,6 +5,8 @@ import Image from "next/image";
 import { JMAppHeader } from "@/JMKit";
 import { bgMusic } from "@/lib/BackgroundMusicPlayer";
 import { PointsManager, Activity } from "@/lib/points";
+import type { CreateSessionInput } from "@/lib/game-sessions";
+import { GameMultiplayerFlow } from "./GameMultiplayerFlow";
 
 export type GameMode = "solo" | "ai" | "friends";
 
@@ -16,7 +18,10 @@ export interface GameLandingPageProps {
   backgroundMusicURL?: string;
   backgroundMusicVolume?: number;
   enabledModes?: GameMode[];
+  /** Game content info needed for multiplayer session creation */
+  multiplayerInput?: CreateSessionInput;
   onPlay: (mode: GameMode) => void;
+  onMultiplayerStart?: (sessionId: string) => void;
 }
 
 const MODE_LABELS: Record<GameMode, string> = {
@@ -33,9 +38,12 @@ export function GameLandingPage({
   backgroundMusicURL,
   backgroundMusicVolume = 0.3,
   enabledModes = ["solo"],
+  multiplayerInput,
   onPlay,
+  onMultiplayerStart,
 }: GameLandingPageProps) {
   const [pressed, setPressed] = useState<GameMode | null>(null);
+  const [mpOpen, setMpOpen] = useState(false);
 
   useEffect(() => {
     const url = backgroundMusicURL || (gameSlug ? `/music/${gameSlug}.mp3` : null);
@@ -111,6 +119,10 @@ export function GameLandingPage({
                 key={mode}
                 disabled={!enabled}
                 onClick={() => {
+                  if (mode === "friends" && multiplayerInput) {
+                    setMpOpen(true);
+                    return;
+                  }
                   setPressed(mode);
                   PointsManager.award(Activity.PLAY_GAME);
                   onPlay(mode);
@@ -137,6 +149,20 @@ export function GameLandingPage({
         </div>
       </div>
       </div>
+
+      {/* Multiplayer dialog */}
+      {multiplayerInput && (
+        <GameMultiplayerFlow
+          open={mpOpen}
+          onOpenChange={setMpOpen}
+          gameInput={multiplayerInput}
+          onGameStart={(sessionId) => {
+            setMpOpen(false);
+            PointsManager.award(Activity.PLAY_GAME);
+            onMultiplayerStart?.(sessionId);
+          }}
+        />
+      )}
 
       {/* Float animation keyframes */}
       <style jsx global>{`

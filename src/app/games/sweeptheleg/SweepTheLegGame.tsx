@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useJMStyle } from "@/JMStyle";
 import { JMAppHeader } from "@/JMKit";
-import { simpleMove, postGameComment, type GameMode } from "../_gamecore";
+import { simpleMove, postGameComment, useMultiplayerRound, type GameMode, type ResolverOutput } from "../_gamecore";
 import { bgMusic } from "@/lib/BackgroundMusicPlayer";
+import { useAuth } from "@/lib/AuthProvider";
+import type { GameSession } from "@/lib/game-sessions";
 
 type Attack = "H" | "M" | "L";
 
@@ -223,6 +225,7 @@ export default function SweepTheLegGame({
   gameSlug,
   backgroundMusicURL,
   backgroundMusicVolume,
+  sessionId: sessionIdProp,
 }: {
   splashLogoURL?: string;
   splashBgURL?: string;
@@ -230,8 +233,10 @@ export default function SweepTheLegGame({
   gameSlug?: string;
   backgroundMusicURL?: string;
   backgroundMusicVolume?: number;
+  sessionId?: string;
 }) {
   const { theme } = useJMStyle();
+  const { user } = useAuth();
 
   useEffect(() => {
     const url = backgroundMusicURL || (gameSlug ? `/music/${gameSlug}.mp3` : null);
@@ -260,6 +265,102 @@ export default function SweepTheLegGame({
   const sideRef = useRef<PlayerSide>("red");
   const historyRef = useRef<MoveRecord[]>([]);
   const prefetchRef = useRef<Promise<{ attack: Attack; reasoning: string }> | null>(null);
+
+  // Multiplayer resolver: maps pending moves to Sweep the Leg outcome
+  const stlResolver = useCallback(
+    (moves: Record<string, string>, sess: GameSession): ResolverOutput => {
+      const sides = sess.playerSides ?? {};
+      let redUid = "";
+      let whiteUid = "";
+      for (const [uid, side] of Object.entries(sides)) {
+        if (side === "red") redUid = uid;
+        else if (side === "white") whiteUid = uid;
+      }
+
+      const redAttack = (moves[redUid] ?? "H") as Attack;
+      const whiteAttack = (moves[whiteUid] ?? "H") as Attack;
+      const chapter = `${redAttack}-${whiteAttack}` as ChapterName;
+      const rw = roundWinner(redAttack, whiteAttack);
+
+      const currentRound = sess.currentRound ?? 0;
+      const prevRounds = sess.rounds ?? [];
+      let rScore = 0;
+      let wScore = 0;
+      for (const r of prevRounds) {
+        const res = r.result as { redDelta?: number; whiteDelta?: number };
+        rScore += res.redDelta ?? 0;
+        wScore += res.whiteDelta ?? 0;
+      }
+
+      let redDelta = 0;
+      let whiteDelta = 0;
+      if (rw === "red") redDelta = chapter === "L-M" ? 2 : 1;
+      else if (rw === "white") whiteDelta = chapter === "L-H" ? 2 : 1;
+
+      rScore += redDelta;
+      wScore += whiteDelta;
+      const gameOver = rScore >= POINTS_TO_WIN || wScore >= POINTS_TO_WIN;
+      const winner = gameOver
+        ? rScore >= POINTS_TO_WIN ? redUid : whiteUid
+        : null;
+
+      const redTag = sess.players.find((p) => p.uid === redUid)?.gamertag ?? "Red";
+      const whiteTag = sess.players.find((p) => p.uid === whiteUid)?.gamertag ?? "White";
+
+      const lines: string[] = [
+        `Round ${currentRound + 1} — Red (${redTag}): ${ATTACK_FULL[redAttack]}, White (${whiteTag}): ${ATTACK_FULL[whiteAttack]}`,
+      ];
+      if (rw) {
+        const delta = rw === "red" ? redDelta : whiteDelta;
+        lines.push(
+          `${rw === "red" ? "Red" : "White"} wins — ${delta} point${delta > 1 ? "s" : ""} (${rScore}-${wScore})`,
+        );
+      } else {
+        lines.push(`Tie (${rScore}-${wScore})`);
+      }
+      if (gameOver) {
+        lines.push(`Game over — ${rw === "red" ? `Red (${redTag})` : `White (${whiteTag})`} wins!`);
+      }
+
+      return {
+        roundEntry: {
+          round: currentRound,
+          moves: { [redUid]: redAttack, [whiteUid]: whiteAttack },
+          result: { chapter, winner: rw, redDelta, whiteDelta, redScore: rScore, whiteScore: wScore },
+        },
+        transcriptLines: lines,
+        gameOver,
+        winner,
+      };
+    },
+    [],
+  );
+
+  const isFriends = mode === "friends" && !!sessionIdProp;
+
+  const {
+    session: mpSession,
+    phase: mpPhase,
+    submitMove: mpSubmitMove,
+    markAnimationDone,
+  } = useMultiplayerRound({
+    sessionId: isFriends ? sessionIdProp! : null,
+    userId: user?.uid ?? "",
+    resolver: stlResolver,
+  });
+
+  // Derive the player's assigned side from the multiplayer session
+  const mpSide: PlayerSide | null = useMemo(() => {
+    if (!isFriends || !mpSession?.playerSides || !user?.uid) return null;
+    const s = mpSession.playerSides[user.uid];
+    return s === "red" || s === "white" ? s : null;
+  }, [isFriends, mpSession?.playerSides, user?.uid]);
+
+  const opponentGamertag = useMemo(() => {
+    if (!mpSession || !user?.uid) return null;
+    const opp = mpSession.players.find((p) => p.uid !== user.uid);
+    return opp?.gamertag ?? null;
+  }, [mpSession, user]);
 
   const setP = useCallback((p: GamePhase) => {
     phaseRef.current = p;
@@ -351,6 +452,81 @@ export default function SweepTheLegGame({
     },
     [playChapter, setP],
   );
+
+  // Multiplayer auto-start: skip side-pick, jump to "ready" once session is playing
+  const mpStartedRef = useRef(false);
+  useEffect(() => {
+    if (!isFriends || !mpSession || mpSession.status !== "playing" || !mpSide) return;
+    if (mpStartedRef.current) return;
+    mpStartedRef.current = true;
+    // Defer to avoid synchronous setState-in-effect warning
+    requestAnimationFrame(() => handleStart(mpSide));
+  }, [isFriends, mpSession, mpSide, handleStart]);
+
+  // Multiplayer round results: play the video chapter and update scores
+  const mpRoundsLenRef = useRef(0);
+  useEffect(() => {
+    if (!isFriends || !mpSession?.rounds?.length) return;
+    const rounds = mpSession.rounds;
+    if (rounds.length <= mpRoundsLenRef.current) return;
+    mpRoundsLenRef.current = rounds.length;
+
+    const latest = rounds[rounds.length - 1]!;
+    const res = latest.result as {
+      chapter: ChapterName;
+      winner: "red" | "white" | null;
+      redDelta: number;
+      whiteDelta: number;
+      redScore: number;
+      whiteScore: number;
+    };
+
+    const playerSidesMap = mpSession.playerSides ?? {};
+    const redAttack = (latest.moves[Object.entries(playerSidesMap).find(([, s]) => s === "red")?.[0] ?? ""] ?? "H") as Attack;
+    const whiteAttack = (latest.moves[Object.entries(playerSidesMap).find(([, s]) => s === "white")?.[0] ?? ""] ?? "H") as Attack;
+
+    // Defer state updates to next frame to avoid synchronous setState-in-effect
+    requestAnimationFrame(() => {
+      setTranscript((prev) => [
+        ...prev,
+        {
+          round: latest.round + 1,
+          redAttack,
+          whiteAttack,
+          winner: res.winner,
+          points: res.winner === "red" ? res.redDelta : res.winner === "white" ? res.whiteDelta : 0,
+        },
+      ]);
+
+      setRoundAttacks({ red: redAttack, white: whiteAttack });
+
+      playChapter(res.chapter, {
+        onEnd: () => {
+          setRoundAttacks(null);
+          redRef.current = res.redScore;
+          whiteRef.current = res.whiteScore;
+          setRedScore(res.redScore);
+          setWhiteScore(res.whiteScore);
+
+          if (res.redScore >= POINTS_TO_WIN) {
+            const playerWon = sideRef.current === "red";
+            setEndMessage(playerWon ? pickRandom(WIN_PHRASES) : "You Lose!");
+            setP("finished");
+            playChapter("R-W", { freeze: true });
+          } else if (res.whiteScore >= POINTS_TO_WIN) {
+            const playerWon = sideRef.current === "white";
+            setEndMessage(playerWon ? pickRandom(WIN_PHRASES) : "You Lose!");
+            setP("finished");
+            playChapter("W-W", { freeze: true });
+          } else {
+            setP("ready");
+            playChapter("Ready", { loop: true });
+            markAnimationDone();
+          }
+        },
+      });
+    });
+  }, [isFriends, mpSession?.rounds, mpSession?.playerSides, playChapter, setP, markAnimationDone]);
 
   const fetchAiMove = useCallback((): Promise<{ attack: Attack; reasoning: string }> => {
     const aiSide = sideRef.current === "red" ? "white" : "red";
@@ -459,6 +635,13 @@ export default function SweepTheLegGame({
   const handleAttack = useCallback(
     (attack: Attack) => {
       if (phaseRef.current !== "ready") return;
+
+      if (isFriends) {
+        setP("animating");
+        mpSubmitMove(attack);
+        return;
+      }
+
       setP("animating");
 
       if (mode === "ai") {
@@ -476,7 +659,7 @@ export default function SweepTheLegGame({
         resolveRound(attack, cpu);
       }
     },
-    [mode, setP, resolveRound],
+    [mode, isFriends, setP, resolveRound, mpSubmitMove],
   );
 
   return (
@@ -543,23 +726,31 @@ export default function SweepTheLegGame({
                       the Leg
                     </h1>
                   )}
-                  <p className="text-sm font-medium uppercase tracking-widest text-white/50">
-                    Choose your fighter
-                  </p>
-                  <div className="flex gap-4">
-                    <button
-                      onClick={() => handleStart("red")}
-                      className="rounded-full border-2 border-red-500 bg-red-500/20 px-8 py-3 text-lg font-bold uppercase tracking-wider text-red-400 transition-all hover:scale-105 hover:bg-red-500/30 active:scale-95"
-                    >
-                      Red
-                    </button>
-                    <button
-                      onClick={() => handleStart("white")}
-                      className="rounded-full border-2 border-white/60 bg-white/10 px-8 py-3 text-lg font-bold uppercase tracking-wider text-white transition-all hover:scale-105 hover:bg-white/20 active:scale-95"
-                    >
-                      White
-                    </button>
-                  </div>
+                  {isFriends ? (
+                    <p className="text-sm font-medium uppercase tracking-widest text-white/50 animate-pulse">
+                      Loading match…
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-sm font-medium uppercase tracking-widest text-white/50">
+                        Choose your fighter
+                      </p>
+                      <div className="flex gap-4">
+                        <button
+                          onClick={() => handleStart("red")}
+                          className="rounded-full border-2 border-red-500 bg-red-500/20 px-8 py-3 text-lg font-bold uppercase tracking-wider text-red-400 transition-all hover:scale-105 hover:bg-red-500/30 active:scale-95"
+                        >
+                          Red
+                        </button>
+                        <button
+                          onClick={() => handleStart("white")}
+                          className="rounded-full border-2 border-white/60 bg-white/10 px-8 py-3 text-lg font-bold uppercase tracking-wider text-white transition-all hover:scale-105 hover:bg-white/20 active:scale-95"
+                        >
+                          White
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -584,12 +775,12 @@ export default function SweepTheLegGame({
                   >
                     Play Again
                   </button>
-                  {mode === "ai" && transcript.length > 0 && (
+                  {(mode === "ai" || isFriends) && transcript.length > 0 && (
                     <button
                       onClick={() => setShowTranscript(true)}
                       className="mt-2 rounded-full border border-white/30 bg-white/10 px-6 py-2 text-sm font-bold uppercase tracking-wider text-white/80 transition-all hover:scale-105 hover:bg-white/20 active:scale-95"
                     >
-                      View AI Transcript
+                      {isFriends ? "View Transcript" : "View AI Transcript"}
                     </button>
                   )}
                 </div>
@@ -599,7 +790,7 @@ export default function SweepTheLegGame({
                 <div className="absolute inset-0 flex flex-col bg-black/95">
                   <div className="flex items-center justify-between px-5 py-4">
                     <span className="text-sm font-bold uppercase tracking-widest text-white/70">
-                      AI Transcript
+                      {isFriends ? "Match Transcript" : "AI Transcript"}
                     </span>
                     <button
                       onClick={() => setShowTranscript(false)}
@@ -659,42 +850,63 @@ export default function SweepTheLegGame({
         {(phase === "ready" || phase === "animating") && (
           <div className="shrink-0 py-3">
             <p className="mb-2 text-center text-sm font-bold uppercase tracking-widest text-white/40">
-              You are player{" "}
-              {playerSide === "red" ? (
-                <span className="text-red-500">RED</span>
+              {isFriends && opponentGamertag ? (
+                <>
+                  You are{" "}
+                  {playerSide === "red" ? (
+                    <span className="text-red-500">RED</span>
+                  ) : (
+                    <span className="text-white">WHITE</span>
+                  )}
+                  {" "}vs {opponentGamertag}
+                </>
               ) : (
-                <span className="text-white">WHITE</span>
+                <>
+                  You are player{" "}
+                  {playerSide === "red" ? (
+                    <span className="text-red-500">RED</span>
+                  ) : (
+                    <span className="text-white">WHITE</span>
+                  )}
+                </>
               )}
             </p>
-            <div className="flex gap-3">
-              {ATTACKS.map((a) => (
-                <button
-                  key={a}
-                  onClick={() => handleAttack(a)}
-                  disabled={phase !== "ready"}
-                  className={`
-                    flex-1 rounded-xl border-2 py-3 text-base font-bold uppercase tracking-wider
-                    transition-all
-                    ${
-                      phase === "ready" && playerSide === "red"
-                        ? "border-red-500/30 bg-red-500/6 text-red-400 hover:scale-105 hover:border-red-500/60 hover:bg-red-500/12 active:scale-95"
-                        : phase === "ready"
-                          ? "border-white/30 bg-white/6 text-white hover:scale-105 hover:border-white/60 hover:bg-white/12 active:scale-95"
-                          : playerSide === "red"
-                            ? "cursor-not-allowed border-red-500/10 bg-red-500/2 text-red-400/25"
-                            : "cursor-not-allowed border-white/10 bg-white/2 text-white/25"
-                    }
-                  `}
-                >
-                  <span className="block text-xl font-black sm:text-2xl">
-                    {ATTACK_LABEL[a]}
-                  </span>
-                  <span className="mt-0.5 block text-[10px] font-medium normal-case tracking-wide text-white/40">
-                    {ATTACK_BEATS[a]}
-                  </span>
-                </button>
-              ))}
-            </div>
+
+            {isFriends && mpPhase === "submitted" ? (
+              <p className="py-4 text-center text-sm font-bold uppercase tracking-widest text-white/40 animate-pulse">
+                Waiting for opponent…
+              </p>
+            ) : (
+              <div className="flex gap-3">
+                {ATTACKS.map((a) => (
+                  <button
+                    key={a}
+                    onClick={() => handleAttack(a)}
+                    disabled={phase !== "ready"}
+                    className={`
+                      flex-1 rounded-xl border-2 py-3 text-base font-bold uppercase tracking-wider
+                      transition-all
+                      ${
+                        phase === "ready" && playerSide === "red"
+                          ? "border-red-500/30 bg-red-500/6 text-red-400 hover:scale-105 hover:border-red-500/60 hover:bg-red-500/12 active:scale-95"
+                          : phase === "ready"
+                            ? "border-white/30 bg-white/6 text-white hover:scale-105 hover:border-white/60 hover:bg-white/12 active:scale-95"
+                            : playerSide === "red"
+                              ? "cursor-not-allowed border-red-500/10 bg-red-500/2 text-red-400/25"
+                              : "cursor-not-allowed border-white/10 bg-white/2 text-white/25"
+                      }
+                    `}
+                  >
+                    <span className="block text-xl font-black sm:text-2xl">
+                      {ATTACK_LABEL[a]}
+                    </span>
+                    <span className="mt-0.5 block text-[10px] font-medium normal-case tracking-wide text-white/40">
+                      {ATTACK_BEATS[a]}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </main>

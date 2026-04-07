@@ -27,6 +27,7 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
   const [splashLogoURL, setSplashLogoURL] = useState("");
   const [backgroundMusicURL, setBackgroundMusicURL] = useState("");
   const [backgroundMusicVolume, setBackgroundMusicVolume] = useState(0.3);
+  const [maxPlayers, setMaxPlayers] = useState(2);
   const [isPublished, setIsPublished] = useState(false);
 
   const tempIdRef = useRef(`new-${Date.now()}`);
@@ -82,6 +83,7 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
         input.backgroundMusicURL = backgroundMusicURL.trim();
         input.backgroundMusicVolume = backgroundMusicVolume;
       }
+      if (maxPlayers > 0) input.maxPlayers = maxPlayers;
 
       await createContent(input, user.uid);
       onCreated();
@@ -337,6 +339,29 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
                   />
                 </div>
               )}
+            </div>
+
+            {/* Max Players */}
+            <div>
+              <label
+                className="mb-1 block text-sm font-medium"
+                style={{ color: theme.text.secondary }}
+              >
+                Max Players (Multiplayer)
+              </label>
+              <input
+                type="number"
+                min={2}
+                max={20}
+                value={maxPlayers}
+                onChange={(e) => setMaxPlayers(parseInt(e.target.value) || 2)}
+                className="w-24 rounded-lg border px-3 py-2 text-sm"
+                style={{
+                  backgroundColor: theme.surfaces.elevated1,
+                  borderColor: theme.surfaces.elevated2,
+                  color: theme.text.primary,
+                }}
+              />
             </div>
 
             {error && (

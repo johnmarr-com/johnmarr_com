@@ -171,6 +171,7 @@ export interface JMContent {
   splashLogoURL?: string;         // 2:1 game title logo for landing page
   backgroundMusicURL?: string;    // Looping background music for gameplay (falls back to /music/{slug}.mp3)
   backgroundMusicVolume?: number; // 0–1 volume level (default 0.3)
+  maxPlayers?: number;            // Max players for multiplayer games (default 2)
   
   // ─── Hierarchy & Ordering ─────────────────────────────────
   parentId: string | null;        // null = top-level content
@@ -209,6 +210,7 @@ export interface JMContentInput {
   splashLogoURL?: string;
   backgroundMusicURL?: string;
   backgroundMusicVolume?: number;
+  maxPlayers?: number;
   brandId?: string;
   parentId?: string | null;
   order?: number;

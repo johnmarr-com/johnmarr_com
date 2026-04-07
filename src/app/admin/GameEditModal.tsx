@@ -25,6 +25,7 @@ interface EditState {
   splashLogoURL: string;
   backgroundMusicURL: string;
   backgroundMusicVolume: number;
+  maxPlayers: number;
   isPublished: boolean;
 }
 
@@ -41,6 +42,7 @@ function stateFromGame(game: JMContent): EditState {
     splashLogoURL: game.splashLogoURL ?? "",
     backgroundMusicURL: game.backgroundMusicURL ?? "",
     backgroundMusicVolume: game.backgroundMusicVolume ?? 0.3,
+    maxPlayers: game.maxPlayers ?? 2,
     isPublished: game.isPublished,
   };
 }
@@ -138,6 +140,7 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
         updates.backgroundMusicURL = editState.backgroundMusicURL.trim();
         updates.backgroundMusicVolume = editState.backgroundMusicVolume;
       }
+      if (editState.maxPlayers > 0) updates.maxPlayers = editState.maxPlayers;
 
       await updateContent(gameId, updates);
 
@@ -406,6 +409,29 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
                     />
                   </div>
                 )}
+              </div>
+
+              {/* Max Players */}
+              <div>
+                <label
+                  className="mb-1 block text-sm font-medium"
+                  style={{ color: theme.text.secondary }}
+                >
+                  Max Players (Multiplayer)
+                </label>
+                <input
+                  type="number"
+                  min={2}
+                  max={20}
+                  value={editState.maxPlayers}
+                  onChange={(e) => update({ maxPlayers: parseInt(e.target.value) || 2 })}
+                  className="w-24 rounded-lg border px-3 py-2 text-sm"
+                  style={{
+                    backgroundColor: theme.surfaces.elevated1,
+                    borderColor: theme.surfaces.elevated2,
+                    color: theme.text.primary,
+                  }}
+                />
               </div>
 
               {error && (
