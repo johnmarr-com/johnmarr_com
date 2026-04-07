@@ -103,6 +103,7 @@ export default function Home() {
 
   const handleFeaturedClick = (item: FeaturedItem) => {
     if (item.contentType === "game" && item.slug) {
+      bgMusic.play(`/music/${item.slug}.mp3`);
       router.push(`/games/${item.slug}`);
     } else if (item.contentType === "artist" && item.slug) {
       router.push(`/artist/${item.slug}`);
@@ -117,6 +118,7 @@ export default function Home() {
 
   const handleContentClick = (item: ContentItem) => {
     if (item.contentType === "game" && item.slug) {
+      bgMusic.play(`/music/${item.slug}.mp3`);
       router.push(`/games/${item.slug}`);
     } else if (item.contentType === "artist" && item.slug) {
       router.push(`/artist/${item.slug}`);
