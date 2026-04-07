@@ -1,59 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
-import { JMAppHeader } from "@/JMKit";
+import { JMAppHeader, JMVimeoPlayer, getVimeoId } from "@/JMKit";
 import { useJMStyle } from "@/JMStyle";
 import { useAuth } from "@/lib/AuthProvider";
 import { getAuctionBySlug, getAuctionItems } from "@/lib/auction";
-import type { JMAuction, JMAuctionItem, JMAuctionVideoOrientation } from "@/lib/content-types";
+import type { JMAuction, JMAuctionItem } from "@/lib/content-types";
 import { ArrowLeft, Play, Loader2, X, DollarSign } from "lucide-react";
-import Player from "@vimeo/player";
-
-function getVimeoId(url: string): string | null {
-  if (!url) return null;
-  const patterns = [
-    /vimeo\.com\/(\d+)/,
-    /player\.vimeo\.com\/video\/(\d+)/,
-    /vimeo\.com\/video\/(\d+)/,
-  ];
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match?.[1]) return match[1];
-  }
-  return null;
-}
-
-function calculatePlayerDimensions(orientation: JMAuctionVideoOrientation = "landscape") {
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-  let playerWidth: number;
-  let playerHeight: number;
-  if (orientation === "portrait") {
-    const aspectRatio = 9 / 16;
-    playerHeight = viewportHeight * 0.95;
-    playerWidth = playerHeight * aspectRatio;
-    if (playerWidth > viewportWidth * 0.95) {
-      playerWidth = viewportWidth * 0.95;
-      playerHeight = playerWidth / aspectRatio;
-    }
-  } else if (orientation === "square") {
-    const smallerDimension = Math.min(viewportWidth, viewportHeight);
-    playerWidth = smallerDimension * 0.8;
-    playerHeight = smallerDimension * 0.8;
-  } else {
-    const aspectRatio = 16 / 9;
-    playerWidth = viewportWidth * 0.95;
-    playerHeight = playerWidth / aspectRatio;
-    if (playerHeight > viewportHeight * 0.95) {
-      playerHeight = viewportHeight * 0.95;
-      playerWidth = playerHeight * aspectRatio;
-    }
-  }
-  return { width: playerWidth, height: playerHeight };
-}
+import { Activity } from "@/lib/points";
 
 function Countdown({ endDate }: { endDate: Date }) {
   const [timeLeft, setTimeLeft] = useState<{ d: number; h: number; m: number; s: number } | null>(null);
@@ -121,8 +78,6 @@ export default function AuctionDetailPage() {
   const [bidError, setBidError] = useState<string | null>(null);
   const [videoItem, setVideoItem] = useState<{ item: JMAuctionItem; videoType: "preview" | "story" } | null>(null);
   const [imagePreviewItem, setImagePreviewItem] = useState<JMAuctionItem | null>(null);
-  const playerContainerRef = useRef<HTMLDivElement>(null);
-  const playerRef = useRef<Player | null>(null);
 
   const load = useCallback(async () => {
     if (!slug) return;
@@ -149,42 +104,6 @@ export default function AuctionDetailPage() {
   useEffect(() => {
     load();
   }, [load]);
-
-  useEffect(() => {
-    if (!videoItem || !playerContainerRef.current) return;
-    const url = videoItem.videoType === "story" ? videoItem.item.videoStoryURL : videoItem.item.videoURL;
-    const vimeoId = getVimeoId(url || "");
-    if (!vimeoId) return;
-    if (playerRef.current) {
-      playerRef.current.destroy();
-      playerRef.current = null;
-    }
-    const orientation: JMAuctionVideoOrientation =
-      videoItem.videoType === "story"
-        ? (videoItem.item.videoStoryOrientation ?? "landscape")
-        : (videoItem.item.videoOrientation ?? "landscape");
-    const { width, height } = calculatePlayerDimensions(orientation);
-    const player = new Player(playerContainerRef.current, {
-      id: parseInt(vimeoId),
-      width,
-      height,
-      autoplay: false,
-      muted: false,
-      controls: true,
-      responsive: false,
-      title: false,
-      byline: false,
-      portrait: false,
-      playsinline: true,
-    });
-    playerRef.current = player;
-    return () => {
-      if (playerRef.current) {
-        playerRef.current.destroy();
-        playerRef.current = null;
-      }
-    };
-  }, [videoItem]);
 
   const handleBid = async () => {
     if (!bidItem || !user) return;
@@ -467,16 +386,16 @@ export default function AuctionDetailPage() {
       )}
 
       {videoItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
-          <button
-            onClick={() => setVideoItem(null)}
-            className="absolute top-4 right-4 z-10 p-2 rounded-full hover:opacity-80"
-            style={{ backgroundColor: "rgba(0,0,0,0.6)", border: "2px solid rgba(255,255,255,0.3)" }}
-          >
-            <X className="h-6 w-6 text-white" />
-          </button>
-          <div ref={playerContainerRef} className="h-full flex items-center justify-center w-full" />
-        </div>
+        <JMVimeoPlayer
+          vimeoURL={(videoItem.videoType === "story" ? videoItem.item.videoStoryURL : videoItem.item.videoURL) || ""}
+          orientation={
+            (videoItem.videoType === "story"
+              ? (videoItem.item.videoStoryOrientation ?? "landscape")
+              : (videoItem.item.videoOrientation ?? "landscape"))
+          }
+          onClose={() => setVideoItem(null)}
+          pointsActivity={Activity.WATCH_VIDEO}
+        />
       )}
 
       {imagePreviewItem && (

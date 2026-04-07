@@ -393,6 +393,7 @@ export function AdminFeaturedPanel() {
                       src={item.backdropURL} 
                       alt={item.title}
                       fill
+                      sizes="300px"
                       className="object-cover"
                     />
                   ) : (
@@ -697,6 +698,7 @@ export function AdminFeaturedPanel() {
                             src={content.backdropURL}
                             alt={content.name}
                             fill
+                            sizes="200px"
                             className="object-cover"
                           />
                         ) : (

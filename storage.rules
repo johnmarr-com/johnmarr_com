@@ -274,6 +274,16 @@ service firebase.storage {
     }
 
     // ─────────────────────────────────────────────────────────────
+    // LEVEL ICONS (gamification badges - realistic & isometric)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /level-icons/{levelId}/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin() && isImage() && maxSize(5);
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
     // FEATURED BACKDROP IMAGES
     // ─────────────────────────────────────────────────────────────
 

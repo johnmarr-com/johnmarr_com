@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/AuthProvider";
 import { getAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
-import { JMAppHeader, JMWelcomeAvatarModal, JMFeaturedCarousel, JMContentScroller, JMFeatureRowBanner } from "@/JMKit";
+import { JMAppHeader, JMWelcomeAvatarModal, JMFeaturedCarousel, JMContentScroller, JMFeatureRowBanner, JMLevelUpPopup } from "@/JMKit";
 import type { FeaturedItem, ContentItem } from "@/JMKit";
 import { useJMStyle } from "@/JMStyle";
 import { getFeaturedContent, getPublishedAlert, getExperiencesWithContent } from "@/lib/content";
@@ -82,7 +82,6 @@ export default function Home() {
         
         if (response.ok) {
           const data = await response.json();
-          // Show welcome modal if no avatar assigned
           if (!data.avatarName) {
             setShowWelcomeModal(true);
           }
@@ -241,6 +240,9 @@ export default function Home() {
         isOpen={showWelcomeModal}
         onClose={() => setShowWelcomeModal(false)}
       />
+
+      {/* Level-up celebration popup */}
+      <JMLevelUpPopup />
     </div>
   );
 }

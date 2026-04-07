@@ -51,6 +51,7 @@ export function JMFeatureRowBanner({ item, rowScaleMobile = 1, rowScaleDesktop =
           src={item.rowBannerURL}
           alt={item.name}
           fill
+          sizes="100vw"
           className="object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
         />
       </button>

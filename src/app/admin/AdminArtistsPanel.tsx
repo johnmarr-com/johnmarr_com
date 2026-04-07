@@ -191,6 +191,7 @@ export function AdminArtistsPanel() {
                       src={artist.avatarURL}
                       alt={artist.name}
                       fill
+                      sizes="96px"
                       className="object-cover"
                     />
                   ) : (

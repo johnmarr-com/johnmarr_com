@@ -129,6 +129,8 @@ export function JMFeaturedCarousel({
                     src={item.backdropURL}
                     alt={item.title}
                     fill
+                    sizes="(max-width: 640px) 85vw, (max-width: 768px) 75vw, (max-width: 1024px) 65vw, 60vw"
+                    priority
                     className="object-cover transition-all duration-500"
                     style={{
                       filter: isActive ? "brightness(1)" : "brightness(0.35)",

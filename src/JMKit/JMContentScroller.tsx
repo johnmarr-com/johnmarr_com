@@ -173,6 +173,7 @@ export function JMContentScroller({
                       src={item.coverURL}
                       alt={item.name}
                       fill
+                      sizes={`${Math.round(itemWidth)}px`}
                       className="object-cover transition-transform duration-300 group-hover/item:scale-110"
                     />
                   ) : (

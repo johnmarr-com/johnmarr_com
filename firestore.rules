@@ -41,6 +41,39 @@ service cloud.firestore {
     }
     
     // ─────────────────────────────────────────────────────────────
+    // LEVELS COLLECTION (gamification tiers)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /levels/{levelId} {
+      // Anyone authenticated can read levels (needed for profile display)
+      allow read: if isAuthenticated();
+      
+      // Only admins can manage levels
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // POINT ACTIVITIES (gamification point values per action)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /pointActivities/{activityKey} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
+    // GAMERTAGS COLLECTION (unique display name lookup)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /gamertags/{tag} {
+      // Anyone can check gamertag availability
+      allow read: if true;
+      
+      // All writes go through Admin SDK on the server
+      allow create, update, delete: if false;
+    }
+    
+    // ─────────────────────────────────────────────────────────────
     // CONTENT COLLECTION (Shows, Stories, Cards, Games)
     // ─────────────────────────────────────────────────────────────
     

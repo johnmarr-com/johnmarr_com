@@ -264,6 +264,7 @@ export function JMImageUpload({
               src={value}
               alt="Preview"
               fill
+              sizes="300px"
               className="object-cover"
             />
             {/* Remove button */}

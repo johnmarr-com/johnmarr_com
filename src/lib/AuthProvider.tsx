@@ -18,6 +18,10 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isAdmin: boolean;
   userTier: UserTier;
+  gamertag: string | null;
+  level: number;
+  points: number;
+  levelledUp: boolean;
   /** Admin-only: view the app as a different tier (for testing) */
   adminViewAs: UserTier | null;
   setAdminViewAs: (tier: UserTier | null) => void;
@@ -25,6 +29,8 @@ interface AuthContextValue {
   effectiveTier: UserTier;
   /** Force refresh the ID token to get updated claims (e.g., after admin status changes) */
   refreshClaims: () => Promise<void>;
+  /** Re-fetch user data from Firestore (e.g., after gamertag change) */
+  refreshUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -33,10 +39,15 @@ const AuthContext = createContext<AuthContextValue>({
   isAuthenticated: false,
   isAdmin: false,
   userTier: "free",
+  gamertag: null,
+  level: 1,
+  points: 0,
+  levelledUp: false,
   adminViewAs: null,
   setAdminViewAs: () => {},
   effectiveTier: "free",
   refreshClaims: async () => {},
+  refreshUserData: async () => {},
 });
 
 interface AuthProviderProps {
@@ -47,12 +58,16 @@ interface AuthProviderProps {
  * Auth Provider - Manages Firebase authentication state including admin roles and user tier
  */
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [state, setState] = useState<Omit<AuthContextValue, "refreshClaims" | "setAdminViewAs" | "effectiveTier">>({
+  const [state, setState] = useState<Omit<AuthContextValue, "refreshClaims" | "refreshUserData" | "setAdminViewAs" | "effectiveTier">>({
     user: null,
     isLoading: true,
     isAuthenticated: false,
     isAdmin: false,
     userTier: "free",
+    gamertag: null,
+    level: 1,
+    points: 0,
+    levelledUp: false,
     adminViewAs: null,
   });
 
@@ -80,47 +95,76 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, []);
 
-  // Function to fetch user tier from Firestore
-  const fetchUserTier = useCallback(async (user: User | null): Promise<UserTier> => {
-    if (!user) return "free";
+  interface UserData {
+    userTier: UserTier;
+    gamertag: string | null;
+    level: number;
+    points: number;
+    levelledUp: boolean;
+  }
+
+  const fetchUserData = useCallback(async (user: User | null): Promise<UserData> => {
+    const defaults: UserData = { userTier: "free", gamertag: null, level: 1, points: 0, levelledUp: false };
+    if (!user) return defaults;
     
     try {
       const { getFirestore, doc, getDoc } = await import("firebase/firestore");
       const { getFirebaseApp } = await import("./firebase");
       
       const app = await getFirebaseApp();
-      if (!app) return "free";
+      if (!app) return defaults;
       
       const db = getFirestore(app);
       const userDoc = await getDoc(doc(db, "users", user.uid));
       
       if (userDoc.exists()) {
         const data = userDoc.data();
-        return data["tier"] === "paid" ? "paid" : "free";
+        return {
+          userTier: data["tier"] === "paid" ? "paid" : "free",
+          gamertag: data["gamertag"] ?? null,
+          level: typeof data["level"] === "number" ? data["level"] : 1,
+          points: typeof data["points"] === "number" ? data["points"] : 0,
+          levelledUp: data["levelledUp"] === true,
+        };
       }
-      return "free";
+      return defaults;
     } catch (error) {
-      console.error("Failed to fetch user tier:", error);
-      return "free";
+      console.error("Failed to fetch user data:", error);
+      return defaults;
     }
   }, []);
 
-  // Function to refresh claims and tier (force token refresh)
   const refreshClaims = useCallback(async () => {
     if (!state.user) return;
     
     try {
-      // Force refresh the ID token to get updated claims
       await state.user.getIdToken(true);
-      const [isAdmin, userTier] = await Promise.all([
+      const [isAdmin, userData] = await Promise.all([
         checkAdminClaim(state.user),
-        fetchUserTier(state.user),
+        fetchUserData(state.user),
       ]);
-      setState(prev => ({ ...prev, isAdmin, userTier }));
+      setState(prev => ({ ...prev, isAdmin, ...userData }));
     } catch (error) {
       console.error("Failed to refresh claims:", error);
     }
-  }, [state.user, checkAdminClaim, fetchUserTier]);
+  }, [state.user, checkAdminClaim, fetchUserData]);
+
+  const refreshUserData = useCallback(async () => {
+    if (!state.user) return;
+    
+    try {
+      const userData = await fetchUserData(state.user);
+      setState(prev => ({ ...prev, ...userData }));
+    } catch (error) {
+      console.error("Failed to refresh user data:", error);
+    }
+  }, [state.user, fetchUserData]);
+
+  useEffect(() => {
+    import("@/lib/points").then(({ PointsManager }) => {
+      PointsManager.registerRefresh(refreshUserData);
+    });
+  }, [refreshUserData]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -137,9 +181,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const auth = await getAuth();
 
         unsubscribe = onAuthStateChanged(auth, async (user) => {
-          const [isAdmin, userTier] = await Promise.all([
+          const [isAdmin, userData] = await Promise.all([
             checkAdminClaim(user),
-            fetchUserTier(user),
+            fetchUserData(user),
           ]);
           setState(prev => ({
             ...prev,
@@ -147,7 +191,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             isLoading: false,
             isAuthenticated: !!user,
             isAdmin,
-            userTier,
+            ...userData,
           }));
         });
       } catch (error) {
@@ -164,10 +208,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [checkAdminClaim, fetchUserTier]);
+  }, [checkAdminClaim, fetchUserData]);
 
   return (
-    <AuthContext.Provider value={{ ...state, refreshClaims, setAdminViewAs, effectiveTier }}>
+    <AuthContext.Provider value={{ ...state, refreshClaims, refreshUserData, setAdminViewAs, effectiveTier }}>
       {children}
     </AuthContext.Provider>
   );

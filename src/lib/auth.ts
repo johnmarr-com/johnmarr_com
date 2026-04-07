@@ -231,6 +231,9 @@ export async function saveUserProfile(user: User): Promise<void> {
         displayName: user.displayName,
         photoURL: user.photoURL,
         avatarName: null, // Lottie avatar filename
+        gamertag: null,
+        gamertagLower: null,
+        level: 1,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         // Subscription
@@ -240,6 +243,9 @@ export async function saveUserProfile(user: User): Promise<void> {
         giftMonthsStarted: null,
         giftMonthsRemaining: 0,
         lifetimeGift: false,
+        // Points & leveling
+        points: 0,
+        levelledUp: false,
         // Activity tracking
         showsWatched: 0,
         storiesRead: 0,

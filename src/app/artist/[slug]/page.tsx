@@ -3,8 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
-import Player from "@vimeo/player";
-import { JMAppHeader } from "@/JMKit";
+import { JMAppHeader, JMVimeoPlayer, getVimeoThumbnail } from "@/JMKit";
 import { useJMStyle } from "@/JMStyle";
 import {
   getArtistBySlug,
@@ -12,11 +11,12 @@ import {
   getSongsByAlbum,
   getMusicVideosByArtist,
 } from "@/lib/content";
-import type { JMArtist, JMAlbum, JMSong, JMMusicVideo, JMMusicVideoOrientation } from "@/lib/content-types";
+import type { JMArtist, JMAlbum, JMSong, JMMusicVideo } from "@/lib/content-types";
 import {
   Play, Pause, SkipForward, SkipBack,
   FileText, X, Loader2, Video,
 } from "lucide-react";
+import { Activity } from "@/lib/points";
 
 // Album with songs
 interface AlbumWithSongs extends JMAlbum {
@@ -54,8 +54,6 @@ export default function ArtistPage() {
 
   // Music video player state
   const [playingVideo, setPlayingVideo] = useState<JMMusicVideo | null>(null);
-  const videoPlayerContainerRef = useRef<HTMLDivElement>(null);
-  const vimeoPlayerRef = useRef<Player | null>(null);
 
   // Album description expansion
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
@@ -210,102 +208,7 @@ export default function ArtistPage() {
     audioRef.current.currentTime = percentage * duration;
   };
 
-  // Extract Vimeo video ID from URL
-  const getVimeoId = (url: string): string | null => {
-    if (!url) return null;
-    const patterns = [
-      /vimeo\.com\/(\d+)/,
-      /player\.vimeo\.com\/video\/(\d+)/,
-      /vimeo\.com\/video\/(\d+)/,
-    ];
-    for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match?.[1]) return match[1];
-    }
-    return null;
-  };
-
-  // Calculate video player dimensions
-  const calculatePlayerDimensions = (orientation: JMMusicVideoOrientation) => {
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-
-    let playerWidth: number;
-    let playerHeight: number;
-
-    if (orientation === "portrait") {
-      const aspectRatio = 9 / 16;
-      playerHeight = viewportHeight * 0.9;
-      playerWidth = playerHeight * aspectRatio;
-      if (playerWidth > viewportWidth * 0.9) {
-        playerWidth = viewportWidth * 0.9;
-        playerHeight = playerWidth / aspectRatio;
-      }
-    } else {
-      const aspectRatio = 16 / 9;
-      playerWidth = viewportWidth * 0.9;
-      playerHeight = playerWidth / aspectRatio;
-      if (playerHeight > viewportHeight * 0.9) {
-        playerHeight = viewportHeight * 0.9;
-        playerWidth = playerHeight * aspectRatio;
-      }
-    }
-
-    return { width: playerWidth, height: playerHeight };
-  };
-
-  // Initialize Vimeo player for music video
-  useEffect(() => {
-    if (!playingVideo || !videoPlayerContainerRef.current) return;
-
-    const vimeoId = getVimeoId(playingVideo.vimeoURL);
-    if (!vimeoId) return;
-
-    // Clear previous player
-    if (vimeoPlayerRef.current) {
-      vimeoPlayerRef.current.destroy();
-      vimeoPlayerRef.current = null;
-    }
-
-    const { width, height } = calculatePlayerDimensions(playingVideo.orientation);
-
-    const player = new Player(videoPlayerContainerRef.current, {
-      id: parseInt(vimeoId),
-      width,
-      height,
-      autoplay: false,
-      muted: false,
-      controls: true,
-      responsive: false,
-      title: false,
-      byline: false,
-      portrait: false,
-      playsinline: true,
-    });
-
-    vimeoPlayerRef.current = player;
-
-    return () => {
-      if (vimeoPlayerRef.current) {
-        vimeoPlayerRef.current.destroy();
-        vimeoPlayerRef.current = null;
-      }
-    };
-  }, [playingVideo]);
-
-  // Close video player
-  const closeVideoPlayer = () => {
-    if (vimeoPlayerRef.current) {
-      vimeoPlayerRef.current.destroy();
-      vimeoPlayerRef.current = null;
-    }
-    setPlayingVideo(null);
-  };
-
-  // Get Vimeo thumbnail
-  const getVimeoThumbnail = (vimeoId: string): string => {
-    return `https://vumbnail.com/${vimeoId}.jpg`;
-  };
+  const closeVideoPlayer = () => setPlayingVideo(null);
 
   // Loading state
   if (isLoading) {
@@ -382,6 +285,7 @@ export default function ArtistPage() {
                 src={currentAlbum.coverImageURL}
                 alt={currentAlbum.name}
                 fill
+                sizes="(max-width: 640px) 60vw, 300px"
                 className={`object-cover transition-opacity duration-500 ${
                   currentAlbum.coverVideoURL && coverVideoLoaded ? "opacity-0" : "opacity-100"
                 }`}
@@ -530,8 +434,7 @@ export default function ArtistPage() {
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
               {musicVideos.map((video) => {
-                const vimeoId = getVimeoId(video.vimeoURL);
-                const thumbnailURL = video.thumbnailURL || (vimeoId ? getVimeoThumbnail(vimeoId) : "");
+                const thumbnailURL = video.thumbnailURL || getVimeoThumbnail(video.vimeoURL) || "";
 
                 return (
                   <div
@@ -547,6 +450,7 @@ export default function ArtistPage() {
                           src={thumbnailURL}
                           alt={video.title}
                           fill
+                          sizes="(max-width: 640px) 40vw, 180px"
                           className="object-cover"
                         />
                       )}
@@ -748,27 +652,13 @@ export default function ArtistPage() {
 
       {/* Music Video Player Modal */}
       {playingVideo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
-          {/* Close button */}
-          <button
-            onClick={closeVideoPlayer}
-            className="absolute top-4 right-4 z-10 p-3 rounded-full bg-black/50 hover:bg-black/70 transition-colors"
-            style={{ color: "white" }}
-          >
-            <X size={24} />
-          </button>
-
-          {/* Video title */}
-          <div className="absolute top-4 left-4 z-10">
-            <h3 className="text-white font-bold text-lg">{playingVideo.title}</h3>
-          </div>
-
-          {/* Vimeo player container */}
-          <div
-            ref={videoPlayerContainerRef}
-            className="flex items-center justify-center"
-          />
-        </div>
+        <JMVimeoPlayer
+          vimeoURL={playingVideo.vimeoURL}
+          orientation={playingVideo.orientation}
+          title={playingVideo.title}
+          onClose={closeVideoPlayer}
+          pointsActivity={Activity.WATCH_VIDEO}
+        />
       )}
     </div>
   );

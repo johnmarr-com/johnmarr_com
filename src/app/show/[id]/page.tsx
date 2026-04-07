@@ -1,19 +1,19 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { JMAppHeader } from "@/JMKit";
+import { JMAppHeader, JMVimeoPlayer, getVimeoThumbnail } from "@/JMKit";
 import { useJMStyle } from "@/JMStyle";
 import { useAuth } from "@/lib/AuthProvider";
 import { getContentWithChildren } from "@/lib/content";
-import type { JMContentWithChildren, JMVideoOrientation } from "@/lib/content-types";
+import type { JMContentWithChildren } from "@/lib/content-types";
 import { JMReleaseDayLabels } from "@/lib/content-types";
 import Image from "next/image";
-import Player from "@vimeo/player";
 import { 
-  Play, ChevronDown, X, ChevronLeft, ChevronRight,
+  Play, ChevronDown, ChevronLeft, ChevronRight,
   Loader2, ArrowLeft, Flame
 } from "lucide-react";
+import { Activity } from "@/lib/points";
 
 // Episode access status for free users
 type EpisodeAccess = "released" | "early_access" | "locked";
@@ -35,8 +35,6 @@ export default function ShowDetailPage() {
   
   // Video player
   const [playingEpisode, setPlayingEpisode] = useState<JMContentWithChildren | null>(null);
-  const playerContainerRef = useRef<HTMLDivElement>(null);
-  const playerRef = useRef<Player | null>(null);
 
   // Determine episode access for free users
   const getEpisodeAccess = useCallback((
@@ -112,112 +110,8 @@ export default function ShowDetailPage() {
   const episodes = selectedSeason?.children || [];
   const hasMultipleSeasons = seasons.length > 1;
 
-  // Extract Vimeo video ID from URL
-  const getVimeoId = (url: string): string | null => {
-    if (!url) return null;
-    // Handle various Vimeo URL formats
-    const patterns = [
-      /vimeo\.com\/(\d+)/,
-      /player\.vimeo\.com\/video\/(\d+)/,
-      /vimeo\.com\/video\/(\d+)/,
-    ];
-    for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match?.[1]) return match[1];
-    }
-    return null;
-  };
-
-  // Get Vimeo thumbnail URL
-  const getVimeoThumbnail = (vimeoId: string): string => {
-    // Vimeo thumbnail via their CDN (may need API call for HD)
-    return `https://vumbnail.com/${vimeoId}.jpg`;
-  };
-
-  // Calculate player dimensions based on video orientation
-  const calculatePlayerDimensions = (orientation: JMVideoOrientation = "landscape") => {
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    
-    let playerWidth: number;
-    let playerHeight: number;
-    
-    if (orientation === "portrait") {
-      // Portrait (9:16): Prefer fitting to height, auto width
-      const aspectRatio = 9 / 16;
-      playerHeight = viewportHeight * 0.95;
-      playerWidth = playerHeight * aspectRatio;
-      
-      // If too wide, constrain by width instead
-      if (playerWidth > viewportWidth * 0.95) {
-        playerWidth = viewportWidth * 0.95;
-        playerHeight = playerWidth / aspectRatio;
-      }
-    } else if (orientation === "square") {
-      // Square (1:1): 80% of the smaller dimension
-      const smallerDimension = Math.min(viewportWidth, viewportHeight);
-      playerWidth = smallerDimension * 0.8;
-      playerHeight = smallerDimension * 0.8;
-    } else {
-      // Landscape (16:9): Prefer fitting to width, auto height
-      const aspectRatio = 16 / 9;
-      playerWidth = viewportWidth * 0.95;
-      playerHeight = playerWidth / aspectRatio;
-      
-      // If too tall, constrain by height instead
-      if (playerHeight > viewportHeight * 0.95) {
-        playerHeight = viewportHeight * 0.95;
-        playerWidth = playerHeight * aspectRatio;
-      }
-    }
-    
-    return { width: playerWidth, height: playerHeight };
-  };
-
-  // Initialize Vimeo player when episode is selected
-  useEffect(() => {
-    if (!playingEpisode || !playerContainerRef.current) return;
-    
-    const vimeoId = getVimeoId(playingEpisode.mediaURL || "");
-    if (!vimeoId) return;
-    
-    // Clear previous player
-    if (playerRef.current) {
-      playerRef.current.destroy();
-      playerRef.current = null;
-    }
-    
-    // Get video orientation from the show (applies to both standalone and all episodes in a series)
-    const videoOrientation: JMVideoOrientation = show?.videoOrientation || "landscape";
-    
-    // Calculate dimensions based on orientation
-    const { width: playerWidth, height: playerHeight } = calculatePlayerDimensions(videoOrientation);
-    
-    // Create new player with SDK - no autoplay for iOS compatibility
-    const player = new Player(playerContainerRef.current, {
-      id: parseInt(vimeoId),
-      width: playerWidth,
-      height: playerHeight,
-      autoplay: false,  // Don't autoplay - iOS blocks unmuted autoplay
-      muted: false,
-      controls: true,
-      responsive: false,  // We handle sizing manually
-      title: false,
-      byline: false,
-      portrait: false,
-      playsinline: true,
-    });
-    
-    playerRef.current = player;
-    
-    // Cleanup on unmount or episode change
-    return () => {
-      if (playerRef.current) {
-        playerRef.current.destroy();
-        playerRef.current = null;
-      }
-    };
-  }, [playingEpisode, show?.videoOrientation]);
+  // TODO: distinguish short films from regular shows when a flag is added
+  const isShortFilm = false;
 
   // Episode scroll navigation
   const scrollEpisodes = useCallback((direction: "left" | "right") => {
@@ -288,6 +182,8 @@ export default function ShowDetailPage() {
             src={show.backdropURL}
             alt={show.name}
             fill
+            sizes="100vw"
+            priority
             className="object-cover"
           />
         ) : show.coverURL ? (
@@ -295,6 +191,8 @@ export default function ShowDetailPage() {
             src={show.coverURL}
             alt={show.name}
             fill
+            sizes="100vw"
+            priority
             className="object-cover"
           />
         ) : (
@@ -457,10 +355,7 @@ export default function ShowDetailPage() {
               }}
             >
               {episodes.map((episode, index) => {
-                // Prefer custom cover, fall back to Vimeo thumbnail
-                const vimeoId = getVimeoId(episode.mediaURL || "");
-                const vimeoThumbnail = vimeoId ? getVimeoThumbnail(vimeoId) : null;
-                const thumbnail = episode.coverURL || vimeoThumbnail;
+                const thumbnail = episode.coverURL || getVimeoThumbnail(episode.mediaURL || "");
                 
                 // Determine access level for this episode
                 const access = getEpisodeAccess(episode, episodes, index);
@@ -537,6 +432,7 @@ export default function ShowDetailPage() {
                             src={thumbnail}
                             alt={episode.name}
                             fill
+                            sizes="(max-width: 640px) 45vw, 200px"
                             className={`object-cover transition-transform duration-300 ${!isLocked ? "group-hover/episode:scale-110" : ""}`}
                           />
                         ) : (
@@ -613,39 +509,14 @@ export default function ShowDetailPage() {
         )}
       </div>
 
-      {/* Video Player Modal - Full Screen */}
+      {/* Video Player Modal */}
       {playingEpisode && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden"
-          style={{ backgroundColor: "#000" }}
-        >
-          {/* Close button - visible on light and dark */}
-          <button
-            onClick={() => setPlayingEpisode(null)}
-            className="absolute top-4 right-4 z-10 p-2 rounded-full transition-opacity hover:opacity-80"
-            style={{ 
-              backgroundColor: "rgba(0,0,0,0.6)",
-              border: "2px solid rgba(255,255,255,0.3)",
-            }}
-          >
-            <X className="h-6 w-6 text-white" />
-          </button>
-          
-          {/* Vimeo Player Container - fills height, centered horizontally */}
-          {getVimeoId(playingEpisode.mediaURL || "") ? (
-            <div 
-              ref={playerContainerRef}
-              className="h-full flex items-center justify-center"
-            />
-          ) : (
-            <div 
-              className="w-full h-full flex items-center justify-center"
-              style={{ backgroundColor: theme.surfaces.elevated1 }}
-            >
-              <p style={{ color: theme.text.tertiary }}>Video not available</p>
-            </div>
-          )}
-        </div>
+        <JMVimeoPlayer
+          vimeoURL={playingEpisode.mediaURL || ""}
+          orientation={show?.videoOrientation || "landscape"}
+          onClose={() => setPlayingEpisode(null)}
+          pointsActivity={isShortFilm ? Activity.WATCH_SHORT_FILM : Activity.WATCH_VIDEO}
+        />
       )}
 
       {/* Close dropdown on outside click */}

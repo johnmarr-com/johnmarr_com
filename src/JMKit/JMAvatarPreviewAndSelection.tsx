@@ -15,8 +15,10 @@ interface JMAvatarPreviewAndSelectionProps {
   onAvatarRemove: () => void;
   avatarError?: string | null;
   isLoading?: boolean;
-  size?: number; // Width and height in pixels
+  size?: number;
   className?: string;
+  /** Hide the X remove button and show a "Change Avatar" button instead */
+  showChangeButton?: boolean;
 }
 
 export default function JMAvatarPreviewAndSelection({
@@ -25,8 +27,9 @@ export default function JMAvatarPreviewAndSelection({
   onAvatarRemove,
   avatarError,
   isLoading = false,
-  size = 240, // Default to 240px (w-60 h-60)
-  className = ''
+  size = 240,
+  className = '',
+  showChangeButton = false,
 }: JMAvatarPreviewAndSelectionProps) {
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [availableAvatars, setAvailableAvatars] = useState<JMAvatarItem[]>([]);
@@ -89,7 +92,7 @@ export default function JMAvatarPreviewAndSelection({
 
   return (
     <>
-      <div className={`relative ${className}`}>
+      <div className={`relative flex flex-col items-center ${className}`}>
         {/* Avatar Display */}
         <div 
           className="mx-auto mb-3 relative bg-gray-700 rounded-full flex items-center justify-center"
@@ -104,39 +107,58 @@ export default function JMAvatarPreviewAndSelection({
                   fullFilename={selectedAvatar}
                 />
               </div>
-              {/* Remove Avatar Button */}
-              <div
-                onClick={onAvatarRemove}
-                className="absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center transition-colors z-10 cursor-pointer"
-                style={{ 
-                  backgroundColor: '#4a4a4a',
-                  pointerEvents: isLoading ? 'none' : 'auto',
-                  opacity: isLoading ? 0.5 : 1 
-                }}
-              >
-                <X className="w-3 h-3 text-white" />
-              </div>
+              {!showChangeButton && (
+                <div
+                  onClick={onAvatarRemove}
+                  className="absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center transition-colors z-10 cursor-pointer"
+                  style={{ 
+                    backgroundColor: '#4a4a4a',
+                    pointerEvents: isLoading ? 'none' : 'auto',
+                    opacity: isLoading ? 0.5 : 1 
+                  }}
+                >
+                  <X className="w-3 h-3 text-white" />
+                </div>
+              )}
             </>
+          ) : isLoading ? (
+            null
           ) : (
             /* Empty Avatar - Tap to Select */
             <div
               onClick={handleOpenPicker}
               className="w-full h-full rounded-full overflow-hidden relative cursor-pointer"
               style={{ 
-                pointerEvents: (isLoading || loadingAvatars) ? 'none' : 'auto',
-                opacity: (isLoading || loadingAvatars) ? 0.5 : 1 
+                pointerEvents: loadingAvatars ? 'none' : 'auto',
+                opacity: loadingAvatars ? 0.5 : 1 
               }}
             >
               <Image
                 alt="Tap to select avatar"
                 src="/images/support/SelectAvatar.jpg"
                 fill
+                sizes="200px"
                 className="object-contain hover:scale-105 transition-transform duration-200"
                 unoptimized
               />
             </div>
           )}
         </div>
+
+        {showChangeButton && selectedAvatar && (
+          <button
+            onClick={handleOpenPicker}
+            className="mt-3 rounded-lg px-4 py-1.5 text-xs font-medium transition-all hover:scale-105"
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.1)',
+              color: 'rgba(255,255,255,0.7)',
+              pointerEvents: isLoading ? 'none' : 'auto',
+              opacity: isLoading ? 0.5 : 1,
+            }}
+          >
+            Change Avatar
+          </button>
+        )}
 
         {avatarError && (
           <p className="text-xs text-red-500 mt-2 text-center">{avatarError}</p>

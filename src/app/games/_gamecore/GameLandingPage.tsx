@@ -40,6 +40,7 @@ export function GameLandingPage({
           src={splashBgURL}
           alt=""
           fill
+          sizes="100vw"
           priority
           className="object-cover"
           style={{ zIndex: 0 }}
@@ -64,6 +65,7 @@ export function GameLandingPage({
                 src={splashLogoURL}
                 alt=""
                 fill
+                sizes="(max-width: 640px) 80vw, 500px"
                 className="object-contain"
                 priority
               />
@@ -79,6 +81,7 @@ export function GameLandingPage({
                 src={splashIconURL}
                 alt=""
                 fill
+                sizes="(max-width: 640px) 70vw, 400px"
                 className="rounded-[12%] object-cover"
                 priority
               />

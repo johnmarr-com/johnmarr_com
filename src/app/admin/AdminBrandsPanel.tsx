@@ -253,6 +253,7 @@ export function AdminBrandsPanel() {
                       src={brand.logoURL}
                       alt={brand.name}
                       fill
+                      sizes="96px"
                       className="object-cover"
                     />
                   ) : (
@@ -371,6 +372,7 @@ export function AdminBrandsPanel() {
                         src={formLogoPreview}
                         alt="Logo preview"
                         fill
+                        sizes="96px"
                         className="object-cover"
                       />
                     ) : (
