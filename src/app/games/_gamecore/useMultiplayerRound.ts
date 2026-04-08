@@ -52,6 +52,22 @@ export function useMultiplayerRound({
 
   const resolvedRoundRef = useRef(-1);
   const dispatchedRoundRef = useRef(-1);
+  const prevRoundsLenRef = useRef(0);
+
+  // Detect game restart (rounds array emptied, currentRound reset to 0)
+  useEffect(() => {
+    if (!session || session.status !== "playing") return;
+    const roundsLen = session.rounds?.length ?? 0;
+    if (roundsLen === 0 && prevRoundsLenRef.current > 0 && session.currentRound === 0) {
+      resolvedRoundRef.current = -1;
+      dispatchedRoundRef.current = -1;
+      requestAnimationFrame(() => {
+        setAnimatingRound(-1);
+        setLocalSubmitted(false);
+      });
+    }
+    prevRoundsLenRef.current = roundsLen;
+  }, [session]);
 
   // Subscribe to session
   useEffect(() => {

@@ -49,3 +49,4 @@ export { JMLevelUpPopup } from "./JMLevelUpPopup";
 export { JMConfettiOverlay, type JMConfettiOverlayProps } from "./JMConfettiOverlay";
 export { JMInviteCodeView } from "./JMInviteCodeView";
 export { JMInviteCodeInput } from "./JMInviteCodeInput";
+export { JMBannerText, type JMBannerTextProps } from "./JMBannerText";

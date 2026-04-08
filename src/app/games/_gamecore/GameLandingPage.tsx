@@ -24,10 +24,10 @@ export interface GameLandingPageProps {
   onMultiplayerStart?: (sessionId: string) => void;
 }
 
-const MODE_LABELS: Record<GameMode, string> = {
+const MODE_LABELS: Record<GameMode, React.ReactNode> = {
   solo: "Play Solo",
-  ai: "Play vs AI",
-  friends: "Play with Friends",
+  ai: <>Play vs <span className="font-black text-xl text-red-500">AI</span></>,
+  friends: <>Play with <span className="font-black text-xl" style={{ color: "#888888" }}>Friends</span></>,
 };
 
 export function GameLandingPage({

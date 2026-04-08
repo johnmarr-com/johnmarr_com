@@ -200,3 +200,41 @@ select:focus-visible {
   font-style: italic;
   margin: 1.5em 0;
 }
+
+@keyframes fighter-pulse {
+  0%, 100% { transform: scale(1.08); }
+  50% { transform: scale(0.94); }
+}
+@keyframes fighter-pulse-alt {
+  0%, 100% { transform: scale(0.94); }
+  50% { transform: scale(1.08); }
+}
+.animate-fighter-pulse {
+  animation: fighter-pulse 1.6s ease-in-out infinite;
+}
+.animate-fighter-pulse-alt {
+  animation: fighter-pulse-alt 1.6s ease-in-out infinite;
+}
+
+@keyframes indicator-in-left {
+  0% { transform: translateX(-100px); opacity: 0; }
+  50% { transform: translateX(8px); opacity: 1; }
+  70% { transform: translateX(-4px); }
+  85% { transform: translateX(2px); }
+  100% { transform: translateX(0); opacity: 1; }
+}
+@keyframes indicator-in-right {
+  0% { transform: translateX(100px); opacity: 0; }
+  50% { transform: translateX(-8px); opacity: 1; }
+  70% { transform: translateX(4px); }
+  85% { transform: translateX(-2px); }
+  100% { transform: translateX(0); opacity: 1; }
+}
+.animate-indicator-in-left {
+  animation: indicator-in-left 0.45s ease-out 0.5s forwards;
+  opacity: 0;
+}
+.animate-indicator-in-right {
+  animation: indicator-in-right 0.45s ease-out 0.5s forwards;
+  opacity: 0;
+}

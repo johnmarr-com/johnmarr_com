@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import Image from "next/image";
 import { useJMStyle } from "@/JMStyle";
-import { JMAppHeader } from "@/JMKit";
+import { JMAppHeader, JMBannerText } from "@/JMKit";
 import { simpleMove, postGameComment, useMultiplayerRound, type GameMode, type ResolverOutput } from "../_gamecore";
 import { bgMusic } from "@/lib/BackgroundMusicPlayer";
 import { useAuth } from "@/lib/AuthProvider";
-import type { GameSession } from "@/lib/game-sessions";
+import { startGame, type GameSession } from "@/lib/game-sessions";
 
 type Attack = "H" | "M" | "L";
 
@@ -53,7 +54,7 @@ const CHAPTERS: Record<ChapterName, { start: number; end: number }> = {
 const BEATS: Record<Attack, Attack> = { H: "L", M: "H", L: "M" };
 const FRAME = 1 / 24;
 const POINTS_TO_WIN = 5;
-const ATTACKS: Attack[] = ["H", "M", "L"];
+const ATTACKS: Attack[] = ["L", "M", "H"];
 const ATTACK_LABEL: Record<Attack, string> = { H: "HIGH", M: "MID", L: "LOW" };
 const ATTACK_BEATS: Record<Attack, string> = { H: "beats Low", M: "beats High", L: "beats Mid" };
 type PlayerSide = "red" | "white";
@@ -131,26 +132,25 @@ function AttackIndicator({
   attack: Attack;
 }) {
   const isRed = side === "red";
-  const size = 36;
+  const size = 48;
   const color = isRed ? "#ef4444" : "#ffffff";
 
   const verticalStyle: React.CSSProperties =
     attack === "H"
-      ? { top: 30 }
+      ? { top: 24 }
       : attack === "L"
-        ? { bottom: 30 }
-        : { top: "50%", transform: "translateY(-50%)" };
+        ? { bottom: 24 }
+        : { top: "50%", marginTop: -(size / 2) };
 
   const horizontalStyle: React.CSSProperties = isRed
     ? { left: -(size / 2) }
     : { right: -(size / 2) };
 
-  // Red: points right (rotated 90° CW). White: points left (rotated 90° CCW).
   const rotation = isRed ? 90 : -90;
 
   return (
     <div
-      className="absolute z-10"
+      className={`absolute z-10 ${isRed ? "animate-indicator-in-left" : "animate-indicator-in-right"}`}
       style={{
         ...verticalStyle,
         ...horizontalStyle,
@@ -162,9 +162,9 @@ function AttackIndicator({
         viewBox="0 0 100 100"
         width={size}
         height={size}
-        style={{ transform: `rotate(${rotation}deg)`, filter: `drop-shadow(0 0 4px ${color}80)` }}
+        style={{ transform: `rotate(${rotation}deg)`, filter: `drop-shadow(0 0 6px ${color}80)` }}
       >
-        <polygon points="50,15 90,85 10,85" fill={color} />
+        <polygon points="50,15 90,85 50,65 10,85" fill={color} />
       </svg>
     </div>
   );
@@ -249,6 +249,7 @@ export default function SweepTheLegGame({
   const [playerSide, setPlayerSide] = useState<PlayerSide>("red");
   const [endMessage, setEndMessage] = useState("");
   const [roundAttacks, setRoundAttacks] = useState<{ red: Attack; white: Attack } | null>(null);
+  const [selectedAttack, setSelectedAttack] = useState<Attack | null>(null);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [showTranscript, setShowTranscript] = useState(false);
   const [aiPostGame, setAiPostGame] = useState("");
@@ -341,6 +342,7 @@ export default function SweepTheLegGame({
   const {
     session: mpSession,
     phase: mpPhase,
+    isHost: mpIsHost,
     submitMove: mpSubmitMove,
     markAnimationDone,
   } = useMultiplayerRound({
@@ -445,6 +447,7 @@ export default function SweepTheLegGame({
       setTranscript([]);
       setShowTranscript(false);
       setAiPostGame("");
+      setSelectedAttack(null);
       setRedScore(0);
       setWhiteScore(0);
       setP("ready");
@@ -453,18 +456,30 @@ export default function SweepTheLegGame({
     [playChapter, setP],
   );
 
-  // Multiplayer auto-start: skip side-pick, jump to "ready" once session is playing
+  // Track multiplayer game generation to detect restarts
+  const mpGenerationRef = useRef(0);
   const mpStartedRef = useRef(false);
+  const mpRoundsLenRef = useRef(0);
+
+  // Detect restart: session goes back to playing with currentRound 0 and empty rounds
+  useEffect(() => {
+    if (!isFriends || !mpSession || mpSession.status !== "playing") return;
+    if (mpSession.currentRound === 0 && (mpSession.rounds?.length ?? 0) === 0 && mpStartedRef.current) {
+      mpGenerationRef.current += 1;
+      mpStartedRef.current = false;
+      mpRoundsLenRef.current = 0;
+    }
+  }, [isFriends, mpSession]);
+
+  // Multiplayer auto-start: skip side-pick, jump to "ready" once session is playing
   useEffect(() => {
     if (!isFriends || !mpSession || mpSession.status !== "playing" || !mpSide) return;
     if (mpStartedRef.current) return;
     mpStartedRef.current = true;
-    // Defer to avoid synchronous setState-in-effect warning
     requestAnimationFrame(() => handleStart(mpSide));
   }, [isFriends, mpSession, mpSide, handleStart]);
 
   // Multiplayer round results: play the video chapter and update scores
-  const mpRoundsLenRef = useRef(0);
   useEffect(() => {
     if (!isFriends || !mpSession?.rounds?.length) return;
     const rounds = mpSession.rounds;
@@ -526,7 +541,7 @@ export default function SweepTheLegGame({
         },
       });
     });
-  }, [isFriends, mpSession?.rounds, mpSession?.playerSides, playChapter, setP, markAnimationDone]);
+  }, [isFriends, mpSession?.rounds, mpSession?.playerSides, mpSession?.currentRound, playChapter, setP, markAnimationDone]);
 
   const fetchAiMove = useCallback((): Promise<{ attack: Attack; reasoning: string }> => {
     const aiSide = sideRef.current === "red" ? "white" : "red";
@@ -635,6 +650,7 @@ export default function SweepTheLegGame({
   const handleAttack = useCallback(
     (attack: Attack) => {
       if (phaseRef.current !== "ready") return;
+      setSelectedAttack(attack);
 
       if (isFriends) {
         setP("animating");
@@ -675,23 +691,27 @@ export default function SweepTheLegGame({
       <main className="relative z-10 mx-auto flex w-full max-w-3xl flex-1 flex-col overflow-hidden px-4">
         {/* Scoreboard */}
         {phase !== "idle" && (
-          <div className="mb-2 shrink-0 flex items-end justify-between px-2">
-            <div className="flex flex-col items-center gap-0.5">
+          <div className="relative mb-2 shrink-0" style={{ paddingTop: 20 }}>
+            <div className="absolute z-20 flex flex-col items-center gap-0.5" style={{ left: 20, top: 20 }}>
               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-400">
                 Red
               </span>
-              <span className="text-4xl font-black tabular-nums leading-none text-red-500">
+              <span className="text-5xl font-black tabular-nums leading-none text-red-500">
                 {redScore}
               </span>
             </div>
-            <span className="mb-1 text-xs font-medium uppercase tracking-widest text-white/30">
-              First to {POINTS_TO_WIN}
-            </span>
-            <div className="flex flex-col items-center gap-0.5">
+            <div className="z-20 flex justify-center">
+              <JMBannerText borderColor="#ffffff" borderWidth={1}>
+                <span className="text-sm font-medium uppercase tracking-widest text-white/80">
+                  First to {POINTS_TO_WIN}
+                </span>
+              </JMBannerText>
+            </div>
+            <div className="absolute z-20 flex flex-col items-center gap-0.5" style={{ right: 20, top: 20 }}>
               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/60">
                 White
               </span>
-              <span className="text-4xl font-black tabular-nums leading-none text-white">
+              <span className="text-5xl font-black tabular-nums leading-none text-white">
                 {whiteScore}
               </span>
             </div>
@@ -713,11 +733,14 @@ export default function SweepTheLegGame({
               {phase === "idle" && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-black/60 px-6">
                   {splashLogoURL ? (
-                    <img
+                    <Image
                       src={splashLogoURL}
                       alt="Sweep the Leg"
+                      width={280}
+                      height={140}
                       className="w-full max-w-[280px] object-contain"
                       draggable={false}
+                      priority
                     />
                   ) : (
                     <h1 className="text-center text-4xl font-black uppercase leading-tight tracking-tight text-white sm:text-5xl">
@@ -732,19 +755,21 @@ export default function SweepTheLegGame({
                     </p>
                   ) : (
                     <>
-                      <p className="text-sm font-medium uppercase tracking-widest text-white/50">
-                        Choose your fighter
-                      </p>
+                      <JMBannerText borderColor="#ffffff" borderWidth={1}>
+                        <span className="text-sm font-medium uppercase tracking-widest text-white/70">
+                          Choose your fighter
+                        </span>
+                      </JMBannerText>
                       <div className="flex gap-4">
                         <button
                           onClick={() => handleStart("red")}
-                          className="rounded-full border-2 border-red-500 bg-red-500/20 px-8 py-3 text-lg font-bold uppercase tracking-wider text-red-400 transition-all hover:scale-105 hover:bg-red-500/30 active:scale-95"
+                          className="animate-fighter-pulse rounded-full border-2 border-red-500 bg-red-900/70 px-8 py-3 text-lg font-bold uppercase tracking-wider text-red-400 hover:bg-red-500/30 active:scale-95"
                         >
                           Red
                         </button>
                         <button
                           onClick={() => handleStart("white")}
-                          className="rounded-full border-2 border-white/60 bg-white/10 px-8 py-3 text-lg font-bold uppercase tracking-wider text-white transition-all hover:scale-105 hover:bg-white/20 active:scale-95"
+                          className="animate-fighter-pulse-alt rounded-full border-2 border-white/60 bg-white/20 px-8 py-3 text-lg font-bold uppercase tracking-wider text-white hover:bg-white/20 active:scale-95"
                         >
                           White
                         </button>
@@ -756,25 +781,47 @@ export default function SweepTheLegGame({
 
               {phase === "finished" && !showTranscript && (
                 <div className="absolute inset-0 flex flex-col items-center justify-end gap-3 bg-linear-to-t from-black/80 via-transparent to-transparent pb-8">
-                  <h2
-                    className="text-3xl font-black uppercase tracking-tight sm:text-4xl"
-                    style={{ color: playerSide === "red" ? "#ef4444" : "#ffffff" }}
-                  >
-                    {endMessage}
-                  </h2>
+                  <JMBannerText paddingX={32} paddingY={10}>
+                    <h2
+                      className="text-center text-3xl font-black uppercase tracking-tight sm:text-4xl"
+                      style={{ color: playerSide === "red" ? "#ef4444" : "#ffffff" }}
+                    >
+                      {endMessage}
+                    </h2>
+                  </JMBannerText>
                   <p className="text-lg font-bold text-white/60">
                     {redScore} &ndash; {whiteScore}
                   </p>
-                  <button
-                    onClick={() => {
-                      videoRef.current?.pause();
-                      setP("idle");
-                    }}
-                    className="mt-1 rounded-full px-8 py-3 text-sm font-bold uppercase tracking-wider text-black transition-transform hover:scale-105 active:scale-95"
-                    style={{ backgroundColor: theme.accents.goldenGlow }}
-                  >
-                    Play Again
-                  </button>
+                  {isFriends ? (
+                    mpIsHost ? (
+                      <button
+                        onClick={async () => {
+                          if (!mpSession?.playerSides) return;
+                          videoRef.current?.pause();
+                          await startGame(mpSession.id, mpSession.playerSides);
+                        }}
+                        className="mt-1 rounded-full px-8 py-3 text-sm font-bold uppercase tracking-wider text-black transition-transform hover:scale-105 active:scale-95"
+                        style={{ backgroundColor: theme.accents.goldenGlow }}
+                      >
+                        Play Again
+                      </button>
+                    ) : (
+                      <p className="mt-1 text-sm font-bold uppercase tracking-widest text-white/40 animate-pulse">
+                        Waiting for rematch…
+                      </p>
+                    )
+                  ) : (
+                    <button
+                      onClick={() => {
+                        videoRef.current?.pause();
+                        setP("idle");
+                      }}
+                      className="mt-1 rounded-full px-8 py-3 text-sm font-bold uppercase tracking-wider text-black transition-transform hover:scale-105 active:scale-95"
+                      style={{ backgroundColor: theme.accents.goldenGlow }}
+                    >
+                      Play Again
+                    </button>
+                  )}
                   {(mode === "ai" || isFriends) && transcript.length > 0 && (
                     <button
                       onClick={() => setShowTranscript(true)}
@@ -800,6 +847,16 @@ export default function SweepTheLegGame({
                     </button>
                   </div>
                   <div className="flex-1 overflow-y-auto px-5 pb-5">
+                    {aiPostGame && (
+                      <div className="mb-4 pb-4 border-b border-white/15">
+                        <p className="text-xs font-bold uppercase tracking-widest text-white/40">
+                          Post-Game Thoughts
+                        </p>
+                        <p className="mt-2 text-sm italic text-amber-300/80">
+                          &ldquo;{aiPostGame}&rdquo;
+                        </p>
+                      </div>
+                    )}
                     {transcript.map((entry) => (
                       <div key={entry.round} className="mb-4 border-t border-white/15 pt-4 first:border-0 first:pt-0">
                         <p className="text-xs font-bold uppercase tracking-widest text-white/40">
@@ -822,16 +879,6 @@ export default function SweepTheLegGame({
                         )}
                       </div>
                     ))}
-                    {aiPostGame && (
-                      <div className="mt-4 border-t border-white/15 pt-4">
-                        <p className="text-xs font-bold uppercase tracking-widest text-white/40">
-                          Post-Game
-                        </p>
-                        <p className="mt-2 text-sm italic text-amber-300/80">
-                          &ldquo;{aiPostGame}&rdquo;
-                        </p>
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
@@ -852,7 +899,7 @@ export default function SweepTheLegGame({
             <p className="mb-2 text-center text-sm font-bold uppercase tracking-widest text-white/40">
               {isFriends && opponentGamertag ? (
                 <>
-                  You are{" "}
+                  Choose your attack, player{" "}
                   {playerSide === "red" ? (
                     <span className="text-red-500">RED</span>
                   ) : (
@@ -862,7 +909,7 @@ export default function SweepTheLegGame({
                 </>
               ) : (
                 <>
-                  You are player{" "}
+                  Choose your attack, player{" "}
                   {playerSide === "red" ? (
                     <span className="text-red-500">RED</span>
                   ) : (
@@ -896,6 +943,11 @@ export default function SweepTheLegGame({
                               : "cursor-not-allowed border-white/10 bg-white/2 text-white/25"
                       }
                     `}
+                    style={
+                      phase !== "ready" && selectedAttack
+                        ? { opacity: a === selectedAttack ? 1 : 0.3 }
+                        : undefined
+                    }
                   >
                     <span className="block text-xl font-black sm:text-2xl">
                       {ATTACK_LABEL[a]}
