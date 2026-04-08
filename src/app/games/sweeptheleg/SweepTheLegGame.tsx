@@ -456,24 +456,27 @@ export default function SweepTheLegGame({
     [playChapter, setP],
   );
 
-  // Track multiplayer game generation to detect restarts
-  const mpGenerationRef = useRef(0);
+  // Track multiplayer restarts via a generation counter
   const mpStartedRef = useRef(false);
   const mpRoundsLenRef = useRef(0);
+  const mpPrevStatusRef = useRef<string | null>(null);
 
-  // Detect restart: session goes back to playing with currentRound 0 and empty rounds
+  // Multiplayer auto-start (and restart): detect fresh "playing" state
   useEffect(() => {
-    if (!isFriends || !mpSession || mpSession.status !== "playing") return;
-    if (mpSession.currentRound === 0 && (mpSession.rounds?.length ?? 0) === 0 && mpStartedRef.current) {
-      mpGenerationRef.current += 1;
+    if (!isFriends || !mpSession || !mpSide) return;
+
+    const prevStatus = mpPrevStatusRef.current;
+    mpPrevStatusRef.current = mpSession.status;
+
+    if (mpSession.status !== "playing") return;
+
+    // Detect restart: transition from finished → playing, or first start
+    const isRestart = prevStatus === "finished" && mpSession.currentRound === 0;
+    if (isRestart) {
       mpStartedRef.current = false;
       mpRoundsLenRef.current = 0;
     }
-  }, [isFriends, mpSession]);
 
-  // Multiplayer auto-start: skip side-pick, jump to "ready" once session is playing
-  useEffect(() => {
-    if (!isFriends || !mpSession || mpSession.status !== "playing" || !mpSide) return;
     if (mpStartedRef.current) return;
     mpStartedRef.current = true;
     requestAnimationFrame(() => handleStart(mpSide));
