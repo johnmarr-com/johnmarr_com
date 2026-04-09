@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { JMAppHeader } from "@/JMKit";
-import { bgMusic } from "@/lib/BackgroundMusicPlayer";
 import { PointsManager, Activity } from "@/lib/points";
 import type { CreateSessionInput } from "@/lib/game-sessions";
 import { GameMultiplayerFlow } from "./GameMultiplayerFlow";
+import { useGameMusic } from "./useGameMusic";
 
 export type GameMode = "solo" | "ai" | "friends";
 
@@ -18,6 +18,10 @@ export interface GameLandingPageProps {
   backgroundMusicURL?: string;
   backgroundMusicVolume?: number;
   enabledModes?: GameMode[];
+  /** Reduce gap between logo and icon (default 25px padding around icon) */
+  iconPadding?: number;
+  /** Pulse the splash icon in scale */
+  pulseIcon?: boolean;
   /** Game content info needed for multiplayer session creation */
   multiplayerInput?: CreateSessionInput;
   onPlay: (mode: GameMode) => void;
@@ -38,6 +42,8 @@ export function GameLandingPage({
   backgroundMusicURL,
   backgroundMusicVolume = 0.3,
   enabledModes = ["solo"],
+  iconPadding = 25,
+  pulseIcon = false,
   multiplayerInput,
   onPlay,
   onMultiplayerStart,
@@ -45,10 +51,8 @@ export function GameLandingPage({
   const [pressed, setPressed] = useState<GameMode | null>(null);
   const [mpOpen, setMpOpen] = useState(false);
 
-  useEffect(() => {
-    const url = backgroundMusicURL || (gameSlug ? `/music/${gameSlug}.mp3` : null);
-    if (url) bgMusic.play(url, backgroundMusicVolume);
-  }, [backgroundMusicURL, backgroundMusicVolume, gameSlug]);
+  const musicURL = backgroundMusicURL || (gameSlug ? `/music/${gameSlug}.mp3` : null);
+  const { ensurePlaying } = useGameMusic({ url: musicURL, volume: backgroundMusicVolume });
 
   const allModes: GameMode[] = ["ai", "friends"];
 
@@ -94,9 +98,12 @@ export function GameLandingPage({
           </div>
         )}
 
-        {/* Splash Icon — 1:1 aspect, 25px margin all around */}
+        {/* Splash Icon */}
         {splashIconURL && (
-          <div className="w-full" style={{ padding: 25 }}>
+          <div
+            className={pulseIcon ? "w-full animate-icon-pulse" : "w-full"}
+            style={{ padding: iconPadding }}
+          >
             <div className="relative w-full" style={{ aspectRatio: "4 / 3" }}>
               <Image
                 src={splashIconURL}
@@ -119,6 +126,7 @@ export function GameLandingPage({
                 key={mode}
                 disabled={!enabled}
                 onClick={() => {
+                  ensurePlaying();
                   if (mode === "friends" && multiplayerInput) {
                     setMpOpen(true);
                     return;

@@ -4,8 +4,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { useJMStyle } from "@/JMStyle";
 import { JMAppHeader, JMBannerText } from "@/JMKit";
-import { simpleMove, postGameComment, useMultiplayerRound, type GameMode, type ResolverOutput } from "../_gamecore";
-import { bgMusic } from "@/lib/BackgroundMusicPlayer";
+import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, type GameMode, type ResolverOutput } from "../_gamecore";
 import { useAuth } from "@/lib/AuthProvider";
 import { startGame, type GameSession } from "@/lib/game-sessions";
 
@@ -238,10 +237,8 @@ export default function SweepTheLegGame({
   const { theme } = useJMStyle();
   const { user } = useAuth();
 
-  useEffect(() => {
-    const url = backgroundMusicURL || (gameSlug ? `/music/${gameSlug}.mp3` : null);
-    if (url) bgMusic.play(url, backgroundMusicVolume ?? 0.3);
-  }, [backgroundMusicURL, backgroundMusicVolume, gameSlug]);
+  const musicURL = backgroundMusicURL || (gameSlug ? `/music/${gameSlug}.mp3` : null);
+  const { ensurePlaying, connectVideo } = useGameMusic({ url: musicURL, volume: backgroundMusicVolume ?? 0.3 });
 
   const [phase, setPhase] = useState<GamePhase>("idle");
   const [redScore, setRedScore] = useState(0);
@@ -380,7 +377,7 @@ export default function SweepTheLegGame({
     ) => {
       const v = videoRef.current;
       if (!v) return;
-      bgMusic.connectVideo(v);
+      connectVideo(v);
       chapterRef.current = name;
       loopingRef.current = opts.loop ?? false;
       freezeRef.current = opts.freeze ?? false;
@@ -388,7 +385,7 @@ export default function SweepTheLegGame({
       v.currentTime = CHAPTERS[name].start;
       v.play().catch(() => {});
     },
-    [],
+    [connectVideo],
   );
 
   useEffect(() => {
@@ -438,6 +435,7 @@ export default function SweepTheLegGame({
 
   const handleStart = useCallback(
     (side: PlayerSide) => {
+      ensurePlaying();
       sideRef.current = side;
       setPlayerSide(side);
       redRef.current = 0;
@@ -453,7 +451,7 @@ export default function SweepTheLegGame({
       setP("ready");
       playChapter("Ready", { loop: true });
     },
-    [playChapter, setP],
+    [playChapter, setP, ensurePlaying],
   );
 
   // Track multiplayer restarts via a generation counter
@@ -653,6 +651,7 @@ export default function SweepTheLegGame({
   const handleAttack = useCallback(
     (attack: Attack) => {
       if (phaseRef.current !== "ready") return;
+      ensurePlaying();
       setSelectedAttack(attack);
 
       if (isFriends) {
@@ -678,7 +677,7 @@ export default function SweepTheLegGame({
         resolveRound(attack, cpu);
       }
     },
-    [mode, isFriends, setP, resolveRound, mpSubmitMove],
+    [mode, isFriends, setP, resolveRound, mpSubmitMove, ensurePlaying],
   );
 
   return (
@@ -693,33 +692,38 @@ export default function SweepTheLegGame({
 
       <main className="relative z-10 mx-auto flex w-full max-w-3xl flex-1 flex-col overflow-hidden px-4">
         {/* Scoreboard */}
-        {phase !== "idle" && (
-          <div className="relative mb-2 shrink-0" style={{ paddingTop: 20 }}>
-            <div className="absolute z-20 flex flex-col items-center gap-0.5" style={{ left: 20, top: 20 }}>
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-400">
-                Red
-              </span>
-              <span className="text-5xl font-black tabular-nums leading-none text-red-500">
-                {redScore}
-              </span>
-            </div>
-            <div className="z-20 flex justify-center">
-              <JMBannerText borderColor="#ffffff" borderWidth={1}>
-                <span className="text-sm font-medium uppercase tracking-widest text-white/80">
-                  First to {POINTS_TO_WIN}
+        {phase !== "idle" && (() => {
+          const playerIsRed = playerSide === "red";
+          const leftLabel = playerIsRed ? "YOU" : (isFriends && opponentGamertag ? opponentGamertag : mode === "ai" ? "AI" : "Red");
+          const rightLabel = !playerIsRed ? "YOU" : (isFriends && opponentGamertag ? opponentGamertag : mode === "ai" ? "AI" : "White");
+          return (
+            <div className="relative mb-2 shrink-0" style={{ paddingTop: 24 }}>
+              <div className="absolute z-20 flex flex-col items-start gap-0.5" style={{ left: 20, top: 20 }}>
+                <span className="max-w-[100px] truncate text-xs font-bold uppercase tracking-wider text-red-400">
+                  {leftLabel}
                 </span>
-              </JMBannerText>
+                <span className="text-6xl font-black tabular-nums leading-none text-red-500">
+                  {redScore}
+                </span>
+              </div>
+              <div className="z-20 flex justify-center">
+                <JMBannerText borderColor="#ffffff" borderWidth={1}>
+                  <span className="text-sm font-medium uppercase tracking-widest text-white/80">
+                    First to {POINTS_TO_WIN}
+                  </span>
+                </JMBannerText>
+              </div>
+              <div className="absolute z-20 flex flex-col items-end gap-0.5" style={{ right: 20, top: 20 }}>
+                <span className="max-w-[100px] truncate text-xs font-bold uppercase tracking-wider text-white/70">
+                  {rightLabel}
+                </span>
+                <span className="text-6xl font-black tabular-nums leading-none text-white">
+                  {whiteScore}
+                </span>
+              </div>
             </div>
-            <div className="absolute z-20 flex flex-col items-center gap-0.5" style={{ right: 20, top: 20 }}>
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/60">
-                White
-              </span>
-              <span className="text-5xl font-black tabular-nums leading-none text-white">
-                {whiteScore}
-              </span>
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Video arena — grows to fill available space, stays square */}
         <div className="flex min-h-0 flex-1 items-center justify-center">
@@ -800,6 +804,7 @@ export default function SweepTheLegGame({
                       <button
                         onClick={async () => {
                           if (!mpSession?.playerSides) return;
+                          ensurePlaying();
                           videoRef.current?.pause();
                           await startGame(mpSession.id, mpSession.playerSides);
                         }}
@@ -816,6 +821,7 @@ export default function SweepTheLegGame({
                   ) : (
                     <button
                       onClick={() => {
+                        ensurePlaying();
                         videoRef.current?.pause();
                         setP("idle");
                       }}

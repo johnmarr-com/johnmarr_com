@@ -238,3 +238,40 @@ select:focus-visible {
   animation: indicator-in-right 0.45s ease-out 0.5s forwards;
   opacity: 0;
 }
+
+@keyframes icon-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+.animate-icon-pulse {
+  animation: icon-pulse 3s ease-in-out infinite;
+}
+
+@keyframes champion-sway {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(8px); }
+}
+.animate-champion-sway-1 {
+  animation: champion-sway 3s ease-in-out infinite;
+}
+.animate-champion-sway-2 {
+  animation: champion-sway 3s ease-in-out 1s infinite reverse;
+}
+.animate-champion-sway-3 {
+  animation: champion-sway 3s ease-in-out 2s infinite;
+}
+
+@keyframes champion-overlay-in {
+  from { transform: translateY(100px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes champion-overlay-out {
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(100px); opacity: 0; }
+}
+.animate-champion-overlay-in {
+  animation: champion-overlay-in 0.5s ease-out forwards;
+}
+.animate-champion-overlay-out {
+  animation: champion-overlay-out 0.35s ease-in forwards;
+}
