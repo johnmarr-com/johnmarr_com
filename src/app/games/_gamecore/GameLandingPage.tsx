@@ -24,6 +24,8 @@ export interface GameLandingPageProps {
   pulseIcon?: boolean;
   /** Game content info needed for multiplayer session creation */
   multiplayerInput?: CreateSessionInput;
+  /** Side labels for multiplayer (e.g. ["red","white"] or ["p1","p2"]) */
+  sideLabels?: [string, string];
   onPlay: (mode: GameMode) => void;
   onMultiplayerStart?: (sessionId: string) => void;
 }
@@ -45,6 +47,7 @@ export function GameLandingPage({
   iconPadding = 25,
   pulseIcon = false,
   multiplayerInput,
+  sideLabels,
   onPlay,
   onMultiplayerStart,
 }: GameLandingPageProps) {
@@ -164,6 +167,7 @@ export function GameLandingPage({
           open={mpOpen}
           onOpenChange={setMpOpen}
           gameInput={multiplayerInput}
+          {...(sideLabels ? { sideLabels } : {})}
           onGameStart={(sessionId) => {
             setMpOpen(false);
             PointsManager.award(Activity.PLAY_GAME);

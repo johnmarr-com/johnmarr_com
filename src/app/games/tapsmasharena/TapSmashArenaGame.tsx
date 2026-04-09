@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useJMStyle } from "@/JMStyle";
 import { JMAppHeader, JMBannerText, JMChampionPicker, type ChampionOption } from "@/JMKit";
-import { simpleMove, postGameComment, useGameMusic, type GameMode } from "../_gamecore";
+import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, type GameMode, type ResolverOutput } from "../_gamecore";
+import { useAuth } from "@/lib/AuthProvider";
+import { startGame, type GameSession } from "@/lib/game-sessions";
 
 type Attack = "R" | "P" | "S";
 
@@ -76,6 +78,8 @@ const CHAMPION_OPTIONS: ChampionOption<Attack>[] = [
 
 type PlayerSide = "p1" | "p2";
 
+const TIE_CHAPTERS: Record<Attack, BattleChapter> = { R: "RR", P: "PP", S: "SS" };
+
 const ACTION_TO_ATTACK: Record<string, Attack> = {
   rock: "R",
   paper: "P",
@@ -90,24 +94,26 @@ function parseAttackFromAction(action: string): Attack | null {
   return null;
 }
 
-const TIE_CHAPTERS: Record<Attack, BattleChapter> = { R: "RR", P: "PP", S: "SS" };
-
 /**
- * Resolve the battle chapter for a round.
- * Chapter naming: {ownerPick}-{opponentPick}-{1-3} — the current player's
- * champion always enters from the left side of the screen.
+ * Build owner-perspective chapter name.
+ * For non-ties, both the variant (1-3) and the chapter follow the pattern
+ * {ownerPick}-{opponentPick}-{variant}.
  */
-function resolveChapter(
+function buildChapterName(
   ownerAtk: Attack,
   opponentAtk: Attack,
-): { chapter: BattleChapter; winner: "owner" | "opponent" | null } {
-  if (ownerAtk === opponentAtk) {
-    return { chapter: TIE_CHAPTERS[ownerAtk], winner: null };
-  }
-  const variant = Math.floor(Math.random() * 3) + 1;
-  const chapter = `${ownerAtk}-${opponentAtk}-${variant}` as BattleChapter;
-  const ownerWins = BEATS[ownerAtk] === opponentAtk;
-  return { chapter, winner: ownerWins ? "owner" : "opponent" };
+  variant: number,
+): BattleChapter {
+  if (ownerAtk === opponentAtk) return TIE_CHAPTERS[ownerAtk];
+  return `${ownerAtk}-${opponentAtk}-${variant}` as BattleChapter;
+}
+
+function resolveWinner(
+  ownerAtk: Attack,
+  opponentAtk: Attack,
+): "owner" | "opponent" | null {
+  if (ownerAtk === opponentAtk) return null;
+  return BEATS[ownerAtk] === opponentAtk ? "owner" : "opponent";
 }
 
 function buildMovePrompt(history: MoveRecord[]): string {
@@ -173,19 +179,24 @@ export default function TapSmashArenaGame({
   gameSlug,
   backgroundMusicURL,
   backgroundMusicVolume,
+  sessionId: sessionIdProp,
 }: {
   splashBgURL?: string;
   mode?: GameMode;
   gameSlug?: string;
   backgroundMusicURL?: string;
   backgroundMusicVolume?: number;
+  sessionId?: string;
 }) {
   const { theme } = useJMStyle();
+  const { user } = useAuth();
 
   const musicURL = backgroundMusicURL || (gameSlug ? `/music/${gameSlug}.mp3` : null);
   const { ensurePlaying, connectVideo } = useGameMusic({ url: musicURL, volume: backgroundMusicVolume ?? 0.3 });
 
-  const [phase, setPhase] = useState<GamePhase>("ready");
+  const isFriends = mode === "friends" && !!sessionIdProp;
+
+  const [phase, setPhase] = useState<GamePhase>(isFriends ? "idle" : "ready");
   const [p1Score, setP1Score] = useState(0);
   const [p2Score, setP2Score] = useState(0);
   const [playerSide, setPlayerSide] = useState<PlayerSide>("p1");
@@ -206,6 +217,109 @@ export default function TapSmashArenaGame({
   const sideRef = useRef<PlayerSide>("p1");
   const historyRef = useRef<MoveRecord[]>([]);
   const prefetchRef = useRef<Promise<{ attack: Attack; reasoning: string }> | null>(null);
+
+  // ─── Multiplayer resolver ───
+  const tsaResolver = useCallback(
+    (moves: Record<string, string>, sess: GameSession): ResolverOutput => {
+      const sides = sess.playerSides ?? {};
+      let p1Uid = "";
+      let p2Uid = "";
+      for (const [uid, side] of Object.entries(sides)) {
+        if (side === "p1") p1Uid = uid;
+        else if (side === "p2") p2Uid = uid;
+      }
+
+      const p1Attack = (moves[p1Uid] ?? "R") as Attack;
+      const p2Attack = (moves[p2Uid] ?? "R") as Attack;
+
+      const winner = resolveWinner(p1Attack, p2Attack);
+      const variant = p1Attack === p2Attack ? 0 : Math.floor(Math.random() * 3) + 1;
+
+      const currentRound = sess.currentRound ?? 0;
+      const prevRounds = sess.rounds ?? [];
+      let s1 = 0;
+      let s2 = 0;
+      for (const r of prevRounds) {
+        const res = r.result as { p1Delta?: number; p2Delta?: number };
+        s1 += res.p1Delta ?? 0;
+        s2 += res.p2Delta ?? 0;
+      }
+
+      let p1Delta = 0;
+      let p2Delta = 0;
+      if (winner === "owner") p1Delta = 1;
+      else if (winner === "opponent") p2Delta = 1;
+
+      s1 += p1Delta;
+      s2 += p2Delta;
+      const gameOver = s1 >= POINTS_TO_WIN || s2 >= POINTS_TO_WIN;
+      const winnerUid = gameOver
+        ? s1 >= POINTS_TO_WIN ? p1Uid : p2Uid
+        : null;
+
+      const p1Tag = sess.players.find((p) => p.uid === p1Uid)?.gamertag ?? "P1";
+      const p2Tag = sess.players.find((p) => p.uid === p2Uid)?.gamertag ?? "P2";
+
+      const lines: string[] = [
+        `Round ${currentRound + 1} — ${p1Tag}: ${ATTACK_FULL[p1Attack]}, ${p2Tag}: ${ATTACK_FULL[p2Attack]}`,
+      ];
+      if (winner) {
+        const tag = winner === "owner" ? p1Tag : p2Tag;
+        lines.push(`${tag} wins — 1 point (${s1}-${s2})`);
+      } else {
+        lines.push(`Tie (${s1}-${s2})`);
+      }
+      if (gameOver) {
+        lines.push(`Game over — ${s1 >= POINTS_TO_WIN ? p1Tag : p2Tag} wins!`);
+      }
+
+      return {
+        roundEntry: {
+          round: currentRound,
+          moves: { [p1Uid]: p1Attack, [p2Uid]: p2Attack },
+          result: {
+            p1Attack,
+            p2Attack,
+            winner: winner === "owner" ? "p1" : winner === "opponent" ? "p2" : null,
+            variant,
+            p1Delta,
+            p2Delta,
+            p1Score: s1,
+            p2Score: s2,
+          },
+        },
+        transcriptLines: lines,
+        gameOver,
+        winner: winnerUid,
+      };
+    },
+    [],
+  );
+
+  const {
+    session: mpSession,
+    phase: mpPhase,
+    isHost: mpIsHost,
+    submitMove: mpSubmitMove,
+    markAnimationDone,
+  } = useMultiplayerRound({
+    sessionId: isFriends ? sessionIdProp! : null,
+    userId: user?.uid ?? "",
+    resolver: tsaResolver,
+  });
+
+  // Derive this player's side from Firestore playerSides
+  const mpSide: PlayerSide | null = useMemo(() => {
+    if (!isFriends || !mpSession?.playerSides || !user?.uid) return null;
+    const s = mpSession.playerSides[user.uid];
+    return s === "p1" || s === "p2" ? (s as PlayerSide) : null;
+  }, [isFriends, mpSession?.playerSides, user?.uid]);
+
+  const opponentGamertag = useMemo(() => {
+    if (!mpSession || !user?.uid) return null;
+    const opp = mpSession.players.find((p) => p.uid !== user.uid);
+    return opp?.gamertag ?? null;
+  }, [mpSession, user]);
 
   const setP = useCallback((p: GamePhase) => {
     phaseRef.current = p;
@@ -291,9 +405,9 @@ export default function TapSmashArenaGame({
       setAiPostGame("");
       setP1Score(0);
       setP2Score(0);
+      setWaitingForBattle(false);
       setP("ready");
 
-      // Jump to first frame of Ready and pause (no loop)
       const v = videoRef.current;
       if (v) {
         connectVideo(v);
@@ -305,14 +419,103 @@ export default function TapSmashArenaGame({
     [setP, ensurePlaying, connectVideo],
   );
 
-  // Auto-start on mount — no idle screen
+  // ─── Auto-start: AI mode starts immediately, friends waits for session ───
   const mountedRef = useRef(false);
   useEffect(() => {
+    if (isFriends) return;
     if (mountedRef.current) return;
     mountedRef.current = true;
-    // Deferred to avoid synchronous setState inside effect body
     queueMicrotask(() => handleStart("p1"));
-  }, [handleStart]);
+  }, [handleStart, isFriends]);
+
+  // ─── Multiplayer auto-start and restart detection ───
+  const mpStartedRef = useRef(false);
+  const mpRoundsLenRef = useRef(0);
+  const mpPrevStatusRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isFriends || !mpSession || !mpSide) return;
+
+    const prevStatus = mpPrevStatusRef.current;
+    mpPrevStatusRef.current = mpSession.status;
+
+    if (mpSession.status !== "playing") return;
+
+    const isRestart = prevStatus === "finished" && mpSession.currentRound === 0;
+    if (isRestart) {
+      mpStartedRef.current = false;
+      mpRoundsLenRef.current = 0;
+    }
+
+    if (mpStartedRef.current) return;
+    mpStartedRef.current = true;
+    requestAnimationFrame(() => handleStart(mpSide));
+  }, [isFriends, mpSession, mpSide, handleStart]);
+
+  // ─── Multiplayer round results: play video chapter and update scores ───
+  useEffect(() => {
+    if (!isFriends || !mpSession?.rounds?.length || !user?.uid) return;
+    const rounds = mpSession.rounds;
+    if (rounds.length <= mpRoundsLenRef.current) return;
+    mpRoundsLenRef.current = rounds.length;
+
+    const latest = rounds[rounds.length - 1]!;
+    const res = latest.result as {
+      p1Attack: Attack;
+      p2Attack: Attack;
+      winner: "p1" | "p2" | null;
+      variant: number;
+      p1Score: number;
+      p2Score: number;
+    };
+
+    const playerSidesMap = mpSession.playerSides ?? {};
+    const mySide = playerSidesMap[user.uid] as PlayerSide | undefined;
+    const myAttack = mySide === "p1" ? res.p1Attack : res.p2Attack;
+    const theirAttack = mySide === "p1" ? res.p2Attack : res.p1Attack;
+    const chapter = buildChapterName(myAttack, theirAttack, res.variant);
+
+    const gameOver = res.p1Score >= POINTS_TO_WIN || res.p2Score >= POINTS_TO_WIN;
+    const winnerSide = res.p1Score >= POINTS_TO_WIN ? "p1" : res.p2Score >= POINTS_TO_WIN ? "p2" : null;
+    const iWon = winnerSide === mySide;
+
+    requestAnimationFrame(() => {
+      setTranscript((prev) => [
+        ...prev,
+        {
+          round: latest.round + 1,
+          p1Attack: res.p1Attack,
+          p2Attack: res.p2Attack,
+          winner: res.winner,
+        },
+      ]);
+
+      setWaitingForBattle(false);
+      playChapter(chapter, {
+        onEnd: () => {
+          p1Ref.current = res.p1Score;
+          p2Ref.current = res.p2Score;
+          setP1Score(res.p1Score);
+          setP2Score(res.p2Score);
+
+          if (gameOver) {
+            setEndMessage(iWon ? pickRandom(WIN_PHRASES) : "You Lose!");
+            setP("finished");
+            playChapter(iWon ? "WIN" : "LOSE", { freeze: true });
+          } else {
+            setP("ready");
+            const v = videoRef.current;
+            if (v) {
+              chapterRef.current = "Ready";
+              v.currentTime = CHAPTERS.Ready.start;
+              v.pause();
+            }
+            markAnimationDone();
+          }
+        },
+      });
+    });
+  }, [isFriends, mpSession?.rounds, mpSession?.playerSides, user?.uid, playChapter, setP, markAnimationDone]);
 
   const fetchAiMove = useCallback((): Promise<{ attack: Attack; reasoning: string }> => {
     const prompt = buildMovePrompt(historyRef.current);
@@ -334,8 +537,9 @@ export default function TapSmashArenaGame({
       const p1Atk = isP1 ? playerAttack : cpuAttack;
       const p2Atk = isP1 ? cpuAttack : playerAttack;
 
-      // Owner = current user; chapter names use owner's pick first
-      const { chapter, winner: rw } = resolveChapter(playerAttack, cpuAttack);
+      const rw = resolveWinner(playerAttack, cpuAttack);
+      const variant = playerAttack === cpuAttack ? 0 : Math.floor(Math.random() * 3) + 1;
+      const chapter = buildChapterName(playerAttack, cpuAttack, variant);
 
       const moveWinner: MoveRecord["winner"] =
         rw === null ? "tie" : rw === "owner" ? "player" : "opponent";
@@ -412,6 +616,14 @@ export default function TapSmashArenaGame({
     (attack: Attack) => {
       if (phaseRef.current !== "ready") return;
       ensurePlaying();
+
+      if (isFriends) {
+        setWaitingForBattle(true);
+        setP("animating");
+        mpSubmitMove(attack);
+        return;
+      }
+
       setWaitingForBattle(true);
       setP("animating");
 
@@ -430,14 +642,26 @@ export default function TapSmashArenaGame({
         resolveRound(attack, cpu);
       }
     },
-    [mode, setP, resolveRound, ensurePlaying],
+    [mode, isFriends, setP, resolveRound, mpSubmitMove, ensurePlaying],
   );
 
   const sideColor = playerSide === "p1" ? "#3b82f6" : "#f97316";
 
+  // Scoreboard labels
+  const youIsP1 = playerSide === "p1";
+  const leftLabel = youIsP1
+    ? "YOU"
+    : isFriends && opponentGamertag
+      ? opponentGamertag
+      : mode === "ai" ? "AI" : "P1";
+  const rightLabel = !youIsP1
+    ? "YOU"
+    : isFriends && opponentGamertag
+      ? opponentGamertag
+      : mode === "ai" ? "AI" : "P2";
+
   return (
     <div className="relative flex h-dvh flex-col bg-black">
-      {/* Background image — dimmed, behind everything */}
       {splashBgURL && (
         <div
           className="absolute inset-0 z-0 bg-cover bg-center opacity-30"
@@ -447,7 +671,6 @@ export default function TapSmashArenaGame({
       <div className="relative z-10"><JMAppHeader /></div>
 
       <main className="relative z-10 flex flex-1 items-center justify-center overflow-hidden">
-        {/* Video arena — height-driven, 9:16 aspect, capped at screen width */}
         <div
           className="relative h-full max-w-full overflow-hidden rounded-xl"
           style={{ aspectRatio: "9 / 16" }}
@@ -460,39 +683,43 @@ export default function TapSmashArenaGame({
                 className="block h-full w-full object-cover"
               />
 
+              {/* Idle overlay — friends mode waiting for session */}
+              {phase === "idle" && isFriends && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60">
+                  <p className="text-sm font-medium uppercase tracking-widest text-white/50 animate-pulse">
+                    Loading match…
+                  </p>
+                </div>
+              )}
+
               {/* Scoreboard overlay */}
-              {phase !== "idle" && (() => {
-                const youIsP1 = playerSide === "p1";
-                const leftLabel = youIsP1 ? "YOU" : (mode === "ai" ? "AI" : "P1");
-                const rightLabel = !youIsP1 ? "YOU" : (mode === "ai" ? "AI" : "P2");
-                return (
-                  <>
-                    <div className="absolute z-20 flex flex-col items-start gap-0.5" style={{ left: 16, top: 16 }}>
-                      <span className="max-w-[90px] truncate text-xs font-bold uppercase tracking-wider text-blue-400">
-                        {leftLabel}
+              {phase !== "idle" && (
+                <>
+                  <div className="absolute z-20 flex flex-col items-start gap-0.5" style={{ left: 16, top: 16 }}>
+                    <span className="max-w-[90px] truncate text-xs font-bold uppercase tracking-wider text-blue-400">
+                      {leftLabel}
+                    </span>
+                    <span className="text-6xl font-black tabular-nums leading-none text-blue-500">
+                      {p1Score}
+                    </span>
+                  </div>
+                  <div className="absolute left-1/2 z-20 -translate-x-1/2" style={{ top: 16 }}>
+                    <JMBannerText borderColor="#ffffff" borderWidth={1}>
+                      <span className="text-sm font-medium uppercase tracking-widest text-white/80">
+                        First to {POINTS_TO_WIN}
                       </span>
-                      <span className="text-6xl font-black tabular-nums leading-none text-blue-500">
-                        {p1Score}
-                      </span>
-                    </div>
-                    <div className="absolute left-1/2 z-20 -translate-x-1/2" style={{ top: 16 }}>
-                      <JMBannerText borderColor="#ffffff" borderWidth={1}>
-                        <span className="text-sm font-medium uppercase tracking-widest text-white/80">
-                          First to {POINTS_TO_WIN}
-                        </span>
-                      </JMBannerText>
-                    </div>
-                    <div className="absolute z-20 flex flex-col items-end gap-0.5" style={{ right: 16, top: 16 }}>
-                      <span className="max-w-[90px] truncate text-xs font-bold uppercase tracking-wider text-orange-400">
-                        {rightLabel}
-                      </span>
-                      <span className="text-6xl font-black tabular-nums leading-none text-orange-500">
-                        {p2Score}
-                      </span>
-                    </div>
-                  </>
-                );
-              })()}
+                    </JMBannerText>
+                  </div>
+                  <div className="absolute z-20 flex flex-col items-end gap-0.5" style={{ right: 16, top: 16 }}>
+                    <span className="max-w-[90px] truncate text-xs font-bold uppercase tracking-wider text-orange-400">
+                      {rightLabel}
+                    </span>
+                    <span className="text-6xl font-black tabular-nums leading-none text-orange-500">
+                      {p2Score}
+                    </span>
+                  </div>
+                </>
+              )}
 
               {/* Champion selection overlay */}
               <JMChampionPicker<Attack>
@@ -502,8 +729,8 @@ export default function TapSmashArenaGame({
                 onSelect={handleAttack}
               />
 
-              {/* Waiting for opponent after selection, before video plays */}
-              {waitingForBattle && (
+              {/* Waiting for opponent after selection */}
+              {(waitingForBattle || (isFriends && mpPhase === "submitted")) && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50">
                   <p className="text-sm font-bold uppercase tracking-widest text-white/60 animate-pulse">
                     Waiting for opponent…
@@ -525,19 +752,40 @@ export default function TapSmashArenaGame({
                   <p className="text-lg font-bold text-white/60">
                     {p1Score} &ndash; {p2Score}
                   </p>
-                  <button
-                    onClick={() => handleStart("p1")}
-                    className="mt-1 rounded-full px-8 py-3 text-sm font-bold uppercase tracking-wider text-black transition-transform hover:scale-105 active:scale-95"
-                    style={{ backgroundColor: theme.accents.goldenGlow }}
-                  >
-                    Play Again
-                  </button>
-                  {mode === "ai" && transcript.length > 0 && (
+                  {isFriends ? (
+                    mpIsHost ? (
+                      <button
+                        onClick={async () => {
+                          if (!mpSession?.playerSides) return;
+                          ensurePlaying();
+                          videoRef.current?.pause();
+                          await startGame(mpSession.id, mpSession.playerSides);
+                        }}
+                        className="mt-1 rounded-full px-8 py-3 text-sm font-bold uppercase tracking-wider text-black transition-transform hover:scale-105 active:scale-95"
+                        style={{ backgroundColor: theme.accents.goldenGlow }}
+                      >
+                        Play Again
+                      </button>
+                    ) : (
+                      <p className="mt-1 text-sm font-bold uppercase tracking-widest text-white/40 animate-pulse">
+                        Waiting for rematch…
+                      </p>
+                    )
+                  ) : (
+                    <button
+                      onClick={() => handleStart("p1")}
+                      className="mt-1 rounded-full px-8 py-3 text-sm font-bold uppercase tracking-wider text-black transition-transform hover:scale-105 active:scale-95"
+                      style={{ backgroundColor: theme.accents.goldenGlow }}
+                    >
+                      Play Again
+                    </button>
+                  )}
+                  {(mode === "ai" || isFriends) && transcript.length > 0 && (
                     <button
                       onClick={() => setShowTranscript(true)}
                       className="mt-2 rounded-full border border-white/30 bg-white/10 px-6 py-2 text-sm font-bold uppercase tracking-wider text-white/80 transition-all hover:scale-105 hover:bg-white/20 active:scale-95"
                     >
-                      View AI Transcript
+                      {isFriends ? "View Transcript" : "View AI Transcript"}
                     </button>
                   )}
                 </div>
@@ -548,7 +796,7 @@ export default function TapSmashArenaGame({
                 <div className="absolute inset-0 z-10 flex flex-col bg-black/95">
                   <div className="flex items-center justify-between px-5 py-4">
                     <span className="text-sm font-bold uppercase tracking-widest text-white/70">
-                      AI Transcript
+                      {isFriends ? "Match Transcript" : "AI Transcript"}
                     </span>
                     <button
                       onClick={() => setShowTranscript(false)}

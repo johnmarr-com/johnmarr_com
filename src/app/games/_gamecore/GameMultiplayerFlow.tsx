@@ -30,6 +30,8 @@ interface GameMultiplayerFlowProps {
   onOpenChange: (open: boolean) => void;
   gameInput: CreateSessionInput;
   onGameStart: (sessionId: string) => void;
+  /** Side labels for player 0 and player 1. Defaults to ["red", "white"]. */
+  sideLabels?: [string, string];
 }
 
 export function GameMultiplayerFlow({
@@ -37,6 +39,7 @@ export function GameMultiplayerFlow({
   onOpenChange,
   gameInput,
   onGameStart,
+  sideLabels = ["red", "white"],
 }: GameMultiplayerFlowProps) {
   const { user, gamertag } = useAuth();
   const [step, setStep] = useState<FlowStep>("choice");
@@ -279,11 +282,11 @@ export function GameMultiplayerFlow({
               {session.players.length >= 2 && (
                 <div className="flex items-center justify-center gap-4 text-sm">
                   <span className="font-bold text-red-400">
-                    Red: {session.players[0]?.gamertag}
+                    {sideLabels[0].charAt(0).toUpperCase() + sideLabels[0].slice(1)}: {session.players[0]?.gamertag}
                   </span>
                   <span className="text-white/20">vs</span>
                   <span className="font-bold text-white">
-                    White: {session.players[1]?.gamertag}
+                    {sideLabels[1].charAt(0).toUpperCase() + sideLabels[1].slice(1)}: {session.players[1]?.gamertag}
                   </span>
                 </div>
               )}
@@ -293,8 +296,8 @@ export function GameMultiplayerFlow({
                 onClick={async () => {
                   if (!session || session.players.length < 2) return;
                   const sides: Record<string, string> = {};
-                  sides[session.players[0]!.uid] = "red";
-                  sides[session.players[1]!.uid] = "white";
+                  sides[session.players[0]!.uid] = sideLabels[0];
+                  sides[session.players[1]!.uid] = sideLabels[1];
                   await startGame(session.id, sides);
                   onGameStart(session.id);
                 }}
