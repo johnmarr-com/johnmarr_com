@@ -17,6 +17,7 @@ import SketchinessMadLibs from "./SketchinessMadLibs";
 import SketchinessReveal from "./SketchinessReveal";
 import SketchinessScoring from "./SketchinessScoring";
 import SketchinessVoting from "./SketchinessVoting";
+import SketchinessShare from "./SketchinessShare";
 
 const AI_PLAYER_ID = "ai-silicon";
 
@@ -342,21 +343,34 @@ export default function SketchinessGame({
             <p className="text-center text-sm text-white/40">
               Thanks for playing, agents. The syndicate lives to spy another day.
             </p>
-            {isHost && (
+            {isHost ? (
               <button
-                onClick={handlePlayAgain}
+                onClick={() => setPhase("share")}
                 className="mt-4 w-full rounded-xl bg-green-500 py-4 text-lg font-bold uppercase tracking-wider text-black shadow-lg shadow-green-500/20 transition-all hover:scale-[1.02] active:scale-95"
               >
-                Play Again
+                View Transmissions
               </button>
-            )}
-            {!isHost && (
+            ) : (
               <p className="mt-4 text-center text-xs text-white/30">
-                Waiting for host to start a new mission...
+                Waiting for host...
               </p>
             )}
           </div>
         </div>
+      );
+      break;
+
+    case "share":
+      phaseContent = (
+        <SketchinessShare
+          players={session.players}
+          playOrder={skState.playOrder}
+          aiPlayerId={skState.aiPlayerId}
+          chains={skState.chains}
+          userId={userId}
+          isHost={isHost}
+          onPlayAgain={handlePlayAgain}
+        />
       );
       break;
   }
@@ -367,7 +381,8 @@ export default function SketchinessGame({
     skState.skPhase === "reveal" ||
     skState.skPhase === "scoring" ||
     skState.skPhase === "voting" ||
-    skState.skPhase === "done";
+    skState.skPhase === "done" ||
+    skState.skPhase === "share";
 
   return (
     <>

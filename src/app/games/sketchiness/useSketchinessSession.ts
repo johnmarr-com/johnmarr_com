@@ -24,7 +24,8 @@ export type SkPhase =
   | "reveal"
   | "scoring"
   | "voting"
-  | "done";
+  | "done"
+  | "share";
 
 export interface ScoringResult {
   passed: boolean;
