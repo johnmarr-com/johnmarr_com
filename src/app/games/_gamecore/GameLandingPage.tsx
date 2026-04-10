@@ -36,6 +36,8 @@ export interface GameLandingPageProps {
   lobbyExtra?: React.ReactNode;
   /** Extra content rendered below the mode buttons on the landing page itself. */
   landingExtra?: React.ReactNode;
+  /** Game subtitle displayed beneath the icon and above the mode buttons. */
+  subtitle?: string | undefined;
   /** Min players for this game. When > 1, AI/solo buttons are hidden entirely. */
   minPlayers?: number;
   onPlay: (mode: GameMode) => void;
@@ -65,6 +67,7 @@ export function GameLandingPage({
   bgMusicLandingOnly = false,
   lobbyExtra,
   landingExtra,
+  subtitle,
   minPlayers = 1,
   onPlay,
   onMultiplayerStart,
@@ -142,6 +145,18 @@ export function GameLandingPage({
               />
             </div>
           </div>
+        )}
+
+        {/* Subtitle — supports <br> and \n for line breaks */}
+        {subtitle && (
+          <p className="mb-5 text-center text-lg font-bold tracking-wide text-white/70">
+            {subtitle.split(/<br\s*\/?>|\\n|\n/).map((line, i, arr) => (
+              <span key={i}>
+                {line}
+                {i < arr.length - 1 && <br />}
+              </span>
+            ))}
+          </p>
         )}
 
         {/* Mode buttons */}

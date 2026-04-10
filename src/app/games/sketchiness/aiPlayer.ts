@@ -5,43 +5,72 @@ import { getPlayerQueue, type Chains, type ChainEntry, type PlayerTask } from ".
 import { appendChainEntry } from "./useSketchinessSession";
 
 const AI_DELAY_MS = 3000;
+const AI_TIMEOUT_MS = 20_000;
 
 /**
- * Interpret a sketch image using Claude vision.
+ * Fire 2 identical AI requests in parallel and return the first valid result.
+ * The `extract` function validates & extracts the desired value from the JSON
+ * response — returning null signals an invalid response (triggering a retry
+ * from the other call). Both AbortControllers are cleaned up once a winner
+ * is determined.
  */
-async function aiGuess(imageUrl: string): Promise<string> {
+async function fetchAIRace<T>(
+  body: Record<string, unknown>,
+  extract: (data: Record<string, unknown>) => T | null,
+): Promise<T | null> {
+  const controllers: AbortController[] = [];
+
+  const attempt = async (): Promise<T> => {
+    const controller = new AbortController();
+    controllers.push(controller);
+    const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+    try {
+      const res = await fetch("/api/games/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      const data = await res.json();
+      const result = extract(data);
+      if (result === null) throw new Error("invalid response");
+      return result;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
   try {
-    const res = await fetch("/api/games/ai", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "vision", imageUrl }),
-    });
-    const data = await res.json();
-    return data.text || "mysterious object";
+    const result = await Promise.any([attempt(), attempt()]);
+    controllers.forEach((c) => c.abort());
+    return result;
   } catch {
-    return "mysterious object";
+    controllers.forEach((c) => c.abort());
+    return null;
   }
 }
 
-/**
- * Generate a sketch image via Replicate, download it, and return as a JPEG blob.
- */
-async function aiSketch(subject: string): Promise<Blob> {
-  try {
-    const res = await fetch("/api/games/ai", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "sketch", subject }),
-    });
-    const data = await res.json();
-    const imageUrl = data.imageUrl;
+async function aiGuess(imageUrl: string): Promise<string> {
+  const text = await fetchAIRace(
+    { type: "vision", imageUrl },
+    (data) => (typeof data["text"] === "string" && data["text"]) || null,
+  );
+  return text || "mysterious object";
+}
 
-    if (imageUrl) {
+async function aiSketch(subject: string): Promise<Blob> {
+  const imageUrl = await fetchAIRace(
+    { type: "sketch", subject },
+    (data) => (typeof data["imageUrl"] === "string" && data["imageUrl"]) || null,
+  );
+
+  if (imageUrl) {
+    try {
       const imgRes = await fetch(imageUrl);
       if (imgRes.ok) return imgRes.blob();
+    } catch {
+      // fall through to fallback
     }
-  } catch {
-    // fall through to fallback
   }
 
   return fallbackSketchBlob(subject);
@@ -78,14 +107,14 @@ export async function processAiQueue(
   sessionId: string,
   chains: Chains,
   playOrder: string[],
+  round: number,
 ): Promise<void> {
   const tasks = getPlayerQueue(aiPlayerId, chains, playOrder);
   if (tasks.length === 0) return;
 
-  // Process one task at a time with a delay
   const task = tasks[0]!;
   await delay(AI_DELAY_MS);
-  await processAiTask(task, aiPlayerId, sessionId, chains);
+  await processAiTask(task, aiPlayerId, sessionId, chains, round);
 }
 
 async function processAiTask(
@@ -93,6 +122,7 @@ async function processAiTask(
   aiPlayerId: string,
   sessionId: string,
   chains: Chains,
+  round: number,
 ): Promise<void> {
   let entry: ChainEntry;
 
@@ -106,7 +136,7 @@ async function processAiTask(
     };
   } else {
     const blob = await aiSketch(task.input.value);
-    const url = await uploadSketch(sessionId, task.elementIndex, task.stepIndex, blob);
+    const url = await uploadSketch(sessionId, task.elementIndex, task.stepIndex, blob, round);
     entry = {
       type: "image",
       value: url,

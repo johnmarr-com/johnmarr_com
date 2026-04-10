@@ -1,19 +1,33 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { GameLandingPage, type GameMode } from "../_gamecore";
+import { useAuth } from "@/lib/AuthProvider";
 import { getContentBySlug } from "@/lib/content";
 import type { JMContent } from "@/lib/content-types";
 import type { CreateSessionInput } from "@/lib/game-sessions";
+import { joinGameSessionById } from "@/lib/game-sessions";
 import TapSmashArenaGame from "./TapSmashArenaGame";
 
 export default function TapSmashArenaPage() {
-  const [mode, setMode] = useState<GameMode | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const { user, gamertag, avatarName, isLoading: authLoading } = useAuth();
+  const initialSessionId = searchParams.get("sessionId");
+  const [mode, setMode] = useState<GameMode | null>(initialSessionId ? "friends" : null);
+  const [sessionId, setSessionId] = useState<string | null>(initialSessionId);
   const [gameData, setGameData] = useState<JMContent | null>(null);
+  const autoJoinRef = useRef(false);
+
   useEffect(() => {
     getContentBySlug("game", "tapsmasharena").then(setGameData);
   }, []);
+
+  useEffect(() => {
+    if (!initialSessionId || autoJoinRef.current || authLoading || !user || !gamertag) return;
+    autoJoinRef.current = true;
+    joinGameSessionById(initialSessionId, user.uid, gamertag, avatarName ?? undefined).catch(() => {});
+  }, [initialSessionId, authLoading, user, gamertag, avatarName]);
 
   const multiplayerInput: CreateSessionInput | undefined = useMemo(() => {
     if (!gameData) return undefined;
@@ -64,6 +78,7 @@ export default function TapSmashArenaPage() {
       {...splashProps}
       gameSlug="tapsmasharena"
       enabledModes={["ai", "friends"]}
+      subtitle={gameData?.subtitle}
       {...(gameData?.minPlayers != null ? { minPlayers: gameData.minPlayers } : {})}
       iconPadding={10}
       pulseIcon

@@ -340,6 +340,29 @@ service cloud.firestore {
     }
     
     // ─────────────────────────────────────────────────────────────
+    // GAME INVITES (Direct player invitations)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /gameInvites/{inviteId} {
+      // Recipients can read their own invites, senders can read theirs
+      allow read: if isAuthenticated()
+        && (resource.data.toUid == request.auth.uid
+         || resource.data.fromUid == request.auth.uid);
+      
+      // Authenticated users can create invites (must be the sender)
+      allow create: if isAuthenticated()
+        && request.resource.data.fromUid == request.auth.uid;
+      
+      // Sender or recipient can delete an invite
+      allow delete: if isAuthenticated()
+        && (resource.data.fromUid == request.auth.uid
+         || resource.data.toUid == request.auth.uid);
+      
+      // No updates needed — invites are created then deleted
+      allow update: if false;
+    }
+    
+    // ─────────────────────────────────────────────────────────────
     // SIGNUP FUNNEL COLLECTION (Analytics tracking)
     // ─────────────────────────────────────────────────────────────
     

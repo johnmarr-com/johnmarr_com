@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
-import { useGameMusic, GameGamertagBadge } from "../_gamecore";
+import { useGameMusic, GameGamertagBadge, GameSectionHeader, GamePrimaryButton, GameStatusMessage } from "../_gamecore";
 import { useSketchinessSession, updateSessionFields } from "./useSketchinessSession";
 import { buildInitialChains, type ChainEntry } from "./chainEngine";
 
@@ -25,6 +26,7 @@ interface SketchinessGameProps {
   sessionId: string;
   gameSlug: string;
   splashBgURL?: string;
+  splashLogoURL?: string;
   backgroundMusicURL?: string;
   backgroundMusicVolume?: number;
   bgMusicLandingOnly?: boolean;
@@ -43,11 +45,13 @@ export default function SketchinessGame({
   sessionId,
   gameSlug,
   splashBgURL,
+  splashLogoURL,
   backgroundMusicURL,
   backgroundMusicVolume = 0.3,
   bgMusicLandingOnly = false,
 }: SketchinessGameProps) {
   const { user } = useAuth();
+  const router = useRouter();
   const userId = user?.uid ?? "";
 
   const musicURL = bgMusicLandingOnly ? null : (backgroundMusicURL || `/music/${gameSlug}.mp3`);
@@ -64,6 +68,8 @@ export default function SketchinessGame({
     transmit,
     setPhase,
   } = useSketchinessSession({ sessionId, userId });
+
+  const kicked = session?.kickedUids?.includes(userId) ?? false;
 
   const setupRef = useRef(false);
 
@@ -116,10 +122,11 @@ export default function SketchinessGame({
       sessionId,
       skState.chains,
       skState.playOrder,
+      skState.missionNumber ?? 0,
     ).finally(() => {
       aiProcessingRef.current = false;
     });
-  }, [isHost, skState.skPhase, skState.aiPlayerId, skState.chains, skState.playOrder, sessionId]);
+  }, [isHost, skState.skPhase, skState.aiPlayerId, skState.chains, skState.playOrder, skState.missionNumber, sessionId]);
 
   // Host-only: reorder players from briefing drag-and-drop
   const handleReorder = useCallback(
@@ -205,12 +212,12 @@ export default function SketchinessGame({
       gameMode: "basic",
       moleId: null,
       eliminatedPlayers: [],
-      missionNumber: 0,
+      missionNumber: (skState.missionNumber ?? 0) + 1,
       votes: {},
       elementMatches: null,
       scoringResult: null,
     });
-  }, [isHost, sessionId]);
+  }, [isHost, sessionId, skState.missionNumber]);
 
   const handleTransmit = useCallback(
     async (entry: ChainEntry) => {
@@ -235,9 +242,20 @@ export default function SketchinessGame({
     case "lobby":
       phaseContent = (
         <div className="fixed inset-0 flex items-center justify-center bg-black">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-green-400/50" />
-            <p className="text-sm text-white/40">Assembling the spy network...</p>
+          <div className="flex flex-col items-center gap-6">
+            {splashLogoURL && (
+              <div className="w-[240px] animate-gentle-float">
+                <Image
+                  src={splashLogoURL}
+                  alt=""
+                  width={480}
+                  height={240}
+                  className="h-auto w-full object-contain"
+                  priority
+                />
+              </div>
+            )}
+            <GameStatusMessage message="Assembling the spy network..." type="loading" />
           </div>
         </div>
       );
@@ -266,6 +284,7 @@ export default function SketchinessGame({
           playerDone={playerDone}
           onTransmit={handleTransmit}
           userId={userId}
+          round={skState.missionNumber ?? 0}
         />
       );
       break;
@@ -333,28 +352,24 @@ export default function SketchinessGame({
     case "done":
       phaseContent = (
         <div className="fixed inset-0 z-10 flex flex-col items-center justify-center px-6">
-          <div className="flex w-full max-w-lg flex-col items-center gap-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-green-400/60">
-              Mission Complete
-            </p>
-            <h1 className="text-3xl font-black uppercase text-white">
-              Debrief Over
-            </h1>
-            <p className="text-center text-sm text-white/40">
+          <div className="flex w-full max-w-lg flex-col items-center gap-5">
+            <GameSectionHeader
+              eyebrow="Mission Complete"
+              title="Debrief Over"
+              titleColorClass="text-white"
+            />
+            <p className="text-center text-base text-white/60">
               Thanks for playing, agents. The syndicate lives to spy another day.
             </p>
-            {isHost ? (
-              <button
-                onClick={() => setPhase("share")}
-                className="mt-4 w-full rounded-xl bg-green-500 py-4 text-lg font-bold uppercase tracking-wider text-black shadow-lg shadow-green-500/20 transition-all hover:scale-[1.02] active:scale-95"
-              >
-                View Transmissions
-              </button>
-            ) : (
-              <p className="mt-4 text-center text-xs text-white/30">
-                Waiting for host...
-              </p>
-            )}
+            <div className="w-full pt-2">
+              {isHost ? (
+                <GamePrimaryButton onClick={() => setPhase("share")}>
+                  View Transmissions
+                </GamePrimaryButton>
+              ) : (
+                <GameStatusMessage message="Waiting for host..." />
+              )}
+            </div>
           </div>
         </div>
       );
@@ -396,11 +411,23 @@ export default function SketchinessGame({
             priority
             className="object-cover"
           />
-          <div className="absolute inset-0 bg-black/70" />
+          <div className="absolute inset-0 bg-black/80" />
         </div>
       )}
       <GameGamertagBadge />
       {phaseContent}
+      {kicked && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90">
+          <div className="flex w-full max-w-sm flex-col items-center gap-6 px-6">
+            <p className="text-center text-xl font-bold text-white">
+              You have been uninvited to the game.
+            </p>
+            <GamePrimaryButton onClick={() => router.push("/")} variant="white">
+              Okay
+            </GamePrimaryButton>
+          </div>
+        </div>
+      )}
     </>
   );
 }

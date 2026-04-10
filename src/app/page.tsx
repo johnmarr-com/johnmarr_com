@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/lib/AuthProvider";
 import { getAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
+import { Play } from "lucide-react";
 import { JMAppHeader, JMWelcomeAvatarModal, JMFeaturedCarousel, JMContentScroller, JMFeatureRowBanner, JMLevelUpPopup } from "@/JMKit";
 import type { FeaturedItem, ContentItem } from "@/JMKit";
 import { useJMStyle } from "@/JMStyle";
-import { getFeaturedContent, getPublishedAlert, getExperiencesWithContent } from "@/lib/content";
+import { getFeaturedContent, subscribeToPublishedAlert, getExperiencesWithContent } from "@/lib/content";
 import type { JMAlert, JMExperienceWithContent } from "@/lib/content-types";
+import { subscribeToMyInvites, type GameInvite } from "@/lib/game-invites";
 import { bgMusic } from "@/lib/BackgroundMusicPlayer";
 
 export default function Home() {
@@ -20,14 +22,56 @@ export default function Home() {
   const [featuredItems, setFeaturedItems] = useState<FeaturedItem[]>([]);
   const [isFeaturedLoading, setIsFeaturedLoading] = useState(true);
   const [activeAlert, setActiveAlert] = useState<JMAlert | null>(null);
+  const [gameInvites, setGameInvites] = useState<GameInvite[]>([]);
   
   // Content rows state - now using experiences
   const [experienceRows, setExperienceRows] = useState<JMExperienceWithContent[]>([]);
   const [isContentLoading, setIsContentLoading] = useState(true);
+  const alertUnsubRef = useRef<(() => void) | null>(null);
+  const inviteUnsubRef = useRef<(() => void) | null>(null);
 
   useEffect(() => { bgMusic.stop(); }, []);
 
-  // Load featured content and alert
+  // Real-time admin alert subscription
+  useEffect(() => {
+    let cancelled = false;
+    subscribeToPublishedAlert((alert) => {
+      if (!cancelled) setActiveAlert(alert);
+    }).then((unsub) => {
+      if (cancelled) unsub();
+      else alertUnsubRef.current = unsub;
+    }).catch(() => {});
+
+    return () => {
+      cancelled = true;
+      alertUnsubRef.current?.();
+      alertUnsubRef.current = null;
+    };
+  }, []);
+
+  // Real-time game invite subscription
+  useEffect(() => {
+    if (!user?.uid) {
+      setGameInvites([]);
+      return;
+    }
+
+    let cancelled = false;
+    subscribeToMyInvites(user.uid, (invites) => {
+      if (!cancelled) setGameInvites(invites);
+    }).then((unsub) => {
+      if (cancelled) unsub();
+      else inviteUnsubRef.current = unsub;
+    }).catch(() => {});
+
+    return () => {
+      cancelled = true;
+      inviteUnsubRef.current?.();
+      inviteUnsubRef.current = null;
+    };
+  }, [user?.uid]);
+
+  // Load featured content
   useEffect(() => {
     const loadFeatured = async () => {
       try {
@@ -40,17 +84,7 @@ export default function Home() {
       }
     };
     
-    const loadAlert = async () => {
-      try {
-        const alert = await getPublishedAlert();
-        setActiveAlert(alert);
-      } catch (error) {
-        console.error("Failed to load alert:", error);
-      }
-    };
-    
     loadFeatured();
-    loadAlert();
   }, []);
 
   // Load content rows (from experiences)
@@ -155,6 +189,29 @@ export default function Home() {
             </p>
           </div>
         )}
+
+        {/* Game Invite Banners */}
+        {gameInvites.map((invite) => (
+          <div
+            key={invite.id}
+            className="flex w-full items-center justify-between gap-3 bg-green-600 px-4 py-3 sm:px-6 sm:py-4"
+          >
+            <p className="flex-1 text-sm font-bold text-white sm:text-base">
+              <span className="font-black">{invite.fromGamertag}</span>
+              {" invited you to play "}
+              <span className="font-black">{invite.gameName}</span>
+            </p>
+            <button
+              onClick={() => {
+                router.push(`/games/${invite.gameSlug}?sessionId=${invite.sessionId}`);
+              }}
+              className="flex shrink-0 items-center gap-1.5 rounded-lg bg-white px-4 py-2 text-sm font-black uppercase tracking-wider text-green-700 shadow-lg transition-all hover:scale-105 active:scale-95"
+            >
+              <Play className="h-3.5 w-3.5" fill="currentColor" />
+              Play
+            </button>
+          </div>
+        ))}
 
         {/* Featured Carousel Section */}
         <section className="relative mt-4">

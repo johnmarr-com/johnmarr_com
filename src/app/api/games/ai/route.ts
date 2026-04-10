@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import Replicate from "replicate";
 
+const AI_TIMEOUT_MS = 15_000;
+
 const anthropic = new Anthropic({
   apiKey: process.env["ANTHROPIC_API_KEY"],
+  timeout: AI_TIMEOUT_MS,
 });
 
 const replicate = new Replicate({

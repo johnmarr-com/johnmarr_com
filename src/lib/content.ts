@@ -1385,6 +1385,35 @@ export async function getPublishedAlert(): Promise<JMAlert | null> {
 }
 
 /**
+ * Subscribe to the currently published alert in real-time.
+ * Returns an unsubscribe function.
+ */
+export async function subscribeToPublishedAlert(
+  callback: (alert: JMAlert | null) => void,
+): Promise<() => void> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, collection, query, where, limit, onSnapshot } = await import("firebase/firestore");
+
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+
+  const q = query(
+    collection(db, "alerts"),
+    where("isPublished", "==", true),
+    limit(1),
+  );
+
+  return onSnapshot(q, (snap) => {
+    const alertDoc = snap.docs[0];
+    if (!alertDoc) {
+      callback(null);
+      return;
+    }
+    callback({ id: alertDoc.id, ...alertDoc.data() } as JMAlert);
+  });
+}
+
+/**
  * Update an alert
  */
 export async function updateAlert(

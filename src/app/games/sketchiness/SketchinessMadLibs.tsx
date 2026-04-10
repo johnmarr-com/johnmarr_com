@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { ChevronRight, Loader2 } from "lucide-react";
-import { JMBannerText } from "@/JMKit";
-import { postGameComment } from "../_gamecore";
+import { ChevronRight } from "lucide-react";
+import { postGameComment, GameSectionHeader, GamePrimaryButton, GameStatusMessage } from "../_gamecore";
 import { assembleMadLibs, type Chains } from "./chainEngine";
 import { updateSessionFields } from "./useSketchinessSession";
 
@@ -54,7 +53,7 @@ export default function SketchinessMadLibs({
   onProceed,
   isHost,
 }: SketchinessMadLibsProps) {
-  const [screen, setScreen] = useState<"intended" | "received">("intended");
+  const [showReceived, setShowReceived] = useState(false);
   const judgingRef = useRef(false);
 
   const { finalElements } = useMemo(
@@ -108,12 +107,7 @@ Response:`;
   if (!sessionElementMatches) {
     return (
       <div className="fixed inset-0 z-10 flex flex-col items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-12 w-12 animate-spin text-green-400/50" />
-          <p className="text-sm font-bold uppercase tracking-wider text-white/40">
-            Decrypting transmissions...
-          </p>
-        </div>
+        <GameStatusMessage message="Decrypting transmissions..." type="loading" />
       </div>
     );
   }
@@ -122,131 +116,96 @@ Response:`;
 
   return (
     <div className="fixed inset-0 z-10 flex flex-col">
-      <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-12">
-        <div className="flex w-full max-w-lg flex-col items-center gap-6">
-          {/* Header */}
-          <div className="text-center">
-            <p className="text-xs mb-2 font-bold uppercase tracking-[0.3em] text-green-400/60">
-              {screen === "intended" ? "Classified Intel" : "Field Report"}
-            </p>
-            <JMBannerText
-              borderColor={
-                screen === "intended"
-                  ? "rgba(74, 222, 128, 0.4)"
-                  : "rgba(251, 146, 60, 0.4)"
-              }
-            >
-              <h1
-                className={`px-5 py-3 text-2xl font-black uppercase tracking-wider ${
-                  screen === "intended" ? "text-green-400" : "text-orange-400"
-                }`}
-              >
-                {screen === "intended"
-                  ? "Intended Transmission"
-                  : "Received Transmission"}
-              </h1>
-            </JMBannerText>
-          </div>
+      <div className="flex flex-1 flex-col items-center overflow-y-auto px-6 py-10">
+        <div className="flex w-full max-w-lg flex-col items-center gap-4">
+          {/* ── Intended section ── */}
+          <GameSectionHeader eyebrow="Classified Intel" title="Intended Message" useBanner />
+          <p className="text-center text-base font-medium text-white/60">
+            This is the message you were supposed to send:
+          </p>
 
-          {/* Mission text paragraph */}
-          <div className="mt-4 w-full rounded-xl border border-white/10 bg-black/40 p-6">
-            <p className="text-lg leading-relaxed">
+          <div className="w-full rounded-xl border border-green-400/20 bg-black/40 p-6">
+            <p className="text-xl leading-relaxed">
               {templateParts.map((part, pi) => {
                 if (part.type === "text") {
                   return (
-                    <span key={pi} className="text-white/40">
+                    <span key={pi} className="text-white/60">
                       {part.value}
                     </span>
                   );
                 }
-
-                const idx = part.index!;
-
-                if (screen === "intended") {
-                  return (
-                    <span
-                      key={pi}
-                      className="font-bold text-green-400"
-                    >
-                      {message.elements[idx]}
-                    </span>
-                  );
-                }
-
-                const received = finalElements[idx] ?? "???";
-                const isMatch = matches[idx];
-
                 return (
-                  <span
-                    key={pi}
-                    className={`font-bold ${isMatch ? "text-green-400" : "text-orange-400"}`}
-                  >
-                    {received}
+                  <span key={pi} className="font-bold text-green-400">
+                    {message.elements[part.index!]}
                   </span>
                 );
               })}
             </p>
           </div>
 
-          {/* Element-by-element comparison (received screen only) */}
-          {screen === "received" && (
-            <div className="mt-2 w-full space-y-2.5">
-              <p className="text-xs font-bold uppercase tracking-[0.3em] text-white/40">
-                Element Breakdown
+          {/* Next button — only shown before received is revealed */}
+          {!showReceived && (
+            <div className="flex w-full justify-end pt-2">
+              <button
+                onClick={() => setShowReceived(true)}
+                className="flex items-center gap-2 rounded-xl bg-white px-6 py-3.5 text-base font-bold uppercase tracking-wider text-black shadow-lg shadow-white/20 transition-all hover:scale-[1.02] active:scale-95"
+              >
+                Next
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
+          )}
+
+          {/* ── Received section — fades in ── */}
+          {showReceived && (
+            <div className="mt-6 flex w-full flex-col items-center gap-4 animate-fade-in">
+              <p className="text-base font-bold uppercase tracking-wider text-orange-400">
+                This is the message you sent:
               </p>
-              {message.elements.map((orig, i) => {
-                const received = finalElements[i] ?? "???";
-                const isMatch = matches[i];
-                return (
-                  <div
-                    key={i}
-                    className="flex items-baseline gap-3 text-base"
-                  >
-                    <span className="w-6 shrink-0 text-right text-xs font-bold text-white/30">
-                      {i + 1}
-                    </span>
-                    <span className="text-green-400/60">{orig}</span>
-                    <span className="text-white/30">→</span>
-                    <span
-                      className={`font-bold ${isMatch ? "text-green-400" : "text-orange-400"}`}
-                    >
-                      {received}
-                    </span>
-                  </div>
-                );
-              })}
+
+              <div className="w-full rounded-xl border border-orange-400/20 bg-black/40 p-6">
+                <p className="text-xl leading-relaxed">
+                  {templateParts.map((part, pi) => {
+                    if (part.type === "text") {
+                      return (
+                        <span key={pi} className="text-white/60">
+                          {part.value}
+                        </span>
+                      );
+                    }
+                    const idx = part.index!;
+                    const received = finalElements[idx] ?? "???";
+                    const isMatch = matches[idx];
+                    return (
+                      <span
+                        key={pi}
+                        className={`font-bold ${isMatch ? "text-green-400" : "text-orange-400"}`}
+                      >
+                        {received}
+                      </span>
+                    );
+                  })}
+                </p>
+              </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Bottom action */}
-      <div className="shrink-0 px-6 pb-8 pt-4">
-        <div className="mx-auto w-full max-w-lg">
-          {screen === "intended" ? (
-            <div className="flex justify-end">
-              <button
-                onClick={() => setScreen("received")}
-                className="flex items-center gap-1.5 rounded-xl bg-white/10 px-5 py-3 text-sm font-bold uppercase tracking-wider text-white transition-all hover:bg-white/20 active:scale-95"
-              >
-                Next
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          ) : isHost ? (
-            <button
-              onClick={() => onProceed()}
-              className="w-full rounded-xl bg-white py-4 text-lg font-bold uppercase tracking-wider text-black shadow-lg shadow-white/20 transition-all hover:scale-[1.02] active:scale-95"
-            >
-              Continue to Debrief
-            </button>
-          ) : (
-            <p className="text-center text-sm text-white/40">
-              Waiting for host...
-            </p>
-          )}
+      {/* Bottom action — only after received is shown */}
+      {showReceived && (
+        <div className="shrink-0 px-6 pb-8 pt-4">
+          <div className="mx-auto w-full max-w-lg">
+            {isHost ? (
+              <GamePrimaryButton onClick={() => onProceed()} variant="white">
+                Continue to Debrief
+              </GamePrimaryButton>
+            ) : (
+              <GameStatusMessage message="Waiting for host..." />
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

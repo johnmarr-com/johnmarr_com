@@ -6,6 +6,7 @@ import { useJMStyle } from "@/JMStyle";
 import { useAuth } from "@/lib/AuthProvider";
 import { signOut } from "@/lib/auth";
 import { bgMusic } from "@/lib/BackgroundMusicPlayer";
+import { JMMyGamesModal } from "./JMMyGamesModal";
 
 export interface JMMenuOption {
   label: string;
@@ -49,6 +50,7 @@ export function JMBasicMenu({
   const { isAdmin } = useAuth();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  const [showMyGames, setShowMyGames] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuDropdownRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -62,6 +64,7 @@ export function JMBasicMenu({
   // Build default menu options (Admin only shown if user is admin)
   const defaultOptions: JMMenuOption[] = [
     { label: "Home", href: "/" },
+    { label: "My Games", onClick: () => setShowMyGames(true) },
     { label: "Profile", href: "/profile" },
     ...(isAdmin ? [{ 
       label: "Admin", 
@@ -210,6 +213,10 @@ export function JMBasicMenu({
           })}
         </div>
       </div>
+
+      {showMyGames && (
+        <JMMyGamesModal onClose={() => setShowMyGames(false)} />
+      )}
     </div>
   );
 }

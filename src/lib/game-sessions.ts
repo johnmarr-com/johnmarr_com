@@ -72,6 +72,9 @@ export interface GameSession {
   inviteCode: string;
   maxPlayers: number;
   players: GameSessionPlayer[];
+  playerUids?: string[];
+  pendingInviteUids?: string[];
+  kickedUids?: string[];
   status: "lobby" | "playing" | "finished";
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -197,6 +200,7 @@ export async function createGameSession(
     inviteCode,
     maxPlayers: input.maxPlayers,
     players: [{ uid: userId, gamertag, ...(avatarName ? { avatarName } : {}) }],
+    playerUids: [userId],
     status: "lobby" as const,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -258,6 +262,8 @@ export type JoinResult =
 
 /**
  * Join a game session via invite code.
+ * Cleans up any pending invite for this user.
+ * Known-player tracking is handled by the host's client via GameMultiplayerFlow.
  */
 export async function joinGameSession(
   code: string,
@@ -265,7 +271,7 @@ export async function joinGameSession(
   gamertag: string,
   avatarName?: string,
 ): Promise<JoinResult> {
-  const { doc, getDoc, updateDoc, arrayUnion, serverTimestamp } =
+  const { doc, getDoc, updateDoc, arrayUnion, arrayRemove, serverTimestamp, collection, query, where, getDocs, deleteDoc } =
     await import("firebase/firestore");
   const db = await getDb();
 
@@ -283,9 +289,72 @@ export async function joinGameSession(
       ...(sessionSnap.data() as Omit<GameSession, "id">),
     };
 
-    if (session.players.some((p) => p.uid === userId)) {
+    const alreadyJoined = session.players.some((p) => p.uid === userId);
+
+    if (!alreadyJoined) {
+      if (session.players.length >= session.maxPlayers) {
+        return { ok: false, reason: "full" };
+      }
+
+      const playerEntry = { uid: userId, gamertag, ...(avatarName ? { avatarName } : {}) };
+      await updateDoc(doc(db, "gameSessions", session.id), {
+        players: arrayUnion(playerEntry),
+        playerUids: arrayUnion(userId),
+        pendingInviteUids: arrayRemove(userId),
+        updatedAt: serverTimestamp(),
+      });
+
+      session.players.push(playerEntry);
+    }
+
+    // Clean up any pending invite doc for this user + session
+    if (!alreadyJoined) {
+      const invQ = query(
+        collection(db, "gameInvites"),
+        where("sessionId", "==", session.id),
+        where("toUid", "==", userId),
+      );
+      getDocs(invQ).then((snap) => {
+        snap.docs.forEach((d) => deleteDoc(d.ref));
+      }).catch(() => {});
+    }
+
+    return { ok: true, session };
+  } catch {
+    return { ok: false, reason: "error" };
+  }
+}
+
+/**
+ * Join a game session directly by session ID (for invite-based joins).
+ */
+export async function joinGameSessionById(
+  sessionId: string,
+  userId: string,
+  gamertag: string,
+  avatarName?: string,
+): Promise<JoinResult> {
+  const { doc, getDoc, updateDoc, arrayUnion, arrayRemove, serverTimestamp, collection, query, where, getDocs, deleteDoc } =
+    await import("firebase/firestore");
+  const db = await getDb();
+
+  try {
+    const sessionSnap = await getDoc(doc(db, "gameSessions", sessionId));
+    if (!sessionSnap.exists()) return { ok: false, reason: "not_found" };
+
+    const session = {
+      id: sessionSnap.id,
+      ...(sessionSnap.data() as Omit<GameSession, "id">),
+    };
+
+    const alreadyJoined = session.players.some((p) => p.uid === userId);
+
+    // Allow returning players to rejoin in-progress games
+    if (alreadyJoined) {
       return { ok: true, session };
     }
+
+    if (session.status !== "lobby") return { ok: false, reason: "full" };
 
     if (session.players.length >= session.maxPlayers) {
       return { ok: false, reason: "full" };
@@ -294,10 +363,25 @@ export async function joinGameSession(
     const playerEntry = { uid: userId, gamertag, ...(avatarName ? { avatarName } : {}) };
     await updateDoc(doc(db, "gameSessions", session.id), {
       players: arrayUnion(playerEntry),
+      playerUids: arrayUnion(userId),
+      pendingInviteUids: arrayRemove(userId),
       updatedAt: serverTimestamp(),
     });
 
     session.players.push(playerEntry);
+
+    // Clean up invite doc
+    {
+      const invQ = query(
+        collection(db, "gameInvites"),
+        where("sessionId", "==", sessionId),
+        where("toUid", "==", userId),
+      );
+      getDocs(invQ).then((snap) => {
+        snap.docs.forEach((d) => deleteDoc(d.ref));
+      }).catch(() => {});
+    }
+
     return { ok: true, session };
   } catch {
     return { ok: false, reason: "error" };
@@ -331,12 +415,13 @@ export async function subscribeToSession(
 /**
  * Transition a session from lobby to playing.
  * Assigns sides and initialises round state.
+ * Cleans up any remaining pending invites for this session.
  */
 export async function startGame(
   sessionId: string,
   playerSides: Record<string, string>,
 ): Promise<void> {
-  const { doc, updateDoc, serverTimestamp } =
+  const { doc, updateDoc, serverTimestamp, collection, query, where, getDocs, deleteDoc } =
     await import("firebase/firestore");
   const db = await getDb();
 
@@ -347,9 +432,16 @@ export async function startGame(
     rounds: [],
     transcript: [],
     playerSides,
+    pendingInviteUids: [],
     winner: null,
     updatedAt: serverTimestamp(),
   });
+
+  // Clean up all remaining invite docs (fire-and-forget)
+  const invQ = query(collection(db, "gameInvites"), where("sessionId", "==", sessionId));
+  getDocs(invQ).then((snap) => {
+    snap.docs.forEach((d) => deleteDoc(d.ref));
+  }).catch(() => {});
 }
 
 /**
@@ -410,4 +502,71 @@ export async function writeRoundResult(
   }
 
   await updateDoc(doc(db, "gameSessions", sessionId), updates);
+}
+
+/**
+ * Remove a player from a session and mark them as kicked.
+ * Uses a transaction to safely update the players array.
+ */
+export async function removePlayerFromSession(
+  sessionId: string,
+  uidToRemove: string,
+): Promise<void> {
+  const { doc, runTransaction, arrayUnion, arrayRemove, serverTimestamp } =
+    await import("firebase/firestore");
+  const db = await getDb();
+
+  await runTransaction(db, async (txn) => {
+    const ref = doc(db, "gameSessions", sessionId);
+    const snap = await txn.get(ref);
+    if (!snap.exists()) return;
+
+    const data = snap.data();
+    const players = (data["players"] ?? []) as GameSessionPlayer[];
+    const newPlayers = players.filter((p) => p.uid !== uidToRemove);
+
+    txn.update(ref, {
+      players: newPlayers,
+      playerUids: arrayRemove(uidToRemove),
+      kickedUids: arrayUnion(uidToRemove),
+      updatedAt: serverTimestamp(),
+    });
+  });
+}
+
+/**
+ * Get all active (lobby or playing) game sessions for a given user.
+ * Requires a composite index on playerUids (array-contains) + status.
+ */
+export async function getActiveSessionsForUser(
+  userId: string,
+): Promise<GameSession[]> {
+  const { collection, query, where, getDocs } =
+    await import("firebase/firestore");
+  const db = await getDb();
+
+  const lobbyQ = query(
+    collection(db, "gameSessions"),
+    where("playerUids", "array-contains", userId),
+    where("status", "==", "lobby"),
+  );
+  const playingQ = query(
+    collection(db, "gameSessions"),
+    where("playerUids", "array-contains", userId),
+    where("status", "==", "playing"),
+  );
+
+  const [lobbySnap, playingSnap] = await Promise.all([
+    getDocs(lobbyQ),
+    getDocs(playingQ),
+  ]);
+
+  const sessions: GameSession[] = [];
+  for (const snap of [lobbySnap, playingSnap]) {
+    snap.docs.forEach((d) => {
+      sessions.push({ id: d.id, ...(d.data() as Omit<GameSession, "id">) });
+    });
+  }
+
+  return sessions;
 }

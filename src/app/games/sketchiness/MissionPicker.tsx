@@ -93,7 +93,7 @@ export default function MissionPicker({
         <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 py-4">
           <div>
             <h3 className="text-lg font-bold text-white">Select a Mission</h3>
-            <p className="text-xs text-white/40">
+            <p className="text-sm text-white/50">
               Showing missions for {playerCount}+ players
             </p>
           </div>
@@ -111,8 +111,8 @@ export default function MissionPicker({
             <button
               key={tab.key}
               onClick={() => setSubTab(tab.key)}
-              className={`rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
-                subTab === tab.key ? "bg-white/10 text-white" : "text-white/40 hover:text-white/60"
+              className={`rounded-md px-3 py-1.5 text-sm font-bold transition-colors ${
+                subTab === tab.key ? "bg-white/10 text-white" : "text-white/50 hover:text-white/70"
               }`}
             >
               {tab.label}
@@ -127,7 +127,7 @@ export default function MissionPicker({
               <Loader2 className="h-6 w-6 animate-spin text-white/30" />
             </div>
           ) : currentList.length === 0 ? (
-            <p className="py-12 text-center text-sm text-white/30">
+            <p className="py-12 text-center text-sm text-white/50">
               No missions available for {playerCount} players.
             </p>
           ) : (
@@ -140,11 +140,11 @@ export default function MissionPicker({
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-white">{m.title}</p>
-                    <p className="text-xs text-white/30">
+                    <p className="text-xs text-white/50">
                       {m.maxPlayers} players &middot; {m.creatorGamertag}
                     </p>
                   </div>
-                  <ChevronRight className="ml-2 h-4 w-4 shrink-0 text-white/20" />
+                  <ChevronRight className="ml-2 h-4 w-4 shrink-0 text-white/40" />
                 </button>
               ))}
             </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { Delete } from "lucide-react";
 import {
   INVITE_COLORS,
   INVITE_COLOR_HEX,
@@ -60,13 +61,32 @@ export function JMInviteCodeInput({ onComplete }: JMInviteCodeInputProps) {
     [],
   );
 
-  const handleClear = useCallback(() => {
-    const next = [...segments];
-    next[activeIdx] = null;
-    setSegments(next);
-    setPhase("char");
-    setPendingChar(null);
-  }, [segments, activeIdx]);
+  const handleBackspace = useCallback(() => {
+    if (phase === "color" && pendingChar) {
+      setPendingChar(null);
+      setPhase("char");
+      return;
+    }
+
+    if (segments[activeIdx]) {
+      const next = [...segments];
+      next[activeIdx] = null;
+      setSegments(next);
+      setPhase("char");
+      setPendingChar(null);
+      return;
+    }
+
+    if (activeIdx > 0) {
+      const prev = activeIdx - 1;
+      const next = [...segments];
+      next[prev] = null;
+      setSegments(next);
+      setActiveIdx(prev);
+      setPhase("char");
+      setPendingChar(null);
+    }
+  }, [phase, pendingChar, segments, activeIdx]);
 
   useEffect(() => {
     if (segments.every((s) => s !== null)) {
@@ -124,36 +144,34 @@ export function JMInviteCodeInput({ onComplete }: JMInviteCodeInputProps) {
         })}
       </div>
 
-      {/* Clear button */}
-      {segments[activeIdx] && (
-        <button
-          onClick={handleClear}
-          className="text-xs font-medium uppercase tracking-widest text-white/40 hover:text-white/70"
-        >
-          Clear slot {activeIdx + 1}
-        </button>
-      )}
-
       {/* Picker area */}
       {phase === "char" ? (
-        <div className="w-full max-w-xs">
+        <div className="w-full max-w-sm">
           <p className="mb-2 text-center text-[10px] font-bold uppercase tracking-widest text-white/40">
             Pick a character
           </p>
-          <div className="grid grid-cols-9 gap-1.5">
+          <div className="grid grid-cols-6 gap-1.5">
             {ALPHANUMERIC.map((ch) => (
               <button
                 key={ch}
                 onClick={() => handleCharPick(ch)}
-                className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 text-sm font-bold text-white transition-all hover:bg-white/20 active:scale-90"
+                className="flex h-11 items-center justify-center rounded-lg bg-white/10 text-base font-bold text-white transition-all hover:bg-white/20 active:scale-90"
               >
                 {ch}
               </button>
             ))}
           </div>
+
+          {/* Backspace key */}
+          <button
+            onClick={handleBackspace}
+            className="mt-1.5 flex h-11 w-full items-center justify-center rounded-lg bg-white/10 text-white/50 transition-all hover:bg-white/20 active:scale-95"
+          >
+            <Delete className="h-6 w-6" />
+          </button>
         </div>
       ) : (
-        <div className="w-full max-w-xs">
+        <div className="w-full max-w-sm">
           <p className="mb-2 text-center text-[10px] font-bold uppercase tracking-widest text-white/40">
             Pick a color for &ldquo;{pendingChar}&rdquo;
           </p>
@@ -178,6 +196,14 @@ export function JMInviteCodeInput({ onComplete }: JMInviteCodeInputProps) {
               </button>
             ))}
           </div>
+
+          {/* Backspace key (color phase) */}
+          <button
+            onClick={handleBackspace}
+            className="mt-2 flex h-11 w-full items-center justify-center rounded-lg bg-white/10 text-white/50 transition-all hover:bg-white/20 active:scale-95"
+          >
+            <Delete className="h-6 w-6" />
+          </button>
         </div>
       )}
     </div>

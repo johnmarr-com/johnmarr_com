@@ -13,3 +13,7 @@ export {
 } from "./AIPlayerManager";
 export { SketchCanvas, type SketchCanvasRef } from "./SketchCanvas";
 export { GameGamertagBadge } from "./GameGamertagBadge";
+export { InviteKnownPlayersModal } from "./InviteKnownPlayersModal";
+export { GameSectionHeader } from "./GameSectionHeader";
+export { GamePrimaryButton } from "./GamePrimaryButton";
+export { GameStatusMessage } from "./GameStatusMessage";

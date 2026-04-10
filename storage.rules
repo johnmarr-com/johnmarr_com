@@ -307,7 +307,7 @@ service firebase.storage {
     // GAME SKETCHES (Sketchiness drawing uploads)
     // ─────────────────────────────────────────────────────────────
     
-    match /game-sketches/{sessionId}/{fileName} {
+    match /game-sketches/{sessionId}/{round}/{fileName} {
       // Anyone can read game sketches (needed for gameplay)
       allow read: if true;
       

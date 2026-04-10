@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useCallback, useRef } from "react";
-import { Loader2, ShieldCheck, ShieldAlert } from "lucide-react";
+import { ShieldCheck, ShieldAlert } from "lucide-react";
 import { JMBannerText } from "@/JMKit";
-import { postGameComment } from "../_gamecore";
+import { postGameComment, GamePrimaryButton, GameStatusMessage } from "../_gamecore";
 import {
   assembleMadLibs,
   assembleOriginal,
@@ -93,12 +93,7 @@ Write 2-3 sentences as a dramatic spy mission debrief. Be funny and reference sp
   if (!sessionScoringResult) {
     return (
       <div className="fixed inset-0 z-10 flex flex-col items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-12 w-12 animate-spin text-green-400/50" />
-          <p className="text-sm font-bold uppercase tracking-wider text-white/40">
-            Control is evaluating the intel...
-          </p>
-        </div>
+        <GameStatusMessage message="Control is evaluating the intel..." type="loading" />
       </div>
     );
   }
@@ -119,7 +114,7 @@ Write 2-3 sentences as a dramatic spy mission debrief. Be funny and reference sp
 
         {/* Verdict text */}
         <JMBannerText borderColor={result.passed ? "rgba(34, 197, 94, 0.4)" : "rgba(239, 68, 68, 0.4)"}>
-          <h1 className={`px-6 py-3 text-3xl font-black uppercase tracking-wider ${
+          <h1 className={`px-8 py-4 text-4xl font-black uppercase tracking-wider ${
             result.passed ? "text-green-400" : "text-red-400"
           }`}>
             Mission {result.passed ? "Passed" : "Failed"}
@@ -127,23 +122,18 @@ Write 2-3 sentences as a dramatic spy mission debrief. Be funny and reference sp
         </JMBannerText>
 
         {/* Narrative */}
-        <p className="text-center text-sm leading-relaxed text-white/70">
+        <p className="text-center text-lg leading-relaxed text-white/80">
           {result.narrative}
         </p>
 
         {/* Action */}
         <div className="w-full pt-4">
           {isHost ? (
-            <button
-              onClick={() => onComplete(result.passed)}
-              className="w-full rounded-xl bg-white py-4 text-lg font-bold uppercase tracking-wider text-black shadow-lg shadow-white/20 transition-all hover:scale-[1.02] active:scale-95"
-            >
+            <GamePrimaryButton onClick={() => onComplete(result.passed)} variant="white">
               Continue
-            </button>
+            </GamePrimaryButton>
           ) : (
-            <p className="text-center text-sm text-white/40">
-              Waiting for host...
-            </p>
+            <GameStatusMessage message="Waiting for host..." />
           )}
         </div>
       </div>
