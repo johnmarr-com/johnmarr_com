@@ -82,6 +82,7 @@ export default function SweepTheLegPage() {
       enabledModes={["ai", "friends"]}
       subtitle={gameData?.subtitle}
       {...(gameData?.minPlayers != null ? { minPlayers: gameData.minPlayers } : {})}
+      maxPlayers={gameData?.maxPlayers ?? 2}
       {...(multiplayerInput ? { multiplayerInput } : {})}
       onPlay={(m) => setMode(m)}
       onMultiplayerStart={(sid) => {

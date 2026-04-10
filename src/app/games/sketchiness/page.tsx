@@ -82,6 +82,7 @@ export default function SketchinessPage() {
       gameSlug="sketchiness"
       enabledModes={["friends"]}
       minPlayers={gameData?.minPlayers ?? 3}
+      maxPlayers={gameData?.maxPlayers ?? 15}
       subtitle={gameData?.subtitle}
       multiplayerFlowMode="party"
       multiplayerMinPlayers={3}

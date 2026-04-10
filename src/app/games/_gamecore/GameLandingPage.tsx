@@ -40,6 +40,8 @@ export interface GameLandingPageProps {
   subtitle?: string | undefined;
   /** Min players for this game. When > 1, AI/solo buttons are hidden entirely. */
   minPlayers?: number;
+  /** Max players for this game. Used in the "For X to Y players" label. */
+  maxPlayers?: number;
   onPlay: (mode: GameMode) => void;
   onMultiplayerStart?: (sessionId: string) => void;
 }
@@ -69,6 +71,7 @@ export function GameLandingPage({
   landingExtra,
   subtitle,
   minPlayers = 1,
+  maxPlayers,
   onPlay,
   onMultiplayerStart,
 }: GameLandingPageProps) {
@@ -196,6 +199,11 @@ export function GameLandingPage({
               </button>
             );
           })}
+          {maxPlayers != null && (
+            <p className="mt-1 text-center text-sm font-medium tracking-wide text-white/50">
+              For {minPlayers} to {maxPlayers} players
+            </p>
+          )}
         </div>
       </div>
       </div>

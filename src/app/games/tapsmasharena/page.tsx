@@ -80,6 +80,7 @@ export default function TapSmashArenaPage() {
       enabledModes={["ai", "friends"]}
       subtitle={gameData?.subtitle}
       {...(gameData?.minPlayers != null ? { minPlayers: gameData.minPlayers } : {})}
+      maxPlayers={gameData?.maxPlayers ?? 2}
       iconPadding={10}
       pulseIcon
       {...(multiplayerInput ? { multiplayerInput } : {})}
