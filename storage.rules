@@ -302,5 +302,21 @@ service firebase.storage {
       allow write: if isAdmin() && isImage() && maxSize(10);
       allow delete: if isAdmin();
     }
+    
+    // ─────────────────────────────────────────────────────────────
+    // GAME SKETCHES (Sketchiness drawing uploads)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /game-sketches/{sessionId}/{fileName} {
+      // Anyone can read game sketches (needed for gameplay)
+      allow read: if true;
+      
+      // Authenticated users can upload sketches during gameplay
+      // Must be an image under 2MB
+      allow write: if isAuthenticated() && isImage() && maxSize(2);
+      
+      // Admins can clean up
+      allow delete: if isAdmin();
+    }
   }
 }

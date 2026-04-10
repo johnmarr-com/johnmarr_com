@@ -312,6 +312,34 @@ service cloud.firestore {
     }
     
     // ─────────────────────────────────────────────────────────────
+    // SKETCHINESS MISSIONS (Custom game missions)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /sketchinessMissions/{missionId} {
+      // Anyone authenticated can read official & shared missions,
+      // creators can read their own private missions, admins read all
+      allow read: if isAdmin()
+        || resource.data.visibility == "official"
+        || resource.data.visibility == "shared"
+        || (isAuthenticated() && resource.data.creatorId == request.auth.uid);
+      
+      // Authenticated users can create missions (pro/admin gating is client-side).
+      // creatorId must match the requesting user.
+      // Only admins can create "official" missions.
+      allow create: if isAuthenticated()
+        && request.resource.data.creatorId == request.auth.uid
+        && (request.resource.data.visibility != "official" || isAdmin());
+      
+      // Creator can update their own missions, admins can update any.
+      // Only admins can set visibility to "official".
+      allow update: if (isAuthenticated() && resource.data.creatorId == request.auth.uid || isAdmin())
+        && (request.resource.data.visibility != "official" || isAdmin());
+      
+      // Creator can delete their own missions, admins can delete any
+      allow delete: if (isAuthenticated() && resource.data.creatorId == request.auth.uid) || isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
     // SIGNUP FUNNEL COLLECTION (Analytics tracking)
     // ─────────────────────────────────────────────────────────────
     

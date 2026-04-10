@@ -3,8 +3,8 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { useJMStyle } from "@/JMStyle";
-import { JMAppHeader, JMBannerText } from "@/JMKit";
-import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, type GameMode, type ResolverOutput } from "../_gamecore";
+import { JMBannerText } from "@/JMKit";
+import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, GameGamertagBadge, type GameMode, type ResolverOutput } from "../_gamecore";
 import { useAuth } from "@/lib/AuthProvider";
 import { startGame, type GameSession } from "@/lib/game-sessions";
 
@@ -682,14 +682,13 @@ export default function SweepTheLegGame({
 
   return (
     <div className="relative flex h-dvh flex-col bg-black">
+      <GameGamertagBadge />
       {splashBgURL && (
         <div
           className="absolute inset-0 z-0 bg-cover bg-center opacity-50"
           style={{ backgroundImage: `url(${splashBgURL})` }}
         />
       )}
-      <div className="relative z-10"><JMAppHeader /></div>
-
       <main className="relative z-10 mx-auto flex w-full max-w-3xl flex-1 flex-col overflow-hidden px-4">
         {/* Scoreboard */}
         {phase !== "idle" && (() => {
@@ -843,7 +842,7 @@ export default function SweepTheLegGame({
               )}
 
               {phase === "finished" && showTranscript && (
-                <div className="absolute inset-0 flex flex-col bg-black/95">
+                <div className="absolute inset-0 z-30 flex flex-col bg-black/95">
                   <div className="flex items-center justify-between px-5 py-4">
                     <span className="text-sm font-bold uppercase tracking-widest text-white/70">
                       {isFriends ? "Match Transcript" : "AI Transcript"}

@@ -221,10 +221,14 @@ export function AdminUsersPanel() {
                     style={{ 
                       backgroundColor: user.tier === "free" 
                         ? theme.surfaces.elevated2 
-                        : `${theme.accents.goldenGlow}30`,
+                        : user.tier === "pro"
+                          ? "rgba(59, 130, 246, 0.2)"
+                          : `${theme.accents.goldenGlow}30`,
                       color: user.tier === "free" 
                         ? theme.text.tertiary 
-                        : theme.accents.goldenGlow,
+                        : user.tier === "pro"
+                          ? "#3b82f6"
+                          : theme.accents.goldenGlow,
                     }}
                   >
                     {user.tier}

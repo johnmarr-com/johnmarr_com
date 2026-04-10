@@ -25,13 +25,12 @@ export function JMAppHeader({
   height = 75,
 }: JMAppHeaderProps) {
   const { theme } = useJMStyle();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, gamertag } = useAuth();
   
   // Calculate logo height (85% of available space)
   const logoHeight = Math.round(height * 0.85);
   
-  // Get display name or fallback
-  const displayName = user?.displayName?.split(" ")[0] ?? "Menu";
+  const displayName = gamertag || user?.displayName?.split(" ")[0] || "Menu";
 
   return (
     <header

@@ -11,3 +11,5 @@ export {
   type AIMoveResult,
   type AICommentResult,
 } from "./AIPlayerManager";
+export { SketchCanvas, type SketchCanvasRef } from "./SketchCanvas";
+export { GameGamertagBadge } from "./GameGamertagBadge";

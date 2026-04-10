@@ -322,6 +322,7 @@ export function UserEditModal({ userId, onClose, onSaved }: UserEditModalProps) 
                       }}
                     >
                       <option value="free">Free</option>
+                      <option value="pro">Pro</option>
                       <option value="paid">Paid</option>
                     </select>
                   </div>

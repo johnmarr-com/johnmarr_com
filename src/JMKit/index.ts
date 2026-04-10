@@ -51,3 +51,4 @@ export { JMInviteCodeView } from "./JMInviteCodeView";
 export { JMInviteCodeInput } from "./JMInviteCodeInput";
 export { JMBannerText, type JMBannerTextProps } from "./JMBannerText";
 export { JMChampionPicker, type JMChampionPickerProps, type ChampionOption } from "./JMChampionPicker";
+export { JMProButton } from "./JMProButton";

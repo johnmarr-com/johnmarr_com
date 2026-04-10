@@ -30,8 +30,14 @@ interface GameMultiplayerFlowProps {
   onOpenChange: (open: boolean) => void;
   gameInput: CreateSessionInput;
   onGameStart: (sessionId: string) => void;
-  /** Side labels for player 0 and player 1. Defaults to ["red", "white"]. */
+  /** Side labels for player 0 and player 1. Defaults to ["red", "white"]. Only used in "versus" mode. */
   sideLabels?: [string, string];
+  /** "versus" = 2-player with sides (default). "party" = N-player, no sides. */
+  flowMode?: "versus" | "party";
+  /** Minimum players to enable start. Defaults to 2 for versus, 3 for party. */
+  minPlayers?: number;
+  /** Extra content injected above the Start button in the host lobby. */
+  lobbyExtra?: React.ReactNode;
 }
 
 export function GameMultiplayerFlow({
@@ -40,8 +46,11 @@ export function GameMultiplayerFlow({
   gameInput,
   onGameStart,
   sideLabels = ["red", "white"],
+  flowMode = "versus",
+  minPlayers,
+  lobbyExtra,
 }: GameMultiplayerFlowProps) {
-  const { user, gamertag } = useAuth();
+  const { user, gamertag, avatarName } = useAuth();
   const [step, setStep] = useState<FlowStep>("choice");
   const [session, setSession] = useState<GameSession | null>(null);
   const [loading, setLoading] = useState(false);
@@ -90,7 +99,7 @@ export function GameMultiplayerFlow({
     setLoading(true);
     setError(null);
     try {
-      const sess = await createGameSession(gameInput, user.uid, gamertag);
+      const sess = await createGameSession(gameInput, user.uid, gamertag, avatarName ?? undefined);
       setSession(sess);
       setStep("hosting");
     } catch {
@@ -98,7 +107,7 @@ export function GameMultiplayerFlow({
     } finally {
       setLoading(false);
     }
-  }, [user, gamertag, gameInput]);
+  }, [user, gamertag, avatarName, gameInput]);
 
   const handleJoinComplete = useCallback(
     async (code: string) => {
@@ -106,7 +115,7 @@ export function GameMultiplayerFlow({
       setLoading(true);
       setError(null);
       try {
-        const result = await joinGameSession(code, user.uid, gamertag);
+        const result = await joinGameSession(code, user.uid, gamertag, avatarName ?? undefined);
         if (result.ok) {
           setSession(result.session);
           setStep("joined");
@@ -124,7 +133,7 @@ export function GameMultiplayerFlow({
         setLoading(false);
       }
     },
-    [user, gamertag],
+    [user, gamertag, avatarName],
   );
 
   const handleCopyLink = useCallback(() => {
@@ -141,15 +150,16 @@ export function GameMultiplayerFlow({
     : "";
 
   const isHost = session?.ownerId === user?.uid;
+  const effectiveMinPlayers = minPlayers ?? (flowMode === "party" ? 3 : 2);
   const canStart =
-    isHost && session && session.players.length >= 2;
+    isHost && session && session.players.length >= effectiveMinPlayers;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto bg-black/95 sm:max-w-md">
-        {/* Game logo */}
+        {/* Game logo — gentle float */}
         {gameInput.gameLogoURL && (
-          <div className="flex justify-center mb-2">
+          <div className="flex justify-center mb-2 animate-game-float">
             <Image
               src={gameInput.gameLogoURL}
               alt={gameInput.gameName}
@@ -278,8 +288,8 @@ export function GameMultiplayerFlow({
                 </div>
               </div>
 
-              {/* Side assignments preview */}
-              {session.players.length >= 2 && (
+              {/* Side assignments preview (versus mode only) */}
+              {flowMode === "versus" && session.players.length >= 2 && (
                 <div className="flex items-center justify-center gap-4 text-sm">
                   <span className="font-bold text-red-400">
                     {sideLabels[0].charAt(0).toUpperCase() + sideLabels[0].slice(1)}: {session.players[0]?.gamertag}
@@ -291,13 +301,22 @@ export function GameMultiplayerFlow({
                 </div>
               )}
 
+              {/* Game-specific lobby extras (e.g. mission picker) */}
+              {lobbyExtra}
+
               {/* Start button */}
               <button
                 onClick={async () => {
-                  if (!session || session.players.length < 2) return;
+                  if (!session || session.players.length < effectiveMinPlayers) return;
                   const sides: Record<string, string> = {};
-                  sides[session.players[0]!.uid] = sideLabels[0];
-                  sides[session.players[1]!.uid] = sideLabels[1];
+                  if (flowMode === "versus") {
+                    sides[session.players[0]!.uid] = sideLabels[0];
+                    sides[session.players[1]!.uid] = sideLabels[1];
+                  } else {
+                    session.players.forEach((p, i) => {
+                      sides[p.uid] = `player-${i + 1}`;
+                    });
+                  }
                   await startGame(session.id, sides);
                   onGameStart(session.id);
                 }}
@@ -371,18 +390,6 @@ export function GameMultiplayerFlow({
             </DialogHeader>
 
             <div className="flex flex-col items-center gap-4 pt-2">
-              {/* Game logo */}
-              {session.gameLogoURL && (
-                <Image
-                  src={session.gameLogoURL}
-                  alt={session.gameName}
-                  width={200}
-                  height={64}
-                  className="h-16 w-auto object-contain"
-                  draggable={false}
-                />
-              )}
-
               {/* Invite code */}
               <div className="rounded-xl bg-white/5 px-4 py-2">
                 <JMInviteCodeView code={session.inviteCode} size="sm" />
@@ -427,7 +434,7 @@ export function GameMultiplayerFlow({
 
               {session.status === "playing" && (
                 <div className="flex w-full flex-col items-center gap-3">
-                  {session.playerSides && (
+                  {flowMode === "versus" && session.playerSides && (
                     <div className="flex items-center justify-center gap-4 text-sm">
                       {session.players.map((p) => {
                         const side = session.playerSides?.[p.uid];

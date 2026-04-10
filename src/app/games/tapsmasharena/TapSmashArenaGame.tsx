@@ -2,8 +2,8 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useJMStyle } from "@/JMStyle";
-import { JMAppHeader, JMBannerText, JMChampionPicker, type ChampionOption } from "@/JMKit";
-import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, type GameMode, type ResolverOutput } from "../_gamecore";
+import { JMBannerText, JMChampionPicker, type ChampionOption } from "@/JMKit";
+import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, GameGamertagBadge, type GameMode, type ResolverOutput } from "../_gamecore";
 import { useAuth } from "@/lib/AuthProvider";
 import { startGame, type GameSession } from "@/lib/game-sessions";
 
@@ -662,14 +662,13 @@ export default function TapSmashArenaGame({
 
   return (
     <div className="relative flex h-dvh flex-col bg-black">
+      <GameGamertagBadge />
       {splashBgURL && (
         <div
           className="absolute inset-0 z-0 bg-cover bg-center opacity-30"
           style={{ backgroundImage: `url(${splashBgURL})` }}
         />
       )}
-      <div className="relative z-10"><JMAppHeader /></div>
-
       <main className="relative z-10 flex flex-1 items-center justify-center overflow-hidden">
         <div
           className="relative h-full max-w-full overflow-hidden rounded-xl"
@@ -793,7 +792,7 @@ export default function TapSmashArenaGame({
 
               {/* Transcript overlay */}
               {phase === "finished" && showTranscript && (
-                <div className="absolute inset-0 z-10 flex flex-col bg-black/95">
+                <div className="absolute inset-0 z-30 flex flex-col bg-black/95">
                   <div className="flex items-center justify-between px-5 py-4">
                     <span className="text-sm font-bold uppercase tracking-widest text-white/70">
                       {isFriends ? "Match Transcript" : "AI Transcript"}

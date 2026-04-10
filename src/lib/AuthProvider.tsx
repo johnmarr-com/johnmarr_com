@@ -10,7 +10,7 @@ import {
 } from "react";
 import type { User } from "firebase/auth";
 
-export type UserTier = "free" | "paid";
+export type UserTier = "free" | "pro" | "paid";
 
 interface AuthContextValue {
   user: User | null;
@@ -19,6 +19,7 @@ interface AuthContextValue {
   isAdmin: boolean;
   userTier: UserTier;
   gamertag: string | null;
+  avatarName: string | null;
   level: number;
   points: number;
   levelledUp: boolean;
@@ -40,6 +41,7 @@ const AuthContext = createContext<AuthContextValue>({
   isAdmin: false,
   userTier: "free",
   gamertag: null,
+  avatarName: null,
   level: 1,
   points: 0,
   levelledUp: false,
@@ -65,6 +67,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isAdmin: false,
     userTier: "free",
     gamertag: null,
+    avatarName: null,
     level: 1,
     points: 0,
     levelledUp: false,
@@ -98,13 +101,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   interface UserData {
     userTier: UserTier;
     gamertag: string | null;
+    avatarName: string | null;
     level: number;
     points: number;
     levelledUp: boolean;
   }
 
   const fetchUserData = useCallback(async (user: User | null): Promise<UserData> => {
-    const defaults: UserData = { userTier: "free", gamertag: null, level: 1, points: 0, levelledUp: false };
+    const defaults: UserData = { userTier: "free", gamertag: null, avatarName: null, level: 1, points: 0, levelledUp: false };
     if (!user) return defaults;
     
     try {
@@ -120,8 +124,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (userDoc.exists()) {
         const data = userDoc.data();
         return {
-          userTier: data["tier"] === "paid" ? "paid" : "free",
+          userTier: (data["tier"] === "paid" || data["tier"] === "pro") ? data["tier"] as UserTier : "free",
           gamertag: data["gamertag"] ?? null,
+          avatarName: typeof data["avatarName"] === "string" ? data["avatarName"] : null,
           level: typeof data["level"] === "number" ? data["level"] : 1,
           points: typeof data["points"] === "number" ? data["points"] : 0,
           levelledUp: data["levelledUp"] === true,

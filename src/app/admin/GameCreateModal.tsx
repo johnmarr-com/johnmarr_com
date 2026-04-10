@@ -27,6 +27,8 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
   const [splashLogoURL, setSplashLogoURL] = useState("");
   const [backgroundMusicURL, setBackgroundMusicURL] = useState("");
   const [backgroundMusicVolume, setBackgroundMusicVolume] = useState(0.3);
+  const [bgMusicLandingOnly, setBgMusicLandingOnly] = useState(false);
+  const [minPlayers, setMinPlayers] = useState(1);
   const [maxPlayers, setMaxPlayers] = useState(2);
   const [isPublished, setIsPublished] = useState(false);
 
@@ -83,6 +85,8 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
         input.backgroundMusicURL = backgroundMusicURL.trim();
         input.backgroundMusicVolume = backgroundMusicVolume;
       }
+      input.bgMusicLandingOnly = bgMusicLandingOnly;
+      if (minPlayers > 0) input.minPlayers = minPlayers;
       if (maxPlayers > 0) input.maxPlayers = maxPlayers;
 
       await createContent(input, user.uid);
@@ -339,29 +343,85 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
                   />
                 </div>
               )}
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => setBgMusicLandingOnly(!bgMusicLandingOnly)}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors"
+                  style={{
+                    backgroundColor: bgMusicLandingOnly
+                      ? `${theme.accents.goldenGlow}20`
+                      : theme.surfaces.elevated2,
+                    color: bgMusicLandingOnly
+                      ? theme.accents.goldenGlow
+                      : theme.text.tertiary,
+                  }}
+                >
+                  <span
+                    className="inline-block h-4 w-4 rounded-sm border"
+                    style={{
+                      borderColor: bgMusicLandingOnly
+                        ? theme.accents.goldenGlow
+                        : theme.text.tertiary,
+                      backgroundColor: bgMusicLandingOnly
+                        ? theme.accents.goldenGlow
+                        : "transparent",
+                    }}
+                  />
+                  Background music only plays on landing page
+                </button>
+                <p className="mt-1 ml-1 text-xs" style={{ color: theme.text.tertiary }}>
+                  When on, music stops when the game starts.
+                </p>
+              </div>
             </div>
 
-            {/* Max Players */}
-            <div>
-              <label
-                className="mb-1 block text-sm font-medium"
-                style={{ color: theme.text.secondary }}
-              >
-                Max Players (Multiplayer)
-              </label>
-              <input
-                type="number"
-                min={2}
-                max={20}
-                value={maxPlayers}
-                onChange={(e) => setMaxPlayers(parseInt(e.target.value) || 2)}
-                className="w-24 rounded-lg border px-3 py-2 text-sm"
-                style={{
-                  backgroundColor: theme.surfaces.elevated1,
-                  borderColor: theme.surfaces.elevated2,
-                  color: theme.text.primary,
-                }}
-              />
+            {/* Min / Max Players */}
+            <div className="flex gap-6">
+              <div>
+                <label
+                  className="mb-1 block text-sm font-medium"
+                  style={{ color: theme.text.secondary }}
+                >
+                  Min Players
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={minPlayers}
+                  onChange={(e) => setMinPlayers(e.target.valueAsNumber || 0)}
+                  onBlur={(e) => { if (!e.target.value || minPlayers < 1) setMinPlayers(1); }}
+                  className="w-24 rounded-lg border px-3 py-2 text-sm"
+                  style={{
+                    backgroundColor: theme.surfaces.elevated1,
+                    borderColor: theme.surfaces.elevated2,
+                    color: theme.text.primary,
+                  }}
+                />
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-sm font-medium"
+                  style={{ color: theme.text.secondary }}
+                >
+                  Max Players
+                </label>
+                <input
+                  type="number"
+                  min={2}
+                  max={20}
+                  value={maxPlayers}
+                  onChange={(e) => setMaxPlayers(e.target.valueAsNumber || 0)}
+                  onBlur={(e) => { if (!e.target.value || maxPlayers < 2) setMaxPlayers(2); }}
+                  className="w-24 rounded-lg border px-3 py-2 text-sm"
+                  style={{
+                    backgroundColor: theme.surfaces.elevated1,
+                    borderColor: theme.surfaces.elevated2,
+                    color: theme.text.primary,
+                  }}
+                />
+              </div>
             </div>
 
             {error && (

@@ -25,6 +25,8 @@ interface EditState {
   splashLogoURL: string;
   backgroundMusicURL: string;
   backgroundMusicVolume: number;
+  bgMusicLandingOnly: boolean;
+  minPlayers: number;
   maxPlayers: number;
   isPublished: boolean;
 }
@@ -42,6 +44,8 @@ function stateFromGame(game: JMContent): EditState {
     splashLogoURL: game.splashLogoURL ?? "",
     backgroundMusicURL: game.backgroundMusicURL ?? "",
     backgroundMusicVolume: game.backgroundMusicVolume ?? 0.3,
+    bgMusicLandingOnly: game.bgMusicLandingOnly ?? false,
+    minPlayers: game.minPlayers ?? 1,
     maxPlayers: game.maxPlayers ?? 2,
     isPublished: game.isPublished,
   };
@@ -140,6 +144,8 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
         updates.backgroundMusicURL = editState.backgroundMusicURL.trim();
         updates.backgroundMusicVolume = editState.backgroundMusicVolume;
       }
+      updates.bgMusicLandingOnly = editState.bgMusicLandingOnly;
+      if (editState.minPlayers > 0) updates.minPlayers = editState.minPlayers;
       if (editState.maxPlayers > 0) updates.maxPlayers = editState.maxPlayers;
 
       await updateContent(gameId, updates);
@@ -409,29 +415,85 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
                     />
                   </div>
                 )}
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() => update({ bgMusicLandingOnly: !editState.bgMusicLandingOnly })}
+                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors"
+                    style={{
+                      backgroundColor: editState.bgMusicLandingOnly
+                        ? `${theme.accents.goldenGlow}20`
+                        : theme.surfaces.elevated2,
+                      color: editState.bgMusicLandingOnly
+                        ? theme.accents.goldenGlow
+                        : theme.text.tertiary,
+                    }}
+                  >
+                    <span
+                      className="inline-block h-4 w-4 rounded-sm border"
+                      style={{
+                        borderColor: editState.bgMusicLandingOnly
+                          ? theme.accents.goldenGlow
+                          : theme.text.tertiary,
+                        backgroundColor: editState.bgMusicLandingOnly
+                          ? theme.accents.goldenGlow
+                          : "transparent",
+                      }}
+                    />
+                    Background music only plays on landing page
+                  </button>
+                  <p className="mt-1 ml-1 text-xs" style={{ color: theme.text.tertiary }}>
+                    When on, music stops when the game starts.
+                  </p>
+                </div>
               </div>
 
-              {/* Max Players */}
-              <div>
-                <label
-                  className="mb-1 block text-sm font-medium"
-                  style={{ color: theme.text.secondary }}
-                >
-                  Max Players (Multiplayer)
-                </label>
-                <input
-                  type="number"
-                  min={2}
-                  max={20}
-                  value={editState.maxPlayers}
-                  onChange={(e) => update({ maxPlayers: parseInt(e.target.value) || 2 })}
-                  className="w-24 rounded-lg border px-3 py-2 text-sm"
-                  style={{
-                    backgroundColor: theme.surfaces.elevated1,
-                    borderColor: theme.surfaces.elevated2,
-                    color: theme.text.primary,
-                  }}
-                />
+              {/* Min / Max Players */}
+              <div className="flex gap-6">
+                <div>
+                  <label
+                    className="mb-1 block text-sm font-medium"
+                    style={{ color: theme.text.secondary }}
+                  >
+                    Min Players
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={editState.minPlayers}
+                    onChange={(e) => update({ minPlayers: e.target.valueAsNumber || 0 })}
+                    onBlur={(e) => { if (!e.target.value || editState.minPlayers < 1) update({ minPlayers: 1 }); }}
+                    className="w-24 rounded-lg border px-3 py-2 text-sm"
+                    style={{
+                      backgroundColor: theme.surfaces.elevated1,
+                      borderColor: theme.surfaces.elevated2,
+                      color: theme.text.primary,
+                    }}
+                  />
+                </div>
+                <div>
+                  <label
+                    className="mb-1 block text-sm font-medium"
+                    style={{ color: theme.text.secondary }}
+                  >
+                    Max Players
+                  </label>
+                  <input
+                    type="number"
+                    min={2}
+                    max={20}
+                    value={editState.maxPlayers}
+                    onChange={(e) => update({ maxPlayers: e.target.valueAsNumber || 0 })}
+                    onBlur={(e) => { if (!e.target.value || editState.maxPlayers < 2) update({ maxPlayers: 2 }); }}
+                    className="w-24 rounded-lg border px-3 py-2 text-sm"
+                    style={{
+                      backgroundColor: theme.surfaces.elevated1,
+                      borderColor: theme.surfaces.elevated2,
+                      color: theme.text.primary,
+                    }}
+                  />
+                </div>
               </div>
 
               {error && (

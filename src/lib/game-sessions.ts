@@ -52,6 +52,7 @@ export interface InviteCodeSegment {
 export interface GameSessionPlayer {
   uid: string;
   gamertag: string;
+  avatarName?: string;
 }
 
 export interface RoundResult {
@@ -173,6 +174,7 @@ export async function createGameSession(
   input: CreateSessionInput,
   userId: string,
   gamertag: string,
+  avatarName?: string,
 ): Promise<GameSession> {
   const {
     doc,
@@ -194,7 +196,7 @@ export async function createGameSession(
     gameLogoURL: input.gameLogoURL,
     inviteCode,
     maxPlayers: input.maxPlayers,
-    players: [{ uid: userId, gamertag }],
+    players: [{ uid: userId, gamertag, ...(avatarName ? { avatarName } : {}) }],
     status: "lobby" as const,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -261,6 +263,7 @@ export async function joinGameSession(
   code: string,
   userId: string,
   gamertag: string,
+  avatarName?: string,
 ): Promise<JoinResult> {
   const { doc, getDoc, updateDoc, arrayUnion, serverTimestamp } =
     await import("firebase/firestore");
@@ -288,12 +291,13 @@ export async function joinGameSession(
       return { ok: false, reason: "full" };
     }
 
+    const playerEntry = { uid: userId, gamertag, ...(avatarName ? { avatarName } : {}) };
     await updateDoc(doc(db, "gameSessions", session.id), {
-      players: arrayUnion({ uid: userId, gamertag }),
+      players: arrayUnion(playerEntry),
       updatedAt: serverTimestamp(),
     });
 
-    session.players.push({ uid: userId, gamertag });
+    session.players.push(playerEntry);
     return { ok: true, session };
   } catch {
     return { ok: false, reason: "error" };

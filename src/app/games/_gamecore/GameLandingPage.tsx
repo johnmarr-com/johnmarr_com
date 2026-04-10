@@ -24,8 +24,20 @@ export interface GameLandingPageProps {
   pulseIcon?: boolean;
   /** Game content info needed for multiplayer session creation */
   multiplayerInput?: CreateSessionInput;
-  /** Side labels for multiplayer (e.g. ["red","white"] or ["p1","p2"]) */
+  /** Side labels for multiplayer (e.g. ["red","white"] or ["p1","p2"]). Only used in versus mode. */
   sideLabels?: [string, string];
+  /** "versus" = 2-player with sides (default). "party" = N-player, no sides. */
+  multiplayerFlowMode?: "versus" | "party";
+  /** Minimum players to enable start in multiplayer. */
+  multiplayerMinPlayers?: number;
+  /** If true, stop background music when leaving the landing page (game starts). */
+  bgMusicLandingOnly?: boolean;
+  /** Extra content injected into the host lobby (above Start button). */
+  lobbyExtra?: React.ReactNode;
+  /** Extra content rendered below the mode buttons on the landing page itself. */
+  landingExtra?: React.ReactNode;
+  /** Min players for this game. When > 1, AI/solo buttons are hidden entirely. */
+  minPlayers?: number;
   onPlay: (mode: GameMode) => void;
   onMultiplayerStart?: (sessionId: string) => void;
 }
@@ -48,6 +60,12 @@ export function GameLandingPage({
   pulseIcon = false,
   multiplayerInput,
   sideLabels,
+  multiplayerFlowMode,
+  multiplayerMinPlayers,
+  bgMusicLandingOnly = false,
+  lobbyExtra,
+  landingExtra,
+  minPlayers = 1,
   onPlay,
   onMultiplayerStart,
 }: GameLandingPageProps) {
@@ -55,9 +73,15 @@ export function GameLandingPage({
   const [mpOpen, setMpOpen] = useState(false);
 
   const musicURL = backgroundMusicURL || (gameSlug ? `/music/${gameSlug}.mp3` : null);
-  const { ensurePlaying } = useGameMusic({ url: musicURL, volume: backgroundMusicVolume });
+  const { ensurePlaying } = useGameMusic({
+    url: musicURL,
+    volume: backgroundMusicVolume,
+    stopOnUnmount: bgMusicLandingOnly,
+  });
 
-  const allModes: GameMode[] = ["ai", "friends"];
+  const allModes: GameMode[] = minPlayers > 1
+    ? ["friends"]
+    : ["ai", "friends"];
 
   return (
     <div className="fixed inset-0 flex flex-col bg-black">
@@ -85,9 +109,9 @@ export function GameLandingPage({
         className="flex w-full flex-col items-center"
         style={{ maxWidth: 600, padding: "0 50px" }}
       >
-        {/* Splash Logo — 2:1 aspect, gentle float animation */}
+        {/* Splash Logo — 2:1 aspect, gentle float animation, pulled closer to icon */}
         {splashLogoURL && (
-          <div className="w-full animate-game-float">
+          <div className="w-full animate-game-float -mb-6">
             <div className="relative w-full" style={{ aspectRatio: "2 / 1" }}>
               <Image
                 src={splashLogoURL}
@@ -107,13 +131,13 @@ export function GameLandingPage({
             className={pulseIcon ? "w-full animate-icon-pulse" : "w-full"}
             style={{ padding: iconPadding }}
           >
-            <div className="relative w-full" style={{ aspectRatio: "4 / 3" }}>
+            <div className="relative w-full overflow-hidden rounded-[12%]" style={{ aspectRatio: "4 / 3" }}>
               <Image
                 src={splashIconURL}
                 alt=""
                 fill
                 sizes="(max-width: 640px) 70vw, 400px"
-                className="rounded-[12%] object-cover"
+                className="object-cover"
                 priority
               />
             </div>
@@ -161,6 +185,13 @@ export function GameLandingPage({
       </div>
       </div>
 
+      {/* Landing extras (e.g. Create Missions) — top-right corner */}
+      {landingExtra && (
+        <div className="absolute right-4 top-28 z-15">
+          {landingExtra}
+        </div>
+      )}
+
       {/* Multiplayer dialog */}
       {multiplayerInput && (
         <GameMultiplayerFlow
@@ -168,6 +199,9 @@ export function GameLandingPage({
           onOpenChange={setMpOpen}
           gameInput={multiplayerInput}
           {...(sideLabels ? { sideLabels } : {})}
+          {...(multiplayerFlowMode ? { flowMode: multiplayerFlowMode } : {})}
+          {...(multiplayerMinPlayers != null ? { minPlayers: multiplayerMinPlayers } : {})}
+          lobbyExtra={lobbyExtra}
           onGameStart={(sessionId) => {
             setMpOpen(false);
             PointsManager.award(Activity.PLAY_GAME);

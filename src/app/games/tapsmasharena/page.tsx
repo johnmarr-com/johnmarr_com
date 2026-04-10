@@ -64,6 +64,7 @@ export default function TapSmashArenaPage() {
       {...splashProps}
       gameSlug="tapsmasharena"
       enabledModes={["ai", "friends"]}
+      {...(gameData?.minPlayers != null ? { minPlayers: gameData.minPlayers } : {})}
       iconPadding={10}
       pulseIcon
       {...(multiplayerInput ? { multiplayerInput } : {})}

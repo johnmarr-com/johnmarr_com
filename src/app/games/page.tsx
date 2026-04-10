@@ -14,7 +14,7 @@ import {
 export default function GamesPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user, gamertag, isLoading: authLoading } = useAuth();
+  const { user, gamertag, avatarName, isLoading: authLoading } = useAuth();
 
   const inviteCode = searchParams.get("inviteCode");
 
@@ -52,6 +52,7 @@ export default function GamesPage() {
           inviteCode!,
           user!.uid,
           gamertag!,
+          avatarName ?? undefined,
         );
 
         if (cancelled) return;
@@ -82,7 +83,7 @@ export default function GamesPage() {
     return () => {
       cancelled = true;
     };
-  }, [inviteCode, user, gamertag, authLoading, router]);
+  }, [inviteCode, user, gamertag, avatarName, authLoading, router]);
 
   if (!inviteCode) {
     router.replace("/");
