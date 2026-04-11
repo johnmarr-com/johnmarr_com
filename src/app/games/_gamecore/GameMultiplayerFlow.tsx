@@ -578,21 +578,33 @@ export function GameMultiplayerFlow({
               {/* Game-specific lobby extras */}
               {lobbyExtra}
 
+              {/* Error message (hosting step) */}
+              {error && (
+                <p className="text-center text-base font-medium text-red-400">
+                  {error}
+                </p>
+              )}
+
               {/* Start button */}
               <button
                 onClick={async () => {
                   if (!session || session.players.length < effectiveMinPlayers) return;
-                  const sides: Record<string, string> = {};
-                  if (flowMode === "versus") {
-                    sides[session.players[0]!.uid] = sideLabels[0];
-                    sides[session.players[1]!.uid] = sideLabels[1];
-                  } else {
-                    session.players.forEach((p, i) => {
-                      sides[p.uid] = `player-${i + 1}`;
-                    });
+                  setError(null);
+                  try {
+                    const sides: Record<string, string> = {};
+                    if (flowMode === "versus") {
+                      sides[session.players[0]!.uid] = sideLabels[0];
+                      sides[session.players[1]!.uid] = sideLabels[1];
+                    } else {
+                      session.players.forEach((p, i) => {
+                        sides[p.uid] = `player-${i + 1}`;
+                      });
+                    }
+                    await startGame(session.id, sides);
+                    onGameStart(session.id);
+                  } catch {
+                    setError("Failed to start game. Please try again.");
                   }
-                  await startGame(session.id, sides);
-                  onGameStart(session.id);
                 }}
                 disabled={!canStart}
                 className={`

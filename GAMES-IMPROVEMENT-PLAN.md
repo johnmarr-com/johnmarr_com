@@ -102,8 +102,9 @@ The Start Game button's async `onClick` has no try/catch. Similar patterns exist
 in a few other places.
 
 ### Tasks
-- [ ] Wrap the Start Game handler in try/catch and surface errors via the existing `error` state.
-- [ ] Audit other async click handlers in `GameMultiplayerFlow` for the same issue.
+- [x] Wrap the Start Game handler in try/catch and surface errors via the existing `error` state.
+- [x] Add error text display on the hosting step (was only on choice/joining steps).
+- [x] Audit other async click handlers in `GameMultiplayerFlow` for the same issue.
 - [ ] Consider surfacing AI failures to the user (e.g. "AI couldn't respond, using random move") instead of silently falling back.
 
 ---
