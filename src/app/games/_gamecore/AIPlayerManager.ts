@@ -45,13 +45,26 @@ async function fetchAIRace(body: Record<string, unknown>): Promise<{ text: strin
   }
 }
 
+function wrapWithPersona(gamePrompt: string, personaPrompt?: string, personaVoice?: string): string {
+  if (!personaPrompt && !personaVoice) return gamePrompt;
+
+  let wrapped = gamePrompt;
+  if (personaPrompt) {
+    wrapped = `You are playing a game as an agentic player. This is your player identity:\n\n${personaPrompt}\n\nThis is the current game situation. Consider these details, and make a decision in line with your given identity:\n\n${gamePrompt}`;
+  }
+  if (personaVoice) {
+    wrapped += `\n\nIMPORTANT — All communication must be brief and written in this voice/style: ${personaVoice}`;
+  }
+  return wrapped;
+}
+
 /**
  * Sends a prompt to the AI and parses a structured move response.
  * Fires 2 parallel requests and takes the first valid one.
  */
-export async function simpleMove(prompt: string): Promise<AIMoveResult> {
+export async function simpleMove(prompt: string, personaPrompt?: string, personaVoice?: string): Promise<AIMoveResult> {
   try {
-    const { text } = await fetchAIRace({ prompt, type: "move" });
+    const { text } = await fetchAIRace({ prompt: wrapWithPersona(prompt, personaPrompt, personaVoice), type: "move" });
     if (!text) return { action: "", reason: "" };
 
     const reasonMatch = text.match(/REASONING:\s*([\s\S]+?)(?=\nACTION:)/i);
@@ -70,9 +83,9 @@ export async function simpleMove(prompt: string): Promise<AIMoveResult> {
  * Sends a prompt to the AI for a post-game comment.
  * Fires 2 parallel requests and takes the first valid one.
  */
-export async function postGameComment(prompt: string): Promise<AICommentResult> {
+export async function postGameComment(prompt: string, personaPrompt?: string, personaVoice?: string): Promise<AICommentResult> {
   try {
-    const { text } = await fetchAIRace({ prompt, type: "comment" });
+    const { text } = await fetchAIRace({ prompt: wrapWithPersona(prompt, personaPrompt, personaVoice), type: "comment" });
     return { comment: text || "" };
   } catch {
     return { comment: "" };

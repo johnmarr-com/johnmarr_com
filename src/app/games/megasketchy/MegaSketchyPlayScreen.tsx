@@ -6,7 +6,7 @@ import { SketchCanvas, type SketchCanvasRef, GamePrimaryButton, GameStatusMessag
 import { uploadSketch } from "@/lib/game-sketches";
 import type { ChainEntry, PlayerTask } from "./chainEngine";
 
-interface SketchinessPlayScreenProps {
+interface MegaSketchyPlayScreenProps {
   sessionId: string;
   task: PlayerTask | null;
   queueLength: number;
@@ -16,7 +16,7 @@ interface SketchinessPlayScreenProps {
   round: number;
 }
 
-export default function SketchinessPlayScreen({
+export default function MegaSketchyPlayScreen({
   sessionId,
   task,
   queueLength,
@@ -24,7 +24,7 @@ export default function SketchinessPlayScreen({
   onTransmit,
   userId,
   round,
-}: SketchinessPlayScreenProps) {
+}: MegaSketchyPlayScreenProps) {
   const canvasRef = useRef<SketchCanvasRef>(null);
   const [textGuess, setTextGuess] = useState("");
   const [sending, setSending] = useState(false);

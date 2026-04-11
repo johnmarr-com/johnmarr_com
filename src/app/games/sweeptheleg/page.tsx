@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import { GameLandingPage, type GameMode } from "../_gamecore";
+import { GameLandingPage, type GameMode, type AIPersona } from "../_gamecore";
 import { useAuth } from "@/lib/AuthProvider";
 import { getContentBySlug } from "@/lib/content";
 import type { JMContent } from "@/lib/content-types";
@@ -17,6 +17,7 @@ export default function SweepTheLegPage() {
   const [mode, setMode] = useState<GameMode | null>(initialSessionId ? "friends" : null);
   const [sessionId, setSessionId] = useState<string | null>(initialSessionId);
   const [gameData, setGameData] = useState<JMContent | null>(null);
+  const [aiOpponent, setAiOpponent] = useState<AIPersona | null>(null);
   const autoJoinRef = useRef(false);
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export default function SweepTheLegPage() {
       <SweepTheLegGame
         mode={mode}
         gameSlug="sweeptheleg"
+        {...(aiOpponent ? { aiPersona: aiOpponent } : {})}
         {...(gameData?.splashLogoURL ? { splashLogoURL: gameData.splashLogoURL } : {})}
         {...(gameData?.splashBgURL ? { splashBgURL: gameData.splashBgURL } : {})}
         {...(gameData?.backgroundMusicURL ? { backgroundMusicURL: gameData.backgroundMusicURL } : {})}
@@ -79,12 +81,15 @@ export default function SweepTheLegPage() {
     <GameLandingPage
       {...splashProps}
       gameSlug="sweeptheleg"
-      enabledModes={["ai", "friends"]}
       subtitle={gameData?.subtitle}
       {...(gameData?.minPlayers != null ? { minPlayers: gameData.minPlayers } : {})}
       maxPlayers={gameData?.maxPlayers ?? 2}
+      allowAI
       {...(multiplayerInput ? { multiplayerInput } : {})}
-      onPlay={(m) => setMode(m)}
+      onSoloVsAI={(persona) => {
+        setAiOpponent(persona);
+        setMode("ai");
+      }}
       onMultiplayerStart={(sid) => {
         setSessionId(sid);
         setMode("friends");

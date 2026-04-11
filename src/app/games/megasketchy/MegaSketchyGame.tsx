@@ -6,23 +6,22 @@ import Image from "next/image";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
 import { useGameMusic, GameGamertagBadge, GameSectionHeader, GamePrimaryButton, GameStatusMessage } from "../_gamecore";
-import { useSketchinessSession, updateSessionFields } from "./useSketchinessSession";
+import { useMegaSketchySession, updateSessionFields } from "./useMegaSketchySession";
 import { buildInitialChains, type ChainEntry } from "./chainEngine";
 
-import { getMission, missionToSecretMessage } from "@/lib/sketchiness-missions";
-import type { SketchinessMission } from "@/lib/sketchiness-missions";
+import { getMission, missionToSecretMessage } from "@/lib/megasketchy-missions";
+import type { MegaSketchyMission } from "@/lib/megasketchy-missions";
 import { processAiQueue } from "./aiPlayer";
-import SketchinessBriefing from "./SketchinessBriefing";
-import SketchinessPlayScreen from "./SketchinessPlayScreen";
-import SketchinessMadLibs from "./SketchinessMadLibs";
-import SketchinessReveal from "./SketchinessReveal";
-import SketchinessScoring from "./SketchinessScoring";
-import SketchinessVoting from "./SketchinessVoting";
-import SketchinessShare from "./SketchinessShare";
+import { isAiPlayer } from "./aiConstants";
+import MegaSketchyBriefing from "./MegaSketchyBriefing";
+import MegaSketchyPlayScreen from "./MegaSketchyPlayScreen";
+import MegaSketchyMadLibs from "./MegaSketchyMadLibs";
+import MegaSketchyReveal from "./MegaSketchyReveal";
+import MegaSketchyScoring from "./MegaSketchyScoring";
+import MegaSketchyVoting from "./MegaSketchyVoting";
+import MegaSketchyShare from "./MegaSketchyShare";
 
-const AI_PLAYER_ID = "ai-silicon";
-
-interface SketchinessGameProps {
+interface MegaSketchyGameProps {
   sessionId: string;
   gameSlug: string;
   splashBgURL?: string;
@@ -41,7 +40,7 @@ function shuffleArray<T>(arr: T[]): T[] {
   return out;
 }
 
-export default function SketchinessGame({
+export default function MegaSketchyGame({
   sessionId,
   gameSlug,
   splashBgURL,
@@ -49,7 +48,7 @@ export default function SketchinessGame({
   backgroundMusicURL,
   backgroundMusicVolume = 0.3,
   bgMusicLandingOnly = false,
-}: SketchinessGameProps) {
+}: MegaSketchyGameProps) {
   const { user } = useAuth();
   const router = useRouter();
   const userId = user?.uid ?? "";
@@ -67,31 +66,26 @@ export default function SketchinessGame({
     chainsComplete,
     transmit,
     setPhase,
-  } = useSketchinessSession({ sessionId, userId });
+  } = useMegaSketchySession({ sessionId, userId });
 
   const kicked = session?.kickedUids?.includes(userId) ?? false;
 
   const setupRef = useRef(false);
 
   // Host: when lobby phase, determine play order and advance to briefing
+  // AI players are already in session.players from the lobby — just shuffle everyone
   useEffect(() => {
     if (!isHost || !session || session.status !== "playing") return;
     if (skState.skPhase !== "lobby" || setupRef.current) return;
     setupRef.current = true;
 
-    const players = session.players;
-    const order = shuffleArray(players.map((p) => p.uid));
-    let aiPlayerId: string | null = null;
-
-    if (order.length % 2 !== 0) {
-      aiPlayerId = AI_PLAYER_ID;
-      order.push(AI_PLAYER_ID); // default to last; host can reorder in briefing
-    }
+    const order = shuffleArray(session.players.map((p) => p.uid));
+    const firstAi = order.find(isAiPlayer) ?? null;
 
     updateSessionFields(sessionId, {
       skPhase: "briefing",
       playOrder: order,
-      aiPlayerId,
+      aiPlayerId: firstAi,
       message: null,
       chains: {},
       gameMode: "basic",
@@ -110,15 +104,18 @@ export default function SketchinessGame({
     setPhase("madlibs");
   }, [isHost, skState.skPhase, chainsComplete, setPhase]);
 
-  // Host: process AI player queue
+  // Host: process AI player queue (all AI players in playOrder)
   const aiProcessingRef = useRef(false);
   useEffect(() => {
     if (!isHost || skState.skPhase !== "active" || !skState.aiPlayerId) return;
     if (aiProcessingRef.current) return;
 
+    const aiIds = skState.playOrder.filter(isAiPlayer);
+    if (aiIds.length === 0) return;
+
     aiProcessingRef.current = true;
     processAiQueue(
-      skState.aiPlayerId,
+      aiIds,
       sessionId,
       skState.chains,
       skState.playOrder,
@@ -139,7 +136,7 @@ export default function SketchinessGame({
 
   // Host-only: "Begin Mission" from briefing — fetch mission, build chains, go active
   const handleBriefingReady = useCallback(
-    async (selectedMission: SketchinessMission | null) => {
+    async (selectedMission: MegaSketchyMission | null) => {
       if (!isHost || !selectedMission) return;
 
       const playerCount = skState.playOrder.length;
@@ -174,13 +171,26 @@ export default function SketchinessGame({
   const handleScoringComplete = useCallback(
     async () => {
       if (!isHost) return;
+
+      // Record AI stats: mission pass = win, fail = loss
+      const aiUids = session?.players.filter((p) => isAiPlayer(p.uid)) ?? [];
+      if (aiUids.length > 0) {
+        const passed = skState.scoringResult?.passed ?? false;
+        import("@/lib/ai-personas").then(({ recordAIGameResult }) => {
+          for (const ap of aiUids) {
+            const personaDocId = ap.uid.replace(/^ai-/, "");
+            recordAIGameResult(personaDocId, passed).catch(() => {});
+          }
+        });
+      }
+
       if (skState.gameMode === "advanced" || skState.gameMode === "expert") {
         await updateSessionFields(sessionId, { skPhase: "voting" });
       } else {
         await updateSessionFields(sessionId, { skPhase: "done" });
       }
     },
-    [isHost, skState.gameMode, sessionId],
+    [isHost, skState.gameMode, skState.scoringResult, sessionId, session?.players],
   );
 
   // Player action: cast a vote
@@ -263,10 +273,9 @@ export default function SketchinessGame({
 
     case "briefing":
       phaseContent = (
-        <SketchinessBriefing
+        <MegaSketchyBriefing
           players={session.players}
           playOrder={skState.playOrder}
-          aiPlayerId={skState.aiPlayerId}
           onReady={handleBriefingReady}
           onReorder={handleReorder}
           isHost={isHost}
@@ -276,7 +285,7 @@ export default function SketchinessGame({
 
     case "active":
       phaseContent = (
-        <SketchinessPlayScreen
+        <MegaSketchyPlayScreen
           key={currentTask ? `${currentTask.elementIndex}-${currentTask.stepIndex}` : "waiting"}
           sessionId={sessionId}
           task={currentTask}
@@ -292,7 +301,7 @@ export default function SketchinessGame({
     case "madlibs":
       if (!skState.message) break;
       phaseContent = (
-        <SketchinessMadLibs
+        <MegaSketchyMadLibs
           sessionId={sessionId}
           chains={skState.chains}
           message={skState.message}
@@ -306,10 +315,9 @@ export default function SketchinessGame({
     case "reveal":
       if (!skState.message) break;
       phaseContent = (
-        <SketchinessReveal
+        <MegaSketchyReveal
           players={session.players}
           playOrder={skState.playOrder}
-          aiPlayerId={skState.aiPlayerId}
           chains={skState.chains}
           message={skState.message}
           onProceed={handleRevealProceed}
@@ -321,7 +329,7 @@ export default function SketchinessGame({
     case "scoring":
       if (!skState.message) break;
       phaseContent = (
-        <SketchinessScoring
+        <MegaSketchyScoring
           sessionId={sessionId}
           chains={skState.chains}
           message={skState.message}
@@ -335,10 +343,9 @@ export default function SketchinessGame({
 
     case "voting":
       phaseContent = (
-        <SketchinessVoting
+        <MegaSketchyVoting
           players={session.players}
           playOrder={skState.playOrder}
-          aiPlayerId={skState.aiPlayerId}
           userId={userId}
           moleId={skState.moleId}
           votes={skState.votes}
@@ -377,10 +384,9 @@ export default function SketchinessGame({
 
     case "share":
       phaseContent = (
-        <SketchinessShare
+        <MegaSketchyShare
           players={session.players}
           playOrder={skState.playOrder}
-          aiPlayerId={skState.aiPlayerId}
           chains={skState.chains}
           userId={userId}
           isHost={isHost}

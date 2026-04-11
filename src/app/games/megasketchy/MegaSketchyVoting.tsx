@@ -6,11 +6,11 @@ import { JMBannerText } from "@/JMKit";
 import JMAvatarView from "@/JMKit/JMAvatarView";
 import { GamePrimaryButton } from "../_gamecore";
 import type { GameSessionPlayer } from "@/lib/game-sessions";
+import { isAiPlayer } from "./aiConstants";
 
-interface SketchinessVotingProps {
+interface MegaSketchyVotingProps {
   players: GameSessionPlayer[];
   playOrder: string[];
-  aiPlayerId: string | null;
   userId: string;
   moleId: string | null;
   votes: Record<string, string>;
@@ -19,21 +19,20 @@ interface SketchinessVotingProps {
   isHost: boolean;
 }
 
-export default function SketchinessVoting({
+export default function MegaSketchyVoting({
   players,
   playOrder,
-  aiPlayerId,
   userId,
   moleId,
   votes,
   onVote,
   onProceed,
   isHost,
-}: SketchinessVotingProps) {
+}: MegaSketchyVotingProps) {
   const [voting, setVoting] = useState(false);
   const hasVoted = !!votes[userId];
 
-  const humanPlayers = playOrder.filter((uid) => uid !== aiPlayerId);
+  const humanPlayers = playOrder.filter((uid) => !isAiPlayer(uid));
   const totalVoters = humanPlayers.length;
   const totalVotes = Object.keys(votes).length;
   const allVotesIn = totalVotes >= totalVoters;
@@ -62,12 +61,11 @@ export default function SketchinessVoting({
   const moleFound = topVoted === moleId;
 
   const getPlayerName = (uid: string) => {
-    if (uid === aiPlayerId) return "Agent SILICON";
     return players.find((p) => p.uid === uid)?.gamertag ?? "Unknown";
   };
 
   const getPlayerAvatar = (uid: string) => {
-    if (uid === aiPlayerId) return undefined;
+    if (isAiPlayer(uid)) return undefined;
     return players.find((p) => p.uid === uid)?.avatarName;
   };
 
@@ -101,11 +99,11 @@ export default function SketchinessVoting({
                         : "border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-50"
                     }`}
                   >
-                    <div className="h-9 w-9 shrink-0">
+                    <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full">
                       {getPlayerAvatar(uid) ? (
                         <JMAvatarView width={36} avatarName={getPlayerAvatar(uid)!} />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white/70">
+                        <div className="flex h-full w-full items-center justify-center bg-white/10 text-sm font-bold text-white/70">
                           {getPlayerName(uid).charAt(0).toUpperCase()}
                         </div>
                       )}
@@ -139,11 +137,11 @@ export default function SketchinessVoting({
                     uid === topVoted ? "border-red-400/40 bg-red-400/10" : "border-white/5 bg-white/5"
                   }`}
                 >
-                  <div className="h-8 w-8">
+                  <div className="h-8 w-8 overflow-hidden rounded-full">
                     {getPlayerAvatar(uid) ? (
                       <JMAvatarView width={32} avatarName={getPlayerAvatar(uid)!} />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white/70">
+                      <div className="flex h-full w-full items-center justify-center bg-white/10 text-sm font-bold text-white/70">
                         {getPlayerName(uid).charAt(0).toUpperCase()}
                       </div>
                     )}

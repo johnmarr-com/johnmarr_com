@@ -7,15 +7,15 @@ import {
   getOfficialMissions,
   getMyMissions,
   getSharedMissions,
-  type SketchinessMission,
-} from "@/lib/sketchiness-missions";
+  type MegaSketchyMission,
+} from "@/lib/megasketchy-missions";
 import MissionDetailView from "./missions/MissionDetailView";
 
 type SubTab = "official" | "my" | "shared";
 
 interface MissionPickerProps {
   playerCount: number;
-  onSelect: (mission: SketchinessMission) => void;
+  onSelect: (mission: MegaSketchyMission) => void;
   onClose: () => void;
 }
 
@@ -28,11 +28,11 @@ export default function MissionPicker({
   const canCreate = isAdmin || userTier === "pro";
 
   const [subTab, setSubTab] = useState<SubTab>("official");
-  const [officialList, setOfficialList] = useState<SketchinessMission[]>([]);
-  const [myList, setMyList] = useState<SketchinessMission[]>([]);
-  const [sharedList, setSharedList] = useState<SketchinessMission[]>([]);
+  const [officialList, setOfficialList] = useState<MegaSketchyMission[]>([]);
+  const [myList, setMyList] = useState<MegaSketchyMission[]>([]);
+  const [sharedList, setSharedList] = useState<MegaSketchyMission[]>([]);
   const [loading, setLoading] = useState(true);
-  const [detailMission, setDetailMission] = useState<SketchinessMission | null>(null);
+  const [detailMission, setDetailMission] = useState<MegaSketchyMission | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,7 +60,7 @@ export default function MissionPicker({
   }, [user]);
 
   const filterByCount = useCallback(
-    (list: SketchinessMission[]) => list.filter((m) => m.maxPlayers >= playerCount),
+    (list: MegaSketchyMission[]) => list.filter((m) => m.maxPlayers >= playerCount),
     [playerCount],
   );
 
@@ -70,7 +70,7 @@ export default function MissionPicker({
   }, [subTab, officialList, myList, sharedList, filterByCount]);
 
   const handleSelect = useCallback(
-    (mission: SketchinessMission) => {
+    (mission: MegaSketchyMission) => {
       onSelect(mission);
     },
     [onSelect],

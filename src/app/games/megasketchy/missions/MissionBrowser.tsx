@@ -8,8 +8,8 @@ import {
   getMyMissions,
   getSharedMissions,
   deleteMission,
-  type SketchinessMission,
-} from "@/lib/sketchiness-missions";
+  type MegaSketchyMission,
+} from "@/lib/megasketchy-missions";
 import MissionDetailView from "./MissionDetailView";
 
 type SubTab = "official" | "my" | "shared";
@@ -17,7 +17,7 @@ type SortKey = "date" | "name" | "maxPlayers";
 
 interface MissionBrowserProps {
   /** Called when user wants to edit a mission from My Missions */
-  onEdit?: ((mission: SketchinessMission) => void) | undefined;
+  onEdit?: ((mission: MegaSketchyMission) => void) | undefined;
   /** Called when a copy is created (to refresh lists) */
   onCopied?: (() => void) | undefined;
 }
@@ -29,11 +29,11 @@ export default function MissionBrowser({ onEdit, onCopied }: MissionBrowserProps
   const [subTab, setSubTab] = useState<SubTab>("official");
   const [sortKey, setSortKey] = useState<SortKey>("date");
 
-  const [officialList, setOfficialList] = useState<SketchinessMission[]>([]);
-  const [myList, setMyList] = useState<SketchinessMission[]>([]);
-  const [sharedList, setSharedList] = useState<SketchinessMission[]>([]);
+  const [officialList, setOfficialList] = useState<MegaSketchyMission[]>([]);
+  const [myList, setMyList] = useState<MegaSketchyMission[]>([]);
+  const [sharedList, setSharedList] = useState<MegaSketchyMission[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<SketchinessMission | null>(null);
+  const [selected, setSelected] = useState<MegaSketchyMission | null>(null);
 
   const loadAll = useCallback(async () => {
     setLoading(true);

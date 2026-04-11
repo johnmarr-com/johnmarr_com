@@ -161,7 +161,7 @@
       "density": "SPARSE_ALL"
     },
     {
-      "collectionGroup": "sketchinessMissions",
+      "collectionGroup": "megasketchyMissions",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "visibility", "order": "ASCENDING" },
@@ -170,7 +170,7 @@
       "density": "SPARSE_ALL"
     },
     {
-      "collectionGroup": "sketchinessMissions",
+      "collectionGroup": "megasketchyMissions",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "creatorId", "order": "ASCENDING" },
@@ -202,6 +202,15 @@
       "fields": [
         { "fieldPath": "playerUids", "arrayConfig": "CONTAINS" },
         { "fieldPath": "status", "order": "ASCENDING" }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "aiPersonas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "order", "order": "ASCENDING" }
       ],
       "density": "SPARSE_ALL"
     }

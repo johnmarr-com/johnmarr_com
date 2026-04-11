@@ -7,8 +7,8 @@ export async function GET() {
     const publicAvatarsDir = join(process.cwd(), 'public', 'avatars');
     const files = await readdir(publicAvatarsDir);
     
-    // Filter for JSON files only
-    const jsonFiles = files.filter(file => file.endsWith('.json'));
+    // Filter for JSON files, excluding AI-custom recolors
+    const jsonFiles = files.filter(file => file.endsWith('.json') && !file.includes('-custom~~'));
     
     // Return array of file objects with name and file path
     const avatars = jsonFiles.map(file => ({
@@ -50,6 +50,29 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error renaming file:', error);
     return NextResponse.json({ error: 'Failed to rename file' }, { status: 500 });
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const { filename, json } = await request.json();
+
+    if (!filename || !json) {
+      return NextResponse.json({ error: 'filename and json are required' }, { status: 400 });
+    }
+
+    const safe = filename.replace(/[^a-zA-Z0-9_~|.-]/g, '');
+    const withExt = safe.endsWith('.json') ? safe : `${safe}.json`;
+    const avatarsDir = join(process.cwd(), 'public', 'avatars');
+    const filePath = join(avatarsDir, withExt);
+
+    const { writeFile } = await import('fs/promises');
+    await writeFile(filePath, JSON.stringify(json), 'utf-8');
+
+    return NextResponse.json({ message: 'Saved', filename: withExt });
+  } catch (error) {
+    console.error('Error saving avatar:', error);
+    return NextResponse.json({ error: 'Failed to save avatar' }, { status: 500 });
   }
 }
 

@@ -9,12 +9,13 @@ import { JMLiquidLoader } from './JMLiquidLoader';
 interface JMAvatarViewProps {
   width: number;
   avatarName: string;
-  responsive?: boolean; // If true, ignore width and fill container
-  fullFilename?: string; // Full filename with ID for loading
-  interactive?: boolean; // If true, allow pointer events for interaction
+  responsive?: boolean;
+  fullFilename?: string;
+  interactive?: boolean;
+  scaleOverride?: number;
 }
 
-export default function JMAvatarView({ width, avatarName, responsive = false, fullFilename, interactive = false }: JMAvatarViewProps) {
+export default function JMAvatarView({ width, avatarName, responsive = false, fullFilename, interactive = false, scaleOverride }: JMAvatarViewProps) {
   const [animationData, setAnimationData] = useState<object | null>(null);
   const [isLoading, setIsLoading] = useState(false); // Start as false for lazy loading
   const [hasError, setHasError] = useState(false);
@@ -29,9 +30,8 @@ export default function JMAvatarView({ width, avatarName, responsive = false, fu
   // Calculate circle size (90% of width)
   const circleSize = width * 0.9;
 
-  // Extract avatar ID and get scale modifier
   const avatarId = extractAvatarId(fullFilename || avatarName);
-  const scaleModifier = avatarId ? getAvatarScale(avatarId) : 1.0;
+  const scaleModifier = scaleOverride ?? (avatarId ? getAvatarScale(avatarId) : 1.0);
 
   // Intersection Observer for visibility detection
   useEffect(() => {

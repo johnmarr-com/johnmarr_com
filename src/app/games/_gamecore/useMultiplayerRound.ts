@@ -9,6 +9,7 @@ import {
   type RoundResult,
   type WriteRoundInput,
 } from "@/lib/game-sessions";
+import { isAiPlayer } from "./aiPersonas";
 
 export type MpPhase = "waiting" | "submitted" | "resolving" | "animating";
 
@@ -113,9 +114,23 @@ export function useMultiplayerRound({
         ...(output.extras ? { extras: output.extras } : {}),
       };
 
-      writeRoundResult(session.id, input).catch(() => {
-        resolvedRoundRef.current = currentRound - 1;
-      });
+      writeRoundResult(session.id, input)
+        .then(() => {
+          if (output.gameOver && output.winner) {
+            const aiPlayers = session.players.filter((p) => isAiPlayer(p.uid));
+            if (aiPlayers.length > 0) {
+              import("@/lib/ai-personas").then(({ recordAIGameResult }) => {
+                for (const ap of aiPlayers) {
+                  const personaDocId = ap.uid.replace(/^ai-/, "");
+                  recordAIGameResult(personaDocId, ap.uid === output.winner).catch(() => {});
+                }
+              });
+            }
+          }
+        })
+        .catch(() => {
+          resolvedRoundRef.current = currentRound - 1;
+        });
     }
   }, [session, isHost]);
 

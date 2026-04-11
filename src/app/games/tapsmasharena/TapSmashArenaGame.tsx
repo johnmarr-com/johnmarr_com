@@ -2,8 +2,8 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useJMStyle } from "@/JMStyle";
-import { JMBannerText, JMChampionPicker, type ChampionOption } from "@/JMKit";
-import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, GameGamertagBadge, type GameMode, type ResolverOutput } from "../_gamecore";
+import { JMBannerText, JMChampionPicker, JMGameScoreboard, type ChampionOption } from "@/JMKit";
+import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, GameGamertagBadge, type GameMode, type ResolverOutput, type AIPersona } from "../_gamecore";
 import { useAuth } from "@/lib/AuthProvider";
 import { startGame, type GameSession } from "@/lib/game-sessions";
 
@@ -180,6 +180,7 @@ export default function TapSmashArenaGame({
   backgroundMusicURL,
   backgroundMusicVolume,
   sessionId: sessionIdProp,
+  aiPersona,
 }: {
   splashBgURL?: string;
   mode?: GameMode;
@@ -187,9 +188,10 @@ export default function TapSmashArenaGame({
   backgroundMusicURL?: string;
   backgroundMusicVolume?: number;
   sessionId?: string;
+  aiPersona?: AIPersona;
 }) {
   const { theme } = useJMStyle();
-  const { user } = useAuth();
+  const { user, gamertag: myTag } = useAuth();
 
   const musicURL = backgroundMusicURL || (gameSlug ? `/music/${gameSlug}.mp3` : null);
   const { ensurePlaying, connectVideo } = useGameMusic({ url: musicURL, volume: backgroundMusicVolume ?? 0.3 });
@@ -217,6 +219,9 @@ export default function TapSmashArenaGame({
   const sideRef = useRef<PlayerSide>("p1");
   const historyRef = useRef<MoveRecord[]>([]);
   const prefetchRef = useRef<Promise<{ attack: Attack; reasoning: string }> | null>(null);
+  const personaPrompt = aiPersona?.prompt || undefined;
+  const personaVoice = aiPersona?.voice || undefined;
+  const aiName = aiPersona?.name || "AI";
 
   // ─── Multiplayer resolver ───
   const tsaResolver = useCallback(
@@ -519,7 +524,7 @@ export default function TapSmashArenaGame({
 
   const fetchAiMove = useCallback((): Promise<{ attack: Attack; reasoning: string }> => {
     const prompt = buildMovePrompt(historyRef.current);
-    return simpleMove(prompt)
+    return simpleMove(prompt, personaPrompt, personaVoice)
       .then(({ action, reason }) => {
         const attack = parseAttackFromAction(action);
         if (attack) return { attack, reasoning: reason };
@@ -529,7 +534,7 @@ export default function TapSmashArenaGame({
         attack: ATTACKS[Math.floor(Math.random() * ATTACKS.length)]!,
         reasoning: "",
       }));
-  }, []);
+  }, [personaPrompt, personaVoice]);
 
   const resolveRound = useCallback(
     (playerAttack: Attack, cpuAttack: Attack, aiReason?: string) => {
@@ -574,10 +579,18 @@ export default function TapSmashArenaGame({
 
       if (mode === "ai" && gameOver) {
         const playerWon = rw === "owner";
-        const prompt = buildPostGamePrompt(historyRef.current, !playerWon);
-        postGameComment(prompt)
+        const aiWon = !playerWon;
+        const prompt = buildPostGamePrompt(historyRef.current, aiWon);
+        postGameComment(prompt, personaPrompt, personaVoice)
           .then(({ comment }) => { if (comment) setAiPostGame(comment); })
           .catch(() => {});
+
+        if (aiPersona) {
+          const docId = aiPersona.id.replace(/^ai-/, "");
+          import("@/lib/ai-personas").then(({ recordAIGameResult }) => {
+            recordAIGameResult(docId, aiWon).catch(() => {});
+          });
+        }
       }
 
       setWaitingForBattle(false);
@@ -609,7 +622,7 @@ export default function TapSmashArenaGame({
         },
       });
     },
-    [playChapter, setP, mode, fetchAiMove],
+    [playChapter, setP, mode, fetchAiMove, personaPrompt, personaVoice, aiPersona],
   );
 
   const handleAttack = useCallback(
@@ -645,20 +658,19 @@ export default function TapSmashArenaGame({
     [mode, isFriends, setP, resolveRound, mpSubmitMove, ensurePlaying],
   );
 
-  const sideColor = playerSide === "p1" ? "#3b82f6" : "#f97316";
-
-  // Scoreboard labels
   const youIsP1 = playerSide === "p1";
+  const playerTag = myTag || "YOU";
   const leftLabel = youIsP1
-    ? "YOU"
+    ? playerTag
     : isFriends && opponentGamertag
       ? opponentGamertag
-      : mode === "ai" ? "AI" : "P1";
+      : mode === "ai" ? aiName : "P1";
   const rightLabel = !youIsP1
-    ? "YOU"
+    ? playerTag
     : isFriends && opponentGamertag
       ? opponentGamertag
-      : mode === "ai" ? "AI" : "P2";
+      : mode === "ai" ? aiName : "P2";
+  const sideColor = youIsP1 ? "#3b82f6" : "#f97316";
 
   return (
     <div className="relative flex h-dvh flex-col bg-black">
@@ -679,7 +691,8 @@ export default function TapSmashArenaGame({
                 src="/video/Tap-Smash-Arena.mp4"
                 playsInline
                 preload="auto"
-                className="block h-full w-full object-cover"
+                className="block h-full w-full object-cover opacity-0 transition-opacity duration-500"
+                onLoadedData={(e) => { (e.target as HTMLVideoElement).classList.remove("opacity-0"); }}
               />
 
               {/* Idle overlay — friends mode waiting for session */}
@@ -693,31 +706,14 @@ export default function TapSmashArenaGame({
 
               {/* Scoreboard overlay */}
               {phase !== "idle" && (
-                <>
-                  <div className="absolute z-20 flex flex-col items-start gap-0.5" style={{ left: 16, top: 16 }}>
-                    <span className="max-w-[90px] truncate text-xs font-bold uppercase tracking-wider text-blue-400">
-                      {leftLabel}
-                    </span>
-                    <span className="text-6xl font-black tabular-nums leading-none text-blue-500">
-                      {p1Score}
-                    </span>
-                  </div>
-                  <div className="absolute left-1/2 z-20 -translate-x-1/2" style={{ top: 16 }}>
-                    <JMBannerText borderColor="#ffffff" borderWidth={1}>
-                      <span className="text-sm font-medium uppercase tracking-widest text-white/80">
-                        First to {POINTS_TO_WIN}
-                      </span>
-                    </JMBannerText>
-                  </div>
-                  <div className="absolute z-20 flex flex-col items-end gap-0.5" style={{ right: 16, top: 16 }}>
-                    <span className="max-w-[90px] truncate text-xs font-bold uppercase tracking-wider text-orange-400">
-                      {rightLabel}
-                    </span>
-                    <span className="text-6xl font-black tabular-nums leading-none text-orange-500">
-                      {p2Score}
-                    </span>
-                  </div>
-                </>
+                <JMGameScoreboard
+                  overlay
+                  leftLabel={leftLabel}
+                  rightLabel={rightLabel}
+                  leftScore={p1Score}
+                  rightScore={p2Score}
+                  pointsToWin={POINTS_TO_WIN}
+                />
               )}
 
               {/* Champion selection overlay */}

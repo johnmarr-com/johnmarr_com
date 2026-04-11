@@ -9,9 +9,9 @@ import {
   assembleOriginal,
   type Chains,
 } from "./chainEngine";
-import { updateSessionFields, type ScoringResult } from "./useSketchinessSession";
+import { updateSessionFields, type ScoringResult } from "./useMegaSketchySession";
 
-interface SketchinessScoringProps {
+interface MegaSketchyScoringProps {
   sessionId: string;
   chains: Chains;
   message: { template: string; elements: string[] };
@@ -21,7 +21,7 @@ interface SketchinessScoringProps {
   isHost: boolean;
 }
 
-export default function SketchinessScoring({
+export default function MegaSketchyScoring({
   sessionId,
   chains,
   message,
@@ -29,7 +29,7 @@ export default function SketchinessScoring({
   sessionScoringResult,
   onComplete,
   isHost,
-}: SketchinessScoringProps) {
+}: MegaSketchyScoringProps) {
   const scoringRef = useRef(false);
 
   const scoreWithAI = useCallback(async () => {
@@ -51,7 +51,7 @@ export default function SketchinessScoring({
       )
       .join("\n");
 
-    const prompt = `You are the AI handler for a spy-themed party game called "Sketchiness." A secret message was relayed through a chain of agents via alternating sketching and guessing, like Telephone/Telestrations.
+    const prompt = `You are the AI handler for a spy-themed party game called "Mega Sketchy." A secret message was relayed through a chain of agents via alternating sketching and guessing, like Telephone/Telestrations.
 
 ORIGINAL MESSAGE FROM CONTROL:
 ${original}

@@ -3,8 +3,8 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { useJMStyle } from "@/JMStyle";
-import { JMBannerText } from "@/JMKit";
-import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, GameGamertagBadge, type GameMode, type ResolverOutput } from "../_gamecore";
+import { JMBannerText, JMGameScoreboard } from "@/JMKit";
+import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, GameGamertagBadge, type GameMode, type ResolverOutput, type AIPersona } from "../_gamecore";
 import { useAuth } from "@/lib/AuthProvider";
 import { startGame, type GameSession } from "@/lib/game-sessions";
 
@@ -225,6 +225,7 @@ export default function SweepTheLegGame({
   backgroundMusicURL,
   backgroundMusicVolume,
   sessionId: sessionIdProp,
+  aiPersona,
 }: {
   splashLogoURL?: string;
   splashBgURL?: string;
@@ -233,9 +234,10 @@ export default function SweepTheLegGame({
   backgroundMusicURL?: string;
   backgroundMusicVolume?: number;
   sessionId?: string;
+  aiPersona?: AIPersona;
 }) {
   const { theme } = useJMStyle();
-  const { user } = useAuth();
+  const { user, gamertag: myTag } = useAuth();
 
   const musicURL = backgroundMusicURL || (gameSlug ? `/music/${gameSlug}.mp3` : null);
   const { ensurePlaying, connectVideo } = useGameMusic({ url: musicURL, volume: backgroundMusicVolume ?? 0.3 });
@@ -263,6 +265,9 @@ export default function SweepTheLegGame({
   const sideRef = useRef<PlayerSide>("red");
   const historyRef = useRef<MoveRecord[]>([]);
   const prefetchRef = useRef<Promise<{ attack: Attack; reasoning: string }> | null>(null);
+  const personaPrompt = aiPersona?.prompt || undefined;
+  const personaVoice = aiPersona?.voice || undefined;
+  const aiName = aiPersona?.name || "AI";
 
   // Multiplayer resolver: maps pending moves to Sweep the Leg outcome
   const stlResolver = useCallback(
@@ -547,7 +552,7 @@ export default function SweepTheLegGame({
   const fetchAiMove = useCallback((): Promise<{ attack: Attack; reasoning: string }> => {
     const aiSide = sideRef.current === "red" ? "white" : "red";
     const prompt = buildMovePrompt(aiSide, historyRef.current);
-    return simpleMove(prompt)
+    return simpleMove(prompt, personaPrompt, personaVoice)
       .then(({ action, reason }) => {
         const attack = parseAttackFromAction(action);
         if (attack) return { attack, reasoning: reason };
@@ -557,7 +562,7 @@ export default function SweepTheLegGame({
         attack: ATTACKS[Math.floor(Math.random() * ATTACKS.length)]!,
         reasoning: "",
       }));
-  }, []);
+  }, [personaPrompt, personaVoice]);
 
   const resolveRound = useCallback(
     (attack: Attack, cpu: Attack, aiReason?: string) => {
@@ -602,9 +607,16 @@ export default function SweepTheLegGame({
         const aiSide = sideRef.current === "red" ? "white" : "red";
         const aiWon = (aiSide === "red" && nextRed >= POINTS_TO_WIN) || (aiSide === "white" && nextWhite >= POINTS_TO_WIN);
         const prompt = buildPostGamePrompt(aiSide, historyRef.current, aiWon);
-        postGameComment(prompt)
+        postGameComment(prompt, personaPrompt, personaVoice)
           .then(({ comment }) => { if (comment) setAiPostGame(comment); })
           .catch(() => {});
+
+        if (aiPersona) {
+          const docId = aiPersona.id.replace(/^ai-/, "");
+          import("@/lib/ai-personas").then(({ recordAIGameResult }) => {
+            recordAIGameResult(docId, aiWon).catch(() => {});
+          });
+        }
       }
 
       playChapter(chapter, {
@@ -645,7 +657,7 @@ export default function SweepTheLegGame({
         },
       });
     },
-    [playChapter, setP, mode, fetchAiMove],
+    [playChapter, setP, mode, fetchAiMove, personaPrompt, personaVoice, aiPersona],
   );
 
   const handleAttack = useCallback(
@@ -693,34 +705,19 @@ export default function SweepTheLegGame({
         {/* Scoreboard */}
         {phase !== "idle" && (() => {
           const playerIsRed = playerSide === "red";
-          const leftLabel = playerIsRed ? "YOU" : (isFriends && opponentGamertag ? opponentGamertag : mode === "ai" ? "AI" : "Red");
-          const rightLabel = !playerIsRed ? "YOU" : (isFriends && opponentGamertag ? opponentGamertag : mode === "ai" ? "AI" : "White");
+          const playerTag = myTag || "YOU";
+          const leftLabel = playerIsRed ? playerTag : (isFriends && opponentGamertag ? opponentGamertag : mode === "ai" ? aiName : "Red");
+          const rightLabel = !playerIsRed ? playerTag : (isFriends && opponentGamertag ? opponentGamertag : mode === "ai" ? aiName : "White");
           return (
-            <div className="relative mb-2 shrink-0" style={{ paddingTop: 24 }}>
-              <div className="absolute z-20 flex flex-col items-start gap-0.5" style={{ left: 20, top: 20 }}>
-                <span className="max-w-[100px] truncate text-xs font-bold uppercase tracking-wider text-red-400">
-                  {leftLabel}
-                </span>
-                <span className="text-6xl font-black tabular-nums leading-none text-red-500">
-                  {redScore}
-                </span>
-              </div>
-              <div className="z-20 flex justify-center">
-                <JMBannerText borderColor="#ffffff" borderWidth={1}>
-                  <span className="text-sm font-medium uppercase tracking-widest text-white/80">
-                    First to {POINTS_TO_WIN}
-                  </span>
-                </JMBannerText>
-              </div>
-              <div className="absolute z-20 flex flex-col items-end gap-0.5" style={{ right: 20, top: 20 }}>
-                <span className="max-w-[100px] truncate text-xs font-bold uppercase tracking-wider text-white/70">
-                  {rightLabel}
-                </span>
-                <span className="text-6xl font-black tabular-nums leading-none text-white">
-                  {whiteScore}
-                </span>
-              </div>
-            </div>
+            <JMGameScoreboard
+              leftLabel={leftLabel}
+              rightLabel={rightLabel}
+              leftScore={redScore}
+              rightScore={whiteScore}
+              pointsToWin={POINTS_TO_WIN}
+              leftColorClass="text-red-500"
+              rightColorClass="text-white"
+            />
           );
         })()}
 
@@ -733,7 +730,8 @@ export default function SweepTheLegGame({
                 src="/video/Sweep-The-Leg-Chapters.mp4"
                 playsInline
                 preload="auto"
-                className="block h-full w-full object-cover"
+                className="block h-full w-full object-cover opacity-0 transition-opacity duration-500"
+                onLoadedData={(e) => { (e.target as HTMLVideoElement).classList.remove("opacity-0"); }}
               />
 
               {phase === "idle" && (

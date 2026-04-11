@@ -4,7 +4,7 @@ import { firebaseConfig } from "./firebase-config";
 import { getPublicStorageUrl } from "./content";
 
 /**
- * Upload a sketch image to Firebase Storage for a Sketchiness game session.
+ * Upload a sketch image to Firebase Storage for a Mega Sketchy game session.
  * Returns a permanent public URL.
  */
 export async function uploadSketch(

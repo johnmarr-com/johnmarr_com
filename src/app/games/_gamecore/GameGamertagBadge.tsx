@@ -7,12 +7,11 @@ export function GameGamertagBadge() {
   if (!gamertag) return null;
 
   return (
-    <div className="fixed right-0 top-0 z-50">
+    <div className="fixed left-1/2 top-0 z-50 -translate-x-1/2">
       <div
-        className="bg-purple-900 px-3 py-1.5 text-xs font-bold text-white"
+        className="bg-black/80 px-5 py-1.5 text-xs font-bold text-white/70"
         style={{
-          clipPath: "polygon(0 0, 100% 0, 100% 100%, 12px 100%)",
-          paddingLeft: "1.25rem",
+          clipPath: "polygon(0 0, 100% 0, calc(100% - 8px) 100%, 8px 100%)",
         }}
       >
         {gamertag}

@@ -9,7 +9,7 @@ export interface MissionSegment {
   missionText: string;
 }
 
-export interface SketchinessMission {
+export interface MegaSketchyMission {
   id: string;
   title: string;
   creatorId: string;
@@ -42,12 +42,12 @@ export async function createMission(
   input: CreateMissionInput,
   userId: string,
   gamertag: string,
-): Promise<SketchinessMission> {
+): Promise<MegaSketchyMission> {
   const { collection, doc, setDoc, serverTimestamp } =
     await import("firebase/firestore");
   const db = await getDb();
 
-  const ref = doc(collection(db, "sketchinessMissions"));
+  const ref = doc(collection(db, "megasketchyMissions"));
   const data = {
     title: input.title,
     creatorId: userId,
@@ -71,62 +71,62 @@ export async function createMission(
 
 export async function getMission(
   missionId: string,
-): Promise<SketchinessMission | null> {
+): Promise<MegaSketchyMission | null> {
   const { doc, getDoc } = await import("firebase/firestore");
   const db = await getDb();
 
-  const snap = await getDoc(doc(db, "sketchinessMissions", missionId));
+  const snap = await getDoc(doc(db, "megasketchyMissions", missionId));
   if (!snap.exists()) return null;
-  return { id: snap.id, ...(snap.data() as Omit<SketchinessMission, "id">) };
+  return { id: snap.id, ...(snap.data() as Omit<MegaSketchyMission, "id">) };
 }
 
-export async function getOfficialMissions(): Promise<SketchinessMission[]> {
+export async function getOfficialMissions(): Promise<MegaSketchyMission[]> {
   const { collection, query, where, orderBy, getDocs } =
     await import("firebase/firestore");
   const db = await getDb();
 
   const q = query(
-    collection(db, "sketchinessMissions"),
+    collection(db, "megasketchyMissions"),
     where("visibility", "==", "official"),
     orderBy("createdAt", "desc"),
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<SketchinessMission, "id">) }));
+  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<MegaSketchyMission, "id">) }));
 }
 
 export async function getMyMissions(
   userId: string,
-): Promise<SketchinessMission[]> {
+): Promise<MegaSketchyMission[]> {
   const { collection, query, where, orderBy, getDocs } =
     await import("firebase/firestore");
   const db = await getDb();
 
   const q = query(
-    collection(db, "sketchinessMissions"),
+    collection(db, "megasketchyMissions"),
     where("creatorId", "==", userId),
     orderBy("createdAt", "desc"),
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<SketchinessMission, "id">) }));
+  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<MegaSketchyMission, "id">) }));
 }
 
-export async function getSharedMissions(): Promise<SketchinessMission[]> {
+export async function getSharedMissions(): Promise<MegaSketchyMission[]> {
   const { collection, query, where, orderBy, getDocs } =
     await import("firebase/firestore");
   const db = await getDb();
 
   const q = query(
-    collection(db, "sketchinessMissions"),
+    collection(db, "megasketchyMissions"),
     where("visibility", "==", "shared"),
     orderBy("createdAt", "desc"),
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<SketchinessMission, "id">) }));
+  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<MegaSketchyMission, "id">) }));
 }
 
 export async function updateMission(
   missionId: string,
-  updates: Partial<Pick<SketchinessMission, "title" | "segments" | "visibility">>,
+  updates: Partial<Pick<MegaSketchyMission, "title" | "segments" | "visibility">>,
 ): Promise<void> {
   const { doc, updateDoc, serverTimestamp } = await import("firebase/firestore");
   const db = await getDb();
@@ -136,20 +136,20 @@ export async function updateMission(
     data["maxPlayers"] = updates.segments.length;
   }
 
-  await updateDoc(doc(db, "sketchinessMissions", missionId), data);
+  await updateDoc(doc(db, "megasketchyMissions", missionId), data);
 }
 
 export async function deleteMission(missionId: string): Promise<void> {
   const { doc, deleteDoc } = await import("firebase/firestore");
   const db = await getDb();
-  await deleteDoc(doc(db, "sketchinessMissions", missionId));
+  await deleteDoc(doc(db, "megasketchyMissions", missionId));
 }
 
 export async function copyMission(
   missionId: string,
   userId: string,
   gamertag: string,
-): Promise<SketchinessMission> {
+): Promise<MegaSketchyMission> {
   const source = await getMission(missionId);
   if (!source) throw new Error("Mission not found");
 
@@ -165,11 +165,11 @@ export async function copyMission(
 }
 
 /**
- * Convert a SketchinessMission into the template/elements format the game engine expects.
+ * Convert a MegaSketchyMission into the template/elements format the game engine expects.
  * Truncates to `playerCount` segments if the mission has more.
  */
 export function missionToSecretMessage(
-  mission: SketchinessMission,
+  mission: MegaSketchyMission,
   playerCount: number,
 ): { template: string; elements: string[]; sourceId: string } {
   const count = Math.min(playerCount, mission.segments.length);

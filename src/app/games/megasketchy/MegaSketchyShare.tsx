@@ -2,32 +2,29 @@
 
 import { useState, useCallback, useMemo, useRef } from "react";
 import { ChevronDown } from "lucide-react";
-import { JMAvatarView } from "@/JMKit";
+import { JMAvatarView, JMAIAvatarView } from "@/JMKit";
 import { GamePrimaryButton, GameStatusMessage } from "../_gamecore";
 import { getPlayerForStep, type Chains, type ChainEntry } from "./chainEngine";
 import type { GameSessionPlayer } from "@/lib/game-sessions";
+import { isAiPlayer } from "./aiConstants";
 
-const AI_PLAYER_ID = "ai-silicon";
-
-interface SketchinessShareProps {
+interface MegaSketchyShareProps {
   players: GameSessionPlayer[];
   playOrder: string[];
-  aiPlayerId: string | null;
   chains: Chains;
   userId: string;
   isHost: boolean;
   onPlayAgain: () => void;
 }
 
-export default function SketchinessShare({
+export default function MegaSketchyShare({
   players,
   playOrder,
-  aiPlayerId,
   chains,
   userId,
   isHost,
   onPlayAgain,
-}: SketchinessShareProps) {
+}: MegaSketchyShareProps) {
   const [selectedUid, setSelectedUid] = useState(userId);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -36,19 +33,16 @@ export default function SketchinessShare({
   const getPlayerName = useCallback(
     (uid: string) => {
       if (uid === "control") return "Control";
-      if (uid === aiPlayerId || uid === AI_PLAYER_ID) return "Agent SILICON";
       return players.find((p) => p.uid === uid)?.gamertag ?? "Unknown";
     },
-    [players, aiPlayerId],
+    [players],
   );
 
   const getPlayerAvatar = useCallback(
     (uid: string) => {
-      if (uid === "control" || uid === aiPlayerId || uid === AI_PLAYER_ID)
-        return undefined;
       return players.find((p) => p.uid === uid)?.avatarName;
     },
-    [players, aiPlayerId],
+    [players],
   );
 
   const elementIndex = playOrder.indexOf(selectedUid);
@@ -179,7 +173,6 @@ export default function SketchinessShare({
                 uid={selectedUid}
                 name={getPlayerName(selectedUid)}
                 avatarName={getPlayerAvatar(selectedUid)}
-                aiPlayerId={aiPlayerId}
                 size="lg"
               />
               <span className="flex-1 text-left text-lg font-bold text-white">
@@ -207,7 +200,6 @@ export default function SketchinessShare({
                       uid={uid}
                       name={getPlayerName(uid)}
                       avatarName={getPlayerAvatar(uid)}
-                      aiPlayerId={aiPlayerId}
                       size="lg"
                     />
                     <span className="text-base font-bold text-white">
@@ -237,29 +229,27 @@ function PlayerBadge({
   uid,
   name,
   avatarName,
-  aiPlayerId,
   size = "sm",
 }: {
   uid: string;
   name: string;
   avatarName: string | undefined;
-  aiPlayerId: string | null;
   size?: "sm" | "lg";
 }) {
-  const isAI = uid === AI_PLAYER_ID || uid === aiPlayerId;
+  const isAI = isAiPlayer(uid);
   const px = size === "lg" ? 44 : 32;
   const sizeClass = size === "lg" ? "h-11 w-11" : "h-8 w-8";
 
   if (isAI) {
-    return (
-      <div className={`flex ${sizeClass} shrink-0 items-center justify-center rounded-full bg-green-400/20`}>
-        <span className="text-xs font-black text-green-400">AI</span>
-      </div>
-    );
+    return <JMAIAvatarView size={px} avatarName={avatarName} />;
   }
 
   if (avatarName) {
-    return <JMAvatarView width={px} avatarName={avatarName} />;
+    return (
+      <div className={`${sizeClass} shrink-0 overflow-hidden rounded-full`}>
+        <JMAvatarView width={px} avatarName={avatarName} />
+      </div>
+    );
   }
 
   return (

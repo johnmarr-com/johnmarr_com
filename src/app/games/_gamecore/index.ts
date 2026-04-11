@@ -14,6 +14,19 @@ export {
 export { SketchCanvas, type SketchCanvasRef } from "./SketchCanvas";
 export { GameGamertagBadge } from "./GameGamertagBadge";
 export { InviteKnownPlayersModal } from "./InviteKnownPlayersModal";
+export { InviteAIModal } from "./InviteAIModal";
+export { PickAIOpponentModal } from "./PickAIOpponentModal";
+export {
+  AI_PERSONAS,
+  isAiPlayer,
+  aiDisplayName,
+  getPersona,
+  AI_IDS,
+  PLAY_STYLE_COLORS,
+  type AIPersona,
+  type AIPersonaStats,
+  type AIPlayStyle,
+} from "./aiPersonas";
 export { GameSectionHeader } from "./GameSectionHeader";
 export { GamePrimaryButton } from "./GamePrimaryButton";
 export { GameStatusMessage } from "./GameStatusMessage";

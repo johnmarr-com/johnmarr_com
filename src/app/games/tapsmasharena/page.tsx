@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import { GameLandingPage, type GameMode } from "../_gamecore";
+import { GameLandingPage, type GameMode, type AIPersona } from "../_gamecore";
 import { useAuth } from "@/lib/AuthProvider";
 import { getContentBySlug } from "@/lib/content";
 import type { JMContent } from "@/lib/content-types";
@@ -17,6 +17,7 @@ export default function TapSmashArenaPage() {
   const [mode, setMode] = useState<GameMode | null>(initialSessionId ? "friends" : null);
   const [sessionId, setSessionId] = useState<string | null>(initialSessionId);
   const [gameData, setGameData] = useState<JMContent | null>(null);
+  const [aiOpponent, setAiOpponent] = useState<AIPersona | null>(null);
   const autoJoinRef = useRef(false);
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export default function TapSmashArenaPage() {
       <TapSmashArenaGame
         mode={mode}
         gameSlug="tapsmasharena"
+        {...(aiOpponent ? { aiPersona: aiOpponent } : {})}
         {...(gameData?.splashBgURL ? { splashBgURL: gameData.splashBgURL } : {})}
         {...(gameData?.backgroundMusicURL ? { backgroundMusicURL: gameData.backgroundMusicURL } : {})}
         {...(gameData?.backgroundMusicVolume != null ? { backgroundMusicVolume: gameData.backgroundMusicVolume } : {})}
@@ -77,15 +79,18 @@ export default function TapSmashArenaPage() {
     <GameLandingPage
       {...splashProps}
       gameSlug="tapsmasharena"
-      enabledModes={["ai", "friends"]}
       subtitle={gameData?.subtitle}
       {...(gameData?.minPlayers != null ? { minPlayers: gameData.minPlayers } : {})}
       maxPlayers={gameData?.maxPlayers ?? 2}
       iconPadding={10}
       pulseIcon
+      allowAI
       {...(multiplayerInput ? { multiplayerInput } : {})}
       sideLabels={["p1", "p2"]}
-      onPlay={(m) => setMode(m)}
+      onSoloVsAI={(persona) => {
+        setAiOpponent(persona);
+        setMode("ai");
+      }}
       onMultiplayerStart={(sid) => {
         setSessionId(sid);
         setMode("friends");

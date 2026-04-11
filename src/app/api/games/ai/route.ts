@@ -75,16 +75,16 @@ export async function POST(request: NextRequest) {
 
       try {
         const output = await replicate.run(
-          "bytedance/sdxl-lightning-4step:5599ed30703defd1d160a25a63321b4dec97101d98b4674bcc56e41f62f35637",
+          "black-forest-labs/flux-schnell",
           {
             input: {
-              prompt: `black marker line drawing on solid white background of: ${subject}. Simple thick black outlines only, like a whiteboard doodle drawn with a marker, no shading no color no fill no detail, stick-figure level simplicity, clipart style, flat 2D`,
-              negative_prompt: "photorealistic, photo, 3d render, detailed, complex, shading, gradient, shadow, color, colored, painting, watercolor, text, watermark, realistic, multiple, mirror, reflection, duplicate",
-              width: 720,
-              height: 720,
+              prompt: `quick messy hand-drawn doodle on plain white paper of: ${subject}. Minimal lines, as few strokes as possible, uniform medium-weight black pen lines that do not taper, slightly wobbly imperfect strokes, no shading no color no fill no hatching, stick-figure level simplicity, napkin sketch, single object centered`,
+              aspect_ratio: "1:1",
+              num_outputs: 1,
+              output_format: "jpg",
+              output_quality: 80,
               num_inference_steps: 4,
-              scheduler: "K_EULER",
-              guidance_scale: 0,
+              go_fast: true,
             },
           },
         );

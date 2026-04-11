@@ -28,6 +28,7 @@ interface EditState {
   bgMusicLandingOnly: boolean;
   minPlayers: number;
   maxPlayers: number;
+  trueSoloMode: boolean;
   isPublished: boolean;
 }
 
@@ -47,6 +48,7 @@ function stateFromGame(game: JMContent): EditState {
     bgMusicLandingOnly: game.bgMusicLandingOnly ?? false,
     minPlayers: game.minPlayers ?? 1,
     maxPlayers: game.maxPlayers ?? 2,
+    trueSoloMode: game.trueSoloMode ?? false,
     isPublished: game.isPublished,
   };
 }
@@ -147,6 +149,7 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
       updates.bgMusicLandingOnly = editState.bgMusicLandingOnly;
       if (editState.minPlayers > 0) updates.minPlayers = editState.minPlayers;
       if (editState.maxPlayers > 0) updates.maxPlayers = editState.maxPlayers;
+      updates.trueSoloMode = editState.trueSoloMode;
 
       await updateContent(gameId, updates);
 
@@ -495,6 +498,37 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
                   />
                 </div>
               </div>
+
+              {/* True Solo Mode */}
+              <button
+                type="button"
+                onClick={() => update({ trueSoloMode: !editState.trueSoloMode })}
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors"
+                style={{
+                  backgroundColor: editState.trueSoloMode
+                    ? `${theme.accents.goldenGlow}20`
+                    : theme.surfaces.elevated2,
+                  color: editState.trueSoloMode
+                    ? theme.accents.goldenGlow
+                    : theme.text.tertiary,
+                }}
+              >
+                <span
+                  className="inline-block h-4 w-4 rounded-sm border"
+                  style={{
+                    borderColor: editState.trueSoloMode
+                      ? theme.accents.goldenGlow
+                      : theme.text.tertiary,
+                    backgroundColor: editState.trueSoloMode
+                      ? theme.accents.goldenGlow
+                      : "transparent",
+                  }}
+                />
+                True Solo Mode (no AI opponent)
+              </button>
+              <p className="mt-[-12px] ml-1 text-xs" style={{ color: theme.text.tertiary }}>
+                When on, the &quot;Play Solo&quot; button won&apos;t mention AI.
+              </p>
 
               {error && (
                 <div

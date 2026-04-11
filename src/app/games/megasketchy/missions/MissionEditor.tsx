@@ -7,13 +7,13 @@ import {
   createMission,
   updateMission,
   type MissionSegment,
-  type SketchinessMission,
-} from "@/lib/sketchiness-missions";
+  type MegaSketchyMission,
+} from "@/lib/megasketchy-missions";
 
 interface MissionEditorProps {
   /** If provided, we're editing an existing mission instead of creating */
-  existingMission?: SketchinessMission | undefined;
-  onSaved: (mission: SketchinessMission) => void;
+  existingMission?: MegaSketchyMission | undefined;
+  onSaved: (mission: MegaSketchyMission) => void;
 }
 
 export default function MissionEditor({ existingMission, onSaved }: MissionEditorProps) {

@@ -147,15 +147,17 @@ export function InviteKnownPlayersModal({
                             : "bg-white/5 hover:bg-white/10"
                       }`}
                     >
-                      {p.avatarName ? (
-                        <JMAvatarView width={32} avatarName={p.avatarName} />
-                      ) : (
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-purple-500/20">
-                          <span className="text-xs font-bold text-purple-400">
-                            {p.gamertag.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                      )}
+                      <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full">
+                        {p.avatarName ? (
+                          <JMAvatarView width={32} avatarName={p.avatarName} />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-purple-500/20">
+                            <span className="text-xs font-bold text-purple-400">
+                              {p.gamertag.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                       <span className="flex-1 text-left text-sm font-bold text-white">
                         {p.gamertag}
                       </span>

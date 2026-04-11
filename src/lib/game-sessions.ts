@@ -293,18 +293,37 @@ export async function joinGameSession(
 
     if (!alreadyJoined) {
       if (session.players.length >= session.maxPlayers) {
-        return { ok: false, reason: "full" };
+        // Try to replace an AI player
+        const aiPlayer = [...session.players].reverse().find((p) => p.uid.startsWith("ai-"));
+        if (!aiPlayer) return { ok: false, reason: "full" };
+
+        const newPlayers = session.players.filter((p) => p.uid !== aiPlayer.uid);
+        const playerEntry = { uid: userId, gamertag, ...(avatarName ? { avatarName } : {}) };
+        newPlayers.push(playerEntry);
+
+        await updateDoc(doc(db, "gameSessions", session.id), {
+          players: newPlayers,
+          playerUids: arrayUnion(userId),
+          pendingInviteUids: arrayRemove(userId),
+          updatedAt: serverTimestamp(),
+        });
+        // Also remove the AI uid from playerUids
+        await updateDoc(doc(db, "gameSessions", session.id), {
+          playerUids: arrayRemove(aiPlayer.uid),
+        });
+
+        session.players = newPlayers;
+      } else {
+        const playerEntry = { uid: userId, gamertag, ...(avatarName ? { avatarName } : {}) };
+        await updateDoc(doc(db, "gameSessions", session.id), {
+          players: arrayUnion(playerEntry),
+          playerUids: arrayUnion(userId),
+          pendingInviteUids: arrayRemove(userId),
+          updatedAt: serverTimestamp(),
+        });
+
+        session.players.push(playerEntry);
       }
-
-      const playerEntry = { uid: userId, gamertag, ...(avatarName ? { avatarName } : {}) };
-      await updateDoc(doc(db, "gameSessions", session.id), {
-        players: arrayUnion(playerEntry),
-        playerUids: arrayUnion(userId),
-        pendingInviteUids: arrayRemove(userId),
-        updatedAt: serverTimestamp(),
-      });
-
-      session.players.push(playerEntry);
     }
 
     // Clean up any pending invite doc for this user + session
@@ -357,18 +376,35 @@ export async function joinGameSessionById(
     if (session.status !== "lobby") return { ok: false, reason: "full" };
 
     if (session.players.length >= session.maxPlayers) {
-      return { ok: false, reason: "full" };
+      const aiPlayer = [...session.players].reverse().find((p) => p.uid.startsWith("ai-"));
+      if (!aiPlayer) return { ok: false, reason: "full" };
+
+      const newPlayers = session.players.filter((p) => p.uid !== aiPlayer.uid);
+      const playerEntry = { uid: userId, gamertag, ...(avatarName ? { avatarName } : {}) };
+      newPlayers.push(playerEntry);
+
+      await updateDoc(doc(db, "gameSessions", session.id), {
+        players: newPlayers,
+        playerUids: arrayUnion(userId),
+        pendingInviteUids: arrayRemove(userId),
+        updatedAt: serverTimestamp(),
+      });
+      await updateDoc(doc(db, "gameSessions", session.id), {
+        playerUids: arrayRemove(aiPlayer.uid),
+      });
+
+      session.players = newPlayers;
+    } else {
+      const playerEntry = { uid: userId, gamertag, ...(avatarName ? { avatarName } : {}) };
+      await updateDoc(doc(db, "gameSessions", session.id), {
+        players: arrayUnion(playerEntry),
+        playerUids: arrayUnion(userId),
+        pendingInviteUids: arrayRemove(userId),
+        updatedAt: serverTimestamp(),
+      });
+
+      session.players.push(playerEntry);
     }
-
-    const playerEntry = { uid: userId, gamertag, ...(avatarName ? { avatarName } : {}) };
-    await updateDoc(doc(db, "gameSessions", session.id), {
-      players: arrayUnion(playerEntry),
-      playerUids: arrayUnion(userId),
-      pendingInviteUids: arrayRemove(userId),
-      updatedAt: serverTimestamp(),
-    });
-
-    session.players.push(playerEntry);
 
     // Clean up invite doc
     {
@@ -569,4 +605,72 @@ export async function getActiveSessionsForUser(
   }
 
   return sessions;
+}
+
+// ─────────────────────────────────────────────────────────────
+// AI PLAYER MANAGEMENT
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Add an AI player to a session's players list.
+ * Uses a transaction to safely check capacity.
+ */
+export async function addAIPlayerToSession(
+  sessionId: string,
+  aiId: string,
+  aiName: string,
+  avatarName?: string,
+): Promise<void> {
+  const { doc, runTransaction, serverTimestamp } =
+    await import("firebase/firestore");
+  const db = await getDb();
+
+  await runTransaction(db, async (txn) => {
+    const ref = doc(db, "gameSessions", sessionId);
+    const snap = await txn.get(ref);
+    if (!snap.exists()) return;
+
+    const data = snap.data();
+    const players = (data["players"] ?? []) as GameSessionPlayer[];
+
+    if (players.some((p) => p.uid === aiId)) return;
+    if (players.length >= (data["maxPlayers"] as number)) return;
+
+    const newPlayer: GameSessionPlayer = { uid: aiId, gamertag: aiName };
+    if (avatarName) newPlayer.avatarName = avatarName;
+
+    txn.update(ref, {
+      players: [...players, newPlayer],
+      playerUids: [...((data["playerUids"] ?? []) as string[]), aiId],
+      updatedAt: serverTimestamp(),
+    });
+  });
+}
+
+/**
+ * Remove an AI player from a session (no kicked list, just silent removal).
+ */
+export async function removeAIPlayerFromSession(
+  sessionId: string,
+  aiId: string,
+): Promise<void> {
+  const { doc, runTransaction, arrayRemove, serverTimestamp } =
+    await import("firebase/firestore");
+  const db = await getDb();
+
+  await runTransaction(db, async (txn) => {
+    const ref = doc(db, "gameSessions", sessionId);
+    const snap = await txn.get(ref);
+    if (!snap.exists()) return;
+
+    const data = snap.data();
+    const players = (data["players"] ?? []) as GameSessionPlayer[];
+    const newPlayers = players.filter((p) => p.uid !== aiId);
+
+    txn.update(ref, {
+      players: newPlayers,
+      playerUids: arrayRemove(aiId),
+      updatedAt: serverTimestamp(),
+    });
+  });
 }

@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
-import type { SketchinessMission } from "@/lib/sketchiness-missions";
+import type { MegaSketchyMission } from "@/lib/megasketchy-missions";
 import MissionEditor from "./MissionEditor";
 import MissionBrowser from "./MissionBrowser";
 
@@ -16,12 +16,12 @@ export default function MissionsPage() {
   const canCreate = isAdmin || userTier === "pro";
 
   const [tab, setTab] = useState<Tab>(canCreate ? "create" : "view");
-  const [editingMission, setEditingMission] = useState<SketchinessMission | null>(null);
+  const [editingMission, setEditingMission] = useState<MegaSketchyMission | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push("/games/sketchiness");
+      router.push("/games/megasketchy");
     }
   }, [authLoading, user, router]);
 
@@ -34,7 +34,7 @@ export default function MissionsPage() {
     [],
   );
 
-  const handleEdit = useCallback((mission: SketchinessMission) => {
+  const handleEdit = useCallback((mission: MegaSketchyMission) => {
     setEditingMission(mission);
     setTab("create");
   }, []);
@@ -52,11 +52,11 @@ export default function MissionsPage() {
       <div className="mx-auto max-w-lg px-4 py-6">
         {/* Back link */}
         <button
-          onClick={() => router.push("/games/sketchiness")}
+          onClick={() => router.push("/games/megasketchy")}
           className="mb-4 flex items-center gap-1 text-sm text-white/40 transition-colors hover:text-white/60"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Sketchiness
+          Back to Mega Sketchy
         </button>
 
         <h1 className="mb-6 text-2xl font-black uppercase tracking-wider text-green-400">

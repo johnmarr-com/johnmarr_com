@@ -32,6 +32,7 @@ export { Button, buttonVariants, type ButtonProps } from "./JMButton";
 
 // Avatar components
 export { default as JMAvatarView } from "./JMAvatarView";
+export { JMAIAvatarView } from "./JMAIAvatarView";
 export { default as JMAvatarPicker, type JMAvatarItem, type JMAvatarPickerProps, AVATAR_CATEGORIES } from "./JMAvatarPicker";
 export { default as JMAvatarPreviewAndSelection } from "./JMAvatarPreviewAndSelection";
 export { JMWelcomeAvatarModal } from "./JMWelcomeAvatarModal";
@@ -53,3 +54,6 @@ export { JMBannerText, type JMBannerTextProps } from "./JMBannerText";
 export { JMChampionPicker, type JMChampionPickerProps, type ChampionOption } from "./JMChampionPicker";
 export { JMProButton } from "./JMProButton";
 export { JMMyGamesModal } from "./JMMyGamesModal";
+export { JMAIBulkImageGen, type GeneratedImage, type JMAIBulkImageGenProps } from "./JMAIBulkImageGen";
+export { JMAvatarColorEditor } from "./JMAvatarColorEditor";
+export { JMGameScoreboard, type JMGameScoreboardProps } from "./JMGameScoreboard";

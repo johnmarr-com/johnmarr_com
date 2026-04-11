@@ -291,6 +291,21 @@ service cloud.firestore {
     }
     
     // ─────────────────────────────────────────────────────────────
+    // AI PERSONAS (Game AI characters with stats)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /aiPersonas/{personaId} {
+      // Anyone authenticated can read active personas (needed for game lobbies)
+      allow read: if isAuthenticated();
+      
+      // Only admins can create/delete personas
+      allow create, delete: if isAdmin();
+      
+      // Admins can fully update; authenticated users can increment stats
+      allow update: if isAdmin() || isAuthenticated();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
     // GAME SESSIONS (Multiplayer lobbies)
     // ─────────────────────────────────────────────────────────────
     
@@ -312,10 +327,10 @@ service cloud.firestore {
     }
     
     // ─────────────────────────────────────────────────────────────
-    // SKETCHINESS MISSIONS (Custom game missions)
+    // MEGA SKETCHY MISSIONS (Custom game missions)
     // ─────────────────────────────────────────────────────────────
     
-    match /sketchinessMissions/{missionId} {
+    match /megasketchyMissions/{missionId} {
       // Anyone authenticated can read official & shared missions,
       // creators can read their own private missions, admins read all
       allow read: if isAdmin()

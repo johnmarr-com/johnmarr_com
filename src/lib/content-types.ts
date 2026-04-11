@@ -174,6 +174,7 @@ export interface JMContent {
   bgMusicLandingOnly?: boolean;   // If true, stop background music when the game starts (only plays on landing/lobby)
   minPlayers?: number;            // Min players required (default 1; >1 means no solo/AI mode)
   maxPlayers?: number;            // Max players for multiplayer games (default 2)
+  trueSoloMode?: boolean;         // true = pure solo (no opponent). false/undefined = solo means vs AI
   
   // ─── Hierarchy & Ordering ─────────────────────────────────
   parentId: string | null;        // null = top-level content
@@ -215,6 +216,7 @@ export interface JMContentInput {
   bgMusicLandingOnly?: boolean;
   minPlayers?: number;
   maxPlayers?: number;
+  trueSoloMode?: boolean;
   brandId?: string;
   parentId?: string | null;
   order?: number;

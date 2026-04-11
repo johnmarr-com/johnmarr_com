@@ -31,7 +31,8 @@ export interface PlayerTask {
  * Step 1: playOrder[k] draws
  * Step 2: playOrder[(k+1) % N] guesses (text)
  * ...
- * Step N: chain complete (N player contributions + 1 original = N+1 entries)
+ * Even N: chain has N+1 entries (every player contributes to every chain)
+ * Odd N:  chain has N entries (each player skips one chain so it ends on text)
  */
 export function getPlayerForStep(
   elementIndex: number,
@@ -47,8 +48,25 @@ export function getTaskTypeForStep(stepIndex: number): TaskType {
   return stepIndex % 2 === 1 ? "draw" : "guess";
 }
 
+/**
+ * For even player counts: chain needs N+1 entries (control + N steps, ends on text).
+ * For odd player counts:  chain needs N entries (control + N-1 steps, ends on text).
+ * This ensures every chain always ends on a text guess for MadLibs.
+ */
+export function chainTargetLength(playerCount: number): number {
+  return playerCount % 2 === 1 ? playerCount : playerCount + 1;
+}
+
 export function isChainComplete(chain: ChainEntry[], playerCount: number): boolean {
-  return chain.length >= playerCount + 1;
+  return chain.length >= chainTargetLength(playerCount);
+}
+
+/**
+ * Derive task type from the previous chain entry's type.
+ * If the input is text, the player must draw it; if image, they must guess it.
+ */
+export function taskTypeFromInput(entry: ChainEntry): TaskType {
+  return entry.type === "text" ? "draw" : "guess";
 }
 
 /**
@@ -73,10 +91,11 @@ export function getPlayerQueue(
     const nextPlayer = getPlayerForStep(k, nextStep, playOrder);
 
     if (nextPlayer === userId) {
+      const input = chain[nextStep - 1]!;
       tasks.push({
         elementIndex: k,
-        input: chain[nextStep - 1]!,
-        taskType: getTaskTypeForStep(nextStep),
+        input,
+        taskType: taskTypeFromInput(input),
         stepIndex: nextStep,
       });
     }
@@ -93,7 +112,8 @@ export function getPlayerQueue(
 
 /**
  * Check if a specific player has completed all their steps across every chain.
- * Each player handles exactly one step per element.
+ * For odd player counts, each player skips exactly one chain (their step
+ * falls beyond the shortened target length).
  */
 export function isPlayerFullyDone(
   userId: string,
@@ -104,8 +124,11 @@ export function isPlayerFullyDone(
   const playerIdx = playOrder.indexOf(userId);
   if (playerIdx === -1) return true;
 
+  const target = chainTargetLength(N);
+
   for (let k = 0; k < N; k++) {
     const myStep = ((playerIdx - k + N) % N) + 1;
+    if (myStep >= target) continue;
     const chain = chains[String(k)];
     if (!chain || chain.length <= myStep) return false;
   }

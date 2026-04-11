@@ -5,29 +5,49 @@ import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
 import { useJMStyle } from "@/JMStyle";
 
-export type AdminFocus = "users" | "avatars" | "featured" | "alert" | "brands" | "homerows" | "show" | "story" | "card" | "game" | "artist" | "auction" | "levels" | "points" | null;
+export type AdminFocus = "users" | "avatars" | "featured" | "alert" | "brands" | "homerows" | "show" | "story" | "card" | "game" | "artist" | "auction" | "levels" | "points" | "aipersonas" | null;
 
 interface JMAdminDropdownProps {
   value: AdminFocus;
   onChange: (value: AdminFocus) => void;
 }
 
-const focusOptions: { value: AdminFocus; label: string }[] = [
-  { value: "featured", label: "Featured" },
-  { value: "homerows", label: "Home Rows" },
-  { value: "alert", label: "Alert" },
-  { value: "brands", label: "Brands" },
+/**
+ * Alphabetized for column-first reading in a 2-column grid:
+ * Col 1 (top→bottom): AI Artists, AI Personas, Alert, Auctions, Avatars, Brands, Cards, Featured
+ * Col 2 (top→bottom): Games, Home Rows, Levels, Points, Shows, Stories, Users
+ */
+const SORTED: { value: AdminFocus; label: string }[] = [
   { value: "artist", label: "AI Artists" },
+  { value: "aipersonas", label: "AI Personas" },
+  { value: "alert", label: "Alert" },
   { value: "auction", label: "Auctions" },
-  { value: "users", label: "Users" },
-  { value: "show", label: "Shows" },
-  { value: "story", label: "Stories" },
-  { value: "card", label: "Cards" },
-  { value: "game", label: "Games" },
   { value: "avatars", label: "Avatars" },
+  { value: "brands", label: "Brands" },
+  { value: "card", label: "Cards" },
+  { value: "featured", label: "Featured" },
+  { value: "game", label: "Games" },
+  { value: "homerows", label: "Home Rows" },
   { value: "levels", label: "Levels" },
   { value: "points", label: "Points" },
+  { value: "show", label: "Shows" },
+  { value: "story", label: "Stories" },
+  { value: "users", label: "Users" },
 ];
+
+function interleaveForColumns(items: typeof SORTED, cols: number) {
+  const rows = Math.ceil(items.length / cols);
+  const result: typeof SORTED = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const idx = c * rows + r;
+      if (idx < items.length) result.push(items[idx]!);
+    }
+  }
+  return result;
+}
+
+const focusOptions = interleaveForColumns(SORTED, 2);
 
 /**
  * JMAdminDropdown - Dropdown for selecting admin focus area
@@ -123,25 +143,25 @@ export function JMAdminDropdown({ value, onChange }: JMAdminDropdownProps) {
       {isOpen && typeof document !== "undefined" && createPortal(
         <div
           ref={menuRef}
-          className="overflow-hidden rounded-lg shadow-xl"
+          className="grid grid-cols-2 overflow-hidden rounded-lg shadow-xl"
           style={{
             position: "fixed",
             top: menuPosition.top,
-            left: menuPosition.left,
-            width: menuPosition.width,
+            left: Math.min(menuPosition.left, window.innerWidth - 340),
+            width: Math.max(menuPosition.width, 320),
             backgroundColor: theme.surfaces.base,
             border: `1px solid ${theme.surfaces.elevated2}`,
             zIndex: 9999,
           }}
         >
-          {focusOptions.map((option, index) => (
+          {focusOptions.map((option) => (
             <button
               key={option.value}
               onClick={() => handleSelect(option.value)}
-              className="w-full px-4 py-3 text-left text-sm transition-all duration-150"
+              className="px-4 py-3 text-left text-sm transition-all duration-150"
               style={{
                 color: theme.text.primary,
-                borderTop: index > 0 ? `1px solid ${theme.surfaces.elevated2}` : undefined,
+                borderBottom: `1px solid ${theme.surfaces.elevated2}`,
                 backgroundColor: value === option.value ? theme.surfaces.elevated1 : "transparent",
               }}
               onMouseEnter={(e) => {

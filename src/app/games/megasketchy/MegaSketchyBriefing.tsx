@@ -19,12 +19,12 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import JMAvatarView from "@/JMKit/JMAvatarView";
+import { JMAIAvatarView } from "@/JMKit";
 import { GameSectionHeader, GamePrimaryButton, GameStatusMessage } from "../_gamecore";
 import type { GameSessionPlayer } from "@/lib/game-sessions";
-import type { SketchinessMission } from "@/lib/sketchiness-missions";
+import type { MegaSketchyMission } from "@/lib/megasketchy-missions";
 import MissionPicker from "./MissionPicker";
-
-const AI_PLAYER_ID = "ai-silicon";
+import { isAiPlayer } from "./aiConstants";
 
 interface PlayerInfo {
   uid: string;
@@ -69,24 +69,22 @@ function SortableAgent({
       <span className="w-6 text-center text-sm font-bold text-green-400/70">
         {index + 1}
       </span>
-      <div className="h-9 w-9 shrink-0">
-        {info.isAI ? (
-          <div className="flex h-full w-full items-center justify-center rounded-full bg-green-400/20 text-xs font-bold text-green-400">
-            AI
-          </div>
-        ) : info.avatarName ? (
+      {info.isAI ? (
+        <JMAIAvatarView size={36} avatarName={info.avatarName} />
+      ) : info.avatarName ? (
+        <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full">
           <JMAvatarView width={36} avatarName={info.avatarName} />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white/70">
-            {info.gamertag.charAt(0).toUpperCase()}
-          </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white/70">
+          {info.gamertag.charAt(0).toUpperCase()}
+        </div>
+      )}
       <span className="flex-1 text-base font-bold text-white">
         {info.gamertag}
       </span>
       {info.isAI && (
-        <span className="rounded-full bg-green-400/10 px-2.5 py-0.5 text-xs font-bold uppercase text-green-400/70">
+        <span className="rounded-full bg-red-500/15 px-2.5 py-0.5 text-xs font-bold uppercase text-red-400">
           Bot
         </span>
       )}
@@ -120,24 +118,22 @@ function StaticAgent({
       <span className="w-6 text-center text-sm font-bold text-green-400/70">
         {index + 1}
       </span>
-      <div className="h-9 w-9 shrink-0">
-        {info.isAI ? (
-          <div className="flex h-full w-full items-center justify-center rounded-full bg-green-400/20 text-xs font-bold text-green-400">
-            AI
-          </div>
-        ) : info.avatarName ? (
+      {info.isAI ? (
+        <JMAIAvatarView size={36} avatarName={info.avatarName} />
+      ) : info.avatarName ? (
+        <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full">
           <JMAvatarView width={36} avatarName={info.avatarName} />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white/70">
-            {info.gamertag.charAt(0).toUpperCase()}
-          </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white/70">
+          {info.gamertag.charAt(0).toUpperCase()}
+        </div>
+      )}
       <span className="text-base font-bold text-white">
         {info.gamertag}
       </span>
       {info.isAI && (
-        <span className="rounded-full bg-green-400/10 px-2.5 py-0.5 text-xs font-bold uppercase text-green-400/70">
+        <span className="rounded-full bg-red-500/15 px-2.5 py-0.5 text-xs font-bold uppercase text-red-400">
           Bot
         </span>
       )}
@@ -145,26 +141,24 @@ function StaticAgent({
   );
 }
 
-interface SketchinessBriefingProps {
+interface MegaSketchyBriefingProps {
   players: GameSessionPlayer[];
   playOrder: string[];
-  aiPlayerId: string | null;
-  onReady: (mission: SketchinessMission | null) => void;
+  onReady: (mission: MegaSketchyMission | null) => void;
   onReorder: (newOrder: string[]) => void;
   isHost: boolean;
 }
 
-export default function SketchinessBriefing({
+export default function MegaSketchyBriefing({
   players,
   playOrder,
-  aiPlayerId,
   onReady,
   onReorder,
   isHost,
-}: SketchinessBriefingProps) {
+}: MegaSketchyBriefingProps) {
   const [localOrder, setLocalOrder] = useState(playOrder);
   const [revealedCount, setRevealedCount] = useState(0);
-  const [selectedMission, setSelectedMission] = useState<SketchinessMission | null>(null);
+  const [selectedMission, setSelectedMission] = useState<MegaSketchyMission | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [launching, setLaunching] = useState(false);
   const allRevealed = revealedCount >= localOrder.length;
@@ -189,13 +183,13 @@ export default function SketchinessBriefing({
 
   const getPlayerInfo = useCallback(
     (uid: string): PlayerInfo => {
-      if (uid === AI_PLAYER_ID || uid === aiPlayerId) {
-        return { gamertag: "Agent SILICON", isAI: true, uid, avatarName: undefined };
-      }
       const p = players.find((pl) => pl.uid === uid);
+      if (isAiPlayer(uid)) {
+        return { gamertag: p?.gamertag ?? "AI Agent", isAI: true, uid, avatarName: p?.avatarName };
+      }
       return { gamertag: p?.gamertag ?? "Unknown", isAI: false, uid, avatarName: p?.avatarName };
     },
-    [players, aiPlayerId],
+    [players],
   );
 
   const handleDragEnd = useCallback(
@@ -214,7 +208,7 @@ export default function SketchinessBriefing({
     [localOrder, onReorder],
   );
 
-  const handleMissionSelect = useCallback((mission: SketchinessMission) => {
+  const handleMissionSelect = useCallback((mission: MegaSketchyMission) => {
     setSelectedMission(mission);
     setPickerOpen(false);
   }, []);
@@ -226,7 +220,7 @@ export default function SketchinessBriefing({
     setLaunching(false);
   }, [launching, selectedMission, onReady]);
 
-  const humanCount = players.length;
+  const totalPlayerCount = localOrder.length;
 
   return (
     <div className="fixed inset-0 flex flex-col bg-black">
@@ -237,6 +231,10 @@ export default function SketchinessBriefing({
           title="Mission Order"
           useBanner
         />
+
+        <p className="text-center mb-5 text-sm leading-relaxed text-white/60">
+          Your <b>Mega Sketchy Mission</b>, should you choose to accept it, is to transmit a secret message through the <b> Mega Spy Network</b>.
+        </p>
 
         {/* Agent order */}
         <div className="w-full space-y-2">
@@ -321,7 +319,7 @@ export default function SketchinessBriefing({
 
                 {pickerOpen && (
                   <MissionPicker
-                    playerCount={humanCount}
+                    playerCount={totalPlayerCount}
                     onSelect={handleMissionSelect}
                     onClose={() => setPickerOpen(false)}
                   />

@@ -3,17 +3,17 @@
 import { useState } from "react";
 import { X, Copy, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
-import { copyMission, type SketchinessMission } from "@/lib/sketchiness-missions";
+import { copyMission, type MegaSketchyMission } from "@/lib/megasketchy-missions";
 
 interface MissionDetailViewProps {
-  mission: SketchinessMission;
+  mission: MegaSketchyMission;
   /** If set, truncate display to this many segments */
   truncateTo?: number;
   onClose: () => void;
   /** Called when user copies to My Missions */
-  onCopied?: (newMission: SketchinessMission) => void;
+  onCopied?: (newMission: MegaSketchyMission) => void;
   /** Called when "Select This Mission" pressed in picker context */
-  onSelect?: (mission: SketchinessMission) => void;
+  onSelect?: (mission: MegaSketchyMission) => void;
 }
 
 export default function MissionDetailView({

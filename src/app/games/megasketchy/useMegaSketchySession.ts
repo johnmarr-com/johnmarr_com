@@ -32,7 +32,7 @@ export interface ScoringResult {
   narrative: string;
 }
 
-export interface SketchinessState {
+export interface MegaSketchyState {
   playOrder: string[];
   aiPlayerId: string | null;
   message: { id: string; template: string; elements: string[] } | null;
@@ -82,15 +82,15 @@ export async function appendChainEntry(
 
 // ─── Hook ────────────────────────────────────────────────────
 
-interface UseSketchinessSessionOptions {
+interface UseMegaSketchySessionOptions {
   sessionId: string | null;
   userId: string;
 }
 
-export function useSketchinessSession({
+export function useMegaSketchySession({
   sessionId,
   userId,
-}: UseSketchinessSessionOptions) {
+}: UseMegaSketchySessionOptions) {
   const [session, setSession] = useState<GameSession | null>(null);
   const unsubRef = useRef<(() => void) | null>(null);
 
@@ -113,8 +113,8 @@ export function useSketchinessSession({
     };
   }, [sessionId]);
 
-  // Derive Sketchiness-specific state from the session doc's extra fields
-  const skState = useMemo<SketchinessState>(() => {
+  // Derive Mega Sketchy-specific state from the session doc's extra fields
+  const skState = useMemo<MegaSketchyState>(() => {
     if (!session) {
       return {
         playOrder: [],
@@ -131,16 +131,16 @@ export function useSketchinessSession({
         scoringResult: null,
       };
     }
-    // Session doc has extra fields written by Sketchiness that aren't in the GameSession type.
+    // Session doc has extra fields written by Mega Sketchy that aren't in the GameSession type.
     // Access via bracket notation to satisfy TS index-signature rules.
     const s = session as unknown as Record<string, unknown>;
     return {
       playOrder: (s["playOrder"] as string[]) ?? [],
       aiPlayerId: (s["aiPlayerId"] as string) ?? null,
-      message: (s["message"] as SketchinessState["message"]) ?? null,
+      message: (s["message"] as MegaSketchyState["message"]) ?? null,
       chains: (s["chains"] as Chains) ?? {},
       skPhase: (s["skPhase"] as SkPhase) ?? "lobby",
-      gameMode: (s["gameMode"] as SketchinessState["gameMode"]) ?? "basic",
+      gameMode: (s["gameMode"] as MegaSketchyState["gameMode"]) ?? "basic",
       moleId: (s["moleId"] as string) ?? null,
       eliminatedPlayers: (s["eliminatedPlayers"] as string[]) ?? [],
       missionNumber: (s["missionNumber"] as number) ?? 0,

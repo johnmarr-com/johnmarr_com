@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import { SketchCanvas, GamePrimaryButton, GameStatusMessage } from "../_gamecore";
 import { JMBannerText } from "@/JMKit";
 import JMAvatarView from "@/JMKit/JMAvatarView";
+import { JMAIAvatarView } from "@/JMKit";
 import type { GameSessionPlayer } from "@/lib/game-sessions";
 import {
   assembleMadLibs,
@@ -12,25 +13,24 @@ import {
   type Chains,
   type ChainEntry,
 } from "./chainEngine";
+import { isAiPlayer } from "./aiConstants";
 
-interface SketchinessRevealProps {
+interface MegaSketchyRevealProps {
   players: GameSessionPlayer[];
   playOrder: string[];
-  aiPlayerId: string | null;
   chains: Chains;
   message: { template: string; elements: string[] };
   onProceed: () => void;
   isHost: boolean;
 }
 
-export default function SketchinessReveal({
+export default function MegaSketchyReveal({
   players,
-  aiPlayerId,
   chains,
   message,
   onProceed,
   isHost,
-}: SketchinessRevealProps) {
+}: MegaSketchyRevealProps) {
   const [viewMode, setViewMode] = useState<"chains" | "madlibs">("chains");
   const [selectedElement, setSelectedElement] = useState(0);
   const [stepIndex, setStepIndex] = useState(0);
@@ -41,18 +41,17 @@ export default function SketchinessReveal({
   const getPlayerName = useCallback(
     (uid: string) => {
       if (uid === "control") return "Control";
-      if (uid === aiPlayerId) return "Agent SILICON";
-      return players.find((p) => p.uid === uid)?.gamertag ?? "Unknown";
+      const p = players.find((pl) => pl.uid === uid);
+      return p?.gamertag ?? "Unknown";
     },
-    [players, aiPlayerId],
+    [players],
   );
 
   const getPlayerAvatar = useCallback(
     (uid: string) => {
-      if (uid === "control" || uid === aiPlayerId) return undefined;
       return players.find((p) => p.uid === uid)?.avatarName;
     },
-    [players, aiPlayerId],
+    [players],
   );
 
   const currentEntry = currentChain[stepIndex] ?? null;
@@ -137,22 +136,21 @@ export default function SketchinessReveal({
             {currentEntry && (
               <div className="w-full max-w-lg">
                 <div className="mb-2 flex items-center gap-2 justify-center">
-                  <div className="h-7 w-7">
-                    {currentEntry.playerId === "control" || currentEntry.playerId === aiPlayerId ? (
-                      <div className="flex h-full w-full items-center justify-center rounded-full bg-green-400/20 text-xs font-bold text-green-400">
-                        {currentEntry.playerId === "control" ? "C" : "AI"}
-                      </div>
-                    ) : getPlayerAvatar(currentEntry.playerId) ? (
-                      <JMAvatarView
-                        width={28}
-                        avatarName={getPlayerAvatar(currentEntry.playerId)!}
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center rounded-full bg-white/10 text-xs font-bold text-white/70">
-                        {getPlayerName(currentEntry.playerId).charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                  </div>
+                  {currentEntry.playerId === "control" ? (
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-400/20 text-xs font-bold text-green-400">
+                      C
+                    </div>
+                  ) : isAiPlayer(currentEntry.playerId) ? (
+                    <JMAIAvatarView size={28} avatarName={getPlayerAvatar(currentEntry.playerId)} />
+                  ) : getPlayerAvatar(currentEntry.playerId) ? (
+                    <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full">
+                      <JMAvatarView width={28} avatarName={getPlayerAvatar(currentEntry.playerId)!} />
+                    </div>
+                  ) : (
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-bold text-white/70">
+                      {getPlayerName(currentEntry.playerId).charAt(0).toUpperCase()}
+                    </div>
+                  )}
                   <span className="text-sm font-bold text-white/70">
                     {getPlayerName(currentEntry.playerId)}
                   </span>

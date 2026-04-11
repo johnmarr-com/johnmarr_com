@@ -95,7 +95,7 @@ export default function JMAvatarPreviewAndSelection({
       <div className={`relative flex flex-col items-center ${className}`}>
         {/* Avatar Display */}
         <div 
-          className="mx-auto mb-3 relative bg-gray-700 rounded-full flex items-center justify-center"
+          className="mx-auto mb-3 relative bg-gray-700 rounded-full overflow-hidden flex items-center justify-center"
           style={{ width: `${size}px`, height: `${size}px` }}
         >
           {selectedAvatar ? (

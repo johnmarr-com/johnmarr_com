@@ -6,7 +6,9 @@ import { JMAppHeader } from "@/JMKit";
 import { PointsManager, Activity } from "@/lib/points";
 import type { CreateSessionInput } from "@/lib/game-sessions";
 import { GameMultiplayerFlow } from "./GameMultiplayerFlow";
+import { PickAIOpponentModal } from "./PickAIOpponentModal";
 import { useGameMusic } from "./useGameMusic";
+import type { AIPersona } from "./aiPersonas";
 
 export type GameMode = "solo" | "ai" | "friends";
 
@@ -17,7 +19,6 @@ export interface GameLandingPageProps {
   gameSlug?: string;
   backgroundMusicURL?: string;
   backgroundMusicVolume?: number;
-  enabledModes?: GameMode[];
   /** Reduce gap between logo and icon (default 25px padding around icon) */
   iconPadding?: number;
   /** Pulse the splash icon in scale */
@@ -38,19 +39,20 @@ export interface GameLandingPageProps {
   landingExtra?: React.ReactNode;
   /** Game subtitle displayed beneath the icon and above the mode buttons. */
   subtitle?: string | undefined;
-  /** Min players for this game. When > 1, AI/solo buttons are hidden entirely. */
+  /** Min players for this game. Controls whether "Play Solo" appears in mode select. */
   minPlayers?: number;
   /** Max players for this game. Used in the "For X to Y players" label. */
   maxPlayers?: number;
-  onPlay: (mode: GameMode) => void;
+  /** True = pure solo (no opponent). false/undefined = solo means vs AI. */
+  trueSoloMode?: boolean;
+  /** Show the "+ AI" column in the host lobby. */
+  allowAI?: boolean;
+  /** Called when user selects "Play Solo" (true solo) from the mode select dialog. */
+  onSoloPlay?: () => void;
+  /** Called when user picks an AI opponent from the solo vs AI picker. */
+  onSoloVsAI?: (persona: AIPersona) => void;
   onMultiplayerStart?: (sessionId: string) => void;
 }
-
-const MODE_LABELS: Record<GameMode, React.ReactNode> = {
-  solo: "Play Solo",
-  ai: <>Play vs <span className="font-black text-xl text-red-500">AI</span></>,
-  friends: <>Play with <span className="font-black text-xl" style={{ color: "#888888" }}>Friends</span></>,
-};
 
 export function GameLandingPage({
   splashBgURL,
@@ -59,7 +61,6 @@ export function GameLandingPage({
   gameSlug,
   backgroundMusicURL,
   backgroundMusicVolume = 0.3,
-  enabledModes = ["solo"],
   iconPadding = 25,
   pulseIcon = false,
   multiplayerInput,
@@ -72,11 +73,14 @@ export function GameLandingPage({
   subtitle,
   minPlayers = 1,
   maxPlayers,
-  onPlay,
+  trueSoloMode,
+  allowAI,
+  onSoloPlay,
+  onSoloVsAI,
   onMultiplayerStart,
 }: GameLandingPageProps) {
-  const [pressed, setPressed] = useState<GameMode | null>(null);
   const [mpOpen, setMpOpen] = useState(false);
+  const [aiPickerOpen, setAiPickerOpen] = useState(false);
 
   const musicURL = backgroundMusicURL || (gameSlug ? `/music/${gameSlug}.mp3` : null);
   const { ensurePlaying } = useGameMusic({
@@ -85,14 +89,10 @@ export function GameLandingPage({
     stopOnUnmount: bgMusicLandingOnly,
   });
 
-  const allModes: GameMode[] = minPlayers > 1
-    ? ["friends"]
-    : ["ai", "friends"];
-
   return (
     <div className="fixed inset-0 flex flex-col bg-black">
       <div className="relative z-20"><JMAppHeader /></div>
-      {/* Background — aspect-fill cover */}
+      {/* Background — aspect-fill cover, fades in on load */}
       {splashBgURL && (
         <Image
           src={splashBgURL}
@@ -100,8 +100,9 @@ export function GameLandingPage({
           fill
           sizes="100vw"
           priority
-          className="object-cover"
+          className="object-cover opacity-0 transition-opacity duration-700"
           style={{ zIndex: 0 }}
+          onLoad={(e) => { (e.target as HTMLImageElement).classList.remove("opacity-0"); }}
         />
       )}
       {/* Dim overlay for legibility */}
@@ -115,44 +116,45 @@ export function GameLandingPage({
         className="flex w-full flex-col items-center"
         style={{ maxWidth: 600, padding: "0 50px" }}
       >
-        {/* Splash Logo — 2:1 aspect, gentle float animation, pulled closer to icon */}
-        {splashLogoURL && (
-          <div className="w-full animate-game-float -mb-6">
-            <div className="relative w-full" style={{ aspectRatio: "2 / 1" }}>
+        {/* Splash Logo — always reserves 2:1 space, image fades in when available */}
+        <div className="w-full animate-game-float -mb-6">
+          <div className="relative w-full" style={{ aspectRatio: "2 / 1" }}>
+            {splashLogoURL && (
               <Image
                 src={splashLogoURL}
                 alt=""
                 fill
                 sizes="(max-width: 640px) 80vw, 500px"
-                className="object-contain"
+                className="animate-landing-fade-in object-contain"
                 priority
               />
-            </div>
+            )}
           </div>
-        )}
+        </div>
 
-        {/* Splash Icon */}
-        {splashIconURL && (
-          <div
-            className={pulseIcon ? "w-full animate-icon-pulse" : "w-full"}
-            style={{ padding: iconPadding }}
-          >
-            <div className="relative w-full overflow-hidden rounded-[12%]" style={{ aspectRatio: "4 / 3" }}>
+        {/* Splash Icon — always reserves 4:3 space, image fades in when available */}
+        <div
+          className={pulseIcon ? "w-full animate-icon-pulse" : "w-full"}
+          style={{ padding: iconPadding }}
+        >
+          <div className="relative w-full overflow-hidden rounded-[12%]" style={{ aspectRatio: "4 / 3" }}>
+            {splashIconURL && (
               <Image
                 src={splashIconURL}
                 alt=""
                 fill
                 sizes="(max-width: 640px) 70vw, 400px"
-                className="object-cover"
+                className="animate-landing-fade-in object-cover"
+                style={{ animationDelay: "100ms" }}
                 priority
               />
-            </div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Subtitle — supports <br> and \n for line breaks */}
         {subtitle && (
-          <p className="mb-5 text-center text-lg font-bold tracking-wide text-white/70">
+          <p className="mb-5 animate-landing-fade-in text-center text-lg font-bold tracking-wide text-white/70" style={{ animationDelay: "500ms" }}>
             {subtitle.split(/<br\s*\/?>|\\n|\n/).map((line, i, arr) => (
               <span key={i}>
                 {line}
@@ -162,43 +164,17 @@ export function GameLandingPage({
           </p>
         )}
 
-        {/* Mode buttons */}
-        <div className="mt-2 flex w-full flex-col gap-3" style={{ padding: "0 25px" }}>
-          {allModes.map((mode) => {
-            const enabled = enabledModes.includes(mode);
-            return (
-              <button
-                key={mode}
-                disabled={!enabled}
-                onClick={() => {
-                  ensurePlaying();
-                  if (mode === "friends" && multiplayerInput) {
-                    setMpOpen(true);
-                    return;
-                  }
-                  setPressed(mode);
-                  PointsManager.award(Activity.PLAY_GAME);
-                  onPlay(mode);
-                }}
-                className={`
-                  w-full rounded-xl py-4 text-lg font-bold uppercase tracking-wider
-                  transition-all duration-150
-                  ${
-                    enabled
-                      ? "bg-white text-black shadow-lg shadow-white/20 hover:scale-[1.03] active:scale-95"
-                      : "cursor-not-allowed bg-white/10 text-white/25"
-                  }
-                `}
-                style={
-                  pressed === mode
-                    ? { opacity: 0.7, transform: "scale(0.97)" }
-                    : undefined
-                }
-              >
-                {MODE_LABELS[mode]}
-              </button>
-            );
-          })}
+        {/* Play button */}
+        <div className="mt-2 flex w-full animate-landing-fade-in flex-col gap-3" style={{ padding: "0 25px", animationDelay: "650ms" }}>
+          <button
+            onClick={() => {
+              ensurePlaying();
+              setMpOpen(true);
+            }}
+            className="w-full rounded-xl bg-white py-4 text-lg font-bold uppercase tracking-wider text-black shadow-lg shadow-white/20 transition-all duration-150 hover:scale-[1.03] active:scale-95"
+          >
+            Play
+          </button>
           {maxPlayers != null && (
             <p className="mt-1 text-center text-sm font-medium tracking-wide text-white/50">
               For {minPlayers} to {maxPlayers} players
@@ -215,7 +191,7 @@ export function GameLandingPage({
         </div>
       )}
 
-      {/* Multiplayer dialog */}
+      {/* Play flow dialog (mode select → host lobby / join / solo) */}
       {multiplayerInput && (
         <GameMultiplayerFlow
           open={mpOpen}
@@ -225,6 +201,29 @@ export function GameLandingPage({
           {...(multiplayerFlowMode ? { flowMode: multiplayerFlowMode } : {})}
           {...(multiplayerMinPlayers != null ? { minPlayers: multiplayerMinPlayers } : {})}
           lobbyExtra={lobbyExtra}
+          showSolo={minPlayers <= 1 && !!(onSoloPlay || onSoloVsAI)}
+          {...(trueSoloMode != null ? { trueSoloMode } : {})}
+          {...(allowAI != null ? { allowAI } : {})}
+          onSoloPlay={
+            trueSoloMode && onSoloPlay
+              ? () => {
+                  setMpOpen(false);
+                  PointsManager.award(Activity.PLAY_GAME);
+                  onSoloPlay();
+                }
+              : onSoloVsAI
+                ? () => {
+                    setMpOpen(false);
+                    setAiPickerOpen(true);
+                  }
+                : onSoloPlay
+                  ? () => {
+                      setMpOpen(false);
+                      PointsManager.award(Activity.PLAY_GAME);
+                      onSoloPlay();
+                    }
+                  : undefined
+          }
           onGameStart={(sessionId) => {
             setMpOpen(false);
             PointsManager.award(Activity.PLAY_GAME);
@@ -233,7 +232,20 @@ export function GameLandingPage({
         />
       )}
 
-      {/* Float animation keyframes */}
+      {/* AI Opponent Picker (solo vs AI flow) */}
+      {onSoloVsAI && (
+        <PickAIOpponentModal
+          open={aiPickerOpen}
+          onOpenChange={setAiPickerOpen}
+          onSelect={(persona) => {
+            setAiPickerOpen(false);
+            PointsManager.award(Activity.PLAY_GAME);
+            onSoloVsAI(persona);
+          }}
+        />
+      )}
+
+      {/* Float + fade animation keyframes */}
       <style jsx global>{`
         @keyframes game-float {
           0%, 100% { transform: translateY(8px); }
@@ -241,6 +253,14 @@ export function GameLandingPage({
         }
         .animate-game-float {
           animation: game-float 3s ease-in-out infinite;
+        }
+        @keyframes landing-fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .animate-landing-fade-in {
+          opacity: 0;
+          animation: landing-fade-in 500ms ease-out forwards;
         }
       `}</style>
     </div>

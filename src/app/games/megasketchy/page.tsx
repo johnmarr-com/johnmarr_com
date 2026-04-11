@@ -8,10 +8,10 @@ import { useAuth } from "@/lib/AuthProvider";
 import { getContentBySlug } from "@/lib/content";
 import type { JMContent } from "@/lib/content-types";
 import type { CreateSessionInput } from "@/lib/game-sessions";
-import { joinGameSessionById } from "@/lib/game-sessions";
-import SketchinessGame from "./SketchinessGame";
+import { joinGameSessionById, createGameSession, startGame } from "@/lib/game-sessions";
+import MegaSketchyGame from "./MegaSketchyGame";
 
-export default function SketchinessPage() {
+export default function MegaSketchyPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, gamertag, avatarName, userTier, isAdmin, isLoading: authLoading } = useAuth();
@@ -24,7 +24,7 @@ export default function SketchinessPage() {
   const canCreateMissions = isAdmin || userTier === "pro";
 
   useEffect(() => {
-    getContentBySlug("game", "sketchiness").then(setGameData);
+    getContentBySlug("game", "megasketchy").then(setGameData);
   }, []);
 
   // Auto-join session when arriving via invite link
@@ -39,7 +39,7 @@ export default function SketchinessPage() {
     return {
       gameId: gameData.id,
       gameName: gameData.name,
-      gameSlug: gameData.slug ?? "sketchiness",
+      gameSlug: gameData.slug ?? "megasketchy",
       gameLogoURL: gameData.splashLogoURL ?? gameData.coverURL,
       maxPlayers: gameData.maxPlayers ?? 15,
     };
@@ -49,9 +49,9 @@ export default function SketchinessPage() {
 
   if (mode === "friends" && sessionId) {
     return (
-      <SketchinessGame
+      <MegaSketchyGame
         sessionId={sessionId}
-        gameSlug="sketchiness"
+        gameSlug="megasketchy"
         bgMusicLandingOnly={bgMusicLandingOnly}
         {...(gameData?.splashBgURL ? { splashBgURL: gameData.splashBgURL } : {})}
         {...(gameData?.splashLogoURL ? { splashLogoURL: gameData.splashLogoURL } : {})}
@@ -72,28 +72,38 @@ export default function SketchinessPage() {
   const landingExtra = canCreateMissions ? (
     <JMProButton
       title="Create Mission"
-      onClick={() => router.push("/games/sketchiness/missions")}
+      onClick={() => router.push("/games/megasketchy/missions")}
     />
   ) : null;
+
+  const handleSoloPlay = async () => {
+    if (!user || !gamertag || !multiplayerInput) return;
+    const sess = await createGameSession(multiplayerInput, user.uid, gamertag, avatarName ?? undefined);
+    const sides: Record<string, string> = { [user.uid]: "player-1" };
+    await startGame(sess.id, sides);
+    setSessionId(sess.id);
+    setMode("friends");
+    router.replace(`/games/megasketchy?sessionId=${sess.id}`);
+  };
 
   return (
     <GameLandingPage
       {...splashProps}
-      gameSlug="sketchiness"
-      enabledModes={["friends"]}
-      minPlayers={gameData?.minPlayers ?? 3}
-      maxPlayers={gameData?.maxPlayers ?? 15}
+      gameSlug="megasketchy"
+      minPlayers={gameData?.minPlayers ?? 4}
+      maxPlayers={gameData?.maxPlayers ?? 14}
       subtitle={gameData?.subtitle}
       multiplayerFlowMode="party"
-      multiplayerMinPlayers={3}
+      multiplayerMinPlayers={4}
       bgMusicLandingOnly={bgMusicLandingOnly}
+      allowAI
       landingExtra={landingExtra}
       {...(multiplayerInput ? { multiplayerInput } : {})}
-      onPlay={(m) => setMode(m)}
+      onSoloPlay={handleSoloPlay}
       onMultiplayerStart={(sid) => {
         setSessionId(sid);
         setMode("friends");
-        router.replace(`/games/sketchiness?sessionId=${sid}`);
+        router.replace(`/games/megasketchy?sessionId=${sid}`);
       }}
     />
   );

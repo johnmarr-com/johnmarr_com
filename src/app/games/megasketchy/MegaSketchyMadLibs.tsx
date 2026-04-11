@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { ChevronRight } from "lucide-react";
 import { postGameComment, GameSectionHeader, GamePrimaryButton, GameStatusMessage } from "../_gamecore";
 import { assembleMadLibs, type Chains } from "./chainEngine";
-import { updateSessionFields } from "./useSketchinessSession";
+import { updateSessionFields } from "./useMegaSketchySession";
 
-interface SketchinessMadLibsProps {
+interface MegaSketchyMadLibsProps {
   sessionId: string;
   chains: Chains;
   message: { template: string; elements: string[] };
@@ -45,14 +45,14 @@ function parseTemplate(template: string, elementCount: number): TemplatePart[] {
   return parts;
 }
 
-export default function SketchinessMadLibs({
+export default function MegaSketchyMadLibs({
   sessionId,
   chains,
   message,
   sessionElementMatches,
   onProceed,
   isHost,
-}: SketchinessMadLibsProps) {
+}: MegaSketchyMadLibsProps) {
   const [showReceived, setShowReceived] = useState(false);
   const judgingRef = useRef(false);
 
