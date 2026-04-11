@@ -47,6 +47,8 @@ export interface GameLandingPageProps {
   trueSoloMode?: boolean;
   /** Show the "+ AI" column in the host lobby. */
   allowAI?: boolean;
+  /** Disable the Play button (shows "Coming Soon" instead). Music still starts on tap. */
+  disabled?: boolean;
   /** Called when user selects "Play Solo" (true solo) from the mode select dialog. */
   onSoloPlay?: () => void;
   /** Called when user picks an AI opponent from the solo vs AI picker. */
@@ -75,6 +77,7 @@ export function GameLandingPage({
   maxPlayers,
   trueSoloMode,
   allowAI,
+  disabled,
   onSoloPlay,
   onSoloVsAI,
   onMultiplayerStart,
@@ -106,7 +109,7 @@ export function GameLandingPage({
         />
       )}
       {/* Dim overlay for legibility */}
-      <div className="absolute inset-0 z-1 bg-black/40" />
+      <div className="absolute inset-0 z-1 bg-black/60" />
 
       {/* Title div — centered, max 600px, 50px side padding */}
       <div
@@ -169,11 +172,15 @@ export function GameLandingPage({
           <button
             onClick={() => {
               ensurePlaying();
-              setMpOpen(true);
+              if (!disabled) setMpOpen(true);
             }}
-            className="w-full rounded-xl bg-white py-4 text-lg font-bold uppercase tracking-wider text-black shadow-lg shadow-white/20 transition-all duration-150 hover:scale-[1.03] active:scale-95"
+            className={`w-full rounded-xl py-4 text-lg font-bold uppercase tracking-wider transition-all duration-150 ${
+              disabled
+                ? "bg-white/20 text-white/40"
+                : "bg-white text-black shadow-lg shadow-white/20 hover:scale-[1.03] active:scale-95"
+            }`}
           >
-            Play
+            {disabled ? "Coming Soon" : "Play"}
           </button>
           {maxPlayers != null && (
             <p className="mt-1 text-center text-sm font-medium tracking-wide text-white/50">
