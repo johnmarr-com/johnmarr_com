@@ -3,31 +3,30 @@
 import { uploadSketch } from "@/lib/game-sketches";
 import { getPlayerQueue, type Chains, type ChainEntry, type PlayerTask } from "./chainEngine";
 import { appendChainEntry } from "./useMegaSketchySession";
+import { getAIAuthHeaders } from "../_gamecore/getAIAuthHeaders";
 
 const AI_DELAY_MS = 2000;
 const AI_STAGGER_MS = 1500;
 const AI_TIMEOUT_MS = 20_000;
 
 /**
- * Fire AI request(s) and return the first valid result.
- * When `parallel` is true (default), fires 2 calls via Promise.any for speed.
- * When false, fires a single call to reduce API load (used when many AI are active).
+ * Fire 2 authenticated AI requests in parallel via Promise.any — takes the
+ * first successful response. If both fail, retries the pair once before
+ * giving up. Returns null after all attempts.
  */
-async function fetchAIRace<T>(
+async function fetchAI<T>(
   body: Record<string, unknown>,
   extract: (data: Record<string, unknown>) => T | null,
-  parallel = true,
 ): Promise<T | null> {
-  const controllers: AbortController[] = [];
+  const headers = await getAIAuthHeaders();
 
-  const attempt = async (): Promise<T> => {
+  async function attempt(): Promise<T> {
     const controller = new AbortController();
-    controllers.push(controller);
     const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
     try {
       const res = await fetch("/api/games/ai", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(body),
         signal: controller.signal,
       });
@@ -38,34 +37,35 @@ async function fetchAIRace<T>(
     } finally {
       clearTimeout(timer);
     }
-  };
+  }
 
-  const calls = parallel ? [attempt(), attempt()] : [attempt()];
+  async function racePair(): Promise<T> {
+    return Promise.any([attempt(), attempt()]);
+  }
 
   try {
-    const result = await Promise.any(calls);
-    controllers.forEach((c) => c.abort());
-    return result;
+    return await racePair();
   } catch {
-    controllers.forEach((c) => c.abort());
-    return null;
+    try {
+      return await racePair();
+    } catch {
+      return null;
+    }
   }
 }
 
-async function aiGuess(imageUrl: string, parallel: boolean): Promise<string> {
-  const text = await fetchAIRace(
+async function aiGuess(imageUrl: string): Promise<string> {
+  const text = await fetchAI(
     { type: "vision", imageUrl },
     (data) => (typeof data["text"] === "string" && data["text"]) || null,
-    parallel,
   );
   return text || "mysterious object";
 }
 
-async function aiSketch(subject: string, parallel: boolean): Promise<Blob> {
-  const imageUrl = await fetchAIRace(
+async function aiSketch(subject: string): Promise<Blob> {
+  const imageUrl = await fetchAI(
     { type: "sketch", subject },
     (data) => (typeof data["imageUrl"] === "string" && data["imageUrl"]) || null,
-    parallel,
   );
 
   if (imageUrl) {
@@ -108,10 +108,6 @@ interface AiTask extends PlayerTask {
 
 /**
  * Drain all pending AI tasks sequentially with staggered delays.
- * When multiple AI players are active, each call is single-fire (no parallel
- * race) to avoid overwhelming the API. A 1-player AI game still double-fires
- * for speed. Tasks are processed one at a time with a short stagger between
- * them to spread the load.
  */
 export async function processAiQueue(
   aiPlayerIds: string[],
@@ -129,8 +125,6 @@ export async function processAiQueue(
 
   if (allTasks.length === 0) return;
 
-  const useParallel = aiPlayerIds.length <= 1;
-
   for (let i = 0; i < allTasks.length; i++) {
     const task = allTasks[i]!;
     await delay(i === 0 ? AI_DELAY_MS : AI_STAGGER_MS);
@@ -138,7 +132,7 @@ export async function processAiQueue(
     let entry: ChainEntry;
 
     if (task.taskType === "guess") {
-      const guess = await aiGuess(task.input.value, useParallel);
+      const guess = await aiGuess(task.input.value);
       entry = {
         type: "text",
         value: guess,
@@ -146,7 +140,7 @@ export async function processAiQueue(
         timestamp: Date.now(),
       };
     } else {
-      const blob = await aiSketch(task.input.value, useParallel);
+      const blob = await aiSketch(task.input.value);
       const url = await uploadSketch(sessionId, task.elementIndex, task.stepIndex, blob, round);
       entry = {
         type: "image",

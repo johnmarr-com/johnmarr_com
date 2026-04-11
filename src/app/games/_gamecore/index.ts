@@ -11,6 +11,7 @@ export {
   type AIMoveResult,
   type AICommentResult,
 } from "./AIPlayerManager";
+export { getAIAuthHeaders } from "./getAIAuthHeaders";
 export { SketchCanvas, type SketchCanvasRef } from "./SketchCanvas";
 export { GameGamertagBadge } from "./GameGamertagBadge";
 export { InviteKnownPlayersModal } from "./InviteKnownPlayersModal";

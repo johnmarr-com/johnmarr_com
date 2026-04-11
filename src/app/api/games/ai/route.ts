@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import Replicate from "replicate";
+import { verifyIdToken } from "@/lib/firebase-admin";
 
 const AI_TIMEOUT_MS = 15_000;
 
@@ -14,7 +15,58 @@ const replicate = new Replicate({
   useFileOutput: false,
 });
 
+// ─── Per-UID rate limiting ──────────────────────────────────
+const RATE_WINDOW_MS = 60_000;
+const MAX_REQUESTS_PER_WINDOW = 30;
+
+const requestLog = new Map<string, number[]>();
+
+function isRateLimited(uid: string): boolean {
+  const now = Date.now();
+  const timestamps = requestLog.get(uid) ?? [];
+  const recent = timestamps.filter((t) => now - t < RATE_WINDOW_MS);
+  if (recent.length >= MAX_REQUESTS_PER_WINDOW) return true;
+  recent.push(now);
+  requestLog.set(uid, recent);
+  return false;
+}
+
+// Periodically prune stale entries so the map doesn't grow forever
+setInterval(() => {
+  const now = Date.now();
+  for (const [uid, timestamps] of requestLog) {
+    const recent = timestamps.filter((t) => now - t < RATE_WINDOW_MS);
+    if (recent.length === 0) requestLog.delete(uid);
+    else requestLog.set(uid, recent);
+  }
+}, RATE_WINDOW_MS);
+
 export async function POST(request: NextRequest) {
+  // ─── Authenticate ─────────────────────────────────────────
+  const authHeader = request.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return NextResponse.json(
+      { error: "Missing or invalid authorization header" },
+      { status: 401 },
+    );
+  }
+
+  let uid: string;
+  try {
+    const decoded = await verifyIdToken(authHeader.substring(7));
+    uid = decoded.uid;
+  } catch {
+    return NextResponse.json({ error: "Invalid auth token" }, { status: 401 });
+  }
+
+  if (isRateLimited(uid)) {
+    return NextResponse.json(
+      { error: "Too many requests — try again shortly" },
+      { status: 429 },
+    );
+  }
+
+  // ─── Handle request ───────────────────────────────────────
   try {
     const body = await request.json();
     const { type } = body as { type: string };
@@ -29,7 +81,10 @@ export async function POST(request: NextRequest) {
       const imageRes = await fetch(imageUrl);
       if (!imageRes.ok) {
         console.error("[AI Vision] Failed to fetch image:", imageRes.status);
-        return NextResponse.json({ text: "" });
+        return NextResponse.json(
+          { error: "Failed to fetch image for vision" },
+          { status: 502 },
+        );
       }
 
       const arrayBuf = await imageRes.arrayBuffer();
@@ -65,7 +120,7 @@ export async function POST(request: NextRequest) {
 
       const content = response.content[0];
       const text = content?.type === "text" ? content.text.trim() : "";
-      console.log(`[AI Vision] ${text}`);
+      console.log(`[AI Vision] uid=${uid} ${text}`);
       return NextResponse.json({ text });
     }
 
@@ -91,27 +146,37 @@ export async function POST(request: NextRequest) {
 
         const rawUrl = Array.isArray(output) ? output[0] : output;
         const imageUrl = typeof rawUrl === "string" ? rawUrl : String(rawUrl ?? "");
-        console.log(`[AI Sketch] Generated image for "${subject}": ${imageUrl.slice(0, 80)}...`);
+        console.log(`[AI Sketch] uid=${uid} Generated image for "${subject}": ${imageUrl.slice(0, 80)}...`);
 
         if (!imageUrl) {
           console.error("[AI Sketch] No image URL returned from Replicate");
-          return NextResponse.json({ imageUrl: "", type: "image" });
+          return NextResponse.json(
+            { error: "Sketch generation failed" },
+            { status: 502 },
+          );
         }
 
         return NextResponse.json({ imageUrl, type: "image" });
       } catch (err) {
         console.error("[AI Sketch] Replicate error:", err);
-        return NextResponse.json({ imageUrl: "", type: "image" });
+        return NextResponse.json(
+          { error: "Sketch generation failed" },
+          { status: 502 },
+        );
       }
     }
 
-    // ─── Original: text move or comment ─────────────────────
+    // ─── Text: move or comment ──────────────────────────────
     const { prompt, maxTokens, temperature } = body as {
       prompt: string;
       type: "move" | "comment";
       maxTokens?: number;
       temperature?: number;
     };
+
+    if (!prompt) {
+      return NextResponse.json({ error: "Missing prompt" }, { status: 400 });
+    }
 
     const response = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
@@ -123,14 +188,20 @@ export async function POST(request: NextRequest) {
     const content = response.content[0];
     if (!content || content.type !== "text") {
       console.log("[AI] No text response");
-      return NextResponse.json({ text: "" });
+      return NextResponse.json(
+        { error: "AI returned no text" },
+        { status: 502 },
+      );
     }
 
     const text = content.text.trim();
-    console.log(`[AI] ${text}`);
+    console.log(`[AI] uid=${uid} ${text}`);
     return NextResponse.json({ text });
   } catch (err) {
     console.error("[AI] Error:", err);
-    return NextResponse.json({ text: "" });
+    return NextResponse.json(
+      { error: "Internal AI error" },
+      { status: 500 },
+    );
   }
 }

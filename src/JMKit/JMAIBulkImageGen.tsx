@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { Loader2, ImageIcon, RefreshCw, Check } from "lucide-react";
+import { getAIAuthHeaders } from "@/app/games/_gamecore/getAIAuthHeaders";
 
 export interface GeneratedImage {
   tempUrl: string;
@@ -50,9 +51,10 @@ export function JMAIBulkImageGen({
   const generateImageForSubject = useCallback(
     async (subject: string): Promise<string | null> => {
       try {
+        const headers = await getAIAuthHeaders();
         const res = await fetch(apiEndpoint, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({ type: "sketch", subject }),
         });
         const data = await res.json();
