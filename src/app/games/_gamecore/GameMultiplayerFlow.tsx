@@ -18,7 +18,7 @@ import { JMInviteCodeView } from "@/JMKit/JMInviteCodeView";
 import { JMInviteCodeInput } from "@/JMKit/JMInviteCodeInput";
 import { InviteKnownPlayersModal } from "./InviteKnownPlayersModal";
 import { InviteAIModal } from "./InviteAIModal";
-import { isAiPlayer } from "./aiPersonas";
+import { isAiPlayer, getPersona } from "./aiPersonas";
 import type { AIPersona } from "./aiPersonas";
 import { useAuth } from "@/lib/AuthProvider";
 import {
@@ -52,7 +52,7 @@ function LobbyPlayerRow({
   return (
     <div className="flex items-center gap-3 rounded-lg py-1.5">
       {isAI ? (
-        <JMAIAvatarView size={36} {...(player.avatarName ? { avatarName: player.avatarName } : {})} />
+        <JMAIAvatarView size={36} {...(player.avatarName ? { avatarName: player.avatarName } : {})} scaleOverride={getPersona(player.uid)?.avatarScale} />
       ) : player.avatarName ? (
         <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full">
           <JMAvatarView width={36} avatarName={player.avatarName} />

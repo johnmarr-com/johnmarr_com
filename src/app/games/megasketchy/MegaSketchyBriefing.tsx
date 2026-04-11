@@ -24,7 +24,7 @@ import { GameSectionHeader, GamePrimaryButton, GameStatusMessage } from "../_gam
 import type { GameSessionPlayer } from "@/lib/game-sessions";
 import type { MegaSketchyMission } from "@/lib/megasketchy-missions";
 import MissionPicker from "./MissionPicker";
-import { isAiPlayer } from "./aiConstants";
+import { isAiPlayer, getPersona } from "./aiConstants";
 
 interface PlayerInfo {
   uid: string;
@@ -70,7 +70,7 @@ function SortableAgent({
         {index + 1}
       </span>
       {info.isAI ? (
-        <JMAIAvatarView size={36} avatarName={info.avatarName} />
+        <JMAIAvatarView size={36} avatarName={info.avatarName} scaleOverride={getPersona(info.uid)?.avatarScale} />
       ) : info.avatarName ? (
         <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full">
           <JMAvatarView width={36} avatarName={info.avatarName} />
@@ -119,7 +119,7 @@ function StaticAgent({
         {index + 1}
       </span>
       {info.isAI ? (
-        <JMAIAvatarView size={36} avatarName={info.avatarName} />
+        <JMAIAvatarView size={36} avatarName={info.avatarName} scaleOverride={getPersona(info.uid)?.avatarScale} />
       ) : info.avatarName ? (
         <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full">
           <JMAvatarView width={36} avatarName={info.avatarName} />

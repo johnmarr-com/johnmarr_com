@@ -204,6 +204,31 @@ export function AIPersonaEditModal({ personaId, onClose, onUpdated }: AIPersonaE
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
 
+      {/* Avatar picker overlay — above everything */}
+      {showAvatarPicker && avatars.length > 0 && (
+        <div className="fixed inset-0 z-60 flex flex-col bg-black/95">
+          <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+            <h3 className="text-lg font-semibold text-white">Choose Avatar</h3>
+            <button
+              onClick={() => setShowAvatarPicker(false)}
+              className="rounded-full p-1 transition-colors hover:bg-white/10 text-white/60"
+            >
+              <X size={20} />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <JMAvatarPicker
+              avatars={avatars}
+              mode="selector"
+              onSelect={(avatar: JMAvatarItem) => {
+                update({ avatarName: avatar.filename });
+                setShowAvatarPicker(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       <div
         className="relative flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border-2"
         style={{
@@ -273,22 +298,7 @@ export function AIPersonaEditModal({ personaId, onClose, onUpdated }: AIPersonaE
                 </div>
               </div>
 
-              {/* Avatar picker (collapsible) */}
-              {showAvatarPicker && avatars.length > 0 && (
-                <div
-                  className="max-h-[240px] overflow-y-auto rounded-xl border p-2"
-                  style={{ borderColor: theme.surfaces.elevated2 }}
-                >
-                  <JMAvatarPicker
-                    avatars={avatars}
-                    mode="selector"
-                    onSelect={(avatar: JMAvatarItem) => {
-                      update({ avatarName: avatar.filename });
-                      setShowAvatarPicker(false);
-                    }}
-                  />
-                </div>
-              )}
+              {/* Avatar picker rendered as overlay — see bottom of component */}
 
               {/* Avatar Scale */}
               {editState.avatarName && (

@@ -13,7 +13,7 @@ import {
   type Chains,
   type ChainEntry,
 } from "./chainEngine";
-import { isAiPlayer } from "./aiConstants";
+import { isAiPlayer, getPersona } from "./aiConstants";
 
 interface MegaSketchyRevealProps {
   players: GameSessionPlayer[];
@@ -141,7 +141,7 @@ export default function MegaSketchyReveal({
                       C
                     </div>
                   ) : isAiPlayer(currentEntry.playerId) ? (
-                    <JMAIAvatarView size={28} avatarName={getPlayerAvatar(currentEntry.playerId)} />
+                    <JMAIAvatarView size={28} avatarName={getPlayerAvatar(currentEntry.playerId)} scaleOverride={getPersona(currentEntry.playerId)?.avatarScale} />
                   ) : getPlayerAvatar(currentEntry.playerId) ? (
                     <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full">
                       <JMAvatarView width={28} avatarName={getPlayerAvatar(currentEntry.playerId)!} />

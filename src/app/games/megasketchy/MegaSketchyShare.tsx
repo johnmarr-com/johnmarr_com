@@ -6,7 +6,7 @@ import { JMAvatarView, JMAIAvatarView } from "@/JMKit";
 import { GamePrimaryButton, GameStatusMessage } from "../_gamecore";
 import { getPlayerForStep, type Chains, type ChainEntry } from "./chainEngine";
 import type { GameSessionPlayer } from "@/lib/game-sessions";
-import { isAiPlayer } from "./aiConstants";
+import { isAiPlayer, getPersona } from "./aiConstants";
 
 interface MegaSketchyShareProps {
   players: GameSessionPlayer[];
@@ -241,7 +241,7 @@ function PlayerBadge({
   const sizeClass = size === "lg" ? "h-11 w-11" : "h-8 w-8";
 
   if (isAI) {
-    return <JMAIAvatarView size={px} avatarName={avatarName} />;
+    return <JMAIAvatarView size={px} avatarName={avatarName} scaleOverride={getPersona(uid)?.avatarScale} />;
   }
 
   if (avatarName) {

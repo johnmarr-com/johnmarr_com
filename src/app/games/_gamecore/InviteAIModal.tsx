@@ -1,20 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Loader2, Plus, X } from "lucide-react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  JMAIAvatarView,
 } from "@/JMKit";
-import {
-  PLAY_STYLE_COLORS,
-  loadPersonasFromDB,
-  type AIPersona,
-} from "./aiPersonas";
+import { loadPersonasFromDB, type AIPersona } from "./aiPersonas";
+import { AIPersonaGrid } from "./AIPersonaGrid";
 
 interface InviteAIModalProps {
   open: boolean;
@@ -45,14 +40,35 @@ export function InviteAIModal({
     [onOpenChange],
   );
 
-  const aiInLobby = new Set(currentAIIds);
+  const aiInLobby = useMemo(() => new Set(currentAIIds), [currentAIIds]);
   const lobbyFull = availableSlots <= 0 && aiInLobby.size === 0;
+
+  const disabledIds = useMemo(() => {
+    if (availableSlots > 0) return new Set<string>();
+    const disabled = new Set<string>();
+    personas?.forEach((p) => {
+      if (!aiInLobby.has(p.id)) disabled.add(p.id);
+    });
+    return disabled;
+  }, [personas, availableSlots, aiInLobby]);
+
+  const handleToggle = useCallback(
+    (persona: { id: string }) => {
+      if (aiInLobby.has(persona.id)) {
+        onRemoveAI(persona.id);
+      } else {
+        const full = personas?.find((p) => p.id === persona.id);
+        if (full) onAddAI(full);
+      }
+    },
+    [aiInLobby, personas, onAddAI, onRemoveAI],
+  );
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-h-[80dvh] overflow-y-auto bg-black/95 sm:max-w-sm">
+      <DialogContent className="max-h-[85dvh] overflow-y-auto bg-black/95 sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-center text-white">
+          <DialogTitle className="text-center text-xl font-black uppercase tracking-wider text-white">
             AI Personas
           </DialogTitle>
           <DialogDescription className="text-center text-white/50">
@@ -66,51 +82,21 @@ export function InviteAIModal({
           </p>
         )}
 
-        <div className="flex flex-col gap-1 pt-1">
-          {personas === null ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-5 w-5 animate-spin text-white/40" />
-            </div>
-          ) : personas.length === 0 ? (
-            <p className="py-6 text-center text-sm text-white/40">
-              No AI personas available. Create some in the admin panel.
-            </p>
-          ) : null}
-          {personas?.map((persona) => {
-            const isAdded = aiInLobby.has(persona.id);
-            const styleClass = PLAY_STYLE_COLORS[persona.playStyle];
-            const canAdd = !isAdded && availableSlots > 0;
+        <AIPersonaGrid
+          personas={personas}
+          selectedIds={aiInLobby}
+          onToggle={handleToggle}
+          disabledIds={disabledIds}
+          emptyMessage="No AI personas available. Create some in the admin panel."
+        />
 
-            return (
-              <button
-                key={persona.id}
-                onClick={() => isAdded ? onRemoveAI(persona.id) : canAdd && onAddAI(persona)}
-                disabled={!isAdded && !canAdd}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                  isAdded
-                    ? "bg-red-500/10 ring-1 ring-red-500/20 hover:bg-red-500/15"
-                    : "bg-white/5 hover:bg-white/10"
-                }`}
-              >
-                <JMAIAvatarView size={36} avatarName={persona.avatarName} scaleOverride={persona.avatarScale} />
-
-                <div className="flex flex-1 flex-col gap-0.5">
-                  <span className="text-sm font-bold text-white">
-                    {persona.name}
-                  </span>
-                  <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${styleClass}`}>
-                    {persona.playStyle}
-                  </span>
-                </div>
-
-                {isAdded ? (
-                  <X className="h-5 w-5 shrink-0 text-red-400" />
-                ) : (
-                  <Plus className="h-5 w-5 shrink-0 text-white/40" />
-                )}
-              </button>
-            );
-          })}
+        <div className="sticky bottom-0 pt-3">
+          <button
+            onClick={() => onOpenChange(false)}
+            className="w-full rounded-xl bg-red-600 py-4 text-lg font-bold uppercase tracking-wider text-white shadow-lg shadow-red-600/30 transition-all hover:scale-[1.02] active:scale-95"
+          >
+            Done
+          </button>
         </div>
       </DialogContent>
     </Dialog>
