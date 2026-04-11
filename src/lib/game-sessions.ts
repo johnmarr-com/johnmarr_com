@@ -262,6 +262,7 @@ export type JoinResult =
 
 /**
  * Join a game session via invite code.
+ * Uses a transaction to safely check capacity and add the player.
  * Cleans up any pending invite for this user.
  * Known-player tracking is handled by the host's client via GameMultiplayerFlow.
  */
@@ -271,7 +272,7 @@ export async function joinGameSession(
   gamertag: string,
   avatarName?: string,
 ): Promise<JoinResult> {
-  const { doc, getDoc, updateDoc, arrayUnion, arrayRemove, serverTimestamp, collection, query, where, getDocs, deleteDoc } =
+  const { doc, runTransaction, serverTimestamp, collection, query, where, getDocs, deleteDoc } =
     await import("firebase/firestore");
   const db = await getDb();
 
@@ -279,58 +280,62 @@ export async function joinGameSession(
     const entry = await getInviteCodeEntry(code);
     if (!entry) return { ok: false, reason: "not_found" };
 
-    const sessionSnap = await getDoc(
-      doc(db, "gameSessions", entry.gameSessionId),
-    );
-    if (!sessionSnap.exists()) return { ok: false, reason: "not_found" };
+    const result = await runTransaction(db, async (txn) => {
+      const ref = doc(db, "gameSessions", entry.gameSessionId);
+      const snap = await txn.get(ref);
+      if (!snap.exists()) return { ok: false as const, reason: "not_found" as const };
 
-    const session = {
-      id: sessionSnap.id,
-      ...(sessionSnap.data() as Omit<GameSession, "id">),
-    };
+      const data = snap.data();
+      const players = (data["players"] ?? []) as GameSessionPlayer[];
+      const playerUids = (data["playerUids"] ?? []) as string[];
+      const pendingInviteUids = (data["pendingInviteUids"] ?? []) as string[];
+      const maxPlayers = data["maxPlayers"] as number;
 
-    const alreadyJoined = session.players.some((p) => p.uid === userId);
-
-    if (!alreadyJoined) {
-      if (session.players.length >= session.maxPlayers) {
-        // Try to replace an AI player
-        const aiPlayer = [...session.players].reverse().find((p) => p.uid.startsWith("ai-"));
-        if (!aiPlayer) return { ok: false, reason: "full" };
-
-        const newPlayers = session.players.filter((p) => p.uid !== aiPlayer.uid);
-        const playerEntry = { uid: userId, gamertag, ...(avatarName ? { avatarName } : {}) };
-        newPlayers.push(playerEntry);
-
-        await updateDoc(doc(db, "gameSessions", session.id), {
-          players: newPlayers,
-          playerUids: arrayUnion(userId),
-          pendingInviteUids: arrayRemove(userId),
-          updatedAt: serverTimestamp(),
-        });
-        // Also remove the AI uid from playerUids
-        await updateDoc(doc(db, "gameSessions", session.id), {
-          playerUids: arrayRemove(aiPlayer.uid),
-        });
-
-        session.players = newPlayers;
-      } else {
-        const playerEntry = { uid: userId, gamertag, ...(avatarName ? { avatarName } : {}) };
-        await updateDoc(doc(db, "gameSessions", session.id), {
-          players: arrayUnion(playerEntry),
-          playerUids: arrayUnion(userId),
-          pendingInviteUids: arrayRemove(userId),
-          updatedAt: serverTimestamp(),
-        });
-
-        session.players.push(playerEntry);
+      if (players.some((p) => p.uid === userId)) {
+        const session: GameSession = { id: snap.id, ...(data as Omit<GameSession, "id">) };
+        return { ok: true as const, session, wasAlreadyJoined: true };
       }
-    }
 
-    // Clean up any pending invite doc for this user + session
-    if (!alreadyJoined) {
+      const playerEntry: GameSessionPlayer = { uid: userId, gamertag, ...(avatarName ? { avatarName } : {}) };
+      let newPlayers: GameSessionPlayer[];
+      let newPlayerUids: string[];
+
+      if (players.length >= maxPlayers) {
+        const aiPlayer = [...players].reverse().find((p) => p.uid.startsWith("ai-"));
+        if (!aiPlayer) return { ok: false as const, reason: "full" as const };
+
+        newPlayers = players.filter((p) => p.uid !== aiPlayer.uid);
+        newPlayers.push(playerEntry);
+        newPlayerUids = playerUids.filter((uid) => uid !== aiPlayer.uid);
+        if (!newPlayerUids.includes(userId)) newPlayerUids.push(userId);
+      } else {
+        newPlayers = [...players, playerEntry];
+        newPlayerUids = playerUids.includes(userId) ? playerUids : [...playerUids, userId];
+      }
+
+      txn.update(ref, {
+        players: newPlayers,
+        playerUids: newPlayerUids,
+        pendingInviteUids: pendingInviteUids.filter((uid) => uid !== userId),
+        updatedAt: serverTimestamp(),
+      });
+
+      const session: GameSession = {
+        id: snap.id,
+        ...(data as Omit<GameSession, "id">),
+        players: newPlayers,
+        playerUids: newPlayerUids,
+      };
+      return { ok: true as const, session, wasAlreadyJoined: false };
+    });
+
+    if (!result.ok) return { ok: false, reason: result.reason };
+
+    // Clean up any pending invite doc (fire-and-forget, outside transaction)
+    if (!result.wasAlreadyJoined) {
       const invQ = query(
         collection(db, "gameInvites"),
-        where("sessionId", "==", session.id),
+        where("sessionId", "==", entry.gameSessionId),
         where("toUid", "==", userId),
       );
       getDocs(invQ).then((snap) => {
@@ -338,7 +343,7 @@ export async function joinGameSession(
       }).catch(() => {});
     }
 
-    return { ok: true, session };
+    return { ok: true, session: result.session };
   } catch {
     return { ok: false, reason: "error" };
   }
@@ -346,6 +351,7 @@ export async function joinGameSession(
 
 /**
  * Join a game session directly by session ID (for invite-based joins).
+ * Uses a transaction to safely check capacity and add the player.
  */
 export async function joinGameSessionById(
   sessionId: string,
@@ -353,61 +359,68 @@ export async function joinGameSessionById(
   gamertag: string,
   avatarName?: string,
 ): Promise<JoinResult> {
-  const { doc, getDoc, updateDoc, arrayUnion, arrayRemove, serverTimestamp, collection, query, where, getDocs, deleteDoc } =
+  const { doc, runTransaction, serverTimestamp, collection, query, where, getDocs, deleteDoc } =
     await import("firebase/firestore");
   const db = await getDb();
 
   try {
-    const sessionSnap = await getDoc(doc(db, "gameSessions", sessionId));
-    if (!sessionSnap.exists()) return { ok: false, reason: "not_found" };
+    const result = await runTransaction(db, async (txn) => {
+      const ref = doc(db, "gameSessions", sessionId);
+      const snap = await txn.get(ref);
+      if (!snap.exists()) return { ok: false as const, reason: "not_found" as const };
 
-    const session = {
-      id: sessionSnap.id,
-      ...(sessionSnap.data() as Omit<GameSession, "id">),
-    };
+      const data = snap.data();
+      const players = (data["players"] ?? []) as GameSessionPlayer[];
+      const playerUids = (data["playerUids"] ?? []) as string[];
+      const pendingInviteUids = (data["pendingInviteUids"] ?? []) as string[];
+      const maxPlayers = data["maxPlayers"] as number;
+      const status = data["status"] as string;
 
-    const alreadyJoined = session.players.some((p) => p.uid === userId);
+      // Allow returning players to rejoin in-progress games
+      if (players.some((p) => p.uid === userId)) {
+        const session: GameSession = { id: snap.id, ...(data as Omit<GameSession, "id">) };
+        return { ok: true as const, session, wasAlreadyJoined: true };
+      }
 
-    // Allow returning players to rejoin in-progress games
-    if (alreadyJoined) {
-      return { ok: true, session };
-    }
+      if (status !== "lobby") return { ok: false as const, reason: "full" as const };
 
-    if (session.status !== "lobby") return { ok: false, reason: "full" };
+      const playerEntry: GameSessionPlayer = { uid: userId, gamertag, ...(avatarName ? { avatarName } : {}) };
+      let newPlayers: GameSessionPlayer[];
+      let newPlayerUids: string[];
 
-    if (session.players.length >= session.maxPlayers) {
-      const aiPlayer = [...session.players].reverse().find((p) => p.uid.startsWith("ai-"));
-      if (!aiPlayer) return { ok: false, reason: "full" };
+      if (players.length >= maxPlayers) {
+        const aiPlayer = [...players].reverse().find((p) => p.uid.startsWith("ai-"));
+        if (!aiPlayer) return { ok: false as const, reason: "full" as const };
 
-      const newPlayers = session.players.filter((p) => p.uid !== aiPlayer.uid);
-      const playerEntry = { uid: userId, gamertag, ...(avatarName ? { avatarName } : {}) };
-      newPlayers.push(playerEntry);
+        newPlayers = players.filter((p) => p.uid !== aiPlayer.uid);
+        newPlayers.push(playerEntry);
+        newPlayerUids = playerUids.filter((uid) => uid !== aiPlayer.uid);
+        if (!newPlayerUids.includes(userId)) newPlayerUids.push(userId);
+      } else {
+        newPlayers = [...players, playerEntry];
+        newPlayerUids = playerUids.includes(userId) ? playerUids : [...playerUids, userId];
+      }
 
-      await updateDoc(doc(db, "gameSessions", session.id), {
+      txn.update(ref, {
         players: newPlayers,
-        playerUids: arrayUnion(userId),
-        pendingInviteUids: arrayRemove(userId),
-        updatedAt: serverTimestamp(),
-      });
-      await updateDoc(doc(db, "gameSessions", session.id), {
-        playerUids: arrayRemove(aiPlayer.uid),
-      });
-
-      session.players = newPlayers;
-    } else {
-      const playerEntry = { uid: userId, gamertag, ...(avatarName ? { avatarName } : {}) };
-      await updateDoc(doc(db, "gameSessions", session.id), {
-        players: arrayUnion(playerEntry),
-        playerUids: arrayUnion(userId),
-        pendingInviteUids: arrayRemove(userId),
+        playerUids: newPlayerUids,
+        pendingInviteUids: pendingInviteUids.filter((uid) => uid !== userId),
         updatedAt: serverTimestamp(),
       });
 
-      session.players.push(playerEntry);
-    }
+      const session: GameSession = {
+        id: snap.id,
+        ...(data as Omit<GameSession, "id">),
+        players: newPlayers,
+        playerUids: newPlayerUids,
+      };
+      return { ok: true as const, session, wasAlreadyJoined: false };
+    });
 
-    // Clean up invite doc
-    {
+    if (!result.ok) return { ok: false, reason: result.reason };
+
+    // Clean up invite doc (fire-and-forget, outside transaction)
+    if (!result.wasAlreadyJoined) {
       const invQ = query(
         collection(db, "gameInvites"),
         where("sessionId", "==", sessionId),
@@ -418,7 +431,7 @@ export async function joinGameSessionById(
       }).catch(() => {});
     }
 
-    return { ok: true, session };
+    return { ok: true, session: result.session };
   } catch {
     return { ok: false, reason: "error" };
   }

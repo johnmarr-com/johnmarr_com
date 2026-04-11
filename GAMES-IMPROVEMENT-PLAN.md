@@ -73,8 +73,8 @@ transaction. Two players joining at the same moment can both pass the capacity
 check and both get added.
 
 ### Tasks
-- [ ] Wrap the join logic in `runTransaction` (same pattern used by `addAIPlayerToSession`).
-- [ ] Apply the same fix to `joinGameSessionById`.
+- [x] Wrap the join logic in `runTransaction` (same pattern used by `addAIPlayerToSession`).
+- [x] Apply the same fix to `joinGameSessionById`.
 - [ ] Verify joining still works: normal join, join when full, AI-replacement join.
 
 ---
