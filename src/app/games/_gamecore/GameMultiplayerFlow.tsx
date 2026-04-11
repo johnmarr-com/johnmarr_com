@@ -31,10 +31,69 @@ import {
   removeAIPlayerFromSession,
   type CreateSessionInput,
   type GameSession,
+  type GameSessionPlayer,
 } from "@/lib/game-sessions";
 import { removePendingInviteByUid, fetchKnownPlayers, type KnownPlayer } from "@/lib/game-invites";
 
 type FlowStep = "choice" | "hosting" | "joining" | "joined";
+
+function LobbyPlayerRow({
+  player,
+  isFirstHuman,
+  isYou,
+  onRemove,
+}: {
+  player: GameSessionPlayer;
+  isFirstHuman: boolean;
+  isYou: boolean;
+  onRemove?: (() => void | Promise<void>) | undefined;
+}) {
+  const isAI = isAiPlayer(player.uid);
+  return (
+    <div className="flex items-center gap-3 rounded-lg py-1.5">
+      {isAI ? (
+        <JMAIAvatarView size={36} {...(player.avatarName ? { avatarName: player.avatarName } : {})} />
+      ) : player.avatarName ? (
+        <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full">
+          <JMAvatarView width={36} avatarName={player.avatarName} />
+        </div>
+      ) : (
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10">
+          <span className="text-sm font-bold text-white/60">
+            {player.gamertag.charAt(0).toUpperCase()}
+          </span>
+        </div>
+      )}
+
+      <span className={`text-base font-bold ${isAI ? "text-red-400" : "text-white"}`}>
+        {player.gamertag}
+      </span>
+      {isFirstHuman && !isAI && (
+        <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs font-bold uppercase text-white/50">
+          Host
+        </span>
+      )}
+      {isAI && (
+        <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-bold uppercase text-red-400">
+          AI
+        </span>
+      )}
+      {isYou && (
+        <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-xs font-bold uppercase text-green-400">
+          You
+        </span>
+      )}
+      {onRemove && (
+        <button
+          onClick={onRemove}
+          className="ml-auto rounded-full p-1.5 text-white/30 transition-colors hover:bg-red-500/10 hover:text-red-400"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  );
+}
 
 interface GameMultiplayerFlowProps {
   open: boolean;
@@ -446,52 +505,19 @@ export function GameMultiplayerFlow({
                   Players ({session.players.length}/{session.maxPlayers})
                 </p>
                 <div className="flex flex-col gap-2">
-                  {session.players.map((p, i) => {
-                    const isAI = isAiPlayer(p.uid);
-                    return (
-                      <div
-                        key={p.uid}
-                        className="flex items-center gap-3 rounded-lg py-1.5"
-                      >
-                        {/* Avatar */}
-                        {isAI ? (
-                          <JMAIAvatarView size={36} {...(p.avatarName ? { avatarName: p.avatarName } : {})} />
-                        ) : p.avatarName ? (
-                          <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full">
-                            <JMAvatarView width={36} avatarName={p.avatarName} />
-                          </div>
-                        ) : (
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10">
-                            <span className="text-sm font-bold text-white/60">
-                              {p.gamertag.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                        )}
-
-                        <span className={`text-base font-bold ${isAI ? "text-red-400" : "text-white"}`}>
-                          {p.gamertag}
-                        </span>
-                        {i === 0 && !isAI && (
-                          <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs font-bold uppercase text-white/50">
-                            Host
-                          </span>
-                        )}
-                        {isAI && (
-                          <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-bold uppercase text-red-400">
-                            AI
-                          </span>
-                        )}
-                        {(isAI || (i !== 0 && !isAI)) && isHost && (
-                          <button
-                            onClick={() => handleBootPlayer(p.uid)}
-                            className="ml-auto rounded-full p-1.5 text-white/30 transition-colors hover:bg-red-500/10 hover:text-red-400"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
+                  {session.players.map((p, i) => (
+                    <LobbyPlayerRow
+                      key={p.uid}
+                      player={p}
+                      isFirstHuman={i === 0}
+                      isYou={p.uid === user?.uid}
+                      onRemove={
+                        isHost && (isAiPlayer(p.uid) || i !== 0)
+                          ? () => handleBootPlayer(p.uid)
+                          : undefined
+                      }
+                    />
+                  ))}
 
                   {/* Pending invited players */}
                   {pendingPlayerDetails.map((p) => (
@@ -663,48 +689,14 @@ export function GameMultiplayerFlow({
                   Players ({session.players.length}/{session.maxPlayers})
                 </p>
                 <div className="flex flex-col gap-2">
-                  {session.players.map((p, i) => {
-                    const isAI = isAiPlayer(p.uid);
-                    return (
-                      <div
-                        key={p.uid}
-                        className="flex items-center gap-3 rounded-lg py-1.5"
-                      >
-                        {isAI ? (
-                          <JMAIAvatarView size={36} {...(p.avatarName ? { avatarName: p.avatarName } : {})} />
-                        ) : p.avatarName ? (
-                          <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full">
-                            <JMAvatarView width={36} avatarName={p.avatarName} />
-                          </div>
-                        ) : (
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10">
-                            <span className="text-sm font-bold text-white/60">
-                              {p.gamertag.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                        )}
-
-                        <span className={`text-base font-bold ${isAI ? "text-red-400" : "text-white"}`}>
-                          {p.gamertag}
-                        </span>
-                        {i === 0 && !isAI && (
-                          <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs font-bold uppercase text-white/50">
-                            Host
-                          </span>
-                        )}
-                        {isAI && (
-                          <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-bold uppercase text-red-400">
-                            AI
-                          </span>
-                        )}
-                        {p.uid === user?.uid && (
-                          <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-xs font-bold uppercase text-green-400">
-                            You
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
+                  {session.players.map((p, i) => (
+                    <LobbyPlayerRow
+                      key={p.uid}
+                      player={p}
+                      isFirstHuman={i === 0}
+                      isYou={p.uid === user?.uid}
+                    />
+                  ))}
                 </div>
               </div>
 

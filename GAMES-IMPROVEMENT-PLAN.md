@@ -88,8 +88,8 @@ The host lobby player list and the joined-player lobby list render nearly
 identical avatar + gamertag + badge rows. Two copies to maintain.
 
 ### Tasks
-- [ ] Extract a `LobbyPlayerRow` component (avatar, gamertag, host/AI/you badges, optional remove button).
-- [ ] Use it in both the host lobby and the joined lobby sections.
+- [x] Extract a `LobbyPlayerRow` component (avatar, gamertag, host/AI/you badges, optional remove button).
+- [x] Use it in both the host lobby and the joined lobby sections.
 
 ---
 
