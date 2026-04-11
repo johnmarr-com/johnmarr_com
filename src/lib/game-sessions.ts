@@ -86,6 +86,9 @@ export interface GameSession {
   transcript?: string[];
   playerSides?: Record<string, string>;
   winner?: string | null;
+
+  retentionDays?: number;
+  expiresAt?: Timestamp;
 }
 
 export interface InviteCodeEntry {
@@ -168,6 +171,7 @@ export interface CreateSessionInput {
   gameSlug: string;
   gameLogoURL: string;
   maxPlayers: number;
+  retentionDays?: number;
 }
 
 /**
@@ -184,11 +188,17 @@ export async function createGameSession(
     collection,
     writeBatch,
     serverTimestamp,
+    Timestamp: FBTimestamp,
   } = await import("firebase/firestore");
   const db = await getDb();
 
   const inviteCode = await generateUniqueInviteCode();
   const sessionRef = doc(collection(db, "gameSessions"));
+
+  const retentionDays = input.retentionDays ?? 1;
+  const expiresAt = FBTimestamp.fromDate(
+    new Date(Date.now() + retentionDays * 24 * 60 * 60 * 1000),
+  );
 
   const sessionData = {
     ownerId: userId,
@@ -202,6 +212,8 @@ export async function createGameSession(
     players: [{ uid: userId, gamertag, ...(avatarName ? { avatarName } : {}) }],
     playerUids: [userId],
     status: "lobby" as const,
+    retentionDays,
+    expiresAt,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };

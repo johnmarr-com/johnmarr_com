@@ -230,6 +230,7 @@ export const avatarScaleMap: Record<string, AvatarScaleData> = {
   '9O56GE': { scale: 1.5 },
   'H4XI5Z': { scale: 1.15 },
   '67FA4F': { scale: 1.15 },
+  '4E8KWO': { scale: 1.4 },
 };
 
 // Helper function to extract avatar ID from filename

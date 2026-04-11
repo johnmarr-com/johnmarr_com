@@ -42,6 +42,7 @@ export default function MegaSketchyPage() {
       gameSlug: gameData.slug ?? "megasketchy",
       gameLogoURL: gameData.splashLogoURL ?? gameData.coverURL,
       maxPlayers: gameData.maxPlayers ?? 15,
+      ...(gameData.retentionDays != null ? { retentionDays: gameData.retentionDays } : {}),
     };
   }, [gameData]);
 

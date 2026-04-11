@@ -31,6 +31,7 @@ function getAdminApp(): App {
       clientEmail,
       privateKey,
     }),
+    storageBucket: `${projectId}.firebasestorage.app`,
   });
 
   return adminApp;

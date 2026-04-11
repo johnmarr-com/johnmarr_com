@@ -121,24 +121,24 @@ These classes are exported but unused by all three games. Either integrate them
 into the chaptered video abstraction (item 3) or remove them.
 
 ### Tasks
-- [ ] Decide: useful for future games or dead weight?
-- [ ] If keeping, document intended usage and integrate into at least one game.
-- [ ] If removing, delete the files and remove exports from `index.ts`.
+- [x] Decide: useful for future games or dead weight? → Dead weight; removed.
+- [x] Delete `GameState.ts` and `GameEngine.ts`; remove exports from `index.ts`.
 
 ---
 
 ## 8. Add session / invite code cleanup
 
 **Priority:** Low — long-term hygiene  
-**Files:** Firestore configuration or a new scheduled function
+**Files:** `src/lib/game-sessions.ts`, `src/app/api/admin/game-cleanup/route.ts`, `src/app/games/_gamecore/GameMultiplayerFlow.tsx`, `src/app/admin/AdminGamesPanel.tsx`
 
 Abandoned `gameSessions` and `inviteCodes` docs accumulate forever. No TTL or
 cleanup exists.
 
 ### Tasks
-- [ ] Add a `cleanupAt` or `expiresAt` timestamp to sessions on creation.
-- [ ] Implement a scheduled Cloud Function (or Firestore TTL policy) to delete expired sessions and their invite codes.
-- [ ] Alternatively, add a TTL index if using Firestore's native TTL feature.
+- [x] Add `retentionDays` (1 or 30) and `expiresAt` Timestamp to sessions on creation (defaults to daily).
+- [x] Add Daily / Monthly data-retention toggle in the play-flow dialog (choice step).
+- [x] Implement admin-protected cleanup API route (`POST /api/admin/game-cleanup`) that deletes expired sessions, invite codes, game invites, and Storage sketches.
+- [x] Add "Clean Up Expired" button to admin Games panel.
 
 ---
 

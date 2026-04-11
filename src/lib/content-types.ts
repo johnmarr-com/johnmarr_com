@@ -175,6 +175,7 @@ export interface JMContent {
   minPlayers?: number;            // Min players required (default 1; >1 means no solo/AI mode)
   maxPlayers?: number;            // Max players for multiplayer games (default 2)
   trueSoloMode?: boolean;         // true = pure solo (no opponent). false/undefined = solo means vs AI
+  retentionDays?: number;         // 1 = delete session data after 24h (default). 30 = keep for 30 days.
   
   // ─── Hierarchy & Ordering ─────────────────────────────────
   parentId: string | null;        // null = top-level content
@@ -217,6 +218,7 @@ export interface JMContentInput {
   minPlayers?: number;
   maxPlayers?: number;
   trueSoloMode?: boolean;
+  retentionDays?: number;
   brandId?: string;
   parentId?: string | null;
   order?: number;

@@ -29,6 +29,7 @@ interface EditState {
   minPlayers: number;
   maxPlayers: number;
   trueSoloMode: boolean;
+  retentionDays: number;
   isPublished: boolean;
 }
 
@@ -49,6 +50,7 @@ function stateFromGame(game: JMContent): EditState {
     minPlayers: game.minPlayers ?? 1,
     maxPlayers: game.maxPlayers ?? 2,
     trueSoloMode: game.trueSoloMode ?? false,
+    retentionDays: game.retentionDays ?? 1,
     isPublished: game.isPublished,
   };
 }
@@ -150,6 +152,7 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
       if (editState.minPlayers > 0) updates.minPlayers = editState.minPlayers;
       if (editState.maxPlayers > 0) updates.maxPlayers = editState.maxPlayers;
       updates.trueSoloMode = editState.trueSoloMode;
+      updates.retentionDays = editState.retentionDays;
 
       await updateContent(gameId, updates);
 
@@ -529,6 +532,41 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
               <p className="mt-[-12px] ml-1 text-xs" style={{ color: theme.text.tertiary }}>
                 When on, the &quot;Play Solo&quot; button won&apos;t mention AI.
               </p>
+
+              {/* Data Retention */}
+              <div>
+                <label
+                  className="mb-2 block text-sm font-medium"
+                  style={{ color: theme.text.secondary }}
+                >
+                  Delete Game Data
+                </label>
+                <div className="flex gap-2">
+                  {([1, 30] as const).map((days) => (
+                    <button
+                      key={days}
+                      type="button"
+                      onClick={() => update({ retentionDays: days })}
+                      className="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+                      style={{
+                        backgroundColor:
+                          editState.retentionDays === days
+                            ? `${theme.accents.goldenGlow}20`
+                            : theme.surfaces.elevated2,
+                        color:
+                          editState.retentionDays === days
+                            ? theme.accents.goldenGlow
+                            : theme.text.tertiary,
+                      }}
+                    >
+                      {days === 1 ? "Daily" : "Monthly"}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1 text-xs" style={{ color: theme.text.tertiary }}>
+                  Sessions and sketches older than {editState.retentionDays === 1 ? "24 hours" : "30 days"} are cleaned up automatically.
+                </p>
+              </div>
 
               {error && (
                 <div

@@ -38,6 +38,7 @@ export default function TapSmashArenaPage() {
       gameSlug: gameData.slug ?? "tapsmasharena",
       gameLogoURL: gameData.splashLogoURL ?? gameData.coverURL,
       maxPlayers: gameData.maxPlayers ?? 2,
+      ...(gameData.retentionDays != null ? { retentionDays: gameData.retentionDays } : {}),
     };
   }, [gameData]);
 

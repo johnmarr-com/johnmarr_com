@@ -146,25 +146,17 @@ export async function deleteAIPersona(personaId: string): Promise<void> {
 }
 
 // ─────────────────────────────────────────────────────────────
-// STAT TRACKING
+// STAT TRACKING (via callable Cloud Function)
 // ─────────────────────────────────────────────────────────────
 
 export async function recordAIGameResult(
   personaId: string,
   won: boolean,
 ): Promise<void> {
-  const { doc, updateDoc, increment } = await import("firebase/firestore");
-  const db = await getDb();
-
-  const updates: Record<string, unknown> = {
-    "stats.gamesPlayed": increment(1),
-  };
-
-  if (won) {
-    updates["stats.wins"] = increment(1);
-  } else {
-    updates["stats.losses"] = increment(1);
-  }
-
-  await updateDoc(doc(db, "aiPersonas", personaId), updates);
+  const { getFunctions, httpsCallable } = await import("firebase/functions");
+  const { initializeFirebase } = await import("./firebase");
+  const { app } = await initializeFirebase();
+  const functions = getFunctions(app);
+  const fn = httpsCallable(functions, "recordAIGameResult");
+  await fn({ personaId, won });
 }

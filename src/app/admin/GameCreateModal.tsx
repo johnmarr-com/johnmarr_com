@@ -30,6 +30,7 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
   const [bgMusicLandingOnly, setBgMusicLandingOnly] = useState(false);
   const [minPlayers, setMinPlayers] = useState(1);
   const [maxPlayers, setMaxPlayers] = useState(2);
+  const [retentionDays, setRetentionDays] = useState(1);
   const [isPublished, setIsPublished] = useState(false);
 
   const tempIdRef = useRef(`new-${Date.now()}`);
@@ -88,6 +89,7 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
       input.bgMusicLandingOnly = bgMusicLandingOnly;
       if (minPlayers > 0) input.minPlayers = minPlayers;
       if (maxPlayers > 0) input.maxPlayers = maxPlayers;
+      input.retentionDays = retentionDays;
 
       await createContent(input, user.uid);
       onCreated();
@@ -422,6 +424,41 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
                   }}
                 />
               </div>
+            </div>
+
+            {/* Data Retention */}
+            <div>
+              <label
+                className="mb-2 block text-sm font-medium"
+                style={{ color: theme.text.secondary }}
+              >
+                Delete Game Data
+              </label>
+              <div className="flex gap-2">
+                {([1, 30] as const).map((days) => (
+                  <button
+                    key={days}
+                    type="button"
+                    onClick={() => setRetentionDays(days)}
+                    className="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+                    style={{
+                      backgroundColor:
+                        retentionDays === days
+                          ? `${theme.accents.goldenGlow}20`
+                          : theme.surfaces.elevated2,
+                      color:
+                        retentionDays === days
+                          ? theme.accents.goldenGlow
+                          : theme.text.tertiary,
+                    }}
+                  >
+                    {days === 1 ? "Daily" : "Monthly"}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-xs" style={{ color: theme.text.tertiary }}>
+                Sessions and sketches older than {retentionDays === 1 ? "24 hours" : "30 days"} are cleaned up automatically.
+              </p>
             </div>
 
             {error && (
