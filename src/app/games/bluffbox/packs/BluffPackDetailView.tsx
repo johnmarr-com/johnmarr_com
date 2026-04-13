@@ -133,6 +133,7 @@ export default function BluffPackDetailView({
           className="min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain"
           style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "thin" }}
           onWheel={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
         >
           {/* Cover — half the old size on mobile, larger on sm+ */}
           <div className="flex justify-center pb-3 pt-4">
