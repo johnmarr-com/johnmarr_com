@@ -88,20 +88,29 @@ export default function BluffPackDetailView({
   return (
     <div
       className={cn(
-        "pointer-events-none fixed inset-0 flex items-center justify-center p-4",
+        "pointer-events-none fixed inset-0 flex flex-col",
         overlayClassName ?? "z-50",
       )}
     >
-      {/* Backdrop: pointer-events-auto so tapping outside closes; kept separate so the modal card's touch events are unaffected */}
       <button
         type="button"
         className="pointer-events-auto absolute inset-0 z-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
         aria-label="Close"
       />
+      {/* Inner: matches JMSelectAsset's flex-1 pattern — lets iOS compute height via flex, not explicit px/dvh */}
       <div
-        className="pointer-events-auto relative z-10 flex h-[min(85dvh,85vh,calc(100dvh-2rem))] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/20 bg-neutral-900 xl:max-w-3xl"
+        className="pointer-events-auto relative z-10 flex min-h-0 min-w-0 flex-1 flex-col"
+        style={{
+          paddingTop: "max(25px, env(safe-area-inset-top))",
+          paddingBottom: "max(25px, env(safe-area-inset-bottom))",
+          paddingLeft: "max(25px, env(safe-area-inset-left))",
+          paddingRight: "max(25px, env(safe-area-inset-right))",
+        }}
         onClick={(e) => e.stopPropagation()}
+      >
+      <div
+        className="mx-auto flex min-h-0 min-w-0 w-full max-w-md flex-1 flex-col overflow-hidden rounded-2xl border border-white/20 bg-neutral-900 xl:max-w-3xl"
       >
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 py-4">
@@ -121,7 +130,7 @@ export default function BluffPackDetailView({
 
         {/* Scrollable body — cover + description + card grid scroll together so iOS touch works on the whole region */}
         <div
-          className="min-h-0 flex-1 select-none overflow-y-auto overscroll-y-contain"
+          className="min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain"
           style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "thin" }}
           onWheel={(e) => e.stopPropagation()}
         >
@@ -194,6 +203,7 @@ export default function BluffPackDetailView({
             </button>
           )}
         </div>
+      </div>
       </div>
 
       {/* Confirm delete card popup */}
