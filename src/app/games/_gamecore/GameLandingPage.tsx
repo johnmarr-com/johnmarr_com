@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { JMAppHeader } from "@/JMKit";
 import { PointsManager, Activity } from "@/lib/points";
-import type { CreateSessionInput } from "@/lib/game-sessions";
+import type { CreateSessionInput, GameSession } from "@/lib/game-sessions";
 import { GameMultiplayerFlow } from "./GameMultiplayerFlow";
 import { PickAIOpponentModal } from "./PickAIOpponentModal";
 import { useGameMusic } from "./useGameMusic";
@@ -33,8 +33,8 @@ export interface GameLandingPageProps {
   multiplayerMinPlayers?: number;
   /** If true, stop background music when leaving the landing page (game starts). */
   bgMusicLandingOnly?: boolean;
-  /** Extra content injected into the host lobby (above Start button). */
-  lobbyExtra?: React.ReactNode;
+  /** Extra content injected into the host lobby (above Start button). Pass a function to receive the live session. */
+  lobbyExtra?: React.ReactNode | ((ctx: { session: GameSession }) => React.ReactNode);
   /** Extra content rendered below the mode buttons on the landing page itself. */
   landingExtra?: React.ReactNode;
   /** Game subtitle displayed beneath the icon and above the mode buttons. */

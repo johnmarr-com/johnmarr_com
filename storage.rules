@@ -304,6 +304,16 @@ service firebase.storage {
     }
     
     // ─────────────────────────────────────────────────────────────
+    // BLUFF BOX PACKS (Pack covers and card images)
+    // ─────────────────────────────────────────────────────────────
+    
+    match /bluffbox-packs/{packId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isImage() && maxSize(5);
+      allow delete: if isAdmin();
+    }
+    
+    // ─────────────────────────────────────────────────────────────
     // GAME SKETCHES (Sketchiness drawing uploads)
     // ─────────────────────────────────────────────────────────────
     

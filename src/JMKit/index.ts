@@ -57,3 +57,13 @@ export { JMMyGamesModal } from "./JMMyGamesModal";
 export { JMAIBulkImageGen, type GeneratedImage, type JMAIBulkImageGenProps } from "./JMAIBulkImageGen";
 export { JMAvatarColorEditor } from "./JMAvatarColorEditor";
 export { JMGameScoreboard, type JMGameScoreboardProps } from "./JMGameScoreboard";
+export {
+  JMTournamentVs,
+  JMTournamentVs_DEFAULT_AVATAR_WIDTH,
+  type JMTournamentVsProps,
+  type JMTournamentVsSide,
+  type JMTournamentVsRoleTone,
+} from "./JMTournamentVs";
+export { JMCard, type JMCardProps } from "./JMCard";
+export { BluffPackCover } from "./BluffPackCover";
+export { BluffCard } from "./BluffCard";

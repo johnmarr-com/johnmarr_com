@@ -9,6 +9,12 @@ import {
   type ReactNode,
 } from "react";
 import type { User } from "firebase/auth";
+import type { AiImageGenSettings } from "@/lib/bluffbox-ai-image-gen-settings";
+import {
+  DEFAULT_AI_IMAGE_GEN_SETTINGS,
+  mergeAiImageGenSettingsFromUnknown,
+} from "@/lib/bluffbox-ai-image-gen-settings";
+import { sanitizeIdeogramImageOptions } from "@/app/games/bluffbox/packs/ideogramStyleRules";
 
 export type UserTier = "free" | "pro" | "paid";
 
@@ -23,6 +29,8 @@ interface AuthContextValue {
   level: number;
   points: number;
   levelledUp: boolean;
+  /** Bluff Box / Ideogram: saved on `users/{uid}.aiImageGenSettings` */
+  aiImageGenSettings: AiImageGenSettings;
   /** Admin-only: view the app as a different tier (for testing) */
   adminViewAs: UserTier | null;
   setAdminViewAs: (tier: UserTier | null) => void;
@@ -32,6 +40,8 @@ interface AuthContextValue {
   refreshClaims: () => Promise<void>;
   /** Re-fetch user data from Firestore (e.g., after gamertag change) */
   refreshUserData: () => Promise<void>;
+  /** Persist Bluff Box AI image settings to Firestore and update local state. */
+  saveAiImageGenSettings: (next: AiImageGenSettings) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -50,6 +60,8 @@ const AuthContext = createContext<AuthContextValue>({
   effectiveTier: "free",
   refreshClaims: async () => {},
   refreshUserData: async () => {},
+  aiImageGenSettings: DEFAULT_AI_IMAGE_GEN_SETTINGS,
+  saveAiImageGenSettings: async () => {},
 });
 
 interface AuthProviderProps {
@@ -60,7 +72,9 @@ interface AuthProviderProps {
  * Auth Provider - Manages Firebase authentication state including admin roles and user tier
  */
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [state, setState] = useState<Omit<AuthContextValue, "refreshClaims" | "refreshUserData" | "setAdminViewAs" | "effectiveTier">>({
+  const [state, setState] = useState<
+    Omit<AuthContextValue, "refreshClaims" | "refreshUserData" | "setAdminViewAs" | "effectiveTier" | "saveAiImageGenSettings">
+  >({
     user: null,
     isLoading: true,
     isAuthenticated: false,
@@ -71,6 +85,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     level: 1,
     points: 0,
     levelledUp: false,
+    aiImageGenSettings: DEFAULT_AI_IMAGE_GEN_SETTINGS,
     adminViewAs: null,
   });
 
@@ -105,10 +120,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     level: number;
     points: number;
     levelledUp: boolean;
+    aiImageGenSettings: AiImageGenSettings;
   }
 
   const fetchUserData = useCallback(async (user: User | null): Promise<UserData> => {
-    const defaults: UserData = { userTier: "free", gamertag: null, avatarName: null, level: 1, points: 0, levelledUp: false };
+    const defaults: UserData = {
+      userTier: "free",
+      gamertag: null,
+      avatarName: null,
+      level: 1,
+      points: 0,
+      levelledUp: false,
+      aiImageGenSettings: DEFAULT_AI_IMAGE_GEN_SETTINGS,
+    };
     if (!user) return defaults;
     
     try {
@@ -130,6 +154,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           level: typeof data["level"] === "number" ? data["level"] : 1,
           points: typeof data["points"] === "number" ? data["points"] : 0,
           levelledUp: data["levelledUp"] === true,
+          aiImageGenSettings: mergeAiImageGenSettingsFromUnknown(data["aiImageGenSettings"]),
         };
       }
       return defaults;
@@ -164,6 +189,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.error("Failed to refresh user data:", error);
     }
   }, [state.user, fetchUserData]);
+
+  const saveAiImageGenSettings = useCallback(async (next: AiImageGenSettings) => {
+    if (!state.user) return;
+    const sanitized: AiImageGenSettings = {
+      ...next,
+      ideogram: sanitizeIdeogramImageOptions(next.ideogram),
+    };
+    const { getFirestore, doc, setDoc, serverTimestamp } = await import("firebase/firestore");
+    const { getFirebaseApp } = await import("./firebase");
+    const app = await getFirebaseApp();
+    if (!app) return;
+    const db = getFirestore(app);
+    await setDoc(
+      doc(db, "users", state.user.uid),
+      {
+        aiImageGenSettings: sanitized,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+    setState((prev) => ({ ...prev, aiImageGenSettings: sanitized }));
+  }, [state.user]);
 
   useEffect(() => {
     import("@/lib/points").then(({ PointsManager }) => {
@@ -216,7 +263,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [checkAdminClaim, fetchUserData]);
 
   return (
-    <AuthContext.Provider value={{ ...state, refreshClaims, refreshUserData, setAdminViewAs, effectiveTier }}>
+    <AuthContext.Provider
+      value={{
+        ...state,
+        refreshClaims,
+        refreshUserData,
+        setAdminViewAs,
+        effectiveTier,
+        saveAiImageGenSettings,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

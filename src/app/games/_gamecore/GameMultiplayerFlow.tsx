@@ -106,8 +106,8 @@ interface GameMultiplayerFlowProps {
   flowMode?: "versus" | "party";
   /** Minimum players to enable start. Defaults to 2 for versus, 3 for party. */
   minPlayers?: number;
-  /** Extra content injected above the Start button in the host lobby. */
-  lobbyExtra?: React.ReactNode;
+  /** Extra content injected above the Start button in the host lobby. Pass a function to receive the live session. */
+  lobbyExtra?: React.ReactNode | ((ctx: { session: GameSession }) => React.ReactNode);
   /** Show "Play Solo" option in the mode select. */
   showSolo?: boolean;
   /** Called when user taps "Play Solo". */
@@ -576,7 +576,7 @@ export function GameMultiplayerFlow({
               )}
 
               {/* Game-specific lobby extras */}
-              {lobbyExtra}
+              {typeof lobbyExtra === "function" ? lobbyExtra({ session }) : lobbyExtra}
 
               {/* Error message (hosting step) */}
               {error && (
@@ -711,6 +711,17 @@ export function GameMultiplayerFlow({
                   ))}
                 </div>
               </div>
+
+              {session.gameSlug === "bluffbox" &&
+                typeof (session as GameSession & Record<string, unknown>)["bluffLobbyPackName"] ===
+                  "string" && (
+                  <p className="mt-2 text-center text-sm text-white/50">
+                    Pack:{" "}
+                    <span className="font-semibold text-white/70">
+                      {(session as GameSession & Record<string, unknown>)["bluffLobbyPackName"] as string}
+                    </span>
+                  </p>
+                )}
 
               {/* Waiting indicator */}
               {session.status === "lobby" && (

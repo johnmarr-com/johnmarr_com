@@ -24,3 +24,5 @@ env:
     secret: FIREBASE_PRIVATE_KEY
   - variable: ANTHROPIC_API_KEY
     secret: ANTHROPIC_API_KEY
+  - variable: IDEOGRAM_API_KEY
+    secret: IDEOGRAM_API_KEY
