@@ -86,7 +86,7 @@ export default function BluffPackDetailView({
   }, [copyingCard]);
 
   return (
-    <div className={cn("fixed inset-0", overlayClassName ?? "z-50")}>
+    <div className={cn("pointer-events-none fixed inset-0", overlayClassName ?? "z-50")}>
       {/* Backdrop */}
       <button
         type="button"
@@ -101,7 +101,7 @@ export default function BluffPackDetailView({
        * iOS Safari scrolls this reliably; nested overflow divs inside fixed overlays do not.
        */}
       <div
-        className="absolute left-1/2 top-1/2 z-10 max-h-[85dvh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-white/20 bg-neutral-900 xl:max-w-3xl"
+        className="pointer-events-auto absolute left-1/2 top-1/2 z-10 max-h-[85dvh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-white/20 bg-neutral-900 xl:max-w-3xl"
         style={{ WebkitOverflowScrolling: "touch" }}
         onClick={(e) => e.stopPropagation()}
         onWheel={(e) => e.stopPropagation()}
