@@ -86,34 +86,29 @@ export default function BluffPackDetailView({
   }, [copyingCard]);
 
   return (
-    <div
-      className={cn(
-        "pointer-events-none fixed inset-0 flex flex-col",
-        overlayClassName ?? "z-50",
-      )}
-    >
+    <div className={cn("fixed inset-0", overlayClassName ?? "z-50")}>
+      {/* Backdrop */}
       <button
         type="button"
-        className="pointer-events-auto absolute inset-0 z-0 bg-black/70 backdrop-blur-sm"
+        className="absolute inset-0 z-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
         aria-label="Close"
       />
-      {/* Inner: matches JMSelectAsset's flex-1 pattern — lets iOS compute height via flex, not explicit px/dvh */}
+
+      {/*
+       * Modal card IS the scroll container — same pattern as the game lobby DialogContent
+       * (position fixed/absolute + overflow-y-auto + max-height on the same element).
+       * iOS Safari scrolls this reliably; nested overflow divs inside fixed overlays do not.
+       */}
       <div
-        className="pointer-events-auto relative z-10 flex min-h-0 min-w-0 flex-1 flex-col"
-        style={{
-          paddingTop: "max(25px, env(safe-area-inset-top))",
-          paddingBottom: "max(25px, env(safe-area-inset-bottom))",
-          paddingLeft: "max(25px, env(safe-area-inset-left))",
-          paddingRight: "max(25px, env(safe-area-inset-right))",
-        }}
+        className="absolute left-1/2 top-1/2 z-10 max-h-[85dvh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-white/20 bg-neutral-900 xl:max-w-3xl"
+        style={{ WebkitOverflowScrolling: "touch" }}
         onClick={(e) => e.stopPropagation()}
+        onWheel={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
       >
-      <div
-        className="mx-auto flex min-h-0 min-w-0 w-full max-w-md flex-1 flex-col overflow-hidden rounded-2xl border border-white/20 bg-neutral-900 xl:max-w-3xl"
-      >
-        {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 py-4">
+        {/* Sticky header */}
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-neutral-900 px-5 py-4">
           <div className="min-w-0 flex-1">
             <h3 className="truncate text-lg font-bold text-white">{pack.name}</h3>
             <p className="text-xs text-white/40">
@@ -123,88 +118,92 @@ export default function BluffPackDetailView({
               <p className="mt-0.5 text-xs text-white/50">{pack.subtitle}</p>
             )}
           </div>
-          <button onClick={onClose} className="rounded-lg p-2 text-white/40 transition-colors hover:bg-white/10">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-white/40 transition-colors hover:bg-white/10"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Scrollable body — cover + description + card grid scroll together so iOS touch works on the whole region */}
-        <div
-          className="min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain"
-          style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "thin" }}
-          onWheel={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-        >
-          {/* Cover — half the old size on mobile, larger on sm+ */}
-          <div className="flex justify-center pb-3 pt-4">
-            <div className="w-[140px] sm:w-[200px]">
-              <BluffPackCover coverImageURL={pack.coverImageURL} name={pack.name} />
-            </div>
+        {/* Cover — smaller on mobile */}
+        <div className="flex justify-center pb-3 pt-4">
+          <div className="w-[140px] sm:w-[200px]">
+            <BluffPackCover coverImageURL={pack.coverImageURL} name={pack.name} />
           </div>
+        </div>
 
-          {pack.description && (
-            <p className="px-5 pb-3 text-center text-sm text-white/50">{pack.description}</p>
-          )}
+        {pack.description && (
+          <p className="px-5 pb-3 text-center text-sm text-white/50">{pack.description}</p>
+        )}
 
-          <div className="p-4">
-            {pack.cards.length === 0 ? (
-              <p className="py-8 text-center text-sm text-white/30">No cards in this pack yet.</p>
-            ) : (
-              <div className={cn(
+        {/* Card grid */}
+        <div className="p-4">
+          {pack.cards.length === 0 ? (
+            <p className="py-8 text-center text-sm text-white/30">No cards in this pack yet.</p>
+          ) : (
+            <div
+              className={cn(
                 "grid gap-2",
                 showCardActions
                   ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5"
                   : "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6",
-              )}>
-                {pack.cards.map((url, idx) => (
-                  <div key={`${idx}-${url}`} className="group relative">
-                    <BluffCard imageURL={url} nonInteractive={readOnlyCards} />
-                    {showCardActions && (
-                      <div className="absolute right-0.5 top-0.5 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                        <button
-                          onClick={() => handleStartCopy(url)}
-                          className="rounded bg-black/60 p-1 text-white/60 backdrop-blur hover:text-white"
-                          title="Copy to another pack"
-                        >
-                          <Copy className="h-3 w-3" />
-                        </button>
-                        <button
-                          onClick={() => setConfirmDeleteCard(url)}
-                          className="rounded bg-black/60 p-1 text-red-400/60 backdrop-blur hover:text-red-400"
-                          title="Delete card"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+              )}
+            >
+              {pack.cards.map((url, idx) => (
+                <div key={`${idx}-${url}`} className="group relative">
+                  <BluffCard imageURL={url} nonInteractive={readOnlyCards} />
+                  {showCardActions && (
+                    <div className="absolute right-0.5 top-0.5 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                      <button
+                        type="button"
+                        onClick={() => handleStartCopy(url)}
+                        className="rounded bg-black/60 p-1 text-white/60 backdrop-blur hover:text-white"
+                        title="Copy to another pack"
+                      >
+                        <Copy className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteCard(url)}
+                        className="rounded bg-black/60 p-1 text-red-400/60 backdrop-blur hover:text-red-400"
+                        title="Delete card"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Actions */}
-        <div className="flex shrink-0 gap-2 border-t border-white/10 p-4">
-          {onEdit && (
-            <button
-              onClick={onEdit}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 py-3 text-sm font-bold text-amber-300 transition-colors hover:bg-amber-400/20"
-            >
-              <Pencil className="h-4 w-4" />
-              Edit Pack
-            </button>
-          )}
-          {onSelect && (
-            <button
-              onClick={() => onSelect(pack)}
-              className="flex-1 rounded-xl bg-green-500 py-3 text-sm font-bold uppercase tracking-wider text-black transition-all hover:scale-[1.02] active:scale-95"
-            >
-              Select This Pack
-            </button>
-          )}
-        </div>
-      </div>
+        {/* Sticky footer — always visible at the bottom of the modal */}
+        {(onEdit ?? onSelect) && (
+          <div className="sticky bottom-0 z-10 flex gap-2 border-t border-white/10 bg-neutral-900 p-4">
+            {onEdit && (
+              <button
+                type="button"
+                onClick={onEdit}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 py-3 text-sm font-bold text-amber-300 transition-colors hover:bg-amber-400/20"
+              >
+                <Pencil className="h-4 w-4" />
+                Edit Pack
+              </button>
+            )}
+            {onSelect && (
+              <button
+                type="button"
+                onClick={() => onSelect(pack)}
+                className="flex-1 rounded-xl bg-green-500 py-3 text-sm font-bold uppercase tracking-wider text-black transition-all hover:scale-[1.02] active:scale-95"
+              >
+                Select This Pack
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Confirm delete card popup */}
@@ -221,12 +220,14 @@ export default function BluffPackDetailView({
             <p className="mb-4 text-center text-sm font-bold text-white">Delete this card?</p>
             <div className="flex gap-2">
               <button
+                type="button"
                 onClick={() => setConfirmDeleteCard(null)}
                 className="flex-1 rounded-lg border border-white/10 py-2 text-sm text-white/60 hover:bg-white/5"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={() => handleDeleteCard(confirmDeleteCard)}
                 disabled={deletingCard}
                 className="flex-1 rounded-lg bg-red-500 py-2 text-sm font-bold text-white disabled:opacity-50"
@@ -259,6 +260,7 @@ export default function BluffPackDetailView({
                 {myPacks.map((p) => (
                   <button
                     key={p.id}
+                    type="button"
                     onClick={() => handleCopyTo(p.id)}
                     className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left text-sm text-white transition-colors hover:bg-white/10"
                   >
@@ -268,6 +270,7 @@ export default function BluffPackDetailView({
               </div>
             )}
             <button
+              type="button"
               onClick={() => setCopyingCard(null)}
               className="mt-3 w-full rounded-lg border border-white/10 py-2 text-sm text-white/40 hover:bg-white/5"
             >
