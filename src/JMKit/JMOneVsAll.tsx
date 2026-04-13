@@ -1,25 +1,30 @@
 "use client";
 
+/**
+ * One vs All — VS row UI forked from {@link JMTournamentVs} for Bluff Box and future tweaks.
+ * `JMTournamentVs` remains the canonical shared component; this copy is safe to diverge.
+ */
+
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import JMAvatarView from "./JMAvatarView";
 
 /** Default avatar size for the VS row (2× the previous 72px baseline). */
-export const JMTournamentVs_DEFAULT_AVATAR_WIDTH = 144;
+export const OneVsAll_DEFAULT_AVATAR_WIDTH = 144;
 
-export type JMTournamentVsRoleTone = "amber" | "blue" | "violet" | "emerald" | "neutral";
+export type OneVsAllRoleTone = "amber" | "blue" | "violet" | "emerald" | "neutral";
 
-export interface JMTournamentVsSide {
+export interface OneVsAllSide {
   /** Primary label under the avatar */
   name?: string;
   avatarName?: string;
-  /** Passed to {@link JMAvatarView} (default {@link JMTournamentVs_DEFAULT_AVATAR_WIDTH}) */
+  /** Passed to {@link JMAvatarView} (default {@link OneVsAll_DEFAULT_AVATAR_WIDTH}) */
   avatarWidth?: number;
   /**
    * Role line (e.g. “SHARING” / “GUESSING”) — plain text in the top corner of the card (no pill).
    */
   roleLabel?: string | null;
-  roleTone?: JMTournamentVsRoleTone;
+  roleTone?: OneVsAllRoleTone;
   /** Smaller line under the gamertag (e.g. “Stand-in”) */
   secondaryBadge?: string;
   /** Show empty / waiting state instead of player */
@@ -27,13 +32,13 @@ export interface JMTournamentVsSide {
   emptyLabel?: string;
 }
 
-export interface JMTournamentVsProps {
+export interface OneVsAllProps {
   /** Centered above the left player (e.g. static game logo) */
   leftHeader?: ReactNode;
   /** Centered above the right player (e.g. “ROUND 3”) */
   rightHeader?: ReactNode;
-  left: JMTournamentVsSide;
-  right: JMTournamentVsSide;
+  left: OneVsAllSide;
+  right: OneVsAllSide;
   /** Center word (default “VS”) */
   vsLabel?: string;
   /** Full-bleed background image behind the matchup (e.g. game splash); opacity via {@link backgroundImageOpacity}. */
@@ -45,7 +50,7 @@ export interface JMTournamentVsProps {
   children?: ReactNode;
 }
 
-const ROLE_CORNER: Record<JMTournamentVsRoleTone, string> = {
+const ROLE_CORNER: Record<OneVsAllRoleTone, string> = {
   amber: "text-amber-200 drop-shadow-[0_0_10px_rgba(251,191,36,0.5)]",
   blue: "text-blue-200 drop-shadow-[0_0_10px_rgba(96,165,250,0.45)]",
   violet: "text-violet-200 drop-shadow-[0_0_10px_rgba(167,139,250,0.4)]",
@@ -60,13 +65,13 @@ function SidePanel({
   side,
   align,
 }: {
-  side: JMTournamentVsSide;
+  side: OneVsAllSide;
   align: "left" | "right";
 }) {
   const {
     name,
     avatarName,
-    avatarWidth = JMTournamentVs_DEFAULT_AVATAR_WIDTH,
+    avatarWidth = OneVsAll_DEFAULT_AVATAR_WIDTH,
     roleLabel,
     roleTone = "neutral",
     secondaryBadge,
@@ -180,7 +185,7 @@ function VsEmblem({ label }: { label: string }) {
  * Bracket-style **VS** row: optional column headers (logo / round), two fighters, center emblem.
  * Role labels are centered at the top of each side; avatar + gamertag stay centered.
  */
-export function JMTournamentVs({
+export function OneVsAll({
   leftHeader,
   rightHeader,
   left,
@@ -190,7 +195,7 @@ export function JMTournamentVs({
   backgroundImageOpacity = 0.3,
   className,
   children,
-}: JMTournamentVsProps) {
+}: OneVsAllProps) {
   const showTopRow = leftHeader != null || rightHeader != null;
   const bgOpacity =
     Number.isFinite(backgroundImageOpacity) && backgroundImageOpacity >= 0 && backgroundImageOpacity <= 1
@@ -211,27 +216,27 @@ export function JMTournamentVs({
       ) : null}
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col">
-      {showTopRow && (
-        <div className="-mx-3 mb-2 px-[25px] sm:-mx-4">
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3">
-            <div className="flex min-w-0 items-center justify-start">{leftHeader}</div>
-            <div className={VS_COL} aria-hidden />
-            <div className="flex min-w-0 items-center justify-end">{rightHeader}</div>
+        {showTopRow && (
+          <div className="-mx-3 mb-2 px-[25px] sm:-mx-4">
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3">
+              <div className="flex min-w-0 items-center justify-start">{leftHeader}</div>
+              <div className={VS_COL} aria-hidden />
+              <div className="flex min-w-0 items-center justify-end">{rightHeader}</div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="mb-4 grid min-h-0 grid-cols-[1fr_auto_1fr] items-stretch gap-2 sm:gap-3">
-        <SidePanel side={left} align="left" />
-        <div className={cn(VS_COL, "relative z-0 flex min-h-0 items-center justify-center")}>
-          <VsEmblem label={vsLabel} />
+        <div className="mb-4 grid min-h-0 grid-cols-[1fr_auto_1fr] items-stretch gap-2 sm:gap-3">
+          <SidePanel side={left} align="left" />
+          <div className={cn(VS_COL, "relative z-0 flex min-h-0 items-center justify-center")}>
+            <VsEmblem label={vsLabel} />
+          </div>
+          <SidePanel side={right} align="right" />
         </div>
-        <SidePanel side={right} align="right" />
-      </div>
 
-      {children != null ? (
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
-      ) : null}
+        {children != null ? (
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
+        ) : null}
       </div>
     </div>
   );

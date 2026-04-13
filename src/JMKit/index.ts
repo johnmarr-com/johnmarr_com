@@ -65,6 +65,13 @@ export {
   type JMTournamentVsRoleTone,
 } from "./JMTournamentVs";
 export {
+  OneVsAll,
+  OneVsAll_DEFAULT_AVATAR_WIDTH,
+  type OneVsAllProps,
+  type OneVsAllSide,
+  type OneVsAllRoleTone,
+} from "./JMOneVsAll";
+export {
   JMSelectAsset,
   JM_SELECT_ASSET_Z,
   JM_SELECT_ASSET_DETAIL_Z,
@@ -75,3 +82,8 @@ export { JMCloseCircleButton, type JMCloseCircleButtonProps } from "./JMCloseCir
 export { JMCard, type JMCardProps } from "./JMCard";
 export { BluffPackCover } from "./BluffPackCover";
 export { BluffCard } from "./BluffCard";
+export {
+  JMTruthLieChoice,
+  type JMTruthLieChoiceProps,
+  type TruthLieChoice,
+} from "./JMTruthLieChoice";

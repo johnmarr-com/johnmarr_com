@@ -11,7 +11,10 @@ export {
 } from "./AIPlayerManager";
 export { getAIAuthHeaders } from "./getAIAuthHeaders";
 export { SketchCanvas, type SketchCanvasRef } from "./SketchCanvas";
-export { GameGamertagBadge } from "./GameGamertagBadge";
+export {
+  GameGamertagBadge,
+  type GameGamertagBadgeProps,
+} from "./GameGamertagBadge";
 export { InviteKnownPlayersModal } from "./InviteKnownPlayersModal";
 export { InviteAIModal } from "./InviteAIModal";
 export { PickAIOpponentModal } from "./PickAIOpponentModal";

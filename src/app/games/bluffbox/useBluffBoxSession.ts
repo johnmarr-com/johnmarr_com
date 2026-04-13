@@ -37,7 +37,7 @@ export interface MatchupLogEntry {
   opponent: string;
   sharerChoice: "truth" | "lie";
   opponentGuess: "truth" | "lie";
-  opponentSurvived: boolean;
+  sharerEliminated: boolean;
   isStandIn: boolean;
   round: number;
 }
@@ -51,6 +51,8 @@ export interface BluffBoxState {
   cardPool: string[];
   roundNumber: number;
   bonusRoundCount: number;
+  /** Sorted UIDs who survived the prior round-end (for stalemate detection). */
+  prevRoundSurvivorIds: string[];
   playerStatuses: Record<string, PlayerStatus>;
   matchup: MatchupState | null;
   matchupLog: MatchupLogEntry[];
@@ -119,6 +121,7 @@ export function useBluffBoxSession(sessionId: string, userId: string): {
     cardPool: (data?.["cardPool"] as string[]) ?? [],
     roundNumber: (data?.["roundNumber"] as number) ?? 1,
     bonusRoundCount: (data?.["bonusRoundCount"] as number) ?? 0,
+    prevRoundSurvivorIds: (data?.["prevRoundSurvivorIds"] as string[]) ?? [],
     playerStatuses: (data?.["playerStatuses"] as Record<string, PlayerStatus>) ?? {},
     matchup: (data?.["matchup"] as MatchupState) ?? null,
     matchupLog: (data?.["matchupLog"] as MatchupLogEntry[]) ?? [],
