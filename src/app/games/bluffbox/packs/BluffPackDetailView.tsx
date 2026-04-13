@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { X, Pencil, Trash2, Copy, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/lib/bluffbox-packs";
 import { BluffPackCover, BluffCard } from "@/JMKit";
 import { cn } from "@/lib/utils";
+import { useStopTouchMovePropagation } from "@/lib/useStopTouchMovePropagation";
 
 interface BluffPackDetailViewProps {
   pack: BluffBoxPack;
@@ -46,6 +47,16 @@ export default function BluffPackDetailView({
   const [copyingCard, setCopyingCard] = useState<string | null>(null);
   const [myPacks, setMyPacks] = useState<BluffBoxPack[] | null>(null);
   const [loadingPacks, setLoadingPacks] = useState(false);
+
+  const scrollBodyRef = useRef<HTMLDivElement>(null);
+  const copyPackListRef = useRef<HTMLDivElement>(null);
+  useStopTouchMovePropagation(scrollBodyRef, true);
+  const copyListScrollEnabled =
+    copyingCard != null &&
+    !loadingPacks &&
+    myPacks != null &&
+    myPacks.length > 0;
+  useStopTouchMovePropagation(copyPackListRef, copyListScrollEnabled);
 
   const handleDeleteCard = useCallback(async (imageURL: string) => {
     setDeletingCard(true);
@@ -134,7 +145,8 @@ export default function BluffPackDetailView({
 
           {/* Scrollable body — explicit max-height so iOS Safari gets a definite constraint */}
           <div
-            className="max-h-[calc(85dvh-120px)] overflow-y-auto overscroll-contain"
+            ref={scrollBodyRef}
+            className="max-h-[calc(85dvh-120px)] touch-pan-y overflow-y-auto overscroll-contain"
             style={{ WebkitOverflowScrolling: "touch" }}
             onWheel={(e) => e.stopPropagation()}
           >
@@ -270,7 +282,9 @@ export default function BluffPackDetailView({
               <p className="py-4 text-center text-xs text-white/30">No other packs available.</p>
             ) : (
               <div
-                className="max-h-48 space-y-1 overflow-y-auto"
+                ref={copyPackListRef}
+                className="max-h-48 touch-pan-y space-y-1 overflow-y-auto"
+                style={{ WebkitOverflowScrolling: "touch" }}
                 onWheel={(e) => e.stopPropagation()}
               >
                 {myPacks.map((p) => (

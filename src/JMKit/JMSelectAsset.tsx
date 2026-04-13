@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X, Loader2, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useStopTouchMovePropagation } from "@/lib/useStopTouchMovePropagation";
 
 /** Default stacking layer — above typical app dialogs (`z-50`). */
 export const JM_SELECT_ASSET_Z = "z-[200]";
@@ -65,6 +66,11 @@ export function JMSelectAsset<T>({
   className,
   suspendInteractions = false,
 }: JMSelectAssetProps<T>) {
+  const tabStripRef = useRef<HTMLDivElement>(null);
+  const listScrollRef = useRef<HTMLDivElement>(null);
+  useStopTouchMovePropagation(tabStripRef, open);
+  useStopTouchMovePropagation(listScrollRef, open);
+
   useEffect(() => {
     if (!open || typeof document === "undefined") return;
     const prev = document.body.style.overflow;
@@ -145,6 +151,7 @@ export function JMSelectAsset<T>({
 
             <div className="relative min-w-0 shrink-0 px-5 pb-3 sm:px-6">
               <div
+                ref={tabStripRef}
                 className="flex min-w-0 touch-pan-x gap-2 overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 role="tablist"
                 style={{ WebkitOverflowScrolling: "touch" }}
@@ -175,7 +182,8 @@ export function JMSelectAsset<T>({
           </div>
 
           <div
-            className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pb-5 sm:px-6"
+            ref={listScrollRef}
+            className="relative z-10 flex min-h-0 min-w-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-contain px-5 pb-5 sm:px-6"
             style={{ WebkitOverflowScrolling: "touch" }}
             onTouchStart={(e) => e.stopPropagation()}
             onWheel={(e) => e.stopPropagation()}
