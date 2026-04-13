@@ -64,13 +64,13 @@ export default function MatchupScreen({
         alt=""
         width={280}
         height={140}
-        className="h-14 w-auto max-w-[min(220px,52vw)] object-contain object-left object-bottom opacity-95 select-none sm:h-16"
+        className="h-14 w-auto max-w-[min(220px,52vw)] object-contain object-bottom-left opacity-95 select-none sm:h-16"
         priority={false}
       />
     ) : null;
 
   const rightHeader = (
-    <span className="block max-w-[min(100%,52vw)] bg-gradient-to-r from-amber-200/90 via-white to-blue-200/90 bg-clip-text text-right text-sm font-black uppercase leading-snug tracking-[0.22em] text-transparent sm:text-base">
+    <span className="block max-w-[min(100%,52vw)] bg-linear-to-r from-amber-200/90 via-white to-blue-200/90 bg-clip-text text-right text-sm font-black uppercase leading-snug tracking-[0.22em] text-transparent sm:text-base">
       {roundLabel}
     </span>
   );

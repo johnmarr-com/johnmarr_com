@@ -4,6 +4,7 @@ import { useState } from "react";
 import { X, Copy, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
 import { copyMission, type MegaSketchyMission } from "@/lib/megasketchy-missions";
+import { cn } from "@/lib/utils";
 
 interface MissionDetailViewProps {
   mission: MegaSketchyMission;
@@ -14,6 +15,8 @@ interface MissionDetailViewProps {
   onCopied?: (newMission: MegaSketchyMission) => void;
   /** Called when "Select This Mission" pressed in picker context */
   onSelect?: (mission: MegaSketchyMission) => void;
+  /** Stack above the asset picker (e.g. `JM_SELECT_ASSET_DETAIL_Z` from JMKit). */
+  overlayClassName?: string;
 }
 
 export default function MissionDetailView({
@@ -22,6 +25,7 @@ export default function MissionDetailView({
   onClose,
   onCopied,
   onSelect,
+  overlayClassName,
 }: MissionDetailViewProps) {
   const { user, gamertag, userTier, isAdmin } = useAuth();
   const [copying, setCopying] = useState(false);
@@ -45,8 +49,14 @@ export default function MissionDetailView({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
+    <div
+      className={cn(
+        "pointer-events-auto fixed inset-0 flex items-center justify-center p-4",
+        overlayClassName ?? "z-50",
+      )}
+      onClick={onClose}
+    >
+      <div className="pointer-events-auto fixed inset-0 z-0 bg-black/70 backdrop-blur-sm" />
       <div
         className="relative z-10 flex max-h-[80vh] w-full max-w-lg flex-col rounded-2xl border border-white/20 bg-neutral-900"
         onClick={(e) => e.stopPropagation()}

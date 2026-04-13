@@ -82,7 +82,7 @@ function SidePanel({
       <div
         className={cn(
           "relative z-10 min-h-56 min-w-0 flex-1 overflow-hidden rounded-2xl p-px",
-          align === "left" ? "bg-gradient-to-br" : "bg-gradient-to-bl",
+          align === "left" ? "bg-linear-to-br" : "bg-linear-to-bl",
           gradientRing,
         )}
       >
@@ -100,7 +100,7 @@ function SidePanel({
     <div
       className={cn(
         "relative z-10 min-h-56 min-w-0 flex-1 overflow-hidden rounded-2xl p-px shadow-lg",
-        align === "left" ? "bg-gradient-to-br" : "bg-gradient-to-bl",
+        align === "left" ? "bg-linear-to-br" : "bg-linear-to-bl",
         gradientRing,
       )}
     >
@@ -108,8 +108,8 @@ function SidePanel({
         className={cn(
           "relative flex min-h-56 flex-col items-center justify-center gap-2 rounded-2xl px-4 pb-6 pt-10 backdrop-blur-md",
           align === "left"
-            ? "bg-gradient-to-b from-amber-950/40 to-neutral-950/90"
-            : "bg-gradient-to-b from-blue-950/40 to-neutral-950/90",
+            ? "bg-linear-to-b from-amber-950/40 to-neutral-950/90"
+            : "bg-linear-to-b from-blue-950/40 to-neutral-950/90",
         )}
       >
         {showRole && (
@@ -127,8 +127,8 @@ function SidePanel({
           className={cn(
             "relative rounded-full p-[2px]",
             align === "left"
-              ? "bg-gradient-to-br from-amber-300/60 to-amber-600/20 shadow-[0_0_36px_rgba(251,191,36,0.22)]"
-              : "bg-gradient-to-br from-blue-300/60 to-blue-700/20 shadow-[0_0_36px_rgba(96,165,250,0.22)]",
+              ? "bg-linear-to-br from-amber-300/60 to-amber-600/20 shadow-[0_0_36px_rgba(251,191,36,0.22)]"
+              : "bg-linear-to-br from-blue-300/60 to-blue-700/20 shadow-[0_0_36px_rgba(96,165,250,0.22)]",
           )}
         >
           <div className="overflow-hidden rounded-full bg-neutral-950">
@@ -152,17 +152,17 @@ function VsEmblem({ label }: { label: string }) {
   return (
     <div className="relative flex flex-col items-center justify-center">
       <div
-        className="pointer-events-none absolute inset-[-22px] rounded-full bg-gradient-to-br from-amber-400/45 via-fuchsia-500/35 to-blue-500/45 blur-2xl"
+        className="pointer-events-none absolute inset-[-22px] rounded-full bg-linear-to-br from-amber-400/45 via-fuchsia-500/35 to-blue-500/45 blur-2xl"
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute inset-[-12px] rounded-full bg-gradient-to-br from-amber-300/55 via-fuchsia-400/50 to-blue-400/55 blur-lg"
+        className="pointer-events-none absolute inset-[-12px] rounded-full bg-linear-to-br from-amber-300/55 via-fuchsia-400/50 to-blue-400/55 blur-lg"
         aria-hidden
       />
-      <div className="flex h-24 w-24 items-center justify-center rounded-full border border-white/25 bg-gradient-to-b from-white/12 to-black/50 p-px shadow-[0_8px_32px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-md sm:h-28 sm:w-28">
+      <div className="flex h-24 w-24 items-center justify-center rounded-full border border-white/25 bg-linear-to-b from-white/12 to-black/50 p-px shadow-[0_8px_32px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-md sm:h-28 sm:w-28">
         <div className="flex h-full w-full items-center justify-center rounded-full bg-black/55">
           <span
-            className="select-none bg-gradient-to-b from-white via-white to-white/55 bg-clip-text text-2xl font-black italic tracking-tight text-transparent drop-shadow-[0_2px_8px_rgba(255,255,255,0.25)] sm:text-3xl"
+            className="select-none bg-linear-to-b from-white via-white to-white/55 bg-clip-text text-2xl font-black italic tracking-tight text-transparent drop-shadow-[0_2px_8px_rgba(255,255,255,0.25)] sm:text-3xl"
             style={{ fontFamily: "system-ui, sans-serif" }}
           >
             {label}

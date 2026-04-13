@@ -123,9 +123,6 @@ export default function BluffCardCreator({
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={tempURL} alt="" className="h-full w-full object-cover" />
-                <span className="absolute bottom-1 right-1.5 text-[7px] font-bold text-white/30 drop-shadow">
-                  BluffBox @ JohnMarr.com
-                </span>
               </>
             ) : (
               !generating && (
@@ -151,7 +148,7 @@ export default function BluffCardCreator({
               placeholder="Describe a crazy object…"
               rows={5}
               spellCheck={false}
-              className="min-h-[7.5rem] w-full resize-y rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm leading-relaxed text-white placeholder-white/25 outline-none focus:border-amber-400/40"
+              className="min-h-30 w-full resize-y rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm leading-relaxed text-white placeholder-white/25 outline-none focus:border-amber-400/40"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !generating) {
                   e.preventDefault();

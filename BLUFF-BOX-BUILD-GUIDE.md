@@ -57,7 +57,7 @@ src/
 │       └── page.tsx                 ← "PRO: Create Bluff Packs" route
 ├── JMKit/
 │   ├── BluffPackCover.tsx           ← Reusable pack cover component (image + name overlay)
-│   └── BluffCard.tsx                ← Reusable card display (image + watermark)
+│   └── BluffCard.tsx                ← Reusable card display (image fills square)
 ├── lib/
 │   ├── bluffbox-packs.ts           ← Firestore CRUD for bluffboxPacks collection
 │   └── bluffbox-storage.ts         ← Firebase Storage upload for pack/card images
@@ -266,7 +266,7 @@ The grid's last cell is a **"+Card"** button that opens the **Create Card** flow
 
 A modal/popup containing:
 
-1. **Card Preview** — large square with slightly rounded corners. Shows "BluffBox @ JohnMarr.com" watermark overlay in bottom-right corner. Empty/placeholder until image is generated
+1. **Card Preview** — large square with slightly rounded corners. Empty/placeholder until image is generated
 2. **Card Prompt Input** — text input for the AI prompt describing the crazy object
 3. **Generate** button — calls `generateBluffImage()` with the card prompt template
 4. After generation, three buttons:
@@ -602,7 +602,7 @@ Props:
   - size: number (width = height, square)
 ```
 
-Visual: Square with slightly rounded corners. Card image fills the square. "BluffBox @ JohnMarr.com" in tiny white/40 bold text, bottom-right corner.
+Visual: Square with slightly rounded corners. Card image fills the square.
 
 ### Game Screens
 
@@ -789,7 +789,7 @@ Firebase Storage rules should allow authenticated users to write to `bluffbox-pa
 ### Phase 2: JMKit Display Components
 
 5. `src/JMKit/BluffPackCover.tsx` — Pack cover component (image + name overlay)
-6. `src/JMKit/BluffCard.tsx` — Card display component (image + watermark)
+6. `src/JMKit/BluffCard.tsx` — Card display component (image only)
 7. Export both from `src/JMKit/index.ts`
 
 ### Phase 3: Pack & Card Creation UI
@@ -798,7 +798,7 @@ Firebase Storage rules should allow authenticated users to write to `bluffbox-pa
 9. `BluffPackBrowser.tsx` — Browse official/my/shared packs (model on `MissionBrowser.tsx`)
 10. `BluffPackEditor.tsx` — Create/edit pack with cover generation
 11. `BluffCardCreator.tsx` — Create card modal with image generation
-12. `BluffPackDetailView.tsx` — View pack details, card grid, copy/delete cards
+12. `BluffPackDetailView.tsx` — View pack details and card grid. **Pack picker** (`readOnlyCards`): no per-card actions; `BluffCard` uses `pointer-events: none` so the cell wrapper receives gestures. **Browse/edit**: owner gets copy/delete on cards when not read-only. **Note:** `JMSelectAsset` sets `document.body.style.overflow = "hidden"` while open; `AuthGate` clears `body` overflow on `pathname` change so SPA navigations do not leave the site non-scrollable.
 
 ### Phase 4: Landing Page Update
 

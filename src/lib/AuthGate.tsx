@@ -26,7 +26,13 @@ export function AuthGate({ children }: AuthGateProps) {
   const pathname = usePathname();
 
   const isPublicRoute = pathname === "/auth" || pathname === "/landing" || pathname === "/landing-2";
-  
+
+  /** Modals (e.g. JMSelectAsset) set `body.style.overflow = hidden`; SPA navigations can leave it stuck. */
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.body.style.removeProperty("overflow");
+  }, [pathname]);
+
   const isContentRoute =
     pathname.startsWith("/artist") ||
     pathname.startsWith("/show") ||

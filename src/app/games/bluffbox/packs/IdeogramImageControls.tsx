@@ -123,7 +123,7 @@ export function IdeogramImageControls({
     ideogram.style_type === "REALISTIC" || ideogram.style_type === "DESIGN";
 
   return (
-    <div className="space-y-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+    <div className="space-y-4 rounded-lg border border-white/10 bg-white/3 p-3">
       <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400/80">
         Ideogram
       </p>

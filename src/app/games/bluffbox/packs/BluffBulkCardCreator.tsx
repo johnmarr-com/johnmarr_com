@@ -315,9 +315,6 @@ export default function BluffBulkCardCreator({
                               <Check className="h-3 w-3 text-black" />
                             </div>
                           )}
-                          <span className="absolute bottom-0.5 right-1 text-[6px] font-bold text-white/20 drop-shadow">
-                            BluffBox @ JohnMarr.com
-                          </span>
                         </>
                       ) : card.error ? (
                         <div className="flex h-full items-center justify-center">

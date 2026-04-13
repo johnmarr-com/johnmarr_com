@@ -10,6 +10,7 @@ import {
   type BluffBoxPack,
 } from "@/lib/bluffbox-packs";
 import { BluffPackCover, BluffCard } from "@/JMKit";
+import { cn } from "@/lib/utils";
 
 interface BluffPackDetailViewProps {
   pack: BluffBoxPack;
@@ -18,6 +19,13 @@ interface BluffPackDetailViewProps {
   /** Called after a card is removed from the pack — use to refresh lists; do not close the modal here. */
   onCardRemoved?: ((imageURL: string) => void) | undefined;
   onSelect?: ((pack: BluffBoxPack) => void) | undefined;
+  /** Stack above the asset picker (e.g. `JM_SELECT_ASSET_DETAIL_Z` from JMKit). */
+  overlayClassName?: string;
+  /**
+   * Pack picker / browse-only: no per-card actions; grid is non-interactive so touch drags
+   * scroll the list (images otherwise capture gestures).
+   */
+  readOnlyCards?: boolean | undefined;
 }
 
 export default function BluffPackDetailView({
@@ -26,9 +34,12 @@ export default function BluffPackDetailView({
   onEdit,
   onCardRemoved,
   onSelect,
+  overlayClassName,
+  readOnlyCards = false,
 }: BluffPackDetailViewProps) {
   const { user } = useAuth();
   const isOwner = user?.uid === pack.creatorId;
+  const showCardActions = isOwner && !readOnlyCards;
 
   const [confirmDeleteCard, setConfirmDeleteCard] = useState<string | null>(null);
   const [deletingCard, setDeletingCard] = useState(false);
@@ -75,10 +86,17 @@ export default function BluffPackDetailView({
   }, [copyingCard]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
+    <div
+      className={cn(
+        "pointer-events-auto fixed inset-0 flex items-center justify-center p-4",
+        overlayClassName ?? "z-50",
+      )}
+      onClick={onClose}
+    >
+      {/* `absolute` (not `fixed`) so stacking stays inside this overlay; avoids full-viewport layers stealing scroll/hit-testing */}
+      <div className="pointer-events-auto absolute inset-0 z-0 bg-black/70 backdrop-blur-sm" aria-hidden />
       <div
-        className="relative z-10 flex max-h-[85vh] w-full max-w-md flex-col rounded-2xl border border-white/20 bg-neutral-900 xl:max-w-3xl"
+        className="relative z-10 flex h-[min(85dvh,85vh,calc(100dvh-2rem))] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/20 bg-neutral-900 xl:max-w-3xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -106,16 +124,26 @@ export default function BluffPackDetailView({
           <p className="shrink-0 border-b border-white/10 px-5 py-3 text-sm text-white/50">{pack.description}</p>
         )}
 
-        {/* Card grid */}
-        <div className="flex-1 overflow-y-auto p-4" style={{ scrollbarWidth: "none" }}>
+        {/* flex-1 + min-h-0: fills remaining height under fixed h-[…] */}
+        <div
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-4",
+            readOnlyCards && "touch-pan-y select-none",
+          )}
+          style={{
+            scrollbarWidth: "thin",
+            WebkitOverflowScrolling: "touch",
+          }}
+          onWheel={(e) => e.stopPropagation()}
+        >
           {pack.cards.length === 0 ? (
             <p className="py-8 text-center text-sm text-white/30">No cards in this pack yet.</p>
           ) : (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
               {pack.cards.map((url, idx) => (
                 <div key={`${idx}-${url}`} className="group relative">
-                  <BluffCard imageURL={url} />
-                  {isOwner && (
+                  <BluffCard imageURL={url} nonInteractive={readOnlyCards} />
+                  {showCardActions && (
                     <div className="absolute right-0.5 top-0.5 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                       <button
                         onClick={() => handleStartCopy(url)}
@@ -163,7 +191,10 @@ export default function BluffPackDetailView({
 
       {/* Confirm delete card popup */}
       {confirmDeleteCard && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-8" onClick={() => setConfirmDeleteCard(null)}>
+        <div
+          className="fixed inset-0 z-510 flex items-center justify-center p-8"
+          onClick={() => setConfirmDeleteCard(null)}
+        >
           <div className="fixed inset-0 bg-black/50" />
           <div
             className="relative z-10 w-full max-w-xs rounded-xl border border-white/20 bg-neutral-900 p-5"
@@ -191,7 +222,10 @@ export default function BluffPackDetailView({
 
       {/* Copy card picker */}
       {copyingCard && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-8" onClick={() => setCopyingCard(null)}>
+        <div
+          className="fixed inset-0 z-510 flex items-center justify-center p-8"
+          onClick={() => setCopyingCard(null)}
+        >
           <div className="fixed inset-0 bg-black/50" />
           <div
             className="relative z-10 w-full max-w-xs rounded-xl border border-white/20 bg-neutral-900 p-5"
