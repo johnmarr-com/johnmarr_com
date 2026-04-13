@@ -175,6 +175,7 @@ export function JMSelectAsset<T>({
           <div
             className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pb-5 sm:px-6"
             style={{ WebkitOverflowScrolling: "touch" }}
+            onTouchStart={(e) => e.stopPropagation()}
           >
             {loading ? (
               <div className="flex flex-1 justify-center py-24">
