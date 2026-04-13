@@ -85,23 +85,27 @@ export default function BluffPackDetailView({
     }
   }, [copyingCard]);
 
+  const zClass = overlayClassName ?? "z-50";
+
   return (
-    <div className={cn("pointer-events-none fixed inset-0", overlayClassName ?? "z-50")}>
-      {/* Backdrop */}
+    <>
+      {/* Backdrop — same z as card; card is later in DOM so it sits on top */}
       <button
         type="button"
-        className="absolute inset-0 z-0 bg-black/70 backdrop-blur-sm"
+        className={cn("pointer-events-auto fixed inset-0 bg-black/70 backdrop-blur-sm", zClass)}
         onClick={onClose}
         aria-label="Close"
       />
 
       {/*
-       * Modal card IS the scroll container — same pattern as the game lobby DialogContent
-       * (position fixed/absolute + overflow-y-auto + max-height on the same element).
-       * iOS Safari scrolls this reliably; nested overflow divs inside fixed overlays do not.
+       * Modal card IS the scroll container. Must be position:fixed directly (no fixed ancestor)
+       * so iOS Safari recognises it as a native scroll layer — same pattern as Radix DialogContent.
        */}
       <div
-        className="pointer-events-auto absolute left-1/2 top-1/2 z-10 max-h-[85dvh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-white/20 bg-neutral-900 xl:max-w-3xl"
+        className={cn(
+          "pointer-events-auto fixed left-1/2 top-1/2 max-h-[85dvh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-white/20 bg-neutral-900 xl:max-w-3xl",
+          zClass,
+        )}
         style={{ WebkitOverflowScrolling: "touch" }}
         onClick={(e) => e.stopPropagation()}
         onWheel={(e) => e.stopPropagation()}
@@ -279,6 +283,6 @@ export default function BluffPackDetailView({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
