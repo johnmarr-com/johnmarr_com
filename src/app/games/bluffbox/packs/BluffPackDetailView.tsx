@@ -96,16 +96,17 @@ export default function BluffPackDetailView({
        * flex-computed heights for overflow-y — an explicit value works.
        */}
       <div
-        className={cn(
-          "fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm",
-          zClass,
-        )}
+        className={cn("fixed inset-0 flex items-center justify-center", zClass)}
         onClick={onClose}
         role="dialog"
         aria-modal="true"
       >
+        {/* Backdrop visual — separate element so backdrop-filter doesn't
+            create a compositing layer over the panel (Safari bug). */}
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" aria-hidden />
+
         <div
-          className="w-[calc(100%-2rem)] max-w-md rounded-2xl border border-white/20 bg-neutral-900 xl:max-w-3xl"
+          className="relative w-[calc(100%-2rem)] max-w-md rounded-2xl border border-white/20 bg-neutral-900 xl:max-w-3xl"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
