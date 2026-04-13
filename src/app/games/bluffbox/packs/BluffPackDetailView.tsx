@@ -98,19 +98,23 @@ export default function BluffPackDetailView({
       />
 
       {/*
-       * Modal card IS the scroll container. Must be position:fixed directly (no fixed ancestor)
-       * so iOS Safari recognises it as a native scroll layer — same pattern as Radix DialogContent.
+       * Flex wrapper centres the card without CSS transforms.
+       * iOS Safari breaks overflow-y touch-scrolling on transformed fixed
+       * elements, so we centre with flexbox instead.  pointer-events-none
+       * lets clicks fall through to the backdrop; the card re-enables them.
        */}
       <div
         className={cn(
-          "pointer-events-auto fixed left-1/2 top-1/2 max-h-[85dvh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-white/20 bg-neutral-900 xl:max-w-3xl",
+          "pointer-events-none fixed inset-0 flex items-center justify-center",
           zClass,
         )}
-        style={{ WebkitOverflowScrolling: "touch" }}
-        onClick={(e) => e.stopPropagation()}
-        onWheel={(e) => e.stopPropagation()}
-        onTouchStart={(e) => e.stopPropagation()}
       >
+        <div
+          className="pointer-events-auto max-h-[85dvh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-2xl border border-white/20 bg-neutral-900 xl:max-w-3xl"
+          style={{ WebkitOverflowScrolling: "touch" }}
+          onClick={(e) => e.stopPropagation()}
+          onWheel={(e) => e.stopPropagation()}
+        >
         {/* Sticky header */}
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-neutral-900 px-5 py-4">
           <div className="min-w-0 flex-1">
@@ -208,6 +212,7 @@ export default function BluffPackDetailView({
             )}
           </div>
         )}
+        </div>
       </div>
 
       {/* Confirm delete card popup */}
