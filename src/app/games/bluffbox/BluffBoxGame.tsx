@@ -227,14 +227,7 @@ export default function BluffBoxGame({
     if (aiSharerAutoDealRef.current) return;
     aiSharerAutoDealRef.current = true;
     void handleRevealBox();
-  }, [
-    bbPhase,
-    matchup?.cardURL,
-    matchup?.sharer,
-    cardPool.length,
-    isHost,
-    handleRevealBox,
-  ]);
+  }, [bbPhase, matchup, matchup?.cardURL, matchup?.sharer, cardPool.length, isHost, handleRevealBox]);
 
   // ─── Sharer: Choose Truth/Lie ──────────────────────────────
 

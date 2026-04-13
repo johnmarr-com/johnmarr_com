@@ -41,7 +41,7 @@ export default function ListenerViewScreen({
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       {/* Sharing: + sharer — top center ~50px */}
-      <div className="pointer-events-none absolute left-1/2 top-[50px] z-[25] flex -translate-x-1/2 flex-col items-center gap-2 px-4">
+      <div className="pointer-events-none absolute left-1/2 top-[50px] z-25 flex -translate-x-1/2 flex-col items-center gap-2 px-4">
         <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-white/65 sm:text-sm">
           Sharing:
         </p>

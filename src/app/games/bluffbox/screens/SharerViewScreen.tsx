@@ -124,7 +124,7 @@ export default function SharerViewScreen({
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       {/* Centered “Sharing with” + opponent — ~50px from top; clears logo/round corners */}
-      <div className="pointer-events-none absolute left-1/2 top-[50px] z-[25] flex -translate-x-1/2 flex-col items-center gap-2 px-4">
+      <div className="pointer-events-none absolute left-1/2 top-[50px] z-25 flex -translate-x-1/2 flex-col items-center gap-2 px-4">
         <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-white/65 sm:text-sm">
           Sharing with
         </p>
@@ -183,7 +183,7 @@ export default function SharerViewScreen({
       <div
         className={cn(
           "absolute left-1/2 top-[40svh] z-10 w-full -translate-x-1/2 -translate-y-1/2 px-6",
-          "[perspective:1200px]",
+          "perspective-distant",
           !flipped && !flipComplete && "cursor-pointer",
           isDealing && "pointer-events-none opacity-90",
         )}
@@ -208,7 +208,7 @@ export default function SharerViewScreen({
         {/* Extra vertical space so translateY bob isn’t clipped by overflow */}
         <div className="mx-auto flex min-h-[min(420px,78svh)] w-full items-center justify-center">
           <div
-            className="relative aspect-square w-full [transform-style:preserve-3d]"
+            className="relative aspect-square w-full transform-3d"
             style={{
               maxWidth: `min(${CARD_SIZE_MAX}px, calc(100vw - 3rem))`,
               transform: flipped ? undefined : "translateY(0) rotateY(0deg)",
@@ -218,10 +218,10 @@ export default function SharerViewScreen({
             }}
             onAnimationEnd={handleFlipAnimationEnd}
           >
-            <div className="absolute inset-0 [backface-visibility:hidden]">
+            <div className="absolute inset-0 backface-hidden">
               {coverFace}
             </div>
-            <div className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)]">
+            <div className="absolute inset-0 backface-hidden transform-[rotateY(180deg)]">
               {cardFace}
             </div>
           </div>
