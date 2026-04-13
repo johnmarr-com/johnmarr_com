@@ -7,12 +7,14 @@ import { QRCodeSVG } from "qrcode.react";
 import { Loader2, Users, User, Bot, Check, UserPlus, X } from "lucide-react";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
   JMAvatarView,
   JMAIAvatarView,
+  JMCloseCircleButton,
 } from "@/JMKit";
 import { JMInviteCodeView } from "@/JMKit/JMInviteCodeView";
 import { JMInviteCodeInput } from "@/JMKit/JMInviteCodeInput";
@@ -340,7 +342,19 @@ export function GameMultiplayerFlow({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto bg-black/95 sm:max-w-md">
+      <DialogContent
+        hideCloseButton
+        overlayClassName="fixed inset-0 z-50 bg-black/70 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+        className="max-h-[90dvh] w-full max-w-md gap-0 overflow-hidden rounded-[28px] border border-white/15 bg-linear-to-b from-neutral-950 via-neutral-900 to-neutral-950 p-0 shadow-2xl shadow-black/50"
+      >
+        <div
+          className="pointer-events-none absolute inset-0 rounded-[28px] bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(251,191,36,0.1),transparent),radial-gradient(ellipse_60%_40%_at_100%_50%,rgba(59,130,246,0.07),transparent)]"
+          aria-hidden
+        />
+        <DialogClose asChild>
+          <JMCloseCircleButton className="absolute right-4 top-4 z-20 sm:right-5 sm:top-5" />
+        </DialogClose>
+        <div className="relative z-10 flex max-h-[90dvh] flex-col gap-4 overflow-y-auto overflow-x-hidden p-5 sm:p-6">
         {/* Game logo — gentle float */}
         {gameInput.gameLogoURL && (
           <div className="-mt-2 flex justify-center animate-gentle-float">
@@ -766,6 +780,7 @@ export function GameMultiplayerFlow({
             {error}
           </p>
         )}
+        </div>
       </DialogContent>
 
       {/* Invite Known Players Modal */}

@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { X, Loader2, ChevronRight } from "lucide-react";
+import { Loader2, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStopTouchMovePropagation } from "@/lib/useStopTouchMovePropagation";
+import { JMCloseCircleButton } from "./JMCloseCircleButton";
 
 /** Default stacking layer — above typical app dialogs (`z-50`). */
 export const JM_SELECT_ASSET_Z = "z-[200]";
@@ -117,7 +118,7 @@ export function JMSelectAsset<T>({
       >
         <div
           className={cn(
-            "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-white/15",
+            "mx-auto flex min-h-0 min-w-0 w-full max-w-md flex-1 flex-col overflow-hidden rounded-[28px] border border-white/15",
             "bg-linear-to-b from-neutral-950 via-neutral-900 to-neutral-950 shadow-2xl shadow-black/50",
           )}
         >
@@ -139,14 +140,7 @@ export function JMSelectAsset<T>({
                 <p className="mt-1 text-base text-white/55 sm:text-lg">{subtitle}</p>
               ) : null}
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-white/80 transition-colors hover:bg-white/15 active:scale-95"
-              aria-label="Close"
-            >
-              <X className="h-7 w-7" />
-            </button>
+            <JMCloseCircleButton onClick={onClose} />
             </header>
 
             <div className="relative min-w-0 shrink-0 px-5 pb-3 sm:px-6">
@@ -195,7 +189,7 @@ export function JMSelectAsset<T>({
             ) : items.length === 0 ? (
               <p className="py-20 text-center text-lg text-white/45">{emptyMessage}</p>
             ) : (
-              <ul className="mx-auto flex max-w-2xl flex-col gap-3">
+              <ul className="mx-auto flex w-full max-w-full flex-col gap-3">
                 {items.map((item) => (
                   <li key={itemKey(item)}>
                     <button

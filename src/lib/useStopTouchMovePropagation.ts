@@ -25,5 +25,5 @@ export function useStopTouchMovePropagation(
     return () => {
       el.removeEventListener("touchmove", onTouchMove);
     };
-  }, [enabled]);
+  }, [enabled, ref]);
 }

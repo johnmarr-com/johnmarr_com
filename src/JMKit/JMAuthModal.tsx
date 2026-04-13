@@ -158,7 +158,7 @@ export function JMAuthModal({ onAuthenticated }: JMAuthModalProps) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
         <div 
-          className="max-w-md w-full rounded-2xl border p-8"
+          className="max-w-md w-full rounded-[28px] border p-8"
           style={{ 
             backgroundColor: theme.surfaces.base,
             borderColor: theme.surfaces.elevated2,
@@ -208,7 +208,7 @@ export function JMAuthModal({ onAuthenticated }: JMAuthModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
       <div 
-        className="max-w-md w-full rounded-2xl border overflow-hidden my-8"
+        className="max-w-md w-full rounded-[28px] border overflow-hidden my-8"
         style={{ 
           backgroundColor: theme.surfaces.base,
           borderColor: theme.surfaces.elevated2,

@@ -71,6 +71,7 @@ export {
   type JMSelectAssetProps,
   type JMSelectAssetTab,
 } from "./JMSelectAsset";
+export { JMCloseCircleButton, type JMCloseCircleButtonProps } from "./JMCloseCircleButton";
 export { JMCard, type JMCardProps } from "./JMCard";
 export { BluffPackCover } from "./BluffPackCover";
 export { BluffCard } from "./BluffCard";

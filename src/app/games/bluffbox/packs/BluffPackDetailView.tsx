@@ -120,7 +120,7 @@ export default function BluffPackDetailView({
         <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" aria-hidden />
 
         <div
-          className="relative w-[calc(100%-2rem)] max-w-md rounded-2xl border border-white/20 bg-neutral-900 xl:max-w-3xl"
+          className="relative w-[calc(100%-2rem)] max-w-md rounded-[28px] border border-white/20 bg-neutral-900 xl:max-w-3xl"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
