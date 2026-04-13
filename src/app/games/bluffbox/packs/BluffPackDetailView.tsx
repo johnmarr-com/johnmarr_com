@@ -115,56 +115,58 @@ export default function BluffPackDetailView({
           </button>
         </div>
 
-        {/* Cover preview */}
-        <div className="flex shrink-0 justify-center border-b border-white/10 py-4">
-          <BluffPackCover coverImageURL={pack.coverImageURL} name={pack.name} size={270} />
-        </div>
-
-        {pack.description && (
-          <p className="shrink-0 border-b border-white/10 px-5 py-3 text-sm text-white/50">{pack.description}</p>
-        )}
-
-        {/* flex-1 + min-h-0: fills remaining height under fixed h-[…] */}
+        {/* Scrollable body — cover + description + card grid scroll together so iOS touch works on the whole region */}
         <div
-          className={cn(
-            "min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-4",
-            readOnlyCards && "touch-pan-y select-none",
-          )}
-          style={{
-            scrollbarWidth: "thin",
-            WebkitOverflowScrolling: "touch",
-          }}
-          onWheel={(e) => e.stopPropagation()}
+          className="touch-pan-y min-h-0 flex-1 select-none overflow-y-auto overscroll-y-contain"
+          style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "thin" }}
         >
-          {pack.cards.length === 0 ? (
-            <p className="py-8 text-center text-sm text-white/30">No cards in this pack yet.</p>
-          ) : (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
-              {pack.cards.map((url, idx) => (
-                <div key={`${idx}-${url}`} className="group relative">
-                  <BluffCard imageURL={url} nonInteractive={readOnlyCards} />
-                  {showCardActions && (
-                    <div className="absolute right-0.5 top-0.5 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                      <button
-                        onClick={() => handleStartCopy(url)}
-                        className="rounded bg-black/60 p-1 text-white/60 backdrop-blur hover:text-white"
-                        title="Copy to another pack"
-                      >
-                        <Copy className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => setConfirmDeleteCard(url)}
-                        className="rounded bg-black/60 p-1 text-red-400/60 backdrop-blur hover:text-red-400"
-                        title="Delete card"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
+          {/* Cover — half the old size on mobile, larger on sm+ */}
+          <div className="flex justify-center pb-3 pt-4">
+            <div className="w-[140px] sm:w-[200px]">
+              <BluffPackCover coverImageURL={pack.coverImageURL} name={pack.name} />
             </div>
+          </div>
+
+          {pack.description && (
+            <p className="px-5 pb-3 text-center text-sm text-white/50">{pack.description}</p>
           )}
+
+          <div className="p-4">
+            {pack.cards.length === 0 ? (
+              <p className="py-8 text-center text-sm text-white/30">No cards in this pack yet.</p>
+            ) : (
+              <div className={cn(
+                "grid gap-2",
+                showCardActions
+                  ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5"
+                  : "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6",
+              )}>
+                {pack.cards.map((url, idx) => (
+                  <div key={`${idx}-${url}`} className="group relative">
+                    <BluffCard imageURL={url} nonInteractive={readOnlyCards} />
+                    {showCardActions && (
+                      <div className="absolute right-0.5 top-0.5 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                        <button
+                          onClick={() => handleStartCopy(url)}
+                          className="rounded bg-black/60 p-1 text-white/60 backdrop-blur hover:text-white"
+                          title="Copy to another pack"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteCard(url)}
+                          className="rounded bg-black/60 p-1 text-red-400/60 backdrop-blur hover:text-red-400"
+                          title="Delete card"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Actions */}
