@@ -88,15 +88,19 @@ export default function BluffPackDetailView({
   return (
     <div
       className={cn(
-        "pointer-events-auto fixed inset-0 flex items-center justify-center p-4",
+        "pointer-events-none fixed inset-0 flex items-center justify-center p-4",
         overlayClassName ?? "z-50",
       )}
-      onClick={onClose}
     >
-      {/* `absolute` (not `fixed`) so stacking stays inside this overlay; avoids full-viewport layers stealing scroll/hit-testing */}
-      <div className="pointer-events-auto absolute inset-0 z-0 bg-black/70 backdrop-blur-sm" aria-hidden />
+      {/* Backdrop: pointer-events-auto so tapping outside closes; kept separate so the modal card's touch events are unaffected */}
+      <button
+        type="button"
+        className="pointer-events-auto absolute inset-0 z-0 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+        aria-label="Close"
+      />
       <div
-        className="relative z-10 flex h-[min(85dvh,85vh,calc(100dvh-2rem))] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/20 bg-neutral-900 xl:max-w-3xl"
+        className="pointer-events-auto relative z-10 flex h-[min(85dvh,85vh,calc(100dvh-2rem))] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/20 bg-neutral-900 xl:max-w-3xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -117,7 +121,7 @@ export default function BluffPackDetailView({
 
         {/* Scrollable body — cover + description + card grid scroll together so iOS touch works on the whole region */}
         <div
-          className="touch-pan-y min-h-0 flex-1 select-none overflow-y-auto overscroll-y-contain"
+          className="min-h-0 flex-1 select-none overflow-y-auto overscroll-y-contain"
           style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "thin" }}
           onWheel={(e) => e.stopPropagation()}
         >
