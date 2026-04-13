@@ -89,125 +89,126 @@ export default function BluffPackDetailView({
 
   return (
     <>
-      {/* Backdrop — same z as card; card is later in DOM so it sits on top */}
-      <button
-        type="button"
-        className={cn("pointer-events-auto fixed inset-0 bg-black/70 backdrop-blur-sm", zClass)}
-        onClick={onClose}
-        aria-label="Close"
-      />
-
       {/*
-       * Modal card — centred with inset-0 + auto-margins (no CSS transforms
-       * and no flex wrapper, both of which break overflow touch-scrolling in
-       * iOS Safari).  touch-pan-y tells the browser to always honour vertical
-       * swipe gestures for scrolling.
+       * Single overlay: backdrop + centering + click-to-close.
+       * The panel is a plain block (no flex-col) with an explicit max-height
+       * on the scroll body via CSS calc.  iOS Safari is unreliable with
+       * flex-computed heights for overflow-y — an explicit value works.
        */}
       <div
         className={cn(
-          "fixed inset-0 m-auto h-fit max-h-[85dvh] w-[calc(100%-2rem)] max-w-md touch-pan-y overflow-y-auto overscroll-contain rounded-2xl border border-white/20 bg-neutral-900 xl:max-w-3xl",
+          "fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm",
           zClass,
         )}
-        onClick={(e) => e.stopPropagation()}
-        onWheel={(e) => e.stopPropagation()}
+        onClick={onClose}
+        role="dialog"
+        aria-modal="true"
       >
-        {/* Sticky header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-neutral-900 px-5 py-4">
-          <div className="min-w-0 flex-1">
-            <h3 className="truncate text-lg font-bold text-white">{pack.name}</h3>
-            <p className="text-xs text-white/40">
-              by {pack.creatorGamertag} &middot; {pack.cards.length} cards
-            </p>
-            {pack.subtitle && (
-              <p className="mt-0.5 text-xs text-white/50">{pack.subtitle}</p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 text-white/40 transition-colors hover:bg-white/10"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Cover — smaller on mobile */}
-        <div className="flex justify-center pb-3 pt-4">
-          <div className="w-[140px] sm:w-[200px]">
-            <BluffPackCover coverImageURL={pack.coverImageURL} name={pack.name} />
-          </div>
-        </div>
-
-        {pack.description && (
-          <p className="px-5 pb-3 text-center text-sm text-white/50">{pack.description}</p>
-        )}
-
-        {/* Card grid */}
-        <div className="p-4">
-          {pack.cards.length === 0 ? (
-            <p className="py-8 text-center text-sm text-white/30">No cards in this pack yet.</p>
-          ) : (
-            <div
-              className={cn(
-                "grid gap-2",
-                showCardActions
-                  ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5"
-                  : "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6",
+        <div
+          className="w-[calc(100%-2rem)] max-w-md rounded-2xl border border-white/20 bg-neutral-900 xl:max-w-3xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+            <div className="min-w-0 flex-1">
+              <h3 className="truncate text-lg font-bold text-white">{pack.name}</h3>
+              <p className="text-xs text-white/40">
+                by {pack.creatorGamertag} &middot; {pack.cards.length} cards
+              </p>
+              {pack.subtitle && (
+                <p className="mt-0.5 text-xs text-white/50">{pack.subtitle}</p>
               )}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg p-2 text-white/40 transition-colors hover:bg-white/10"
             >
-              {pack.cards.map((url, idx) => (
-                <div key={`${idx}-${url}`} className="group relative">
-                  <BluffCard imageURL={url} nonInteractive={readOnlyCards} />
-                  {showCardActions && (
-                    <div className="absolute right-0.5 top-0.5 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                      <button
-                        type="button"
-                        onClick={() => handleStartCopy(url)}
-                        className="rounded bg-black/60 p-1 text-white/60 backdrop-blur hover:text-white"
-                        title="Copy to another pack"
-                      >
-                        <Copy className="h-3 w-3" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmDeleteCard(url)}
-                        className="rounded bg-black/60 p-1 text-red-400/60 backdrop-blur hover:text-red-400"
-                        title="Delete card"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    </div>
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Scrollable body — explicit max-height so iOS Safari gets a definite constraint */}
+          <div className="max-h-[calc(85dvh-120px)] overflow-y-auto overscroll-contain">
+            {/* Cover — smaller on mobile */}
+            <div className="flex justify-center pb-3 pt-4">
+              <div className="w-[140px] sm:w-[200px]">
+                <BluffPackCover coverImageURL={pack.coverImageURL} name={pack.name} />
+              </div>
+            </div>
+
+            {pack.description && (
+              <p className="px-5 pb-3 text-center text-sm text-white/50">{pack.description}</p>
+            )}
+
+            {/* Card grid */}
+            <div className="p-4">
+              {pack.cards.length === 0 ? (
+                <p className="py-8 text-center text-sm text-white/30">No cards in this pack yet.</p>
+              ) : (
+                <div
+                  className={cn(
+                    "grid gap-2",
+                    showCardActions
+                      ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5"
+                      : "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6",
                   )}
+                >
+                  {pack.cards.map((url, idx) => (
+                    <div key={`${idx}-${url}`} className="group relative">
+                      <BluffCard imageURL={url} nonInteractive={readOnlyCards} />
+                      {showCardActions && (
+                        <div className="absolute right-0.5 top-0.5 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                          <button
+                            type="button"
+                            onClick={() => handleStartCopy(url)}
+                            className="rounded bg-black/60 p-1 text-white/60 backdrop-blur hover:text-white"
+                            title="Copy to another pack"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteCard(url)}
+                            className="rounded bg-black/60 p-1 text-red-400/60 backdrop-blur hover:text-red-400"
+                            title="Delete card"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          {(onEdit ?? onSelect) && (
+            <div className="flex gap-2 border-t border-white/10 p-4">
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 py-3 text-sm font-bold text-amber-300 transition-colors hover:bg-amber-400/20"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Edit Pack
+                </button>
+              )}
+              {onSelect && (
+                <button
+                  type="button"
+                  onClick={() => onSelect(pack)}
+                  className="flex-1 rounded-xl bg-green-500 py-3 text-sm font-bold uppercase tracking-wider text-black transition-all hover:scale-[1.02] active:scale-95"
+                >
+                  Select This Pack
+                </button>
+              )}
             </div>
           )}
         </div>
-
-        {/* Sticky footer — always visible at the bottom of the modal */}
-        {(onEdit ?? onSelect) && (
-          <div className="sticky bottom-0 z-10 flex gap-2 border-t border-white/10 bg-neutral-900 p-4">
-            {onEdit && (
-              <button
-                type="button"
-                onClick={onEdit}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 py-3 text-sm font-bold text-amber-300 transition-colors hover:bg-amber-400/20"
-              >
-                <Pencil className="h-4 w-4" />
-                Edit Pack
-              </button>
-            )}
-            {onSelect && (
-              <button
-                type="button"
-                onClick={() => onSelect(pack)}
-                className="flex-1 rounded-xl bg-green-500 py-3 text-sm font-bold uppercase tracking-wider text-black transition-all hover:scale-[1.02] active:scale-95"
-              >
-                Select This Pack
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Confirm delete card popup */}

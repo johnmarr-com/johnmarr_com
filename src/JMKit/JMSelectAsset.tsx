@@ -82,8 +82,8 @@ export function JMSelectAsset<T>({
     <div
       className={cn("pointer-events-none fixed inset-0 flex flex-col", zIndexClass, className)}
       role="dialog"
-      aria-modal="true"
-      aria-hidden={suspendInteractions}
+      aria-modal={suspendInteractions ? undefined : true}
+      aria-hidden={suspendInteractions || undefined}
       aria-labelledby="jm-select-asset-title"
     >
       <button
