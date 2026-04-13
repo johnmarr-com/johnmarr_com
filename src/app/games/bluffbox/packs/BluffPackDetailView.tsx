@@ -96,7 +96,10 @@ export default function BluffPackDetailView({
        * flex-computed heights for overflow-y — an explicit value works.
        */}
       <div
-        className={cn("fixed inset-0 flex items-center justify-center", zClass)}
+        className={cn(
+          "pointer-events-auto fixed inset-0 flex items-center justify-center",
+          zClass,
+        )}
         onClick={onClose}
         role="dialog"
         aria-modal="true"
@@ -130,7 +133,11 @@ export default function BluffPackDetailView({
           </div>
 
           {/* Scrollable body — explicit max-height so iOS Safari gets a definite constraint */}
-          <div className="max-h-[calc(85dvh-120px)] overflow-y-auto overscroll-contain">
+          <div
+            className="max-h-[calc(85dvh-120px)] overflow-y-auto overscroll-contain"
+            style={{ WebkitOverflowScrolling: "touch" }}
+            onWheel={(e) => e.stopPropagation()}
+          >
             {/* Cover — smaller on mobile */}
             <div className="flex justify-center pb-3 pt-4">
               <div className="w-[140px] sm:w-[200px]">
@@ -215,7 +222,7 @@ export default function BluffPackDetailView({
       {/* Confirm delete card popup */}
       {confirmDeleteCard && (
         <div
-          className="fixed inset-0 z-510 flex items-center justify-center p-8"
+          className="pointer-events-auto fixed inset-0 z-510 flex items-center justify-center p-8"
           onClick={() => setConfirmDeleteCard(null)}
         >
           <div className="fixed inset-0 bg-black/50" />
@@ -248,7 +255,7 @@ export default function BluffPackDetailView({
       {/* Copy card picker */}
       {copyingCard && (
         <div
-          className="fixed inset-0 z-510 flex items-center justify-center p-8"
+          className="pointer-events-auto fixed inset-0 z-510 flex items-center justify-center p-8"
           onClick={() => setCopyingCard(null)}
         >
           <div className="fixed inset-0 bg-black/50" />
@@ -262,7 +269,10 @@ export default function BluffPackDetailView({
             ) : !myPacks || myPacks.length === 0 ? (
               <p className="py-4 text-center text-xs text-white/30">No other packs available.</p>
             ) : (
-              <div className="max-h-48 space-y-1 overflow-y-auto">
+              <div
+                className="max-h-48 space-y-1 overflow-y-auto"
+                onWheel={(e) => e.stopPropagation()}
+              >
                 {myPacks.map((p) => (
                   <button
                     key={p.id}

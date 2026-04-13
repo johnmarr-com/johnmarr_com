@@ -143,10 +143,12 @@ export function JMSelectAsset<T>({
             </button>
             </header>
 
-            <div className="relative shrink-0 px-5 pb-3 sm:px-6">
+            <div className="relative min-w-0 shrink-0 px-5 pb-3 sm:px-6">
               <div
-                className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                className="flex min-w-0 touch-pan-x gap-2 overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 role="tablist"
+                style={{ WebkitOverflowScrolling: "touch" }}
+                onWheel={(e) => e.stopPropagation()}
               >
                 {visibleTabs.map((tab) => {
                   const active = tab.id === activeTabId;
@@ -176,6 +178,7 @@ export function JMSelectAsset<T>({
             className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pb-5 sm:px-6"
             style={{ WebkitOverflowScrolling: "touch" }}
             onTouchStart={(e) => e.stopPropagation()}
+            onWheel={(e) => e.stopPropagation()}
           >
             {loading ? (
               <div className="flex flex-1 justify-center py-24">
