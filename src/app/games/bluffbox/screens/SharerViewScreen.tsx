@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
-import JMAvatarView from "@/JMKit/JMAvatarView";
 import { BluffCard } from "@/JMKit/BluffCard";
 import { JMTruthLieChoice } from "@/JMKit/JMTruthLieChoice";
 import { JMCard } from "@/JMKit/JMCard";
@@ -22,17 +21,11 @@ const FLIP_ANIM_NAME = "jm-sharer-flip-bob";
 const CARD_FACE_FILTER =
   "drop-shadow(0 4px 12px rgba(0,0,0,0.35)) drop-shadow(0 16px 36px rgba(0,0,0,0.5))";
 
-/** Middle column width — matches {@link OneVsAll} header spacer / VS column. */
-const VS_COL = "w-[min(6.5rem,18vw)] min-w-[4.75rem] shrink-0";
-
 interface SharerViewScreenProps {
   roundNumber: number;
-  bonusRoundCount: number;
+  totalRounds: number;
   /** Same static logo as matchup / VS (top left). */
   gameLogoURL?: string;
-  /** Opponent (the player you’re sharing with this round). */
-  opponentGamertag: string;
-  opponentAvatarName?: string;
   cardURL: string | null;
   packCoverURL: string | null;
   onRevealBox: () => void | Promise<void>;
@@ -49,20 +42,15 @@ function requestDoubleRaf(cb: () => void) {
 
 export default function SharerViewScreen({
   roundNumber,
-  bonusRoundCount,
+  totalRounds,
   gameLogoURL,
-  opponentGamertag,
-  opponentAvatarName,
   cardURL,
   packCoverURL,
   onRevealBox,
   onChoose,
   sharerChoice = null,
 }: SharerViewScreenProps) {
-  const isBonus = bonusRoundCount > 0;
-  const roundLabel = isBonus
-    ? `BONUS ROUND ${bonusRoundCount}`
-    : `ROUND ${roundNumber}`;
+  const roundLabel = `ROUND ${roundNumber} of ${totalRounds}`;
   const [flipped, setFlipped] = useState(false);
   const [flipComplete, setFlipComplete] = useState(false);
   const [isDealing, setIsDealing] = useState(false);
@@ -123,27 +111,9 @@ export default function SharerViewScreen({
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
-      {/* Centered “Sharing with” + opponent — ~50px from top; clears logo/round corners */}
-      <div className="pointer-events-none absolute left-1/2 top-[50px] z-25 flex -translate-x-1/2 flex-col items-center gap-2 px-4">
-        <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-white/65 sm:text-sm">
-          Sharing with
-        </p>
-        <div className="pointer-events-auto flex flex-col items-center gap-1.5">
-          <div className="shrink-0 rounded-full ring-2 ring-white/15">
-            <JMAvatarView
-              width={72}
-              avatarName={opponentAvatarName ?? "default"}
-            />
-          </div>
-          <span className="max-w-[min(240px,70vw)] truncate text-center text-base font-bold text-white sm:text-lg">
-            {opponentGamertag}
-          </span>
-        </div>
-      </div>
-
-      {/* Top row: same grid & content as MatchupScreen / OneVsAll (logo left, ROUND / BONUS right) */}
+      {/* Top row: logo left, round label right */}
       <div className="relative z-20 shrink-0 px-3 pt-3 sm:px-4 sm:pt-4">
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3">
+        <div className="grid grid-cols-[1fr_1fr] items-center gap-2 sm:gap-3">
           <div className="flex min-w-0 items-center justify-start">
             {gameLogoURL != null && gameLogoURL.length > 0 ? (
               <Image
@@ -156,7 +126,6 @@ export default function SharerViewScreen({
               />
             ) : null}
           </div>
-          <div className={VS_COL} aria-hidden />
           <div className="flex min-w-0 items-center justify-end">
             <span className="block max-w-[min(100%,52vw)] bg-linear-to-r from-amber-200/90 via-white to-blue-200/90 bg-clip-text text-right text-sm font-black uppercase leading-snug tracking-[0.22em] text-transparent sm:text-base">
               {roundLabel}
@@ -205,7 +174,7 @@ export default function SharerViewScreen({
             : undefined
         }
       >
-        {/* Extra vertical space so translateY bob isn’t clipped by overflow */}
+        {/* Extra vertical space so translateY bob isn't clipped by overflow */}
         <div className="mx-auto flex min-h-[min(420px,78svh)] w-full items-center justify-center">
           <div
             className="relative aspect-square w-full transform-3d"
@@ -252,6 +221,7 @@ export default function SharerViewScreen({
             <JMTruthLieChoice
               onSelect={onChoose}
               size="default"
+              randomizeOrder
               lockedChoice={sharerChoice}
               className={cn(
                 "max-w-sm transition-opacity duration-200",

@@ -22,6 +22,11 @@ export interface JMTruthLieChoiceProps {
   lockedChoice?: TruthLieChoice | null;
   /** Classes on the flex row that wraps both buttons. */
   className?: string;
+  /**
+   * Sharer flow: randomize left/right each mount so muscle memory does not bias the choice.
+   * Voter / guess flow: omit (default) — Truth always left, Lie always right.
+   */
+  randomizeOrder?: boolean;
 }
 
 const sizeClasses = {
@@ -32,8 +37,8 @@ const sizeClasses = {
 const lockedOutClass = "pointer-events-none cursor-default grayscale opacity-40";
 
 /**
- * Matched **Truth** / **Lie** controls for Bluff Box: gradient fills, random left/right order.
- * Use for the sharer (what they actually did) and the opponent (what they think happened).
+ * Matched **Truth** / **Lie** controls for Bluff Box: gradient fills.
+ * Use {@link JMTruthLieChoiceProps.randomizeOrder} for sharer vs voter layout.
  */
 export function JMTruthLieChoice({
   onSelect,
@@ -41,8 +46,10 @@ export function JMTruthLieChoice({
   disabled = false,
   lockedChoice = null,
   className,
+  randomizeOrder = false,
 }: JMTruthLieChoiceProps) {
-  const [truthOnLeft] = useState(() => Math.random() < 0.5);
+  const [truthOnLeftRandom] = useState(() => Math.random() < 0.5);
+  const truthOnLeft = randomizeOrder ? truthOnLeftRandom : true;
 
   const sz = sizeClasses[size];
   const isLocked = lockedChoice != null;

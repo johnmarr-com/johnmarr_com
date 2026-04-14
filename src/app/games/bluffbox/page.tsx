@@ -77,12 +77,16 @@ export default function BluffBoxPage() {
     />
   ) : null;
 
+  /** CMS `minPlayers`; lobby Start uses `multiplayerMinPlayers` → {@link GameMultiplayerFlow} (party default is 3 if omitted). */
+  const minPlayers = gameData.minPlayers ?? 2;
+
   return (
     <GameLandingPage
       {...splashProps}
       gameSlug="bluffbox"
       subtitle={gameData.subtitle}
-      {...(gameData.minPlayers != null ? { minPlayers: gameData.minPlayers } : {})}
+      minPlayers={minPlayers}
+      multiplayerMinPlayers={minPlayers}
       maxPlayers={gameData.maxPlayers ?? 30}
       multiplayerFlowMode="party"
       allowAI

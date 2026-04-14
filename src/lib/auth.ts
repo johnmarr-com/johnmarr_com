@@ -251,6 +251,8 @@ export async function saveUserProfile(user: User): Promise<void> {
         storiesRead: 0,
         gamesPlayed: 0,
         gamesHosted: 0,
+        gamesWon: 0,
+        gamesLost: 0,
         cardsViewed: 0,
         cardsSent: 0,
         shares: 0,

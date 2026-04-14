@@ -3,6 +3,9 @@
 /**
  * One vs All — VS row UI forked from {@link JMTournamentVs} for Bluff Box and future tweaks.
  * `JMTournamentVs` remains the canonical shared component; this copy is safe to diverge.
+ *
+ * **Solo mode**: pass the `sharer` prop instead of `left`/`right` to render a single
+ * centred player section (no VS emblem). Used when one player shares to the whole group.
  */
 
 import type { ReactNode } from "react";
@@ -21,11 +24,11 @@ export interface OneVsAllSide {
   /** Passed to {@link JMAvatarView} (default {@link OneVsAll_DEFAULT_AVATAR_WIDTH}) */
   avatarWidth?: number;
   /**
-   * Role line (e.g. “SHARING” / “GUESSING”) — plain text in the top corner of the card (no pill).
+   * Role line (e.g. "SHARING" / "GUESSING") — plain text in the top corner of the card (no pill).
    */
   roleLabel?: string | null;
   roleTone?: OneVsAllRoleTone;
-  /** Smaller line under the gamertag (e.g. “Stand-in”) */
+  /** Smaller line under the gamertag (e.g. "Stand-in") */
   secondaryBadge?: string;
   /** Show empty / waiting state instead of player */
   empty?: boolean;
@@ -35,11 +38,13 @@ export interface OneVsAllSide {
 export interface OneVsAllProps {
   /** Centered above the left player (e.g. static game logo) */
   leftHeader?: ReactNode;
-  /** Centered above the right player (e.g. “ROUND 3”) */
+  /** Centered above the right player (e.g. "ROUND 3") */
   rightHeader?: ReactNode;
-  left: OneVsAllSide;
-  right: OneVsAllSide;
-  /** Center word (default “VS”) */
+  left?: OneVsAllSide;
+  right?: OneVsAllSide;
+  /** Solo mode: single centred sharer instead of left/right VS. Takes precedence over left/right. */
+  sharer?: OneVsAllSide;
+  /** Center word (default "VS") */
   vsLabel?: string;
   /** Full-bleed background image behind the matchup (e.g. game splash); opacity via {@link backgroundImageOpacity}. */
   backgroundImageURL?: string;
@@ -66,7 +71,7 @@ function SidePanel({
   align,
 }: {
   side: OneVsAllSide;
-  align: "left" | "right";
+  align: "left" | "right" | "center";
 }) {
   const {
     name,
@@ -76,13 +81,13 @@ function SidePanel({
     roleTone = "neutral",
     secondaryBadge,
     empty,
-    emptyLabel = "Waiting…",
+    emptyLabel = "Waiting\u2026",
   } = side;
 
   const gradientRing =
-    align === "left"
-      ? "from-amber-400/50 via-amber-400/10 to-transparent"
-      : "from-blue-400/50 via-blue-400/10 to-transparent";
+    align === "right"
+      ? "from-blue-400/50 via-blue-400/10 to-transparent"
+      : "from-amber-400/50 via-amber-400/10 to-transparent"; // left + center both use amber
 
   const cornerTone = ROLE_CORNER[roleTone] ?? ROLE_CORNER.neutral;
 
@@ -91,7 +96,7 @@ function SidePanel({
       <div
         className={cn(
           "relative z-10 min-h-56 min-w-0 flex-1 overflow-hidden rounded-2xl p-px",
-          align === "left" ? "bg-linear-to-br" : "bg-linear-to-bl",
+          align === "right" ? "bg-linear-to-bl" : "bg-linear-to-br",
           gradientRing,
         )}
       >
@@ -105,20 +110,30 @@ function SidePanel({
 
   const showRole = Boolean(roleLabel);
 
+  const bgGradient =
+    align === "right"
+      ? "bg-linear-to-b from-blue-950/40 to-neutral-950/90"
+      : "bg-linear-to-b from-amber-950/40 to-neutral-950/90";
+
+  const ringGradient =
+    align === "right"
+      ? "bg-linear-to-br from-blue-300/60 to-blue-700/20 shadow-[0_0_36px_rgba(96,165,250,0.22)]"
+      : "bg-linear-to-br from-amber-300/60 to-amber-600/20 shadow-[0_0_36px_rgba(251,191,36,0.22)]";
+
   return (
     <div
       className={cn(
-        "relative z-10 min-h-56 min-w-0 flex-1 overflow-hidden rounded-2xl p-px shadow-lg",
-        align === "left" ? "bg-linear-to-br" : "bg-linear-to-bl",
+        "relative z-10 min-w-0 overflow-hidden rounded-2xl p-px shadow-lg",
+        align === "center" ? "w-full max-w-sm" : "min-h-56 flex-1",
+        align === "right" ? "bg-linear-to-bl" : "bg-linear-to-br",
         gradientRing,
       )}
     >
       <div
         className={cn(
-          "relative flex min-h-56 flex-col items-center justify-center gap-2 rounded-2xl px-4 pb-6 pt-10 backdrop-blur-md",
-          align === "left"
-            ? "bg-linear-to-b from-amber-950/40 to-neutral-950/90"
-            : "bg-linear-to-b from-blue-950/40 to-neutral-950/90",
+          "relative flex flex-col items-center justify-center gap-2 rounded-2xl px-4 pb-6 pt-10 backdrop-blur-md",
+          align === "center" ? "min-h-48" : "min-h-56",
+          bgGradient,
         )}
       >
         {showRole && (
@@ -134,9 +149,7 @@ function SidePanel({
         <div
           className={cn(
             "relative rounded-full p-[2px]",
-            align === "left"
-              ? "bg-linear-to-br from-amber-300/60 to-amber-600/20 shadow-[0_0_36px_rgba(251,191,36,0.22)]"
-              : "bg-linear-to-br from-blue-300/60 to-blue-700/20 shadow-[0_0_36px_rgba(96,165,250,0.22)]",
+            ringGradient,
           )}
         >
           <div className="overflow-hidden rounded-full bg-neutral-950">
@@ -184,18 +197,22 @@ function VsEmblem({ label }: { label: string }) {
 /**
  * Bracket-style **VS** row: optional column headers (logo / round), two fighters, center emblem.
  * Role labels are centered at the top of each side; avatar + gamertag stay centered.
+ *
+ * **Solo mode** (`sharer` prop): single centred panel for the active sharer, no VS emblem.
  */
 export function OneVsAll({
   leftHeader,
   rightHeader,
   left,
   right,
+  sharer,
   vsLabel = "VS",
   backgroundImageURL,
   backgroundImageOpacity = 0.3,
   className,
   children,
 }: OneVsAllProps) {
+  const solo = sharer != null;
   const showTopRow = leftHeader != null || rightHeader != null;
   const bgOpacity =
     Number.isFinite(backgroundImageOpacity) && backgroundImageOpacity >= 0 && backgroundImageOpacity <= 1
@@ -218,21 +235,34 @@ export function OneVsAll({
       <div className="relative z-10 flex min-h-0 flex-1 flex-col">
         {showTopRow && (
           <div className="-mx-3 mb-2 px-[25px] sm:-mx-4">
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3">
+            <div className={cn(
+              "grid items-center gap-2 sm:gap-3",
+              solo
+                ? "grid-cols-[1fr_1fr]"
+                : "grid-cols-[1fr_auto_1fr]",
+            )}>
               <div className="flex min-w-0 items-center justify-start">{leftHeader}</div>
-              <div className={VS_COL} aria-hidden />
+              {!solo && <div className={VS_COL} aria-hidden />}
               <div className="flex min-w-0 items-center justify-end">{rightHeader}</div>
             </div>
           </div>
         )}
 
-        <div className="mb-4 grid min-h-0 grid-cols-[1fr_auto_1fr] items-stretch gap-2 sm:gap-3">
-          <SidePanel side={left} align="left" />
-          <div className={cn(VS_COL, "relative z-0 flex min-h-0 items-center justify-center")}>
-            <VsEmblem label={vsLabel} />
+        {solo ? (
+          /* ── Solo mode: single centred sharer ── */
+          <div className="mb-4 flex min-h-0 items-stretch justify-center">
+            <SidePanel side={sharer} align="center" />
           </div>
-          <SidePanel side={right} align="right" />
-        </div>
+        ) : (
+          /* ── VS mode: left / emblem / right ── */
+          <div className="mb-4 grid min-h-0 grid-cols-[1fr_auto_1fr] items-stretch gap-2 sm:gap-3">
+            <SidePanel side={left ?? { empty: true }} align="left" />
+            <div className={cn(VS_COL, "relative z-0 flex min-h-0 items-center justify-center")}>
+              <VsEmblem label={vsLabel} />
+            </div>
+            <SidePanel side={right ?? { empty: true }} align="right" />
+          </div>
+        )}
 
         {children != null ? (
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</div>

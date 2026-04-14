@@ -2,45 +2,18 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { GameSession } from "@/lib/game-sessions";
-import type { PlayerStatus } from "./tournament";
 
 // ─── Types ───────────────────────────────────────────────────
 
 export type BluffBoxPhase =
   | "pack-select"
   | "round-intro"
-  | "matchup-reveal"
-  | "sharer-box"
-  | "sharer-decide"
+  | "sharing"
   | "ai-share-display"
   | "human-to-ai-input"
-  | "opponent-guess"
-  | "turn-result"
-  | "matchup-complete"
-  | "round-end"
+  | "guessing"
+  | "result"
   | "game-over";
-
-export interface MatchupState {
-  sharer: string;
-  opponent: string;
-  turn: 1 | 2;
-  isStandIn: boolean;
-  cardURL: string | null;
-  sharerChoice: "truth" | "lie" | null;
-  opponentGuess: "truth" | "lie" | null;
-  aiShareText: string | null;
-  humanShareText: string | null;
-}
-
-export interface MatchupLogEntry {
-  sharer: string;
-  opponent: string;
-  sharerChoice: "truth" | "lie";
-  opponentGuess: "truth" | "lie";
-  sharerEliminated: boolean;
-  isStandIn: boolean;
-  round: number;
-}
 
 export interface BluffBoxState {
   session: GameSession | null;
@@ -50,15 +23,27 @@ export interface BluffBoxState {
   selectedPackCoverURL: string | null;
   cardPool: string[];
   roundNumber: number;
-  bonusRoundCount: number;
-  /** Sorted UIDs who survived the prior round-end (for stalemate detection). */
-  prevRoundSurvivorIds: string[];
-  playerStatuses: Record<string, PlayerStatus>;
-  matchup: MatchupState | null;
-  matchupLog: MatchupLogEntry[];
-  bbWinner: string | null;
-  bbTiedWinners: string[];
-  bbEndType: "winner" | "tie" | "tpk" | null;
+  totalRounds: number;
+  /** Shuffled UIDs — one sharer per index for the current round. */
+  turnOrder: string[];
+  /** Index into turnOrder for the current sharer. */
+  currentTurnIndex: number;
+  /** Current card being shared (flat, not nested in matchup). */
+  cardURL: string | null;
+  /** The sharer's choice after they share. */
+  sharerChoice: "truth" | "lie" | null;
+  /** Every non-sharer's guess keyed by UID. */
+  guesses: Record<string, "truth" | "lie">;
+  /** AI sharer's generated text. */
+  aiShareText: string | null;
+  /** Human sharer's typed text (for AI guessers). */
+  humanShareText: string | null;
+  /** Points per player UID. */
+  scores: Record<string, number>;
+  /** Winner UID(s) at game end. */
+  winners: string[];
+  /** The winning point total. */
+  winnerPoints: number;
   isHost: boolean;
 }
 
@@ -120,14 +105,17 @@ export function useBluffBoxSession(sessionId: string, userId: string): {
     selectedPackCoverURL: (data?.["selectedPackCoverURL"] as string) ?? null,
     cardPool: (data?.["cardPool"] as string[]) ?? [],
     roundNumber: (data?.["roundNumber"] as number) ?? 1,
-    bonusRoundCount: (data?.["bonusRoundCount"] as number) ?? 0,
-    prevRoundSurvivorIds: (data?.["prevRoundSurvivorIds"] as string[]) ?? [],
-    playerStatuses: (data?.["playerStatuses"] as Record<string, PlayerStatus>) ?? {},
-    matchup: (data?.["matchup"] as MatchupState) ?? null,
-    matchupLog: (data?.["matchupLog"] as MatchupLogEntry[]) ?? [],
-    bbWinner: (data?.["bbWinner"] as string) ?? null,
-    bbTiedWinners: (data?.["bbTiedWinners"] as string[]) ?? [],
-    bbEndType: (data?.["bbEndType"] as "winner" | "tie" | "tpk") ?? null,
+    totalRounds: (data?.["totalRounds"] as number) ?? 1,
+    turnOrder: (data?.["turnOrder"] as string[]) ?? [],
+    currentTurnIndex: (data?.["currentTurnIndex"] as number) ?? 0,
+    cardURL: (data?.["cardURL"] as string) ?? null,
+    sharerChoice: (data?.["sharerChoice"] as "truth" | "lie") ?? null,
+    guesses: (data?.["guesses"] as Record<string, "truth" | "lie">) ?? {},
+    aiShareText: (data?.["aiShareText"] as string) ?? null,
+    humanShareText: (data?.["humanShareText"] as string) ?? null,
+    scores: (data?.["scores"] as Record<string, number>) ?? {},
+    winners: (data?.["winners"] as string[]) ?? [],
+    winnerPoints: (data?.["winnerPoints"] as number) ?? 0,
     isHost,
   };
 

@@ -3,38 +3,37 @@
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/AuthProvider";
+import { useBluffBoxSession } from "./useBluffBoxSession";
 import {
-  useBluffBoxSession,
-  type MatchupState,
-  type MatchupLogEntry,
-} from "./useBluffBoxSession";
-import {
-  selectNextMatchup,
+  calculateTotalRounds,
+  initScores,
+  shuffleTurnOrder,
   selectCard,
   shuffleCards,
-  resolveTurn,
-  evaluateRound,
-  initPlayerStatuses,
-  resetForNewRound,
-  resetForBonusRound,
+  scoreTurn,
+  applyScoreDeltas,
+  determineWinners,
 } from "./tournament";
 import { isAiPlayer, getPersona } from "@/app/games/_gamecore";
 import { aiShare, aiGuess } from "./aiBluffPlayer";
 import { GameGamertagBadge } from "@/app/games/_gamecore";
 import { PointsManager, Activity } from "@/lib/points";
+import { recordGameStats } from "./recordGameStats";
 
 import RoundIntroScreen from "./screens/RoundIntroScreen";
 import MatchupScreen from "./screens/MatchupScreen";
 import SharerViewScreen from "./screens/SharerViewScreen";
-import ListenerViewScreen from "./screens/ListenerViewScreen";
-import OpponentGuessScreen from "./screens/OpponentGuessScreen";
 import AIShareDisplay from "./screens/AIShareDisplay";
 import HumanToAIInput from "./screens/HumanToAIInput";
-import TurnResultScreen from "./screens/TurnResultScreen";
+import GroupGuessModal from "./screens/GroupGuessModal";
+import TurnResultModal from "./screens/TurnResultModal";
 import WinnerScreen from "./screens/WinnerScreen";
-import GameOverScreen from "./screens/GameOverScreen";
 import BluffPackPicker from "./BluffPackPicker";
 import type { BluffBoxPack } from "@/lib/bluffbox-packs";
+import { JMConfettiOverlay } from "@/JMKit";
+
+/** Host auto-advance from `result` phase (ms). 2× the original 4s; host tap runs `advanceFromResult` for everyone. */
+const RESULT_PHASE_AUTO_ADVANCE_MS = 8000;
 
 interface BluffBoxGameProps {
   sessionId: string;
@@ -55,6 +54,7 @@ export default function BluffBoxGame({
     userId,
   );
   const aiProcessingRef = useRef(false);
+  const [resultDismissed, setResultDismissed] = useState(false);
 
   const {
     session,
@@ -63,26 +63,55 @@ export default function BluffBoxGame({
     selectedPackCoverURL,
     cardPool,
     roundNumber,
-    bonusRoundCount,
-    prevRoundSurvivorIds,
-    playerStatuses,
-    matchup,
-    matchupLog,
-    bbWinner,
-    bbTiedWinners,
-    bbEndType,
+    totalRounds,
+    turnOrder,
+    currentTurnIndex,
+    cardURL,
+    sharerChoice,
+    guesses,
+    aiShareText,
+    humanShareText,
+    scores,
+    winners,
+    winnerPoints,
     isHost,
   } = state;
 
   const players = session?.players ?? [];
   const playerUids = players.map((p) => p.uid);
 
-  // ─── Host: Pack Selected ────────────────────────────────────
+  // ─── Derived values ────────────────────────────────────────
+
+  const currentSharer = turnOrder[currentTurnIndex] ?? "";
+  const isSharer = currentSharer === userId;
+  const sharerPlayer = players.find((p) => p.uid === currentSharer);
+  const hasAiGuessers = players.some(
+    (p) => p.uid !== currentSharer && isAiPlayer(p.uid),
+  );
+  const expectedGuessCount = players.filter(
+    (p) => p.uid !== currentSharer,
+  ).length;
+  const guessCount = Object.keys(guesses).length;
+  const allGuessesIn =
+    guessCount >= expectedGuessCount && expectedGuessCount > 0;
+  /** 3+ players and every guesser missed → sharer earned +1 (matches `scoreTurn`). */
+  const sharerFooledEveryone =
+    sharerChoice != null &&
+    playerUids.length >= 3 &&
+    players
+      .filter((p) => p.uid !== currentSharer)
+      .every((p) => guesses[p.uid] !== sharerChoice);
+  const playerGuess = guesses[userId] ?? null;
+  const hasGuessed = playerGuess != null;
+
+  // ─── Host: Pack Selected ───────────────────────────────────
 
   const handlePackSelected = useCallback(
     async (pack: BluffBoxPack) => {
       const shuffled = shuffleCards(pack.cards);
-      const statuses = initPlayerStatuses(playerUids);
+      const total = calculateTotalRounds(playerUids.length);
+      const order = shuffleTurnOrder(playerUids);
+      const initScoresMap = initScores(playerUids);
       const { deleteField } = await import("firebase/firestore");
       await updateFields({
         selectedPackId: pack.id,
@@ -90,14 +119,17 @@ export default function BluffBoxGame({
         selectedPackCoverURL: pack.coverImageURL,
         cardPool: shuffled,
         roundNumber: 1,
-        bonusRoundCount: 0,
-        playerStatuses: statuses,
-        matchup: null,
-        matchupLog: [],
-        bbWinner: null,
-        bbTiedWinners: [],
-        bbEndType: null,
-        prevRoundSurvivorIds: [],
+        totalRounds: total,
+        turnOrder: order,
+        currentTurnIndex: 0,
+        cardURL: null,
+        sharerChoice: null,
+        guesses: {},
+        aiShareText: null,
+        humanShareText: null,
+        scores: initScoresMap,
+        winners: [],
+        winnerPoints: 0,
         bbPhase: "round-intro",
         bluffLobbyPackId: deleteField(),
         bluffLobbyPackName: deleteField(),
@@ -147,370 +179,272 @@ export default function BluffBoxGame({
     };
   }, [isHost, bbPhase, lobbyPackId, lobbyAutoApplyFailed, handlePackSelected]);
 
-  // ─── Host: Start Next Matchup ──────────────────────────────
+  // ─── Deal card (human sharer taps; AI sharer auto-dealt by host) ─
 
-  const startNextMatchup = useCallback(async () => {
-    const next = selectNextMatchup(playerStatuses, playerUids);
-    if (!next) {
-      await setPhase("round-end");
-      return;
-    }
-
+  const handleRevealBox = useCallback(async () => {
+    if (!isHost && currentSharer !== userId) return;
     let pool = cardPool;
     if (pool.length === 0) {
       const { getPack } = await import("@/lib/bluffbox-packs");
       const pack = await getPack(selectedPackId!);
       pool = shuffleCards(pack?.cards ?? []);
     }
-
-    const matchupState: MatchupState = {
-      sharer: next.sharer,
-      opponent: next.opponent,
-      turn: 1,
-      isStandIn: next.isStandIn,
-      cardURL: null,
-      sharerChoice: null,
-      opponentGuess: null,
-      aiShareText: null,
-      humanShareText: null,
-    };
-
-    await updateFields({
-      matchup: matchupState,
-      cardPool: pool,
-      bbPhase: "matchup-reveal",
-    });
-  }, [
-    playerStatuses,
-    playerUids,
-    cardPool,
-    selectedPackId,
-    updateFields,
-    setPhase,
-  ]);
-
-  // ─── Host: Auto-advance from matchup-reveal ────────────────
-
-  useEffect(() => {
-    if (!isHost || bbPhase !== "matchup-reveal") return;
-    const timer = setTimeout(async () => {
-      await setPhase("sharer-box");
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, [isHost, bbPhase, setPhase]);
-
-  // ─── Deal card (human sharer taps in SharerViewScreen; AI sharer auto-dealt by host) ─
-
-  const handleRevealBox = useCallback(async () => {
-    if (!isHost && matchup?.sharer !== userId) return;
-
-    const pool = cardPool;
-    if (pool.length === 0) return;
-
     const { card, remainingPool } = selectCard(pool);
     await updateFields({
-      "matchup.cardURL": card,
+      cardURL: card,
       cardPool: remainingPool,
     });
-  }, [cardPool, matchup, userId, isHost, updateFields]);
+  }, [cardPool, currentSharer, userId, isHost, selectedPackId, updateFields]);
+
+  // ─── Host: Auto-deal for AI sharer ────────────────────────
 
   const aiSharerAutoDealRef = useRef(false);
 
   useEffect(() => {
-    if (bbPhase !== "sharer-box" && bbPhase !== "sharer-decide") {
+    if (bbPhase !== "sharing") {
       aiSharerAutoDealRef.current = false;
       return;
     }
-    if (matchup?.cardURL) return;
-    if (!isHost || !matchup || !isAiPlayer(matchup.sharer)) return;
+    if (cardURL) return;
+    if (!isHost || !isAiPlayer(currentSharer)) return;
     if (cardPool.length === 0) return;
     if (aiSharerAutoDealRef.current) return;
     aiSharerAutoDealRef.current = true;
     void handleRevealBox();
-  }, [bbPhase, matchup, matchup?.cardURL, matchup?.sharer, cardPool.length, isHost, handleRevealBox]);
+  }, [bbPhase, cardURL, currentSharer, cardPool.length, isHost, handleRevealBox]);
 
   // ─── Sharer: Choose Truth/Lie ──────────────────────────────
 
   const handleSharerChoice = useCallback(
     async (choice: "truth" | "lie") => {
-      if (!matchup) return;
+      await updateFields({ sharerChoice: choice });
 
-      const opponentIsAI = isAiPlayer(matchup.opponent);
-      const sharerIsHuman = !isAiPlayer(matchup.sharer);
-
-      await updateFields({
-        "matchup.sharerChoice": choice,
-      });
-
-      if (sharerIsHuman && opponentIsAI) {
+      if (!isAiPlayer(currentSharer) && hasAiGuessers) {
         await setPhase("human-to-ai-input");
-      } else if (sharerIsHuman && !opponentIsAI) {
-        // PvP: listener stays on sharer phase until they vote on ListenerViewScreen.
       } else {
-        await setPhase("opponent-guess");
+        await setPhase("guessing");
       }
     },
-    [matchup, updateFields, setPhase],
+    [currentSharer, hasAiGuessers, updateFields, setPhase],
   );
 
-  // ─── Host: AI Sharer Logic ─────────────────────────────────
+  // ─── Host: AI Sharer Logic ────────────────────────────────
 
   useEffect(() => {
-    if (
-      !isHost ||
-      bbPhase !== "sharer-box" ||
-      !matchup?.cardURL ||
-      aiProcessingRef.current
-    )
+    if (!isHost || bbPhase !== "sharing" || !cardURL || aiProcessingRef.current)
       return;
-    if (!isAiPlayer(matchup.sharer)) return;
+    if (!isAiPlayer(currentSharer)) return;
 
     aiProcessingRef.current = true;
     (async () => {
       try {
-        const persona = getPersona(matchup.sharer);
-        const result = await aiShare(matchup.cardURL!, {
+        const persona = getPersona(currentSharer);
+        const result = await aiShare(cardURL, {
           prompt: persona?.prompt ?? "",
           voice: persona?.voice ?? "",
         });
         await updateFields({
-          "matchup.sharerChoice": result.choice,
-          "matchup.aiShareText": result.shareText,
+          sharerChoice: result.choice,
+          aiShareText: result.shareText,
           bbPhase: "ai-share-display",
         });
       } finally {
         aiProcessingRef.current = false;
       }
     })();
-  }, [isHost, bbPhase, matchup, updateFields]);
+  }, [isHost, bbPhase, cardURL, currentSharer, updateFields]);
 
-  // ─── Human: Submit share text for AI opponent ──────────────
+  // ─── Human: Submit share text for AI guessers ─────────────
 
   const handleHumanShareText = useCallback(
     async (text: string) => {
       await updateFields({
-        "matchup.humanShareText": text,
-        bbPhase: "opponent-guess",
+        humanShareText: text,
+        bbPhase: "guessing",
       });
     },
     [updateFields],
   );
 
-  // ─── Host: AI Opponent Logic ───────────────────────────────
+  // ─── Any player: Submit guess ─────────────────────────────
+
+  const handleGuess = useCallback(
+    async (guess: "truth" | "lie") => {
+      await updateFields({ [`guesses.${userId}`]: guess });
+    },
+    [userId, updateFields],
+  );
+
+  // ─── Host: AI Guesser Logic ───────────────────────────────
 
   useEffect(() => {
-    if (!isHost || bbPhase !== "opponent-guess" || aiProcessingRef.current)
-      return;
-    if (!matchup || !isAiPlayer(matchup.opponent)) return;
-    if (matchup.opponentGuess) return;
+    if (!isHost || bbPhase !== "guessing" || aiProcessingRef.current) return;
+
+    const aiGuessers = players.filter(
+      (p) => p.uid !== currentSharer && isAiPlayer(p.uid) && !guesses[p.uid],
+    );
+    if (aiGuessers.length === 0) return;
 
     const shareText =
-      matchup.humanShareText || matchup.aiShareText || "something mysterious";
+      humanShareText || aiShareText || "something mysterious";
 
     aiProcessingRef.current = true;
     (async () => {
       try {
-        const persona = getPersona(matchup.opponent);
-        const guess = await aiGuess(shareText, {
-          prompt: persona?.prompt ?? "",
-          voice: persona?.voice ?? "",
-        });
-        await handleOpponentGuess(guess);
+        for (const ai of aiGuessers) {
+          const persona = getPersona(ai.uid);
+          const guess = await aiGuess(shareText, {
+            prompt: persona?.prompt ?? "",
+            voice: persona?.voice ?? "",
+          });
+          await updateFields({ [`guesses.${ai.uid}`]: guess });
+        }
       } finally {
         aiProcessingRef.current = false;
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHost, bbPhase, matchup]);
+  }, [isHost, bbPhase, currentSharer, guesses, players]);
 
-  // ─── Opponent: Guess Truth/Lie ─────────────────────────────
+  // ─── Host: All guesses in → calculate scores + enter result ─
 
-  const handleOpponentGuess = useCallback(
-    async (guess: "truth" | "lie") => {
-      if (!matchup || !matchup.sharerChoice) return;
+  useEffect(() => {
+    if (!isHost || bbPhase !== "guessing") return;
+    if (!allGuessesIn || !sharerChoice) return;
 
-      const { sharerEliminated } = resolveTurn(matchup.sharerChoice, guess);
+    // Calculate and write scores BEFORE entering result phase
+    const deltas = scoreTurn(
+      sharerChoice,
+      guesses,
+      currentSharer,
+      playerUids.length,
+    );
+    const newScores = applyScoreDeltas(scores, deltas);
 
-      const logEntry: MatchupLogEntry = {
-        sharer: matchup.sharer,
-        opponent: matchup.opponent,
-        sharerChoice: matchup.sharerChoice,
-        opponentGuess: guess,
-        sharerEliminated,
-        isStandIn: matchup.isStandIn,
-        round: roundNumber,
-      };
+    void updateFields({
+      scores: newScores,
+      bbPhase: "result",
+    });
+  }, [
+    isHost,
+    bbPhase,
+    allGuessesIn,
+    sharerChoice,
+    guesses,
+    currentSharer,
+    playerUids.length,
+    scores,
+    updateFields,
+  ]);
 
-      const newStatuses = { ...playerStatuses };
-      if (sharerEliminated) {
-        newStatuses[matchup.sharer] = "eliminated";
-      }
+  // ─── Reset resultDismissed when phase changes ─────────────
 
+  useEffect(() => {
+    if (bbPhase !== "result") {
+      setResultDismissed(false);
+    }
+  }, [bbPhase]);
+
+  // ─── Host: Advance from result ────────────────────────────
+
+  const advanceFromResult = useCallback(async () => {
+    if (!isHost) return;
+
+    const nextTurnIndex = currentTurnIndex + 1;
+
+    if (nextTurnIndex < turnOrder.length) {
+      // More turns in this round
       await updateFields({
-        "matchup.opponentGuess": guess,
-        playerStatuses: newStatuses,
-        matchupLog: [...matchupLog, logEntry],
-        bbPhase: "turn-result",
-      });
-    },
-    [matchup, roundNumber, playerStatuses, matchupLog, updateFields],
-  );
-
-  // ─── Host: After turn result, advance ──────────────────────
-
-  const handleTurnResultComplete = useCallback(async () => {
-    if (!isHost || !matchup) return;
-
-    // Turn 1 done → always play turn 2 for a normal pairing (non-stand-in), even if the
-    // turn-1 sharer was eliminated. The other player still gets a sharer turn; they might
-    // also be eliminated — round/game outcomes are evaluated only after the full round.
-    if (matchup.turn === 1 && !matchup.isStandIn) {
-      const pool = cardPool.length > 0 ? cardPool : [];
-      let remainingPool = pool;
-      if (pool.length > 0) {
-        const result = selectCard(pool);
-        remainingPool = result.remainingPool;
-      }
-
-      const turn2: MatchupState = {
-        sharer: matchup.opponent,
-        opponent: matchup.sharer,
-        turn: 2,
-        isStandIn: false,
+        currentTurnIndex: nextTurnIndex,
         cardURL: null,
         sharerChoice: null,
-        opponentGuess: null,
+        guesses: {},
         aiShareText: null,
         humanShareText: null,
-      };
-
-      await updateFields({
-        matchup: turn2,
-        cardPool: remainingPool,
-        bbPhase: "sharer-box",
+        bbPhase: "sharing",
       });
       return;
     }
 
-    // Matchup over → mark each participant played if they survived this matchup
-    const newStatuses = { ...playerStatuses };
-    if (newStatuses[matchup.sharer] === "alive") {
-      newStatuses[matchup.sharer] = "played";
-    }
-    if (newStatuses[matchup.opponent] === "alive") {
-      newStatuses[matchup.opponent] = "played";
+    if (roundNumber < totalRounds) {
+      // More rounds to play
+      const newOrder = shuffleTurnOrder(playerUids);
+      await updateFields({
+        roundNumber: roundNumber + 1,
+        turnOrder: newOrder,
+        currentTurnIndex: 0,
+        cardURL: null,
+        sharerChoice: null,
+        guesses: {},
+        aiShareText: null,
+        humanShareText: null,
+        bbPhase: "round-intro",
+      });
+      return;
     }
 
+    // Game over — determine winners
+    const { winners: w, points: p } = determineWinners(scores);
     await updateFields({
-      matchup: null,
-      playerStatuses: newStatuses,
-      bbPhase: "matchup-complete",
+      winners: w,
+      winnerPoints: p,
+      bbPhase: "game-over",
     });
-  }, [isHost, matchup, cardPool, playerStatuses, updateFields]);
-
-  // ─── Host: Matchup Complete → next matchup or round-end ───
-
-  useEffect(() => {
-    if (!isHost || bbPhase !== "matchup-complete") return;
-    const timer = setTimeout(async () => {
-      await startNextMatchup();
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [isHost, bbPhase, startNextMatchup]);
-
-  // ─── Host: Round End → evaluate (winner / tie / TPK / bonus / next round) ───
-  // `round-end` only runs after `selectNextMatchup` finds no one `alive` left to schedule —
-  // i.e. every remaining player has finished their matchups for this round. Never after a single battle.
-
-  useEffect(() => {
-    if (!isHost || bbPhase !== "round-end") return;
-
-    const timer = setTimeout(async () => {
-      const result = evaluateRound(
-        playerStatuses,
-        bonusRoundCount,
-        prevRoundSurvivorIds.length > 0 ? prevRoundSurvivorIds : null,
-      );
-
-      switch (result.action) {
-        case "winner":
-          await updateFields({
-            bbWinner: result.winner!,
-            bbEndType: "winner",
-            bbPhase: "game-over",
-            prevRoundSurvivorIds: [],
-          });
-          PointsManager.award(Activity.PLAY_GAME);
-          break;
-
-        case "next-round": {
-          const newStatuses = resetForNewRound(playerStatuses);
-          await updateFields({
-            playerStatuses: newStatuses,
-            roundNumber: roundNumber + 1,
-            matchup: null,
-            bbPhase: "round-intro",
-            prevRoundSurvivorIds: result.survivors.slice().sort(),
-          });
-          break;
-        }
-
-        case "bonus-round": {
-          const newStatuses = resetForBonusRound(playerStatuses);
-          await updateFields({
-            playerStatuses: newStatuses,
-            bonusRoundCount: bonusRoundCount + 1,
-            roundNumber: roundNumber + 1,
-            matchup: null,
-            bbPhase: "round-intro",
-          });
-          break;
-        }
-
-        case "tie":
-          await updateFields({
-            bbTiedWinners: result.survivors,
-            bbEndType: "tie",
-            bbPhase: "game-over",
-            prevRoundSurvivorIds: [],
-          });
-          PointsManager.award(Activity.PLAY_GAME);
-          break;
-
-        case "tpk":
-          await updateFields({
-            bbEndType: "tpk",
-            bbPhase: "game-over",
-            prevRoundSurvivorIds: [],
-          });
-          PointsManager.award(Activity.PLAY_GAME);
-          break;
-      }
-    }, 1000);
-    return () => clearTimeout(timer);
+    PointsManager.award(Activity.PLAY_GAME);
+    recordGameStats(playerUids, w, session?.ownerId ?? "");
   }, [
     isHost,
-    bbPhase,
-    playerStatuses,
-    bonusRoundCount,
-    prevRoundSurvivorIds,
+    currentTurnIndex,
+    turnOrder.length,
     roundNumber,
+    totalRounds,
+    playerUids,
+    scores,
+    session?.ownerId,
     updateFields,
   ]);
+
+  // ─── Host: Auto-advance from result after delay ───────────
+
+  useEffect(() => {
+    if (!isHost || bbPhase !== "result") return;
+    const timer = setTimeout(() => {
+      void advanceFromResult();
+    }, RESULT_PHASE_AUTO_ADVANCE_MS);
+    return () => clearTimeout(timer);
+  }, [isHost, bbPhase, advanceFromResult]);
 
   // ─── Play Again ────────────────────────────────────────────
 
   const handlePlayAgain = useCallback(async () => {
     await updateFields({
       bbPhase: "pack-select",
-      matchup: null,
-      bbWinner: null,
-      bbTiedWinners: [],
-      bbEndType: null,
-      matchupLog: [],
-      prevRoundSurvivorIds: [],
+      cardURL: null,
+      sharerChoice: null,
+      guesses: {},
+      aiShareText: null,
+      humanShareText: null,
+      winners: [],
+      winnerPoints: 0,
+      turnOrder: [],
+      currentTurnIndex: 0,
+      scores: {},
     });
   }, [updateFields]);
+
+  // ─── Start first turn from round-intro ────────────────────
+
+  const startFirstTurn = useCallback(async () => {
+    if (!isHost) return;
+    await updateFields({
+      cardURL: null,
+      sharerChoice: null,
+      guesses: {},
+      aiShareText: null,
+      humanShareText: null,
+      bbPhase: "sharing",
+    });
+  }, [isHost, updateFields]);
 
   // ─── Render ────────────────────────────────────────────────
 
@@ -521,16 +455,6 @@ export default function BluffBoxGame({
       </div>
     );
   }
-
-  // Determine if current user is the active sharer or opponent
-  const isSharer = matchup?.sharer === userId;
-  const isOpponent = matchup?.opponent === userId;
-  const sharerPlayer = matchup
-    ? players.find((p) => p.uid === matchup.sharer)
-    : undefined;
-  const opponentPlayer = matchup
-    ? players.find((p) => p.uid === matchup.opponent)
-    : undefined;
 
   const hostPackSelectSpinner =
     bbPhase === "pack-select" &&
@@ -545,15 +469,19 @@ export default function BluffBoxGame({
       : {}),
   };
 
+  const splashUnderlayExtras =
+    splashBgURL != null && splashBgURL.length > 0
+      ? { backgroundImageURL: splashBgURL }
+      : {};
+
   const hasSplash = splashBgURL != null && splashBgURL.length > 0;
-  /** Human sharer or human listener (sharer phase): splash at 30% like OneVsAll / matchup row. */
+  const sharerViewPhases =
+    bbPhase === "sharing" && isSharer && !isAiPlayer(userId);
+  const humanToAiPhase = bbPhase === "human-to-ai-input" && isSharer;
+  /** Same 30% splash layer as sharer flow — avoids the heavy root gradient that hides art (e.g. game-over). */
   const subtleSplashShell =
     hasSplash &&
-    !isAiPlayer(userId) &&
-    (((bbPhase === "sharer-box" || bbPhase === "sharer-decide") &&
-      (isSharer ||
-        (isOpponent && matchup != null && !isAiPlayer(matchup.opponent)))) ||
-      (bbPhase === "human-to-ai-input" && isSharer));
+    (sharerViewPhases || humanToAiPhase || bbPhase === "game-over");
 
   return (
     <div
@@ -581,13 +509,15 @@ export default function BluffBoxGame({
       <div className="relative z-10 flex min-h-0 flex-1 flex-col">
         <GameGamertagBadge badgeClassName="bg-indigo-950/90 backdrop-blur-sm" />
 
-        {/* Pack Select — skipped when lobby already chose a pack (see BluffPackLobbySelector) */}
+        {/* ── Pack Select ── */}
         {bbPhase === "pack-select" &&
           isHost &&
           (hostPackSelectSpinner ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
-              <p className="text-sm text-white/60">Starting game…</p>
+              <p className="text-sm text-white/60">
+                Starting game&hellip;
+              </p>
             </div>
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
@@ -615,217 +545,168 @@ export default function BluffBoxGame({
               </div>
             ) : null}
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
-            <p className="text-sm text-white/50">Hold on to your seats…</p>
+            <p className="text-sm text-white/50">
+              Hold on to your seats&hellip;
+            </p>
           </div>
         )}
 
-        {/* Round Intro */}
+        {/* ── Round Intro ── */}
         {bbPhase === "round-intro" && (
           <RoundIntroScreen
             roundNumber={roundNumber}
-            bonusRoundCount={bonusRoundCount}
+            totalRounds={totalRounds}
             onComplete={() => {
-              if (isHost) startNextMatchup();
+              if (isHost) startFirstTurn();
             }}
           />
         )}
 
-        {/* Matchup Reveal + Active Game */}
-        {(bbPhase === "matchup-reveal" || bbPhase === "matchup-complete") && (
+        {/* ── Sharing ── */}
+        {bbPhase === "sharing" && isSharer && !isAiPlayer(userId) && (
+          <SharerViewScreen
+            key={`sharer-${roundNumber}-${currentTurnIndex}`}
+            roundNumber={roundNumber}
+            totalRounds={totalRounds}
+            {...(gameLogoURL != null && gameLogoURL.length > 0
+              ? { gameLogoURL }
+              : {})}
+            cardURL={cardURL}
+            packCoverURL={selectedPackCoverURL}
+            onRevealBox={handleRevealBox}
+            onChoose={handleSharerChoice}
+            sharerChoice={sharerChoice}
+          />
+        )}
+        {bbPhase === "sharing" && (!isSharer || isAiPlayer(userId)) && (
           <MatchupScreen
             roundNumber={roundNumber}
-            bonusRoundCount={bonusRoundCount}
+            totalRounds={totalRounds}
             players={players}
-            playerStatuses={playerStatuses}
-            matchup={matchup}
+            scores={scores}
+            currentSharer={currentSharer}
+            turnOrder={turnOrder}
+            currentTurnIndex={currentTurnIndex}
             {...matchupScreenExtras}
           />
         )}
 
-        {/* Sharer Box / Decide */}
-        {(bbPhase === "sharer-box" || bbPhase === "sharer-decide") &&
-          isSharer &&
-          !isAiPlayer(userId) && (
-            <SharerViewScreen
-              key={`${roundNumber}-${matchup.sharer}-${matchup.opponent}-${matchup.turn}`}
-              roundNumber={roundNumber}
-              bonusRoundCount={bonusRoundCount}
-              {...(gameLogoURL != null && gameLogoURL.length > 0
-                ? { gameLogoURL }
-                : {})}
-              opponentGamertag={opponentPlayer?.gamertag ?? "Player"}
-              {...(opponentPlayer?.avatarName != null
-                ? { opponentAvatarName: opponentPlayer.avatarName }
-                : {})}
-              cardURL={matchup?.cardURL ?? null}
-              packCoverURL={selectedPackCoverURL}
-              onRevealBox={handleRevealBox}
-              onChoose={handleSharerChoice}
-              sharerChoice={matchup.sharerChoice}
-            />
-          )}
-        {(bbPhase === "sharer-box" || bbPhase === "sharer-decide") &&
-          isOpponent &&
-          !isAiPlayer(userId) &&
-          matchup != null &&
-          !isAiPlayer(matchup.opponent) && (
-            <ListenerViewScreen
-              key={`listener-${roundNumber}-${matchup.sharer}-${matchup.opponent}-${matchup.turn}`}
-              roundNumber={roundNumber}
-              bonusRoundCount={bonusRoundCount}
-              {...(gameLogoURL != null && gameLogoURL.length > 0
-                ? { gameLogoURL }
-                : {})}
-              sharerGamertag={sharerPlayer?.gamertag ?? "Player"}
-              {...(sharerPlayer?.avatarName != null
-                ? { sharerAvatarName: sharerPlayer.avatarName }
-                : {})}
-              sharerHasChosen={matchup.sharerChoice != null}
-              onGuess={handleOpponentGuess}
-            />
-          )}
-        {(bbPhase === "sharer-box" || bbPhase === "sharer-decide") &&
-          !(
-            isOpponent &&
-            !isAiPlayer(userId) &&
-            matchup != null &&
-            !isAiPlayer(matchup.opponent)
-          ) &&
-          !isSharer && (
-            <MatchupScreen
-              roundNumber={roundNumber}
-              bonusRoundCount={bonusRoundCount}
-              players={players}
-              playerStatuses={playerStatuses}
-              matchup={matchup}
-              {...matchupScreenExtras}
-            />
-          )}
-
-        {/* AI Share Display */}
-        {bbPhase === "ai-share-display" && matchup?.aiShareText && (
+        {/* ── AI Share Display ── */}
+        {bbPhase === "ai-share-display" && aiShareText && (
           <>
             <MatchupScreen
               roundNumber={roundNumber}
-              bonusRoundCount={bonusRoundCount}
+              totalRounds={totalRounds}
               players={players}
-              playerStatuses={playerStatuses}
-              matchup={matchup}
+              scores={scores}
+              currentSharer={currentSharer}
+              turnOrder={turnOrder}
+              currentTurnIndex={currentTurnIndex}
               {...matchupScreenExtras}
             />
             <AIShareDisplay
+              {...splashUnderlayExtras}
               aiName={sharerPlayer?.gamertag ?? "AI"}
               aiAvatarName={sharerPlayer?.avatarName}
-              shareText={matchup.aiShareText}
+              shareText={aiShareText}
               onDismiss={() => {
-                if (isHost) setPhase("opponent-guess");
+                if (isHost) setPhase("guessing");
               }}
             />
           </>
         )}
 
-        {/* Human to AI Input */}
+        {/* ── Human to AI Input ── */}
         {bbPhase === "human-to-ai-input" && isSharer && (
           <HumanToAIInput
-            aiName={opponentPlayer?.gamertag ?? "AI"}
+            aiName="the group"
             onSubmit={handleHumanShareText}
           />
         )}
         {bbPhase === "human-to-ai-input" && !isSharer && (
           <MatchupScreen
             roundNumber={roundNumber}
-            bonusRoundCount={bonusRoundCount}
+            totalRounds={totalRounds}
             players={players}
-            playerStatuses={playerStatuses}
-            matchup={matchup}
+            scores={scores}
+            currentSharer={currentSharer}
+            turnOrder={turnOrder}
+            currentTurnIndex={currentTurnIndex}
             {...matchupScreenExtras}
           />
         )}
 
-        {/* Opponent Guess */}
-        {bbPhase === "opponent-guess" && isOpponent && !isAiPlayer(userId) && (
-          <OpponentGuessScreen
-            sharerName={sharerPlayer?.gamertag ?? "Player"}
-            sharerIsHuman={!isAiPlayer(matchup?.sharer ?? "")}
-            onGuess={handleOpponentGuess}
-          />
-        )}
-        {bbPhase === "opponent-guess" && !isOpponent && (
-          <MatchupScreen
-            roundNumber={roundNumber}
-            bonusRoundCount={bonusRoundCount}
-            players={players}
-            playerStatuses={playerStatuses}
-            matchup={matchup}
-            {...matchupScreenExtras}
-          />
-        )}
-
-        {/* Turn Result */}
-        {bbPhase === "turn-result" && matchup && (
-          <TurnResultScreen
-            roundNumber={roundNumber}
-            bonusRoundCount={bonusRoundCount}
-            {...(splashBgURL != null && splashBgURL.length > 0
-              ? { backgroundImageURL: splashBgURL }
-              : {})}
-            {...(gameLogoURL != null && gameLogoURL.length > 0 ? { gameLogoURL } : {})}
-            sharerName={sharerPlayer?.gamertag ?? "Player"}
-            opponentName={opponentPlayer?.gamertag ?? "Player"}
-            {...(sharerPlayer?.avatarName != null
-              ? { sharerAvatarName: sharerPlayer.avatarName }
-              : {})}
-            {...(opponentPlayer?.avatarName != null
-              ? { opponentAvatarName: opponentPlayer.avatarName }
-              : {})}
-            sharerChoice={matchup.sharerChoice!}
-            opponentGuess={matchup.opponentGuess!}
-            sharerEliminated={
-              matchup.sharerChoice != null &&
-              matchup.opponentGuess != null &&
-              matchup.opponentGuess === matchup.sharerChoice
-            }
-            onComplete={handleTurnResultComplete}
-          />
+        {/* ── Guessing ── */}
+        {bbPhase === "guessing" && (
+          <>
+            <MatchupScreen
+              roundNumber={roundNumber}
+              totalRounds={totalRounds}
+              players={players}
+              scores={scores}
+              currentSharer={currentSharer}
+              turnOrder={turnOrder}
+              currentTurnIndex={currentTurnIndex}
+              {...matchupScreenExtras}
+            />
+            {!isSharer && !isAiPlayer(userId) && (
+              <GroupGuessModal
+                {...splashUnderlayExtras}
+                sharerName={sharerPlayer?.gamertag ?? "Player"}
+                onGuess={handleGuess}
+                hasGuessed={hasGuessed}
+                guessCount={guessCount}
+                totalGuessers={expectedGuessCount}
+              />
+            )}
+          </>
         )}
 
-        {/* Round End (brief) */}
-        {bbPhase === "round-end" && (
-          <MatchupScreen
-            roundNumber={roundNumber}
-            bonusRoundCount={bonusRoundCount}
-            players={players}
-            playerStatuses={playerStatuses}
-            matchup={null}
-            {...matchupScreenExtras}
-          />
+        {/* ── Result ── */}
+        {bbPhase === "result" && (
+          <>
+            <MatchupScreen
+              roundNumber={roundNumber}
+              totalRounds={totalRounds}
+              players={players}
+              scores={scores}
+              currentSharer={currentSharer}
+              turnOrder={turnOrder}
+              currentTurnIndex={currentTurnIndex}
+              {...matchupScreenExtras}
+            />
+            {!resultDismissed && sharerChoice && cardURL && (
+              <TurnResultModal
+                {...splashUnderlayExtras}
+                sharerName={sharerPlayer?.gamertag ?? "Player"}
+                sharerAvatarName={sharerPlayer?.avatarName}
+                sharerChoice={sharerChoice}
+                cardURL={cardURL}
+                playerGuess={isSharer ? null : playerGuess}
+                sharerEarnedFoolBonus={sharerFooledEveryone}
+                onDismiss={() => {
+                  if (isHost) {
+                    void advanceFromResult();
+                  } else {
+                    setResultDismissed(true);
+                  }
+                }}
+              />
+            )}
+          </>
         )}
 
-        {/* Game Over */}
-        {bbPhase === "game-over" && bbEndType === "winner" && bbWinner && (
-          <WinnerScreen
-            winner={players.find((p) => p.uid === bbWinner) ?? players[0]!}
-            isHost={isHost}
-            onPlayAgain={handlePlayAgain}
-          />
-        )}
-        {bbPhase === "game-over" && bbEndType === "tie" && (
-          <GameOverScreen
-            endType="tie"
-            tiedWinners={players.filter((p) => bbTiedWinners.includes(p.uid))}
-            allPlayers={players}
-            isHost={isHost}
-            onPlayAgain={handlePlayAgain}
-          />
-        )}
-        {bbPhase === "game-over" && bbEndType === "tpk" && (
-          <GameOverScreen
-            endType="tpk"
-            tiedWinners={[]}
-            allPlayers={players}
-            isHost={isHost}
-            onPlayAgain={handlePlayAgain}
-          />
+        {/* ── Game Over — confetti portals to `document.body` at z-index 99999 (above z-50 modals) */}
+        {bbPhase === "game-over" && winners.length > 0 && (
+          <>
+            <JMConfettiOverlay loop />
+            <WinnerScreen
+              winners={players.filter((p) => winners.includes(p.uid))}
+              winnerPoints={winnerPoints}
+              isHost={isHost}
+              onPlayAgain={handlePlayAgain}
+            />
+          </>
         )}
       </div>
     </div>
