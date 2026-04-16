@@ -80,6 +80,7 @@ export {
 } from "./JMSelectAsset";
 export { JMCloseCircleButton, type JMCloseCircleButtonProps } from "./JMCloseCircleButton";
 export { JMCard, type JMCardProps } from "./JMCard";
+export { JMCardFlip, type JMCardFlipProps } from "./JMCardFlip";
 export { BluffPackCover } from "./BluffPackCover";
 export { BluffCard } from "./BluffCard";
 export {

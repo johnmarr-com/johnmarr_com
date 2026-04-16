@@ -124,6 +124,47 @@ class BackgroundMusicPlayer {
   }
 
   /**
+   * Play a one-shot sound effect (no loop) through the shared AudioContext.
+   * Because the context is already unlocked by earlier user interactions
+   * (join, cancel tap, etc.), this fires for all players on iOS.
+   */
+  playSfx(url: string, volume = 1.0): void {
+    if (typeof window === "undefined") return;
+
+    const ctx = this.ensureContext();
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+
+    const cached = this.bufferCache.get(url);
+    if (cached) {
+      this.playSfxBuffer(cached, volume);
+    } else {
+      fetch(url)
+        .then((res) => res.arrayBuffer())
+        .then((raw) => ctx.decodeAudioData(raw))
+        .then((buffer) => {
+          this.bufferCache.set(url, buffer);
+          this.playSfxBuffer(buffer, volume);
+        })
+        .catch(() => {});
+    }
+  }
+
+  private playSfxBuffer(buffer: AudioBuffer, volume: number): void {
+    const ctx = this.ensureContext();
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = false;
+
+    const gain = ctx.createGain();
+    gain.gain.value = volume;
+
+    source.connect(gain).connect(ctx.destination);
+    source.start(0);
+  }
+
+  /**
    * Call on any user interaction (button press, tap, etc.).
    * Snapshots the current playback position, then checks if the
    * AudioContext or source died silently. If so, resumes from

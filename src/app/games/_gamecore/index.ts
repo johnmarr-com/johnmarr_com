@@ -33,3 +33,4 @@ export { AIPersonaGrid, type AIPersonaGridItem } from "./AIPersonaGrid";
 export { GameSectionHeader } from "./GameSectionHeader";
 export { GamePrimaryButton } from "./GamePrimaryButton";
 export { GameStatusMessage } from "./GameStatusMessage";
+export { useAutosave, SavedFlash } from "./useAutosave";

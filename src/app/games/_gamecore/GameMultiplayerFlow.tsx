@@ -118,6 +118,8 @@ interface GameMultiplayerFlowProps {
   trueSoloMode?: boolean;
   /** Show the "+ AI" column in the host lobby. */
   allowAI?: boolean;
+  /** Additional start condition checked alongside player count. Receives the live session. */
+  lobbyCanStart?: (ctx: { session: GameSession }) => boolean;
 }
 
 export function GameMultiplayerFlow({
@@ -133,6 +135,7 @@ export function GameMultiplayerFlow({
   onSoloPlay,
   trueSoloMode = false,
   allowAI = false,
+  lobbyCanStart,
 }: GameMultiplayerFlowProps) {
   const { user, gamertag, avatarName } = useAuth();
   const router = useRouter();
@@ -329,7 +332,8 @@ export function GameMultiplayerFlow({
   const isHost = session?.ownerId === user?.uid;
   const effectiveMinPlayers = minPlayers ?? (flowMode === "party" ? 3 : 2);
   const canStart =
-    isHost && session && session.players.length >= effectiveMinPlayers;
+    isHost && session && session.players.length >= effectiveMinPlayers
+    && (!lobbyCanStart || lobbyCanStart({ session }));
 
   const aiPlayerIds = useMemo(
     () => session?.players.filter((p) => isAiPlayer(p.uid)).map((p) => p.uid) ?? [],

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import Replicate from "replicate";
-import { verifyIdToken } from "@/lib/firebase-admin";
+import { verifyIdToken, getAdminStorage } from "@/lib/firebase-admin";
 import { coerceStyleTypeForIdeogramGenerate } from "@/app/games/bluffbox/packs/ideogramStyleRules";
 
 const AI_TIMEOUT_MS = 15_000;
@@ -195,10 +195,75 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: "Image generation returned no URL" }, { status: 502 });
         }
 
+        // Localhost: auto-save generated image to Desktop as backup
+        if (process.env.NODE_ENV === "development") {
+          try {
+            const fs = await import("fs");
+            const path = await import("path");
+            const os = await import("os");
+            const desktop = path.join(os.homedir(), "Desktop");
+            const filename = `sevyn-ai-${Date.now()}.png`;
+            const imgRes = await fetch(imageUrl);
+            if (imgRes.ok) {
+              const buf = Buffer.from(await imgRes.arrayBuffer());
+              fs.writeFileSync(path.join(desktop, filename), buf);
+              console.log(`[AI Image] Saved backup: ~/Desktop/${filename}`);
+            }
+          } catch (e) {
+            console.warn("[AI Image] Desktop backup failed:", e);
+          }
+        }
+
         return NextResponse.json({ imageUrl, type: "image" });
       } catch (err) {
         console.error("[AI Image] Ideogram error:", err);
         return NextResponse.json({ error: "Image generation failed" }, { status: 502 });
+      }
+    }
+
+    // ─── Persist image: download URL, resize/compress, upload to Firebase Storage ──
+    if (type === "persist-image") {
+      const { url, storagePath, maxDimension, jpegQuality } = body as {
+        url: string;
+        storagePath: string;
+        maxDimension?: number;
+        jpegQuality?: number;
+      };
+      if (!url || !storagePath) {
+        return NextResponse.json({ error: "Missing url or storagePath" }, { status: 400 });
+      }
+
+      try {
+        const imgRes = await fetch(url);
+        if (!imgRes.ok) {
+          return NextResponse.json({ error: "Failed to download image" }, { status: 502 });
+        }
+        const rawBuffer = Buffer.from(await imgRes.arrayBuffer());
+
+        // Resize + compress to JPEG
+        const sharp = (await import("sharp")).default;
+        const maxDim = maxDimension ?? 720;
+        const quality = jpegQuality ?? 25;
+        const buffer = await sharp(rawBuffer)
+          .resize(maxDim, maxDim, { fit: "inside", withoutEnlargement: true })
+          .jpeg({ quality })
+          .toBuffer();
+
+        const bucket = getAdminStorage();
+        const file = bucket.file(storagePath);
+        await file.save(buffer, {
+          metadata: {
+            contentType: "image/jpeg",
+            cacheControl: "public, max-age=31536000",
+          },
+        });
+        // Build permanent public URL
+        const bucketName = bucket.name;
+        const permanentUrl = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(storagePath)}?alt=media`;
+        return NextResponse.json({ imageUrl: permanentUrl });
+      } catch (err) {
+        console.error("[Persist Image]", err);
+        return NextResponse.json({ error: "Failed to persist image" }, { status: 500 });
       }
     }
 

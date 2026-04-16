@@ -94,6 +94,16 @@ export async function isUserAdmin(uid: string): Promise<boolean> {
 }
 
 /**
+ * Get Admin Storage bucket
+ */
+export function getAdminStorage() {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getStorage } = require("firebase-admin/storage") as typeof import("firebase-admin/storage");
+  const app = getAdminApp();
+  return getStorage(app).bucket();
+}
+
+/**
  * Verify an ID token and return the decoded token with claims
  */
 export async function verifyIdToken(idToken: string) {

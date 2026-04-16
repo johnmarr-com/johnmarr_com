@@ -176,7 +176,9 @@ export interface JMContent {
   maxPlayers?: number;            // Max players for multiplayer games (default 2)
   trueSoloMode?: boolean;         // true = pure solo (no opponent). false/undefined = solo means vs AI
   retentionDays?: number;         // 1 = delete session data after 24h (default). 30 = keep for 30 days.
-  
+  primaryColor?: string;          // Primary accent hex (e.g. "#E84C1E") for in-game UI + asset selectors
+  secondaryColor?: string;        // Secondary accent hex (e.g. "#3B82F6") for complementary UI elements
+
   // ─── Hierarchy & Ordering ─────────────────────────────────
   parentId: string | null;        // null = top-level content
   order: number;                  // Position within parent/experience
@@ -219,6 +221,8 @@ export interface JMContentInput {
   maxPlayers?: number;
   trueSoloMode?: boolean;
   retentionDays?: number;
+  primaryColor?: string;
+  secondaryColor?: string;
   brandId?: string;
   parentId?: string | null;
   order?: number;

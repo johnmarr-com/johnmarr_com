@@ -31,6 +31,8 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
   const [minPlayers, setMinPlayers] = useState(1);
   const [maxPlayers, setMaxPlayers] = useState(2);
   const [retentionDays, setRetentionDays] = useState(1);
+  const [primaryColor, setPrimaryColor] = useState("");
+  const [secondaryColor, setSecondaryColor] = useState("");
   const [isPublished, setIsPublished] = useState(false);
 
   const tempIdRef = useRef(`new-${Date.now()}`);
@@ -90,6 +92,8 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
       if (minPlayers > 0) input.minPlayers = minPlayers;
       if (maxPlayers > 0) input.maxPlayers = maxPlayers;
       input.retentionDays = retentionDays;
+      if (primaryColor.trim()) input.primaryColor = primaryColor.trim();
+      if (secondaryColor.trim()) input.secondaryColor = secondaryColor.trim();
 
       await createContent(input, user.uid);
       onCreated();
@@ -458,6 +462,68 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
               </div>
               <p className="mt-1 text-xs" style={{ color: theme.text.tertiary }}>
                 Sessions and sketches older than {retentionDays === 1 ? "24 hours" : "30 days"} are cleaned up automatically.
+              </p>
+            </div>
+
+            {/* Game Colors */}
+            <div>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wider" style={{ color: theme.text.tertiary }}>
+                Game Colors
+              </p>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="mb-1 block text-sm font-medium" style={{ color: theme.text.secondary }}>
+                    Primary
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={primaryColor || "#ffffff"}
+                      onChange={(e) => setPrimaryColor(e.target.value)}
+                      className="h-9 w-9 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                    />
+                    <input
+                      type="text"
+                      value={primaryColor}
+                      onChange={(e) => setPrimaryColor(e.target.value)}
+                      placeholder="#E84C1E"
+                      className="w-full rounded-lg border px-3 py-2 text-sm font-mono"
+                      style={{
+                        backgroundColor: "rgba(0, 0, 0, 0.4)",
+                        borderColor: "rgba(255, 255, 255, 0.2)",
+                        color: theme.text.primary,
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <label className="mb-1 block text-sm font-medium" style={{ color: theme.text.secondary }}>
+                    Secondary
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={secondaryColor || "#ffffff"}
+                      onChange={(e) => setSecondaryColor(e.target.value)}
+                      className="h-9 w-9 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                    />
+                    <input
+                      type="text"
+                      value={secondaryColor}
+                      onChange={(e) => setSecondaryColor(e.target.value)}
+                      placeholder="#3B82F6"
+                      className="w-full rounded-lg border px-3 py-2 text-sm font-mono"
+                      style={{
+                        backgroundColor: "rgba(0, 0, 0, 0.4)",
+                        borderColor: "rgba(255, 255, 255, 0.2)",
+                        color: theme.text.primary,
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+              <p className="mt-1 text-xs" style={{ color: theme.text.tertiary }}>
+                Accent colors used in asset selectors and in-game UI.
               </p>
             </div>
 

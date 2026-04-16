@@ -30,6 +30,8 @@ interface EditState {
   maxPlayers: number;
   trueSoloMode: boolean;
   retentionDays: number;
+  primaryColor: string;
+  secondaryColor: string;
   isPublished: boolean;
 }
 
@@ -51,6 +53,8 @@ function stateFromGame(game: JMContent): EditState {
     maxPlayers: game.maxPlayers ?? 2,
     trueSoloMode: game.trueSoloMode ?? false,
     retentionDays: game.retentionDays ?? 1,
+    primaryColor: game.primaryColor ?? "",
+    secondaryColor: game.secondaryColor ?? "",
     isPublished: game.isPublished,
   };
 }
@@ -153,6 +157,8 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
       if (editState.maxPlayers > 0) updates.maxPlayers = editState.maxPlayers;
       updates.trueSoloMode = editState.trueSoloMode;
       updates.retentionDays = editState.retentionDays;
+      if (editState.primaryColor.trim()) updates.primaryColor = editState.primaryColor.trim();
+      if (editState.secondaryColor.trim()) updates.secondaryColor = editState.secondaryColor.trim();
 
       await updateContent(gameId, updates);
 
@@ -565,6 +571,68 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
                 </div>
                 <p className="mt-1 text-xs" style={{ color: theme.text.tertiary }}>
                   Sessions and sketches older than {editState.retentionDays === 1 ? "24 hours" : "30 days"} are cleaned up automatically.
+                </p>
+              </div>
+
+              {/* Game Colors */}
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider" style={{ color: theme.text.tertiary }}>
+                  Game Colors
+                </p>
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <label className="mb-1 block text-sm font-medium" style={{ color: theme.text.secondary }}>
+                      Primary
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={editState.primaryColor || "#ffffff"}
+                        onChange={(e) => setEditState({ ...editState, primaryColor: e.target.value })}
+                        className="h-9 w-9 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                      />
+                      <input
+                        type="text"
+                        value={editState.primaryColor}
+                        onChange={(e) => setEditState({ ...editState, primaryColor: e.target.value })}
+                        placeholder="#E84C1E"
+                        className="w-full rounded-lg border px-3 py-2 text-sm font-mono"
+                        style={{
+                          backgroundColor: "rgba(0, 0, 0, 0.4)",
+                          borderColor: "rgba(255, 255, 255, 0.2)",
+                          color: theme.text.primary,
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <label className="mb-1 block text-sm font-medium" style={{ color: theme.text.secondary }}>
+                      Secondary
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={editState.secondaryColor || "#ffffff"}
+                        onChange={(e) => setEditState({ ...editState, secondaryColor: e.target.value })}
+                        className="h-9 w-9 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                      />
+                      <input
+                        type="text"
+                        value={editState.secondaryColor}
+                        onChange={(e) => setEditState({ ...editState, secondaryColor: e.target.value })}
+                        placeholder="#3B82F6"
+                        className="w-full rounded-lg border px-3 py-2 text-sm font-mono"
+                        style={{
+                          backgroundColor: "rgba(0, 0, 0, 0.4)",
+                          borderColor: "rgba(255, 255, 255, 0.2)",
+                          color: theme.text.primary,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <p className="mt-1 text-xs" style={{ color: theme.text.tertiary }}>
+                  Accent colors used in asset selectors and in-game UI.
                 </p>
               </div>
 

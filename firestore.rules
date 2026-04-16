@@ -409,6 +409,71 @@ service cloud.firestore {
     }
     
     // ─────────────────────────────────────────────────────────────
+    // SEVYN HEISTS (Heist packs for SEVYN game)
+    // ─────────────────────────────────────────────────────────────
+
+    match /sevynHeists/{heistId} {
+      // Anyone authenticated can read official & shared heists,
+      // creators can read their own private heists, admins read all
+      allow read: if isAdmin()
+        || resource.data.visibility == "official"
+        || resource.data.visibility == "shared"
+        || (isAuthenticated() && resource.data.creatorId == request.auth.uid);
+
+      // Authenticated users can create heists (pro/admin gating is client-side).
+      // creatorId must match the requesting user.
+      // Only admins can create "official" heists.
+      allow create: if isAuthenticated()
+        && request.resource.data.creatorId == request.auth.uid
+        && (request.resource.data.visibility != "official" || isAdmin());
+
+      // Creator can update their own heists, admins can update any.
+      // Only admins can set visibility to "official".
+      allow update: if (isAuthenticated() && resource.data.creatorId == request.auth.uid || isAdmin())
+        && (request.resource.data.visibility != "official" || isAdmin());
+
+      // Creator can delete their own heists, admins can delete any
+      allow delete: if (isAuthenticated() && resource.data.creatorId == request.auth.uid) || isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // SEVYN BOMBS (Reusable bomb designs for SEVYN game)
+    // ─────────────────────────────────────────────────────────────
+
+    match /sevynBombs/{bombId} {
+      // Anyone authenticated can read official & shared bombs,
+      // creators can read their own private bombs, admins read all
+      allow read: if isAdmin()
+        || resource.data.visibility == "official"
+        || resource.data.visibility == "shared"
+        || (isAuthenticated() && resource.data.creatorId == request.auth.uid);
+
+      // Authenticated users can create bombs (pro/admin gating is client-side).
+      // creatorId must match the requesting user.
+      // Only admins can create "official" bombs.
+      allow create: if isAuthenticated()
+        && request.resource.data.creatorId == request.auth.uid
+        && (request.resource.data.visibility != "official" || isAdmin());
+
+      // Creator can update their own bombs, admins can update any.
+      // Only admins can set visibility to "official".
+      allow update: if (isAuthenticated() && resource.data.creatorId == request.auth.uid || isAdmin())
+        && (request.resource.data.visibility != "official" || isAdmin());
+
+      // Creator can delete their own bombs, admins can delete any
+      allow delete: if (isAuthenticated() && resource.data.creatorId == request.auth.uid) || isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // SEVYN KEYS (Server-only secret key assignments)
+    // ─────────────────────────────────────────────────────────────
+
+    match /sevynKeys/{keyId} {
+      // Keys are NEVER readable by clients — only via Admin SDK in API routes
+      allow read, create, update, delete: if false;
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // CLEANUP LOGS (Data cleanup audit trail)
     // ─────────────────────────────────────────────────────────────
     

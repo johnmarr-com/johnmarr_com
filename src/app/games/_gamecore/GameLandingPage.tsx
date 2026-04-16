@@ -47,6 +47,8 @@ export interface GameLandingPageProps {
   trueSoloMode?: boolean;
   /** Show the "+ AI" column in the host lobby. */
   allowAI?: boolean;
+  /** Additional start condition checked alongside player count. Receives the live session. */
+  lobbyCanStart?: (ctx: { session: GameSession }) => boolean;
   /** Disable the Play button (shows "Coming Soon" instead). Music still starts on tap. */
   disabled?: boolean;
   /** Called when user selects "Play Solo" (true solo) from the mode select dialog. */
@@ -77,6 +79,7 @@ export function GameLandingPage({
   maxPlayers,
   trueSoloMode,
   allowAI,
+  lobbyCanStart,
   disabled,
   onSoloPlay,
   onSoloVsAI,
@@ -208,6 +211,7 @@ export function GameLandingPage({
           {...(multiplayerFlowMode ? { flowMode: multiplayerFlowMode } : {})}
           {...(multiplayerMinPlayers != null ? { minPlayers: multiplayerMinPlayers } : {})}
           lobbyExtra={lobbyExtra}
+          {...(lobbyCanStart ? { lobbyCanStart } : {})}
           showSolo={minPlayers <= 1 && !!(onSoloPlay || onSoloVsAI)}
           {...(trueSoloMode != null ? { trueSoloMode } : {})}
           {...(allowAI != null ? { allowAI } : {})}

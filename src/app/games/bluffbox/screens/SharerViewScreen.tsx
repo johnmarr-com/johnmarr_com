@@ -5,17 +5,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { BluffCard } from "@/JMKit/BluffCard";
 import { JMTruthLieChoice } from "@/JMKit/JMTruthLieChoice";
 import { JMCard } from "@/JMKit/JMCard";
+import { JMCardFlip } from "@/JMKit/JMCardFlip";
 import { cn } from "@/lib/utils";
 
 /** Max edge length (280 × 1.25); width uses min() so it shrinks on small screens. */
 const CARD_SIZE_MAX = 350;
-
-const FLIP_MS = 700;
-const FLIP_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
-/** Vertical lift at midpoint of the flip (px). */
-const FLIP_BOB_PX = 30;
-
-const FLIP_ANIM_NAME = "jm-sharer-flip-bob";
 
 /** Stacked drop-shadows for pack cover + card faces (filter works reliably on both faces). */
 const CARD_FACE_FILTER =
@@ -84,11 +78,6 @@ export default function SharerViewScreen({
     runFlip();
   }, [cardURL, flipped, runFlip]);
 
-  const handleFlipAnimationEnd = (e: React.AnimationEvent<HTMLDivElement>) => {
-    if (e.animationName !== FLIP_ANIM_NAME) return;
-    setFlipComplete(true);
-  };
-
   const coverFace = (
     <div className="h-full w-full" style={{ filter: CARD_FACE_FILTER }}>
       {packCoverURL ? (
@@ -135,19 +124,6 @@ export default function SharerViewScreen({
       </div>
 
       <div className="relative min-h-0 flex-1 overflow-y-auto">
-      <style>{`
-        @keyframes ${FLIP_ANIM_NAME} {
-          0% {
-            transform: translateY(0) rotateY(0deg);
-          }
-          50% {
-            transform: translateY(-${FLIP_BOB_PX}px) rotateY(90deg);
-          }
-          100% {
-            transform: translateY(0) rotateY(180deg);
-          }
-        }
-      `}</style>
       {/* Card center locked at 40% viewport height; does not move when copy/buttons mount */}
       <div
         className={cn(
@@ -176,24 +152,13 @@ export default function SharerViewScreen({
       >
         {/* Extra vertical space so translateY bob isn't clipped by overflow */}
         <div className="mx-auto flex min-h-[min(420px,78svh)] w-full items-center justify-center">
-          <div
-            className="relative aspect-square w-full transform-3d"
-            style={{
-              maxWidth: `min(${CARD_SIZE_MAX}px, calc(100vw - 3rem))`,
-              transform: flipped ? undefined : "translateY(0) rotateY(0deg)",
-              animation: flipped
-                ? `${FLIP_ANIM_NAME} ${FLIP_MS}ms ${FLIP_EASE} forwards`
-                : undefined,
-            }}
-            onAnimationEnd={handleFlipAnimationEnd}
-          >
-            <div className="absolute inset-0 backface-hidden">
-              {coverFace}
-            </div>
-            <div className="absolute inset-0 backface-hidden transform-[rotateY(180deg)]">
-              {cardFace}
-            </div>
-          </div>
+          <JMCardFlip
+            frontFace={coverFace}
+            backFace={cardFace}
+            flipped={flipped}
+            onFlipComplete={() => setFlipComplete(true)}
+            maxWidth={CARD_SIZE_MAX}
+          />
         </div>
       </div>
 
