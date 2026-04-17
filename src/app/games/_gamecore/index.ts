@@ -34,3 +34,10 @@ export { GameSectionHeader } from "./GameSectionHeader";
 export { GamePrimaryButton } from "./GamePrimaryButton";
 export { GameStatusMessage } from "./GameStatusMessage";
 export { useAutosave, SavedFlash } from "./useAutosave";
+export {
+  TEAM_NAMES,
+  type TeamName,
+  type TeamIdentity,
+  getTeamLogoUrl,
+  pickRandomTeams,
+} from "./teams";

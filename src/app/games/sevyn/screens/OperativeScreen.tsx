@@ -70,23 +70,28 @@ export default function OperativeScreen({
 
   return (
     <div className="flex min-h-dvh flex-col px-3 pb-4 pt-[130px] sm:px-4">
-      {/* Plain word grid (no colors) */}
-      <SevynGrid
-        board={board}
-        activeTeam={activeTeam}
-        canTap={canTap && !pendingTap && !localTapIndex}
-        onTapCard={handleTapCard}
-        pendingCardIndex={pendingTap?.cardIndex ?? localTapIndex}
-      />
+      {/* Plain word grid (no colors) + waiting overlay */}
+      <div className="relative">
+        <SevynGrid
+          board={board}
+          activeTeam={activeTeam}
+          canTap={canTap && !pendingTap && !localTapIndex}
+          onTapCard={handleTapCard}
+          pendingCardIndex={pendingTap?.cardIndex ?? localTapIndex}
+        />
 
-      {/* Waiting for clue */}
-      {waitingForClue && (
-        <div className="mt-4 text-center">
-          <p className="text-sm text-white/40 animate-pulse">
-            Waiting for Architect&apos;s clue...
-          </p>
+        {/* Waiting for Boss's clue — overlaid on grid */}
+        <div
+          className="pointer-events-none absolute inset-x-0 flex justify-center transition-opacity duration-500"
+          style={{ top: "40%", transform: "translateY(-50%)", opacity: waitingForClue ? 1 : 0 }}
+        >
+          <div className="rounded-xl bg-black/85 px-5 py-3 backdrop-blur-sm">
+            <p className="text-sm font-semibold text-white/70 animate-pulse">
+              Waiting for Boss&apos;s clue...
+            </p>
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Local tap confirmation — only the tapper sees this */}
       {localTapIndex != null && (

@@ -7,7 +7,7 @@ import { getAIAuthHeaders } from "@/app/games/_gamecore";
 import SevynGrid from "./SevynGrid";
 
 
-interface ArchitectScreenProps {
+interface BossScreenProps {
   board: SevynBoardCard[];
   colorMap: CardType[] | null;
   activeTeam: SevynTeam;
@@ -20,7 +20,7 @@ interface ArchitectScreenProps {
   heist?: SevynHeist | null;
 }
 
-export default function ArchitectScreen({
+export default function BossScreen({
   board,
   colorMap,
   activeTeam,
@@ -31,7 +31,7 @@ export default function ArchitectScreen({
   pendingTap,
   onSubmitClue,
   heist: _heist,
-}: ArchitectScreenProps) {
+}: BossScreenProps) {
   void _heist; // reserved for background
   void _myTeam; // displayed in score bar
   const [clueWord, setClueWord] = useState("");
@@ -146,7 +146,7 @@ export default function ArchitectScreen({
       {!isMyTurn && !currentClue && (
         <div className="mt-4 text-center">
           <p className="text-sm text-white/40 animate-pulse">
-            Waiting for {activeTeamName}&apos;s Architect...
+            Waiting for {activeTeamName}&apos;s Boss...
           </p>
         </div>
       )}

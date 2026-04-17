@@ -13,11 +13,6 @@ export interface SevynHeistSetting {
   atmosphere: string;
 }
 
-export interface SevynClient {
-  benefactor: string;
-  motivation: string;
-}
-
 export interface SevynAsset {
   id: string;
   name: string;
@@ -66,11 +61,6 @@ export interface SevynHeist {
 
   setting: SevynHeistSetting;
 
-  clients: {
-    syndicate1: SevynClient;
-    syndicate2: SevynClient;
-  };
-
   assets: SevynAsset[]; // exactly 7
   civilians: SevynCivilian[]; // exactly 5
   bomb: SevynBomb;
@@ -92,9 +82,9 @@ export type SevynPhase =
   | "heist-select"
   | "briefing"
   | "team-formation"
-  | "architect-vote"
+  | "boss-select"
   | "game-start"       // coin flip animation
-  | "architect-clue"   // active architect submitting clue
+  | "boss-clue"        // active boss submitting clue
   | "operative-guess"  // active team guessing
   | "card-reveal"      // reveal animation in progress
   | "turn-switch"      // switching active team
@@ -125,10 +115,10 @@ export interface SevynBoardCard {
 export type SevynTeam = "syndicate1" | "syndicate2";
 
 export interface SevynTeamRoster {
-  /** UIDs of all team members (including architect) */
+  /** UIDs of all team members (including boss) */
   members: string[];
-  /** UID of the elected architect */
-  architectUid: string | null;
+  /** UID of the elected boss */
+  bossUid: string | null;
 }
 
 // ─── Clue ───────────────────────────────────────────────────
@@ -136,7 +126,7 @@ export interface SevynTeamRoster {
 export interface SevynClue {
   word: string;
   number: number;          // 1–7
-  givenBy: string;         // architect UID
+  givenBy: string;         // boss UID
 }
 
 // ─── Tap / Cancel State ─────────────────────────────────────
@@ -168,18 +158,19 @@ export interface SevynSessionState {
   // Briefing data (populated at briefing phase)
   heistBriefing: string | null;
   heistSetting: SevynHeistSetting | null;
-  heistClients: { syndicate1: SevynClient; syndicate2: SevynClient } | null;
-
   // Teams
   teams: Record<SevynTeam, SevynTeamRoster> | null;
-  /** Team assignment mode selected by host */
-  teamMode: "random" | "pick" | null;
-  /** Display names like "Red Wolves", "Blue Hawks" */
+  /** Display names like "Wolves", "Hawks" — color comes from UI tinting */
   t1Name: string | null;
   t2Name: string | null;
 
-  // Architect vote
-  architectVotes: Record<string, string> | null; // voterId → candidateUid
+  // Draft team formation (live sync while host picks)
+  draftTeam1: string[] | null;
+  draftTeam2: string[] | null;
+  draftT1Logo: string | null;
+  draftT2Logo: string | null;
+
+  // (boss selection is host-only — no votes field needed)
 
   // Board
   board: SevynBoardCard[] | null;  // 20 cards, no color info for operatives
@@ -233,10 +224,10 @@ export interface SevynKeyDoc {
   createdAt: unknown; // Timestamp
 }
 
-// ─── Architect View (returned by API, never stored client-side) ──
+// ─── Boss View (returned by API, never stored client-side) ──────
 
-export interface SevynArchitectView {
-  /** Color map: cardIndex → CardType for the architect's color-coded grid */
+export interface SevynBossView {
+  /** Color map: cardIndex → CardType for the boss's color-coded grid */
   colorMap: CardType[];
 }
 

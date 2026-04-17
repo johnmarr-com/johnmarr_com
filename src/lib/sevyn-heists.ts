@@ -78,7 +78,6 @@ export interface CreateHeistInput {
   backgroundImageUrl: string;
   targetObjectImageUrl: string;
   setting: SevynHeist["setting"];
-  clients: SevynHeist["clients"];
   assets: SevynHeist["assets"];
   civilians: SevynHeist["civilians"];
   bomb: SevynHeist["bomb"];

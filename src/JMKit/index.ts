@@ -88,3 +88,4 @@ export {
   type JMTruthLieChoiceProps,
   type TruthLieChoice,
 } from "./JMTruthLieChoice";
+export { JMTeamInterstitial, type JMTeamInterstitialProps } from "./JMTeamInterstitial";

@@ -10,7 +10,6 @@ import type {
   SevynBombEntity,
   SevynHeist,
   SevynHeistSetting,
-  SevynClient,
   SevynWordPool,
 } from "../sevynTypes";
 import { GamePrimaryButton, useAutosave, SavedFlash } from "@/app/games/_gamecore";
@@ -50,10 +49,6 @@ export default function HeistEditor({ editHeist }: HeistEditorProps = {}) {
   const [setting, setSetting] = useState<SevynHeistSetting>(eh?.setting ?? { location: "", era: "", atmosphere: "" });
   const [bgUrl, setBgUrl] = useState(eh?.backgroundImageUrl ?? "");
   const [targetUrl, setTargetUrl] = useState(eh?.targetObjectImageUrl ?? "");
-
-  // Clients
-  const [client1, setClient1] = useState<SevynClient>(eh?.clients?.syndicate1 ?? { benefactor: "", motivation: "" });
-  const [client2, setClient2] = useState<SevynClient>(eh?.clients?.syndicate2 ?? { benefactor: "", motivation: "" });
 
   // Assets (7)
   const [assets, setAssets] = useState<SevynAsset[]>(() =>
@@ -157,8 +152,6 @@ export default function HeistEditor({ editHeist }: HeistEditorProps = {}) {
       if (data.title) setTitle(data.title);
       if (data.briefing) setBriefing(data.briefing);
       if (data.setting) setSetting(data.setting);
-      if (data.clients?.syndicate1) setClient1(data.clients.syndicate1);
-      if (data.clients?.syndicate2) setClient2(data.clients.syndicate2);
       if (data.assets) {
         setAssets(data.assets.map((a: SevynAsset) => ({
           ...a,
@@ -188,14 +181,13 @@ export default function HeistEditor({ editHeist }: HeistEditorProps = {}) {
     backgroundImageUrl: bgUrl,
     targetObjectImageUrl: targetUrl,
     setting,
-    clients: { syndicate1: client1, syndicate2: client2 },
     assets,
     civilians,
     bomb,
     bombDescription: bombDescription.trim(),
     words,
     visibility,
-  }), [title, briefing, bgUrl, targetUrl, setting, client1, client2, assets, civilians, bomb, bombDescription, words, visibility]);
+  }), [title, briefing, bgUrl, targetUrl, setting, assets, civilians, bomb, bombDescription, words, visibility]);
 
   // ─── Autosave: keep ref current ────────────────────────────
 
@@ -402,47 +394,6 @@ export default function HeistEditor({ editHeist }: HeistEditorProps = {}) {
             onChange={(e) => setSetting((s) => ({ ...s, era: e.target.value }))}
             onBlur={triggerAutosave}
           />
-        </div>
-      </section>
-
-      {/* Clients */}
-      <section className="rounded-xl border border-white/10 bg-black/30 p-4">
-        <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-[#E84C1E]">Clients</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <p className="mb-1 text-xs text-[#E84C1E]">Syndicate 1</p>
-            <input
-              className="mb-1 w-full rounded-lg border border-white/20 bg-white/5 px-2 py-1.5 text-xs text-white placeholder-white/30 outline-none"
-              placeholder="Benefactor"
-              value={client1.benefactor}
-              onChange={(e) => setClient1((c) => ({ ...c, benefactor: e.target.value }))}
-              onBlur={triggerAutosave}
-            />
-            <input
-              className="w-full rounded-lg border border-white/20 bg-white/5 px-2 py-1.5 text-xs text-white placeholder-white/30 outline-none"
-              placeholder="Motivation"
-              value={client1.motivation}
-              onChange={(e) => setClient1((c) => ({ ...c, motivation: e.target.value }))}
-              onBlur={triggerAutosave}
-            />
-          </div>
-          <div>
-            <p className="mb-1 text-xs text-blue-400">Syndicate 2</p>
-            <input
-              className="mb-1 w-full rounded-lg border border-white/20 bg-white/5 px-2 py-1.5 text-xs text-white placeholder-white/30 outline-none"
-              placeholder="Benefactor"
-              value={client2.benefactor}
-              onChange={(e) => setClient2((c) => ({ ...c, benefactor: e.target.value }))}
-              onBlur={triggerAutosave}
-            />
-            <input
-              className="w-full rounded-lg border border-white/20 bg-white/5 px-2 py-1.5 text-xs text-white placeholder-white/30 outline-none"
-              placeholder="Motivation"
-              value={client2.motivation}
-              onChange={(e) => setClient2((c) => ({ ...c, motivation: e.target.value }))}
-              onBlur={triggerAutosave}
-            />
-          </div>
         </div>
       </section>
 

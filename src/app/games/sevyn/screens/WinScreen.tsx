@@ -37,8 +37,7 @@ export default function WinScreen({
   }, [session.players]);
 
   const winColor = winningTeam === "syndicate1" ? SEVYN_COLORS.t1 : SEVYN_COLORS.t2;
-  const winClient = winningTeam ? heist.clients[winningTeam] : null;
-  const winTeamName = winningTeam === "syndicate1" ? (t1Name ?? "Red Team") : (t2Name ?? "Blue Team");
+  const winTeamName = winningTeam === "syndicate1" ? (t1Name ?? "Team 1") : (t2Name ?? "Team 2");
   const winMembers = winningTeam && teams ? teams[winningTeam].members : [];
 
   return (
@@ -73,25 +72,15 @@ export default function WinScreen({
           eyebrowColorClass="text-[#E84C1E]/70"
         />
 
-        {/* Client reveal */}
-        {winClient && (
-          <div className="mt-4 rounded-xl border p-4" style={{ borderColor: `${winColor}40`, backgroundColor: `${winColor}10` }}>
-            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: winColor }}>
-              {winClient.benefactor}
-            </p>
-            <p className="mt-1 text-sm text-white/70">{winClient.motivation}</p>
-          </div>
-        )}
-
         {/* Score */}
         <div className="mt-6 flex justify-center gap-6">
           <div className="text-center">
             <p className="text-3xl font-black" style={{ color: SEVYN_COLORS.t1 }}>{t1Score}/7</p>
-            <p className="text-xs text-white/40">{t1Name ?? "Red Team"}</p>
+            <p className="text-xs text-white/40">{t1Name ?? "Team 1"}</p>
           </div>
           <div className="text-center">
             <p className="text-3xl font-black" style={{ color: SEVYN_COLORS.t2 }}>{t2Score}/7</p>
-            <p className="text-xs text-white/40">{t2Name ?? "Blue Team"}</p>
+            <p className="text-xs text-white/40">{t2Name ?? "Team 2"}</p>
           </div>
         </div>
 

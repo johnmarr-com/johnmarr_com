@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { useAuth } from "@/lib/AuthProvider";
-import { GameGamertagBadge } from "@/app/games/_gamecore";
-import { getAIAuthHeaders } from "@/app/games/_gamecore";
+import { GameGamertagBadge, getAIAuthHeaders } from "@/app/games/_gamecore";
+import { JMTeamInterstitial } from "@/JMKit";
 import { useSevynSession } from "./useSevynSession";
 import type {
   SevynHeist,
@@ -16,9 +17,9 @@ import type {
 // Screens
 import BriefingScreen from "./screens/BriefingScreen";
 import TeamFormationScreen from "./screens/TeamFormationScreen";
-import ArchitectVoteScreen from "./screens/ArchitectVoteScreen";
+import BossSelectScreen from "./screens/BossSelectScreen";
 
-import ArchitectScreen from "./screens/ArchitectScreen";
+import BossScreen from "./screens/BossScreen";
 import OperativeScreen from "./screens/OperativeScreen";
 import CardRevealOverlay from "./screens/CardRevealOverlay";
 import WinScreen from "./screens/WinScreen";
@@ -38,64 +39,6 @@ const SEVYN_COLORS = {
 
 export { SEVYN_COLORS };
 
-const TEAM_NAMES = [
-  "Ghosts", "Angels", "Devils", "Wolves", "Vipers", "Hawks", "Owls", "Dragons",
-  "Cobras", "Phantoms", "Jackals", "Falcons", "Reapers", "Scorpions", "Titans",
-  "Ravens", "Shadows", "Serpents", "Foxes", "Lions", "Panthers", "Vultures",
-  "Specters", "Crows", "Wasps", "Spiders", "Sharks", "Wraiths", "Condors",
-  "Jaguars", "Mantis", "Hornets", "Pythons", "Lynx", "Raptors", "Stingrays",
-  "Barracudas", "Piranhas", "Kraken", "Chimeras", "Hydras", "Basilisks",
-  "Gargoyles", "Sentinels", "Nomads", "Ronin", "Saboteurs", "Marauders",
-  "Corsairs", "Outlaws",
-];
-
-function pickTeamNames(): { t1Name: string; t2Name: string } {
-  const shuffled = [...TEAM_NAMES].sort(() => Math.random() - 0.5);
-  return { t1Name: `Red ${shuffled[0]}`, t2Name: `Blue ${shuffled[1]}` };
-}
-
-// ─── Score Circle ──────────────────────────────────────────
-
-const CIRCLE_SIZE = 56;
-const STROKE_WIDTH = 3;
-const RADIUS = (CIRCLE_SIZE - STROKE_WIDTH) / 2;
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-
-function ScoreCircle({ score, color }: { score: number; color: string }) {
-  const progress = score / 7;
-  const offset = CIRCUMFERENCE * (1 - progress);
-
-  return (
-    <div className="relative mt-0.5" style={{ width: CIRCLE_SIZE, height: CIRCLE_SIZE }}>
-      <svg width={CIRCLE_SIZE} height={CIRCLE_SIZE} className="absolute inset-0 -rotate-90">
-        {/* Team color progress arc */}
-        <circle
-          cx={CIRCLE_SIZE / 2}
-          cy={CIRCLE_SIZE / 2}
-          r={RADIUS}
-          fill="none"
-          stroke={color}
-          strokeWidth={STROKE_WIDTH}
-          strokeDasharray={CIRCUMFERENCE}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          className="transition-all duration-700 ease-out"
-        />
-      </svg>
-      {/* Inner black circle with score */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div
-          className="flex items-center justify-center rounded-full bg-black"
-          style={{ width: CIRCLE_SIZE - STROKE_WIDTH * 2 - 2, height: CIRCLE_SIZE - STROKE_WIDTH * 2 - 2 }}
-        >
-          <span className="text-base font-black" style={{ color }}>
-            {score}/7
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Props ──────────────────────────────────────────────────
 
@@ -108,17 +51,17 @@ interface SevynGameProps {
 export default function SevynGame({
   sessionId,
   splashBgURL: _splashBgURL,
-  gameLogoURL: _gameLogoURL,
+  gameLogoURL,
 }: SevynGameProps) {
   const { user } = useAuth();
   const userId = user?.uid ?? "";
-  void _splashBgURL; void _gameLogoURL; // reserved for future use
+  void _splashBgURL; // reserved for future use
   const {
     session,
     svState,
     isHost,
     myTeam,
-    isArchitect,
+    isBoss,
     isMyTeamActive,
     setPhase,
     updateFields,
@@ -126,8 +69,8 @@ export default function SevynGame({
 
   // Track loaded heist data for briefing + reveal metadata
   const [heist, setHeist] = useState<SevynHeist | null>(null);
-  // Architect color map (fetched from server, only for architects)
-  const [architectColorMap, setArchitectColorMap] = useState<CardType[] | null>(null);
+  // Boss color map (fetched from server, only for bosses)
+  const [bossColorMap, setBossColorMap] = useState<CardType[] | null>(null);
   // Card reveal animation — driven by board-change detection (all clients)
   const [animReveal, setAnimReveal] = useState<{
     cardIndex: number;
@@ -135,6 +78,9 @@ export default function SevynGame({
     result: SevynRevealResult;
   } | null>(null);
   const prevBoardRef = useRef<SevynBoardCard[] | null>(null);
+  // Team interstitial — shows when activeTeam changes during gameplay
+  const [interstitialTeam, setInterstitialTeam] = useState<SevynTeam | null>(null);
+  const prevActiveTeamRef = useRef<SevynTeam | null>(null);
   const {
     svPhase,
     selectedHeistId,
@@ -142,6 +88,7 @@ export default function SevynGame({
     activeTeam,
     currentClue,
     guessesRemaining,
+    bonusGuessAvailable,
     keyDocId,
     winningTeam,
     loseByBomb,
@@ -152,10 +99,9 @@ export default function SevynGame({
   } = svState;
 
   // Display names — fallback to generic if not yet assigned
-  const t1Display = t1Name ?? "Red Team";
-  const t2Display = t2Name ?? "Blue Team";
+  const t1Display = t1Name ?? "Team 1";
+  const t2Display = t2Name ?? "Team 2";
   const activeTeamName = activeTeam ? (activeTeam === "syndicate1" ? t1Display : t2Display) : "";
-  const myTeamName = myTeam ? (myTeam === "syndicate1" ? t1Display : t2Display) : "";
 
   // ─── Auto-advance from lobby heist selection ───────────────
   // If lobby selected a heist (sevynLobbyHeist* fields), apply it on first load
@@ -177,7 +123,6 @@ export default function SevynGame({
         selectedHeistTargetUrl: h.targetObjectImageUrl,
         heistBriefing: h.briefing,
         heistSetting: h.setting,
-        heistClients: h.clients,
         svPhase: "briefing",
       });
     })();
@@ -201,7 +146,7 @@ export default function SevynGame({
     for (const c of heist.civilians) { if (c.imageUrl) urls.push(c.imageUrl); }
     if (heist.bomb.imageUrl) urls.push(heist.bomb.imageUrl);
     for (const url of urls) {
-      const img = new Image();
+      const img = new window.Image();
       img.src = url;
     }
   }, [heist]);
@@ -223,27 +168,27 @@ export default function SevynGame({
     a.load();
   }, [svState.bombSoundUrl]);
 
-  // ─── Fetch architect view when game starts and I'm an architect ──
+  // ─── Fetch boss view when game starts and I'm a boss ─────────
   useEffect(() => {
-    if (!isArchitect || !keyDocId || !sessionId) return;
+    if (!isBoss || !keyDocId || !sessionId) return;
     (async () => {
       const headers = await getAIAuthHeaders();
       const res = await fetch("/api/games/sevyn", {
         method: "POST",
         headers,
         body: JSON.stringify({
-          action: "get-architect-view",
+          action: "get-boss-view",
           sessionId,
           keyDocId,
         }),
       });
       if (res.ok) {
         const data = await res.json();
-        setArchitectColorMap(data.colorMap);
+        setBossColorMap(data.colorMap);
 
-        // ─── DEBUG: log architect view with board ─────────
+        // ─── DEBUG: log boss view with board ──────────────
         const colorMap = data.colorMap as string[];
-        console.log("[SEVYN CLIENT] Architect color map received:");
+        console.log("[SEVYN CLIENT] Boss color map received:");
         board?.forEach((card, i) => {
           const type = colorMap[i] ?? "?";
           const typeLabel = type === "T1" ? "Syndicate 1" : type === "T2" ? "Syndicate 2" : type === "N" ? "Civilian" : type === "BOMB" ? "BOMB" : type;
@@ -251,21 +196,19 @@ export default function SevynGame({
         });
       }
     })();
-  }, [isArchitect, keyDocId, sessionId, board]);
+  }, [isBoss, keyDocId, sessionId, board]);
 
   // ─── Team Formation Complete ──────────────────────────────
   const handleTeamsFormed = useCallback(
-    async (teams: Record<SevynTeam, { members: string[] }>) => {
-      const { t1Name, t2Name } = pickTeamNames();
+    async (teams: Record<SevynTeam, { members: string[] }>, t1Name: string, t2Name: string) => {
       await updateFields({
         teams: {
-          syndicate1: { members: teams.syndicate1.members, architectUid: null },
-          syndicate2: { members: teams.syndicate2.members, architectUid: null },
+          syndicate1: { members: teams.syndicate1.members, bossUid: null },
+          syndicate2: { members: teams.syndicate2.members, bossUid: null },
         },
         t1Name,
         t2Name,
-        svPhase: "architect-vote",
-        architectVotes: {},
+        svPhase: "boss-select",
       });
     },
     [updateFields],
@@ -313,20 +256,20 @@ export default function SevynGame({
         winningTeam: null,
         loseByBomb: false,
         bombRevealedBy: null,
-        svPhase: "architect-clue",
+        svPhase: "boss-clue",
       });
     },
     [isHost, selectedHeistId, sessionId, updateFields],
   );
 
-  // ─── Architect Vote Complete → immediately start game ─────
-  const handleArchitectsElected = useCallback(
-    async (s1Architect: string, s2Architect: string) => {
+  // ─── Boss Selection Complete → immediately start game ──────
+  const handleBossesSelected = useCallback(
+    async (s1Boss: string, s2Boss: string) => {
       if (!svState.teams) return;
       await updateFields({
         teams: {
-          syndicate1: { ...svState.teams.syndicate1, architectUid: s1Architect },
-          syndicate2: { ...svState.teams.syndicate2, architectUid: s2Architect },
+          syndicate1: { ...svState.teams.syndicate1, bossUid: s1Boss },
+          syndicate2: { ...svState.teams.syndicate2, bossUid: s2Boss },
         },
       });
       // Host picks a random first team and starts the game immediately
@@ -446,7 +389,7 @@ export default function SevynGame({
           updates["guessesRemaining"] = newRemaining;
           updates["guessesUsedThisTurn"] = newUsed;
 
-          if (newRemaining <= 0) {
+          if (newRemaining <= 0 && !svState.bonusGuessAvailable) {
             // All clue-number guesses used correctly — grant bonus guess
             updates["bonusGuessAvailable"] = true;
             updates["guessesRemaining"] = 1;
@@ -529,7 +472,7 @@ export default function SevynGame({
         guessesRemaining: 0,
         guessesUsedThisTurn: 0,
         bonusGuessAvailable: false,
-        svPhase: "architect-clue",
+        svPhase: "boss-clue",
       });
     }
   }, [animReveal, board, isHost, svState, activeTeam, updateFields]);
@@ -547,6 +490,15 @@ export default function SevynGame({
     handleRevealCard(svState.pendingTap.cardIndex);
   }, [isHost, svState.pendingTap, handleRevealCard]);
 
+  // ─── Team interstitial — fires when activeTeam changes during gameplay ──
+  useEffect(() => {
+    if (!board || !activeTeam) return;
+    if (prevActiveTeamRef.current !== activeTeam) {
+      setInterstitialTeam(activeTeam);
+    }
+    prevActiveTeamRef.current = activeTeam;
+  }, [activeTeam, board]);
+
   // ─── Pass Turn ────────────────────────────────────────────
   const handlePassTurn = useCallback(async () => {
     if (!isHost || !activeTeam) return;
@@ -558,7 +510,7 @@ export default function SevynGame({
       guessesUsedThisTurn: 0,
       bonusGuessAvailable: false,
       pendingTap: null,
-      svPhase: "architect-clue",
+      svPhase: "boss-clue",
     });
   }, [isHost, activeTeam, updateFields]);
 
@@ -585,24 +537,47 @@ export default function SevynGame({
         />
       )}
 
+      {/* Team color edge glow — above BG, below grid/UI */}
+      <div
+        className="pointer-events-none absolute inset-0 z-5 transition-shadow duration-700 ease-in-out"
+        style={{
+          boxShadow: board && activeTeam
+            ? `inset 0 0 60px 10px ${activeTeam === "syndicate1" ? "rgba(232,76,30,0.35)" : "rgba(80,150,255,0.45)"}`
+            : "none",
+        }}
+      />
+
       {/* Gamertag badge */}
       <GameGamertagBadge badgeClassName="bg-[#0D1B2E]/80" />
 
       {/* Score circles — top corners, scroll with page */}
       {board && svPhase !== "game-over" && (
         <>
-          {/* Left: Team 1 */}
-          <div className="absolute top-2 left-3 z-30 flex flex-col items-start">
-            <span className="text-[10px] font-bold tracking-wide" style={{ color: SEVYN_COLORS.t1 }}>
-              {t1Display.toUpperCase()}
-            </span>
-            <ScoreCircle score={t1Score} color={SEVYN_COLORS.t1} />
+          {/* Left: Team 1 logo + score badge (top-right of logo) */}
+          <div className="absolute top-2 left-2 z-30 transition-opacity duration-500" style={{ opacity: activeTeam === "syndicate2" ? 0.3 : 1 }}>
+            <div
+              className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full"
+              style={{ backgroundColor: `${SEVYN_COLORS.t1}20` }}
+            >
+              {svState.draftT1Logo && (
+                <>
+                  <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${svState.draftT1Logo})` }} />
+                  <div className="absolute inset-0" style={{ backgroundColor: SEVYN_COLORS.t1, mixBlendMode: "color" }} />
+                </>
+              )}
+            </div>
+            <div
+              className="absolute -top-1 z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 border-black bg-black"
+              style={{ right: "-15px" }}
+            >
+              <span className="text-xs font-black" style={{ color: SEVYN_COLORS.t1 }}>{t1Score}/7</span>
+            </div>
           </div>
           {/* Center: Now Playing + CODE / CREATE — bottom-aligned to grid top */}
           {activeTeam && (() => {
             const clueColor = activeTeam === "syndicate1" ? SEVYN_COLORS.t1 : SEVYN_COLORS.t2;
             const teamName = activeTeam === "syndicate1" ? t1Display : t2Display;
-            const isActiveArchitect = isArchitect && isMyTeamActive && !currentClue;
+            const isActiveBoss = isBoss && isMyTeamActive && !currentClue;
             return (
               <div className="absolute left-16 right-16 z-40 flex flex-col items-center" style={{ top: "130px", transform: "translateY(calc(-100% - 10px))" }}>
                 <span className="text-[10px] font-bold tracking-wide" style={{ color: clueColor }}>
@@ -611,10 +586,10 @@ export default function SevynGame({
                 {currentClue ? (
                   <span className="text-xl font-black">
                     <span style={{ color: clueColor }}>CODE [</span>
-                    <span className="text-white"> {currentClue.word} : {currentClue.number} </span>
+                    <span className="text-white"> {currentClue.word} : {bonusGuessAvailable ? "BONUS" : guessesRemaining} </span>
                     <span style={{ color: clueColor }}>]</span>
                   </span>
-                ) : isActiveArchitect ? (
+                ) : isActiveBoss ? (
                   <span className="text-base font-black text-white">
                     Create Clue (Below Grid)
                   </span>
@@ -622,12 +597,25 @@ export default function SevynGame({
               </div>
             );
           })()}
-          {/* Right: Team 2 */}
-          <div className="absolute top-2 right-3 z-30 flex flex-col items-end">
-            <span className="text-[10px] font-bold tracking-wide" style={{ color: SEVYN_COLORS.t2 }}>
-              {t2Display.toUpperCase()}
-            </span>
-            <ScoreCircle score={t2Score} color={SEVYN_COLORS.t2} />
+          {/* Right: Team 2 logo + score badge (top-left of logo) */}
+          <div className="absolute top-2 right-2 z-30 transition-opacity duration-500" style={{ opacity: activeTeam === "syndicate1" ? 0.3 : 1 }}>
+            <div
+              className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full"
+              style={{ backgroundColor: `${SEVYN_COLORS.t2}20` }}
+            >
+              {svState.draftT2Logo && (
+                <>
+                  <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${svState.draftT2Logo})` }} />
+                  <div className="absolute inset-0" style={{ backgroundColor: SEVYN_COLORS.t2, mixBlendMode: "color" }} />
+                </>
+              )}
+            </div>
+            <div
+              className="absolute -top-1 z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 border-black bg-black"
+              style={{ left: "-15px" }}
+            >
+              <span className="text-xs font-black" style={{ color: SEVYN_COLORS.t2 }}>{t2Score}/7</span>
+            </div>
           </div>
         </>
       )}
@@ -636,14 +624,25 @@ export default function SevynGame({
       <div className="relative z-10">
         {svPhase === "heist-select" && (
           <div className="flex min-h-dvh flex-col items-center justify-center px-4">
-            <p className="text-white/60 animate-pulse">Loading heist...</p>
+            {gameLogoURL && (
+              <div className="animate-gentle-float">
+                <Image
+                  src={gameLogoURL}
+                  alt="SEVYN"
+                  width={260}
+                  height={130}
+                  className="h-auto w-[260px] object-contain"
+                  draggable={false}
+                />
+              </div>
+            )}
+            <p className="mt-6 text-white/40 text-sm animate-pulse">Loading heist...</p>
           </div>
         )}
 
         {svPhase === "briefing" && heist && (
           <BriefingScreen
             heist={heist}
-            myTeam={myTeam}
             isHost={isHost}
             onContinue={() => isHost && setPhase("team-formation")}
           />
@@ -654,32 +653,31 @@ export default function SevynGame({
             session={session}
             isHost={isHost}
             onTeamsFormed={handleTeamsFormed}
+            draftTeam1={svState.draftTeam1}
+            draftTeam2={svState.draftTeam2}
+            draftT1Logo={svState.draftT1Logo}
+            draftT2Logo={svState.draftT2Logo}
+            onDraftChanged={(draft) => updateFields(draft)}
           />
         )}
 
-        {svPhase === "architect-vote" && session && svState.teams && (
-          <ArchitectVoteScreen
+        {svPhase === "boss-select" && session && svState.teams && (
+          <BossSelectScreen
             session={session}
             teams={svState.teams}
-            userId={userId}
-            myTeam={myTeam}
-            myTeamName={myTeamName}
             isHost={isHost}
-            votes={svState.architectVotes ?? {}}
-            onVote={async (candidateUid) => {
-              await updateFields({
-                [`architectVotes.${userId}`]: candidateUid,
-              });
-            }}
-            onElected={handleArchitectsElected}
+            draftT1Logo={svState.draftT1Logo}
+            draftT2Logo={svState.draftT2Logo}
+            onElected={handleBossesSelected}
+            onBack={isHost ? () => setPhase("team-formation") : undefined}
           />
         )}
 
-        {svPhase === "architect-clue" && board && (
-          isArchitect && isMyTeamActive ? (
-            <ArchitectScreen
+        {svPhase === "boss-clue" && board && (
+          isBoss && isMyTeamActive ? (
+            <BossScreen
               board={board}
-              colorMap={architectColorMap}
+              colorMap={bossColorMap}
               activeTeam={activeTeam!}
               myTeam={myTeam!}
               activeTeamName={activeTeamName}
@@ -688,10 +686,10 @@ export default function SevynGame({
               onSubmitClue={handleClueSubmitted}
               heist={heist}
             />
-          ) : isArchitect ? (
-            <ArchitectScreen
+          ) : isBoss ? (
+            <BossScreen
               board={board}
-              colorMap={architectColorMap}
+              colorMap={bossColorMap}
               activeTeam={activeTeam!}
               myTeam={myTeam!}
               activeTeamName={activeTeamName}
@@ -715,10 +713,10 @@ export default function SevynGame({
         )}
 
         {svPhase === "operative-guess" && board && (
-          isArchitect ? (
-            <ArchitectScreen
+          isBoss ? (
+            <BossScreen
               board={board}
-              colorMap={architectColorMap}
+              colorMap={bossColorMap}
               activeTeam={activeTeam!}
               myTeam={myTeam!}
               activeTeamName={activeTeamName}
@@ -735,7 +733,7 @@ export default function SevynGame({
               activeTeamName={activeTeamName}
               currentClue={currentClue}
               guessesRemaining={guessesRemaining}
-              canTap={isMyTeamActive && !isArchitect}
+              canTap={isMyTeamActive && !isBoss}
               pendingTap={svState.pendingTap}
               guessesUsedThisTurn={svState.guessesUsedThisTurn}
               onTapCard={(cardIndex, tappedByGamertag) => {
@@ -755,10 +753,10 @@ export default function SevynGame({
         )}
 
         {svPhase === "card-reveal" && board && (
-          isArchitect ? (
-            <ArchitectScreen
+          isBoss ? (
+            <BossScreen
               board={board}
-              colorMap={architectColorMap}
+              colorMap={bossColorMap}
               activeTeam={activeTeam!}
               myTeam={myTeam!}
               activeTeamName={activeTeamName}
@@ -804,6 +802,17 @@ export default function SevynGame({
           boardWord={animReveal.word}
           bombSoundUrl={animReveal.result.cardType === "BOMB" ? svState.bombSoundUrl : null}
           onDismiss={handleRevealDismissed}
+        />
+      )}
+
+      {/* Team interstitial — "Now Playing" splash on turn change */}
+      {interstitialTeam && (
+        <JMTeamInterstitial
+          teamName={interstitialTeam === "syndicate1" ? t1Display : t2Display}
+          teamColor={interstitialTeam === "syndicate1" ? SEVYN_COLORS.t1 : SEVYN_COLORS.t2}
+          logoUrl={(interstitialTeam === "syndicate1" ? svState.draftT1Logo : svState.draftT2Logo) ?? ""}
+          score={interstitialTeam === "syndicate1" ? t1Score : t2Score}
+          onDismiss={() => setInterstitialTeam(null)}
         />
       )}
     </div>

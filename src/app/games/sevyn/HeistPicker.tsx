@@ -89,17 +89,10 @@ export default function HeistPicker({ isHost, onSelect }: HeistPickerProps) {
               {selectedHeist.briefing.slice(0, 200)}...
             </p>
 
-            <div className="mb-4 grid grid-cols-2 gap-3 text-xs text-white/60">
-              <div>
-                <span className="text-[#E84C1E]">{selectedHeist.clients.syndicate1.benefactor}</span>
-                <br />vs<br />
-                <span className="text-blue-400">{selectedHeist.clients.syndicate2.benefactor}</span>
-              </div>
-              <div>
-                <span className="text-white/40">Assets:</span> {selectedHeist.assets.length}<br />
-                <span className="text-white/40">Words:</span>{" "}
-                {selectedHeist.words.tier1.length + selectedHeist.words.tier2.length + selectedHeist.words.tier3.length}
-              </div>
+            <div className="mb-4 text-xs text-white/60">
+              <span className="text-white/40">Assets:</span> {selectedHeist.assets.length} &bull;{" "}
+              <span className="text-white/40">Words:</span>{" "}
+              {selectedHeist.words.tier1.length + selectedHeist.words.tier2.length + selectedHeist.words.tier3.length}
             </div>
 
             <GamePrimaryButton onClick={() => onSelect(selectedHeist)}>
@@ -165,9 +158,7 @@ export default function HeistPicker({ isHost, onSelect }: HeistPickerProps) {
                       {heist.setting.location} &bull; {heist.setting.era}
                     </p>
                     <p className="mt-0.5 text-xs text-white/40">
-                      <span className="text-[#E84C1E]">{heist.clients.syndicate1.benefactor}</span>
-                      {" vs "}
-                      <span className="text-blue-400">{heist.clients.syndicate2.benefactor}</span>
+                      {heist.assets.length} assets &bull; {heist.civilians.length} civilians
                     </p>
                   </div>
                 </div>

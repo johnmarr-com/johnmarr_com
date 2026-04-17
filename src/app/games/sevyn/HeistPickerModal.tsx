@@ -108,9 +108,7 @@ export default function HeistPickerModal({
                 {heist.setting.location} &bull; {heist.setting.era}
               </p>
               <p className="mt-0.5 text-sm text-white/35">
-                <span style={{ color: accentColor }}>{heist.clients.syndicate1.benefactor}</span>
-                {" vs "}
-                <span className="text-blue-400">{heist.clients.syndicate2.benefactor}</span>
+                {heist.assets.length} assets &bull; {heist.civilians.length} civilians
               </p>
             </div>
           </div>
@@ -164,17 +162,10 @@ export default function HeistPickerModal({
                     {detailHeist.briefing.length > 300 ? "..." : ""}
                   </p>
 
-                  <div className="mb-4 grid grid-cols-2 gap-3 text-xs text-white/60">
-                    <div>
-                      <span style={{ color: accentColor }}>{detailHeist.clients.syndicate1.benefactor}</span>
-                      <br />vs<br />
-                      <span className="text-blue-400">{detailHeist.clients.syndicate2.benefactor}</span>
-                    </div>
-                    <div>
-                      <span className="text-white/40">Assets:</span> {detailHeist.assets.length}<br />
-                      <span className="text-white/40">Words:</span>{" "}
-                      {detailHeist.words.tier1.length + detailHeist.words.tier2.length + detailHeist.words.tier3.length}
-                    </div>
+                  <div className="mb-4 text-xs text-white/60">
+                    <span className="text-white/40">Assets:</span> {detailHeist.assets.length} &bull;{" "}
+                    <span className="text-white/40">Words:</span>{" "}
+                    {detailHeist.words.tier1.length + detailHeist.words.tier2.length + detailHeist.words.tier3.length}
                   </div>
 
                   <div className="mt-auto pt-4">

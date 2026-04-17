@@ -22,7 +22,7 @@ function getCardTypeColor(type: CardType): string {
 
 interface SevynGridProps {
   board: SevynBoardCard[];
-  /** Architect color map — if provided, cells are color-coded */
+  /** Boss color map — if provided, cells are color-coded */
   colorMap?: CardType[] | null;
   /** Active team (for highlighting whose turn) */
   activeTeam: SevynTeam;
@@ -97,13 +97,13 @@ export default function SevynGrid({
         }
 
         // Unrevealed card — solid dark gray
-        const architectBg = colorType
+        const bossBg = colorType
           ? `${getCardTypeColor(colorType)}30`
           : undefined;
-        const architectBorder = colorType
+        const bossBorder = colorType
           ? `${getCardTypeColor(colorType)}60`
           : undefined;
-        const isBombArchitect = colorType === "BOMB";
+        const isBombBoss = colorType === "BOMB";
 
         return (
           <button
@@ -115,12 +115,12 @@ export default function SevynGrid({
                 : "cursor-default"
             } ${isPending ? "ring-2 ring-yellow-400 ring-offset-1 ring-offset-black animate-pulse" : ""}`}
             style={{
-              backgroundColor: architectBg ?? "rgba(255,255,255,0.06)",
-              borderColor: isBombArchitect
+              backgroundColor: bossBg ?? "rgba(255,255,255,0.06)",
+              borderColor: isBombBoss
                 ? "#dc2626"
                 : isPending
                   ? "#facc15"
-                  : architectBorder ?? "rgba(255,255,255,0.12)",
+                  : bossBorder ?? "rgba(255,255,255,0.12)",
             }}
             disabled={!canTap || isRevealed}
             onClick={() => canTap && onTapCard?.(card.index)}

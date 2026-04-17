@@ -11,7 +11,6 @@ import type {
   SevynClue,
   SevynPendingTap,
   SevynHeistSetting,
-  SevynClient,
 } from "./sevynTypes";
 
 // ─── Firestore Helpers ──────────────────────────────────────
@@ -83,14 +82,16 @@ export function useSevynSession({ sessionId, userId }: UseSevynSessionOptions) {
 
       heistBriefing: (s["heistBriefing"] as string) ?? null,
       heistSetting: (s["heistSetting"] as SevynHeistSetting) ?? null,
-      heistClients: (s["heistClients"] as { syndicate1: SevynClient; syndicate2: SevynClient }) ?? null,
-
       teams: (s["teams"] as Record<SevynTeam, SevynTeamRoster>) ?? null,
-      teamMode: (s["teamMode"] as "random" | "pick") ?? null,
       t1Name: (s["t1Name"] as string) ?? null,
       t2Name: (s["t2Name"] as string) ?? null,
 
-      architectVotes: (s["architectVotes"] as Record<string, string>) ?? null,
+      draftTeam1: (s["draftTeam1"] as string[]) ?? null,
+      draftTeam2: (s["draftTeam2"] as string[]) ?? null,
+      draftT1Logo: (s["draftT1Logo"] as string) ?? null,
+      draftT2Logo: (s["draftT2Logo"] as string) ?? null,
+
+      // (boss selection is host-only — no votes field)
 
       board: (s["board"] as SevynBoardCard[]) ?? null,
 
@@ -129,10 +130,10 @@ export function useSevynSession({ sessionId, userId }: UseSevynSessionOptions) {
     return null;
   }, [svState.teams, userId]);
 
-  // Am I an architect?
-  const isArchitect = useMemo<boolean>(() => {
+  // Am I a boss?
+  const isBoss = useMemo<boolean>(() => {
     if (!svState.teams || !myTeam) return false;
-    return svState.teams[myTeam].architectUid === userId;
+    return svState.teams[myTeam].bossUid === userId;
   }, [svState.teams, myTeam, userId]);
 
   // Is it my team's turn?
@@ -161,7 +162,7 @@ export function useSevynSession({ sessionId, userId }: UseSevynSessionOptions) {
     svState,
     isHost,
     myTeam,
-    isArchitect,
+    isBoss,
     isMyTeamActive,
     setPhase,
     updateFields,
@@ -180,14 +181,16 @@ const defaultState: SevynSessionState = {
 
   heistBriefing: null,
   heistSetting: null,
-  heistClients: null,
-
   teams: null,
-  teamMode: null,
   t1Name: null,
   t2Name: null,
 
-  architectVotes: null,
+  draftTeam1: null,
+  draftTeam2: null,
+  draftT1Logo: null,
+  draftT2Logo: null,
+
+  // (no architectVotes — boss selection is host-only)
 
   board: null,
 

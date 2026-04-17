@@ -5,7 +5,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import type {
   CardType,
   SevynKeyDoc,
-  SevynArchitectView,
+  SevynBossView,
   SevynRevealResult,
 } from "@/app/games/sevyn/sevynTypes";
 
@@ -83,10 +83,10 @@ export async function POST(request: NextRequest) {
       return handleGenerateKey(body, uid);
     }
 
-    // ─── GET ARCHITECT VIEW ───────────────────────────────
-    // Returns the color-coded map for an architect.
-    if (action === "get-architect-view") {
-      return handleGetArchitectView(body, uid);
+    // ─── GET BOSS VIEW ─────────────────────────────────────
+    // Returns the color-coded map for a boss.
+    if (action === "get-boss-view") {
+      return handleGetBossView(body, uid);
     }
 
     // ─── REVEAL CARD ──────────────────────────────────────
@@ -230,19 +230,19 @@ async function handleGenerateKey(
   });
 }
 
-// ─── GET ARCHITECT VIEW ─────────────────────────────────────
+// ─── GET BOSS VIEW ──────────────────────────────────────────
 
-interface GetArchitectViewBody {
-  action: "get-architect-view";
+interface GetBossViewBody {
+  action: "get-boss-view";
   sessionId: string;
   keyDocId: string;
 }
 
-async function handleGetArchitectView(
+async function handleGetBossView(
   body: unknown,
   uid: string,
 ): Promise<NextResponse> {
-  const { sessionId, keyDocId } = body as GetArchitectViewBody;
+  const { sessionId, keyDocId } = body as GetBossViewBody;
   if (!sessionId || !keyDocId) {
     return NextResponse.json({ error: "Missing sessionId or keyDocId" }, { status: 400 });
   }
@@ -260,18 +260,18 @@ async function handleGetArchitectView(
     return NextResponse.json({ error: "Not a player in this session" }, { status: 403 });
   }
 
-  // Verify the caller is an architect for one of the teams
-  const teams = sessionData["teams"] as Record<string, { members: string[]; architectUid: string | null }> | undefined;
+  // Verify the caller is a boss for one of the teams
+  const teams = sessionData["teams"] as Record<string, { members: string[]; bossUid: string | null }> | undefined;
   if (!teams) {
     return NextResponse.json({ error: "Teams not yet formed" }, { status: 400 });
   }
 
-  const isArchitect =
-    teams["syndicate1"]?.architectUid === uid ||
-    teams["syndicate2"]?.architectUid === uid;
+  const isBoss =
+    teams["syndicate1"]?.bossUid === uid ||
+    teams["syndicate2"]?.bossUid === uid;
 
-  if (!isArchitect) {
-    return NextResponse.json({ error: "Only architects can view the key" }, { status: 403 });
+  if (!isBoss) {
+    return NextResponse.json({ error: "Only bosses can view the key" }, { status: 403 });
   }
 
   // Load the key
@@ -284,7 +284,7 @@ async function handleGetArchitectView(
     return NextResponse.json({ error: "Key/session mismatch" }, { status: 403 });
   }
 
-  const view: SevynArchitectView = {
+  const view: SevynBossView = {
     colorMap: keyData.key,
   };
 
