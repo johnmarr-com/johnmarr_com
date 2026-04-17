@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 export interface JMTeamInterstitialProps {
   /** Display name (e.g. "Red Wolves") */
@@ -29,27 +29,39 @@ export function JMTeamInterstitial({
   duration = 4000,
 }: JMTeamInterstitialProps) {
   const [phase, setPhase] = useState<"enter" | "visible" | "exit">("enter");
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const dismissedRef = useRef(false);
 
   useEffect(() => {
     const ANIM = 500;
     const t1 = setTimeout(() => setPhase("visible"), 50);
     const t2 = setTimeout(() => setPhase("exit"), 50 + ANIM + duration);
     const t3 = setTimeout(onDismiss, 50 + ANIM + duration + ANIM);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    timersRef.current = [t1, t2, t3];
+    return () => { timersRef.current.forEach(clearTimeout); };
   }, [duration, onDismiss]);
+
+  const handleTapDismiss = useCallback(() => {
+    if (dismissedRef.current || phase === "enter") return;
+    dismissedRef.current = true;
+    timersRef.current.forEach(clearTimeout);
+    setPhase("exit");
+    setTimeout(onDismiss, 500);
+  }, [phase, onDismiss]);
 
   const show = phase === "visible";
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center cursor-pointer"
       style={{
         backgroundColor: show ? "rgba(0,0,0,0.85)" : "rgba(0,0,0,0)",
         backdropFilter: show ? "blur(16px)" : "blur(0px)",
         WebkitBackdropFilter: show ? "blur(16px)" : "blur(0px)",
         transition: "background-color 500ms ease, backdrop-filter 500ms ease, -webkit-backdrop-filter 500ms ease",
-        pointerEvents: "none",
+        pointerEvents: phase === "enter" ? "none" : "auto",
       }}
+      onClick={handleTapDismiss}
     >
       {/* NOW PLAYING */}
       <p

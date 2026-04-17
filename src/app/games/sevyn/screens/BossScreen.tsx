@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import type { SevynBoardCard, CardType, SevynTeam, SevynClue, SevynHeist, SevynPendingTap } from "../sevynTypes";
 import { GamePrimaryButton } from "@/app/games/_gamecore";
 import { getAIAuthHeaders } from "@/app/games/_gamecore";
+import { SEVYN_COLORS } from "../SevynGame";
 import SevynGrid from "./SevynGrid";
 
 
@@ -24,7 +25,7 @@ export default function BossScreen({
   board,
   colorMap,
   activeTeam,
-  myTeam: _myTeam,
+  myTeam,
   activeTeamName,
   currentClue,
   isMyTurn,
@@ -33,7 +34,7 @@ export default function BossScreen({
   heist: _heist,
 }: BossScreenProps) {
   void _heist; // reserved for background
-  void _myTeam; // displayed in score bar
+  const isMyTeamActive = activeTeam === myTeam;
   const [clueWord, setClueWord] = useState("");
   const [clueNumber, setClueNumber] = useState(1);
   const [error, setError] = useState<string | null>(null);
@@ -89,13 +90,34 @@ export default function BossScreen({
   return (
     <div className="flex min-h-dvh flex-col px-3 pb-4 pt-[130px] sm:px-4">
       {/* Color-coded grid */}
-      <SevynGrid
-        board={board}
-        colorMap={colorMap}
-        activeTeam={activeTeam}
-        canTap={false}
-        pendingCardIndex={pendingTap?.cardIndex ?? null}
-      />
+      <div className="relative">
+        <div className="transition-opacity duration-500" style={{ opacity: isMyTeamActive ? 1 : 0.25 }}>
+          <SevynGrid
+            board={board}
+            colorMap={colorMap}
+            activeTeam={activeTeam}
+            canTap={false}
+            pendingCardIndex={pendingTap?.cardIndex ?? null}
+          />
+        </div>
+
+        {/* Other team is playing — non-active team boss */}
+        {!isMyTeamActive && (
+          <div
+            className="pointer-events-none absolute inset-x-0 flex justify-center"
+            style={{ top: "40%", transform: "translateY(-50%)" }}
+          >
+            <div className="rounded-xl bg-black/85 px-5 py-3 backdrop-blur-sm">
+              <p className="text-sm font-semibold animate-pulse">
+                <span style={{ color: activeTeam === "syndicate1" ? SEVYN_COLORS.t1 : SEVYN_COLORS.t2 }}>
+                  {activeTeamName}
+                </span>
+                <span className="text-white/70"> are playing...</span>
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Clue input panel — only visible when it's my turn */}
       {isMyTurn && !currentClue && (
@@ -142,17 +164,8 @@ export default function BossScreen({
         </div>
       )}
 
-      {/* Waiting state when not my turn */}
-      {!isMyTurn && !currentClue && (
-        <div className="mt-4 text-center">
-          <p className="text-sm text-white/40 animate-pulse">
-            Waiting for {activeTeamName}&apos;s Boss...
-          </p>
-        </div>
-      )}
-
-      {/* Clue active — brief status only (score bar shows the clue) */}
-      {currentClue && (
+      {/* Clue active — brief status for active team boss only */}
+      {currentClue && isMyTeamActive && (
         <div className="mt-4 text-center">
           <p className="text-xs text-white/40">Operatives are guessing...</p>
         </div>

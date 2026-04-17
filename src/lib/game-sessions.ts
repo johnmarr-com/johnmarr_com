@@ -629,6 +629,13 @@ export async function getActiveSessionsForUser(
     });
   }
 
+  // Most recently updated first
+  sessions.sort((a, b) => {
+    const aMs = a.updatedAt?.toMillis?.() ?? 0;
+    const bMs = b.updatedAt?.toMillis?.() ?? 0;
+    return bMs - aMs;
+  });
+
   return sessions;
 }
 

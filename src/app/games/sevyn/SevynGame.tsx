@@ -499,9 +499,9 @@ export default function SevynGame({
     prevActiveTeamRef.current = activeTeam;
   }, [activeTeam, board]);
 
-  // ─── Pass Turn ────────────────────────────────────────────
+  // ─── Pass Turn (any operative on the active team — same Firestore rules as pendingTap) ──
   const handlePassTurn = useCallback(async () => {
-    if (!isHost || !activeTeam) return;
+    if (svPhase !== "operative-guess" || !activeTeam || myTeam !== activeTeam || isBoss) return;
     const nextTeam: SevynTeam = activeTeam === "syndicate1" ? "syndicate2" : "syndicate1";
     await updateFields({
       activeTeam: nextTeam,
@@ -512,7 +512,7 @@ export default function SevynGame({
       pendingTap: null,
       svPhase: "boss-clue",
     });
-  }, [isHost, activeTeam, updateFields]);
+  }, [svPhase, activeTeam, myTeam, isBoss, updateFields]);
 
   // ─── Render ───────────────────────────────────────────────
 
@@ -554,7 +554,7 @@ export default function SevynGame({
       {board && svPhase !== "game-over" && (
         <>
           {/* Left: Team 1 logo + score badge (top-right of logo) */}
-          <div className="absolute top-2 left-2 z-30 transition-opacity duration-500" style={{ opacity: activeTeam === "syndicate2" ? 0.3 : 1 }}>
+          <div className="absolute top-2 left-2 z-30 transition-opacity duration-500" style={{ opacity: activeTeam === "syndicate2" ? 0.15 : 1 }}>
             <div
               className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full"
               style={{ backgroundColor: `${SEVYN_COLORS.t1}20` }}
@@ -570,35 +570,35 @@ export default function SevynGame({
               className="absolute -top-1 z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 border-black bg-black"
               style={{ right: "-15px" }}
             >
-              <span className="text-xs font-black" style={{ color: SEVYN_COLORS.t1 }}>{t1Score}/7</span>
+              <span className="text-base font-black leading-none" style={{ color: SEVYN_COLORS.t1 }}>{t1Score}/7</span>
             </div>
           </div>
-          {/* Center: Now Playing + CODE / CREATE — bottom-aligned to grid top */}
+          {/* Center: Clue display or Boss prompt — bottom-aligned to grid top */}
           {activeTeam && (() => {
             const clueColor = activeTeam === "syndicate1" ? SEVYN_COLORS.t1 : SEVYN_COLORS.t2;
             const teamName = activeTeam === "syndicate1" ? t1Display : t2Display;
             const isActiveBoss = isBoss && isMyTeamActive && !currentClue;
             return (
               <div className="absolute left-16 right-16 z-40 flex flex-col items-center" style={{ top: "130px", transform: "translateY(calc(-100% - 10px))" }}>
-                <span className="text-[10px] font-bold tracking-wide" style={{ color: clueColor }}>
-                  Now Playing: {teamName}
-                </span>
                 {currentClue ? (
-                  <span className="text-xl font-black">
-                    <span style={{ color: clueColor }}>CODE [</span>
-                    <span className="text-white"> {currentClue.word} : {bonusGuessAvailable ? "BONUS" : guessesRemaining} </span>
-                    <span style={{ color: clueColor }}>]</span>
-                  </span>
+                  <>
+                    <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: clueColor }}>
+                      {teamName} Clue:
+                    </span>
+                    <span className="text-xl font-black text-white">
+                      {currentClue.word} : {bonusGuessAvailable ? "BONUS" : guessesRemaining}
+                    </span>
+                  </>
                 ) : isActiveBoss ? (
                   <span className="text-base font-black text-white">
-                    Create Clue (Below Grid)
+                    Create Clue
                   </span>
                 ) : null}
               </div>
             );
           })()}
           {/* Right: Team 2 logo + score badge (top-left of logo) */}
-          <div className="absolute top-2 right-2 z-30 transition-opacity duration-500" style={{ opacity: activeTeam === "syndicate1" ? 0.3 : 1 }}>
+          <div className="absolute top-2 right-2 z-30 transition-opacity duration-500" style={{ opacity: activeTeam === "syndicate1" ? 0.15 : 1 }}>
             <div
               className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full"
               style={{ backgroundColor: `${SEVYN_COLORS.t2}20` }}
@@ -614,7 +614,7 @@ export default function SevynGame({
               className="absolute -top-1 z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 border-black bg-black"
               style={{ left: "-15px" }}
             >
-              <span className="text-xs font-black" style={{ color: SEVYN_COLORS.t2 }}>{t2Score}/7</span>
+              <span className="text-base font-black leading-none" style={{ color: SEVYN_COLORS.t2 }}>{t2Score}/7</span>
             </div>
           </div>
         </>
@@ -707,7 +707,7 @@ export default function SevynGame({
               guessesRemaining={0}
               canTap={false}
               heist={heist}
-              waitingForClue
+              waitingForClue={isMyTeamActive}
             />
           )
         )}

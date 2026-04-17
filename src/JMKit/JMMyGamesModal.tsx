@@ -109,12 +109,19 @@ export function JMMyGamesModal({ onClose }: JMMyGamesModalProps) {
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p
-                      className="truncate text-sm font-medium"
-                      style={{ color: theme.text.primary }}
-                    >
-                      {session.gameName}
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p
+                        className="truncate text-sm font-medium"
+                        style={{ color: theme.text.primary }}
+                      >
+                        {session.gameName}
+                      </p>
+                      {user && session.ownerId === user.uid && (
+                        <span className="shrink-0 rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white/60">
+                          Host
+                        </span>
+                      )}
+                    </div>
                     <p
                       className="text-xs"
                       style={{ color: theme.text.tertiary }}
@@ -122,6 +129,10 @@ export function JMMyGamesModal({ onClose }: JMMyGamesModalProps) {
                       {session.players.length} player{session.players.length !== 1 ? "s" : ""}
                       {" · "}
                       {session.status === "lobby" ? "In lobby" : "In progress"}
+                      {" · "}
+                      {session.updatedAt?.toDate
+                        ? session.updatedAt.toDate().toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
+                        : ""}
                     </p>
                   </div>
                   <span
