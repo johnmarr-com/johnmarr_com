@@ -123,6 +123,11 @@ class BackgroundMusicPlayer {
     return !!this.sourceNode && !!this.currentURL;
   }
 
+  /** Return the cached buffer duration (seconds) for a previously-loaded SFX URL. */
+  getBufferDuration(url: string): number | null {
+    return this.bufferCache.get(url)?.duration ?? null;
+  }
+
   /**
    * Play a one-shot sound effect (no loop) through the shared AudioContext.
    * Because the context is already unlocked by earlier user interactions
@@ -287,5 +292,6 @@ export const bgMusic =
         stop() {},
         connectVideo() {},
         ensurePlaying() {},
+        getBufferDuration() { return null; },
         playing: false,
       } as unknown) as BackgroundMusicPlayer);

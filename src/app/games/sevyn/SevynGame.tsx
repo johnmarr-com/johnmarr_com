@@ -22,7 +22,7 @@ import BossSelectScreen from "./screens/BossSelectScreen";
 import BossScreen from "./screens/BossScreen";
 import OperativeScreen from "./screens/OperativeScreen";
 import CardRevealOverlay from "./screens/CardRevealOverlay";
-import WinScreen from "./screens/WinScreen";
+import VictoryOverlay from "./screens/VictoryOverlay";
 
 // ─── Constants ──────────────────────────────────────────────
 
@@ -46,12 +46,14 @@ interface SevynGameProps {
   sessionId: string;
   splashBgURL?: string;
   gameLogoURL?: string;
+  musicUrl?: string;
 }
 
 export default function SevynGame({
   sessionId,
   splashBgURL: _splashBgURL,
   gameLogoURL,
+  musicUrl,
 }: SevynGameProps) {
   const { user } = useAuth();
   const userId = user?.uid ?? "";
@@ -81,6 +83,8 @@ export default function SevynGame({
   // Team interstitial — shows when activeTeam changes during gameplay
   const [interstitialTeam, setInterstitialTeam] = useState<SevynTeam | null>(null);
   const prevActiveTeamRef = useRef<SevynTeam | null>(null);
+  // Victory overlay — crossfades in beneath card reveal / bomb loss
+  const [showVictoryOverlay, setShowVictoryOverlay] = useState(false);
   const {
     svPhase,
     selectedHeistId,
@@ -376,6 +380,11 @@ export default function SevynGame({
         updates["svPhase"] = "game-over";
       }
 
+      // Mark session finished so it leaves "active games" lists
+      if (updates["winningTeam"]) {
+        updates["status"] = "finished";
+      }
+
       // If not game-over, handle turn continuation / switching
       if (!updates["winningTeam"]) {
         const isOwnAsset =
@@ -447,8 +456,11 @@ export default function SevynGame({
 
     if (!isHost || revealedIndex == null) return;
 
-    // If game is over, phase is already set
-    if (svState.winningTeam) return;
+    // If game is over, show victory overlay (clean win — no bomb loss screen)
+    if (svState.winningTeam) {
+      if (!svState.loseByBomb) setShowVictoryOverlay(true);
+      return;
+    }
 
     const lastRevealed = board?.find(
       (c) => c.revealed && c.index === revealedIndex,
@@ -513,6 +525,40 @@ export default function SevynGame({
       svPhase: "boss-clue",
     });
   }, [svPhase, activeTeam, myTeam, isBoss, updateFields]);
+
+  // ─── Play Again (host resets to boss-select) ─────────────
+  const handlePlayAgain = useCallback(async () => {
+    if (!isHost) return;
+    setShowVictoryOverlay(false);
+    await updateFields({
+      board: null,
+      keyDocId: null,
+      activeTeam: null,
+      currentClue: null,
+      guessesRemaining: 0,
+      guessesUsedThisTurn: 0,
+      bonusGuessAvailable: false,
+      pendingTap: null,
+      winningTeam: null,
+      loseByBomb: false,
+      bombRevealedBy: null,
+      t1Score: 0,
+      t2Score: 0,
+      t1RevealCount: 0,
+      t2RevealCount: 0,
+      t1RevealedAssets: [],
+      t2RevealedAssets: [],
+      status: "playing",
+      svPhase: "boss-select",
+    });
+  }, [isHost, updateFields]);
+
+  // ─── Show victory overlay when entering game-over via Firestore sync (non-host clients) ──
+  useEffect(() => {
+    if (svPhase === "game-over" && !animReveal && !showVictoryOverlay) {
+      setShowVictoryOverlay(true);
+    }
+  }, [svPhase, animReveal, showVictoryOverlay]);
 
   // ─── Render ───────────────────────────────────────────────
 
@@ -779,20 +825,28 @@ export default function SevynGame({
           )
         )}
 
-        {svPhase === "game-over" && heist && (
-          <WinScreen
-            heist={heist}
-            winningTeam={winningTeam}
-            loseByBomb={loseByBomb}
-            teams={svState.teams}
-            session={session}
-            t1Score={t1Score}
-            t2Score={t2Score}
-            t1Name={t1Display}
-            t2Name={t2Display}
-          />
-        )}
+        {/* game-over phase: grid is hidden, victory overlay renders separately */}
       </div>
+
+      {/* Victory Overlay — rendered at z-40, beneath CardRevealOverlay (z-50) for crossfade */}
+      {showVictoryOverlay && heist && winningTeam && (
+        <VictoryOverlay
+          winningTeamName={winningTeam === "syndicate1" ? t1Display : t2Display}
+          winningTeamColor={winningTeam === "syndicate1" ? SEVYN_COLORS.t1 : SEVYN_COLORS.t2}
+          winningTeamLogoUrl={(winningTeam === "syndicate1" ? svState.draftT1Logo : svState.draftT2Logo) ?? ""}
+          targetImageUrl={heist.targetObjectImageUrl}
+          heistTitle={heist.title}
+          t1Score={t1Score}
+          t2Score={t2Score}
+          t1Name={t1Display}
+          t2Name={t2Display}
+          t1Color={SEVYN_COLORS.t1}
+          t2Color={SEVYN_COLORS.t2}
+          isHost={isHost}
+          musicUrl={musicUrl}
+          onPlayAgain={handlePlayAgain}
+        />
+      )}
 
       {/* Card Reveal Overlay — flies from grid card on ALL clients */}
       {animReveal && (
@@ -802,6 +856,17 @@ export default function SevynGame({
           boardWord={animReveal.word}
           bombSoundUrl={animReveal.result.cardType === "BOMB" ? svState.bombSoundUrl : null}
           onDismiss={handleRevealDismissed}
+          bombLoss={
+            animReveal.result.cardType === "BOMB" && loseByBomb
+              ? {
+                  losingTeamName: activeTeamName,
+                  losingTeamColor: activeTeam === "syndicate1" ? SEVYN_COLORS.t1 : SEVYN_COLORS.t2,
+                  losingTeamLogoUrl: (activeTeam === "syndicate1" ? svState.draftT1Logo : svState.draftT2Logo) ?? "",
+                  bombMessage: heist?.bombDescription ?? "",
+                }
+              : null
+          }
+          onStartVictoryTransition={() => setShowVictoryOverlay(true)}
         />
       )}
 

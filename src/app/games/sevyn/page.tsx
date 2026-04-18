@@ -59,6 +59,7 @@ export default function SevynPage() {
         {...(gameData?.splashLogoURL || gameData?.coverURL
           ? { gameLogoURL: gameData.splashLogoURL ?? gameData.coverURL }
           : {})}
+        {...(gameData?.backgroundMusicURL ? { musicUrl: gameData.backgroundMusicURL } : {})}
       />
     );
   }
