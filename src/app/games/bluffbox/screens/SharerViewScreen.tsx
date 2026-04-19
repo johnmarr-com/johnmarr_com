@@ -51,8 +51,21 @@ export default function SharerViewScreen({
   const [flipped, setFlipped] = useState(waitingForVotes);
   const [flipComplete, setFlipComplete] = useState(waitingForVotes);
   const [isDealing, setIsDealing] = useState(false);
+  const [imageReady, setImageReady] = useState(waitingForVotes);
   const dealRequestedRef = useRef(false);
   const flipScheduledRef = useRef(false);
+
+  // Preload card image as soon as URL is known (before user taps)
+  useEffect(() => {
+    if (!cardURL) {
+      setImageReady(false);
+      return;
+    }
+    const img = new window.Image();
+    img.onload = () => setImageReady(true);
+    img.onerror = () => setImageReady(true); // don't block flip on error
+    img.src = cardURL;
+  }, [cardURL]);
 
   const runFlip = useCallback(() => {
     if (flipScheduledRef.current) return;
@@ -62,24 +75,26 @@ export default function SharerViewScreen({
 
   const handleCoverActivate = useCallback(async () => {
     if (flipped || flipComplete || isDealing) return;
+    dealRequestedRef.current = true;
     if (cardURL) {
-      dealRequestedRef.current = true;
-      runFlip();
+      // Image URL already known — only flip once preloaded
+      if (imageReady) runFlip();
+      // else: the effect below will flip once imageReady becomes true
       return;
     }
-    dealRequestedRef.current = true;
     setIsDealing(true);
     try {
       await onRevealBox();
     } finally {
       setIsDealing(false);
     }
-  }, [cardURL, flipped, flipComplete, isDealing, onRevealBox, runFlip]);
+  }, [cardURL, flipped, flipComplete, isDealing, imageReady, onRevealBox, runFlip]);
 
+  // Flip once both the URL arrives and the image is loaded
   useEffect(() => {
-    if (!cardURL || !dealRequestedRef.current || flipped) return;
+    if (!cardURL || !dealRequestedRef.current || flipped || !imageReady) return;
     runFlip();
-  }, [cardURL, flipped, runFlip]);
+  }, [cardURL, flipped, runFlip, imageReady]);
 
   const coverFace = (
     <div className="h-full w-full" style={{ filter: CARD_FACE_FILTER }}>
@@ -92,7 +107,10 @@ export default function SharerViewScreen({
   );
 
   const cardFace = (
-    <div className="h-full w-full" style={{ filter: CARD_FACE_FILTER }}>
+    <div
+      className="h-full w-full transition-opacity duration-200"
+      style={{ filter: CARD_FACE_FILTER, opacity: imageReady ? 1 : 0 }}
+    >
       {cardURL ? (
         <BluffCard imageURL={cardURL} nonInteractive />
       ) : (

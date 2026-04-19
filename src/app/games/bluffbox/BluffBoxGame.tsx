@@ -476,7 +476,7 @@ export default function BluffBoxGame({
 
   const hasSplash = splashBgURL != null && splashBgURL.length > 0;
   const sharerViewPhases =
-    bbPhase === "sharing" && isSharer && !isAiPlayer(userId);
+    (bbPhase === "sharing" || bbPhase === "guessing") && isSharer && !isAiPlayer(userId);
   const humanToAiPhase = bbPhase === "human-to-ai-input" && isSharer;
   /** Same 30% splash layer as sharer flow — avoids the heavy root gradient that hides art (e.g. game-over). */
   const subtleSplashShell =

@@ -62,7 +62,7 @@ export function JMCardFlip({
   className,
   style,
 }: JMCardFlipProps) {
-  const [animComplete, setAnimComplete] = useState(false);
+  const [animComplete, setAnimComplete] = useState(flipped);
 
   const handleAnimEnd = useCallback(
     (e: React.AnimationEvent<HTMLDivElement>) => {
