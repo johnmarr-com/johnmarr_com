@@ -95,10 +95,10 @@ export default function BluffBoxGame({
   const guessCount = Object.keys(guesses).length;
   const allGuessesIn =
     guessCount >= expectedGuessCount && expectedGuessCount > 0;
-  /** 3+ players and every guesser missed → sharer earned +1 (matches `scoreTurn`). */
+  /** Every guesser was wrong — triggers the "WOW! EVERYONE MISSED!" callout in TurnResultModal. */
   const sharerFooledEveryone =
     sharerChoice != null &&
-    playerUids.length >= 3 &&
+    expectedGuessCount > 0 &&
     players
       .filter((p) => p.uid !== currentSharer)
       .every((p) => guesses[p.uid] !== sharerChoice);

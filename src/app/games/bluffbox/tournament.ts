@@ -31,27 +31,26 @@ export function initScores(playerUids: string[]): Record<string, number> {
  * +1 for every guesser who matched the sharer's actual choice.
  * In **3+ player** games, if **every** guesser is wrong, the sharer gets +1 (fooled the group).
  */
+/** Max points a sharer can earn from wrong guesses in a single turn. */
+const SHARER_POINT_CAP = 3;
+
 export function scoreTurn(
   sharerChoice: "truth" | "lie",
   guesses: Record<string, "truth" | "lie">,
   sharerUid: string,
-  totalPlayerCount: number,
+  _totalPlayerCount: number,
 ): Record<string, number> {
   const deltas: Record<string, number> = {};
   const guesserUids = Object.keys(guesses).filter((uid) => uid !== sharerUid);
 
+  let wrongCount = 0;
   for (const uid of guesserUids) {
-    const guess = guesses[uid]!;
-    deltas[uid] = guess === sharerChoice ? 1 : 0;
+    const correct = guesses[uid] === sharerChoice;
+    deltas[uid] = correct ? 1 : 0;
+    if (!correct) wrongCount++;
   }
 
-  const allGuessersWrong =
-    guesserUids.length > 0 &&
-    guesserUids.every((uid) => guesses[uid] !== sharerChoice);
-
-  const sharerBonus =
-    totalPlayerCount >= 3 && allGuessersWrong ? 1 : 0;
-  deltas[sharerUid] = sharerBonus;
+  deltas[sharerUid] = Math.min(wrongCount, SHARER_POINT_CAP);
 
   return deltas;
 }
