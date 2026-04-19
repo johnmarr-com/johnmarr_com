@@ -323,6 +323,11 @@ service firebase.storage {
       allow delete: if isAdmin();
     }
 
+    // Legacy sevyn-heists path — read-only for existing asset URLs (remove after full migration)
+    match /sevyn-heists/{heistId}/{allPaths=**} {
+      allow read: if true;
+    }
+
     // ─────────────────────────────────────────────────────────────
     // FYVE BOMBS (Bomb images and audio)
     // ─────────────────────────────────────────────────────────────
@@ -331,6 +336,11 @@ service firebase.storage {
       allow read: if true;
       allow write: if isAuthenticated() && (isImage() || isAudio()) && maxSize(5);
       allow delete: if isAdmin();
+    }
+
+    // Legacy sevyn-bombs path — read-only for existing asset URLs (remove after full migration)
+    match /sevyn-bombs/{bombId}/{allPaths=**} {
+      allow read: if true;
     }
 
     // ─────────────────────────────────────────────────────────────

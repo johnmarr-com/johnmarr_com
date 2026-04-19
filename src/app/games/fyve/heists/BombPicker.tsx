@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { useAuth } from "@/lib/AuthProvider";
 import { getOfficialBombs, getMyBombs, getSharedBombs } from "@/lib/fyve-bombs";
 import type { FyveBombEntity } from "../fyveTypes";
@@ -124,10 +125,13 @@ export default function BombPicker({ selectedBombId, onSelect }: BombPickerProps
               {/* Thumbnail */}
               { }
               {bomb.imageUrl ? (
-              <img
+                <Image
                   src={bomb.imageUrl}
                   alt={bomb.name}
+                  width={40}
+                  height={40}
                   className="h-10 w-10 rounded-lg object-cover"
+                  unoptimized
                 />
               ) : (
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-900/30 text-lg">

@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import type { FyveBoardCard, CardType, FyveTeam } from "../fyveTypes";
 import { FYVE_COLORS } from "../FyveGame";
 
@@ -32,6 +33,8 @@ interface FyveGridProps {
   onTapCard?: (cardIndex: number) => void;
   /** Index of card currently pending confirmation */
   pendingCardIndex?: number | null;
+  /** Index of card waiting for server reveal (shows spinner) */
+  waitingCardIndex?: number | null;
 }
 
 export default function FyveGrid({
@@ -41,6 +44,7 @@ export default function FyveGrid({
   canTap,
   onTapCard,
   pendingCardIndex,
+  waitingCardIndex,
 }: FyveGridProps) {
   void _activeTeam; // reserved for turn highlight styling
   return (
@@ -49,6 +53,7 @@ export default function FyveGrid({
         const isRevealed = card.revealed;
         const colorType = colorMap ? colorMap[card.index] : undefined;
         const isPending = pendingCardIndex === card.index;
+        const isWaiting = waitingCardIndex === card.index;
 
         // Revealed card — fully opaque image with team tint
         if (isRevealed) {
@@ -132,6 +137,11 @@ export default function FyveGrid({
             >
               {card.word}
             </span>
+            {isWaiting && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                <Loader2 className="h-6 w-6 animate-spin text-yellow-400" />
+              </div>
+            )}
           </button>
         );
       })}

@@ -30,6 +30,8 @@ export interface JMGameResultOverlayProps {
 }
 
 const CARD_SIZE = 260;
+// Match CardRevealOverlay: centerY = vh/2 - 50
+const CARD_OFFSET_Y = -50;
 
 export function JMGameResultOverlay({
   variant,
@@ -68,9 +70,12 @@ export function JMGameResultOverlay({
     }
   }, [audioUrl, isWin]);
 
+  const verbWin = teamName.endsWith("s") ? "Win!" : "Wins!";
+  const verbLose = teamName.endsWith("s") ? "Lose!" : "Loses!";
+
   return (
     <div
-      className="fixed inset-0 z-60 flex flex-col items-center justify-center"
+      className="fixed inset-0 z-60"
       style={{
         opacity: show ? 1 : 0,
         transition: "opacity 600ms ease-out",
@@ -80,12 +85,7 @@ export function JMGameResultOverlay({
       role={onDismiss ? "button" : undefined}
     >
       {/* Dark team-colored backdrop */}
-      <div
-        className="absolute inset-0"
-        style={{
-          backgroundColor: teamColor,
-        }}
-      />
+      <div className="absolute inset-0" style={{ backgroundColor: teamColor }} />
       <div
         className="absolute inset-0"
         style={{
@@ -98,10 +98,47 @@ export function JMGameResultOverlay({
       {/* Confetti — win only, single play */}
       {isWin && show && <JMConfettiOverlay />}
 
-      <div className="relative z-10 flex flex-col items-center px-4">
+      {/* Card image — absolutely centered to match CardRevealOverlay */}
+      <div
+        className="absolute left-1/2 top-1/2 overflow-hidden rounded-2xl"
+        style={{
+          width: CARD_SIZE,
+          height: CARD_SIZE,
+          marginLeft: -CARD_SIZE / 2,
+          marginTop: -CARD_SIZE / 2 + CARD_OFFSET_Y,
+          border: `6px solid ${teamColor}`,
+          opacity: show ? 1 : 0,
+          transform: show ? "scale(1)" : "scale(0.9)",
+          transition: "opacity 600ms ease-out 350ms, transform 600ms ease-out 350ms",
+          zIndex: 10,
+        }}
+      >
+        {cardImageUrl ? (
+          <div
+            className="h-full w-full bg-cover bg-center"
+            style={{ backgroundImage: `url(${cardImageUrl})` }}
+          />
+        ) : (
+          <div
+            className="flex h-full w-full items-center justify-center"
+            style={{ backgroundColor: `${teamColor}20` }}
+          >
+            <span className="text-6xl">{isWin ? "🏆" : "💣"}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Content above the card: logo + title */}
+      <div
+        className="absolute left-0 right-0 flex flex-col items-center"
+        style={{
+          bottom: `calc(50% - ${CARD_OFFSET_Y}px + ${CARD_SIZE / 2 + 20}px)`,
+          zIndex: 10,
+        }}
+      >
         {/* Team logo */}
         <div
-          className="relative h-[120px] w-[120px] shrink-0 overflow-hidden rounded-full"
+          className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-full"
           style={{
             backgroundColor: `${teamColor}20`,
             opacity: show ? 1 : 0,
@@ -119,9 +156,9 @@ export function JMGameResultOverlay({
           />
         </div>
 
-        {/* Title: Wins! or Loses! — below logo, above card */}
+        {/* Title: Wins! or Loses! */}
         <p
-          className="mt-4 text-4xl font-black"
+          className="mt-3 text-3xl font-black"
           style={{
             color: teamColor,
             opacity: show ? 1 : 0,
@@ -129,42 +166,22 @@ export function JMGameResultOverlay({
             transition: "opacity 600ms ease-out 250ms, transform 600ms ease-out 250ms",
           }}
         >
-          {teamName} {isWin
-            ? (teamName.endsWith("s") ? "Win!" : "Wins!")
-            : (teamName.endsWith("s") ? "Lose!" : "Loses!")}
+          {teamName} {isWin ? verbWin : verbLose}
         </p>
+      </div>
 
-        {/* Card image (target or bomb) */}
-        <div
-          className="mt-5 overflow-hidden rounded-2xl"
-          style={{
-            width: CARD_SIZE,
-            height: CARD_SIZE,
-            border: `6px solid ${teamColor}`,
-            opacity: show ? 1 : 0,
-            transform: show ? "scale(1)" : "scale(0.9)",
-            transition: "opacity 600ms ease-out 350ms, transform 600ms ease-out 350ms",
-          }}
-        >
-          {cardImageUrl ? (
-            <div
-              className="h-full w-full bg-cover bg-center"
-              style={{ backgroundImage: `url(${cardImageUrl})` }}
-            />
-          ) : (
-            <div
-              className="flex h-full w-full items-center justify-center"
-              style={{ backgroundColor: `${teamColor}20` }}
-            >
-              <span className="text-6xl">{isWin ? "🏆" : "💣"}</span>
-            </div>
-          )}
-        </div>
-
+      {/* Content below the card: heading + message + play again */}
+      <div
+        className="absolute left-0 right-0 flex flex-col items-center px-4"
+        style={{
+          top: `calc(50% - ${CARD_OFFSET_Y}px + ${CARD_SIZE / 2 + 16}px)`,
+          zIndex: 10,
+        }}
+      >
         {/* Heading (heist title) — bold, team colored */}
         {heading && (
           <p
-            className="mt-4 text-sm font-black uppercase tracking-wider"
+            className="text-sm font-black uppercase tracking-wider"
             style={{
               color: teamColor,
               opacity: show ? 1 : 0,
@@ -192,13 +209,16 @@ export function JMGameResultOverlay({
         {isHost && onPlayAgain && (
           <button
             type="button"
-            className="mt-8 rounded-xl px-8 py-3 text-sm font-bold text-white"
+            className="mt-6 rounded-xl px-8 py-3 text-sm font-bold text-white"
             style={{
               backgroundColor: teamColor,
               opacity: show ? 1 : 0,
               transition: "opacity 600ms ease-out 700ms",
             }}
-            onClick={onPlayAgain}
+            onClick={(e) => {
+              e.stopPropagation();
+              onPlayAgain();
+            }}
           >
             Play Again
           </button>

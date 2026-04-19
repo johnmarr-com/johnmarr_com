@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { FyveBoardCard, FyveTeam, FyveClue, FyvePendingTap, FyveHeist } from "../fyveTypes";
 import { useAuth } from "@/lib/AuthProvider";
 import { FYVE_COLORS } from "../FyveGame";
@@ -46,6 +46,8 @@ export default function OperativeScreen({
   // Local tap confirmation state (before broadcasting)
   const [localTapIndex, setLocalTapIndex] = useState<number | null>(null);
   const [passConfirmOpen, setPassConfirmOpen] = useState(false);
+  // Index of confirmed card waiting for reveal (spinner shown on this card)
+  const [waitingCardIndex, setWaitingCardIndex] = useState<number | null>(null);
 
   // Handle card tap — local confirmation first
   const handleTapCard = useCallback(
@@ -60,8 +62,16 @@ export default function OperativeScreen({
   const handleConfirmLocalTap = useCallback(() => {
     if (localTapIndex == null || !onTapCard) return;
     onTapCard(localTapIndex, gamertag ?? "Player");
+    setWaitingCardIndex(localTapIndex);
     setLocalTapIndex(null);
   }, [localTapIndex, onTapCard, gamertag]);
+
+  // Clear spinner when the card is actually revealed on the board
+  useEffect(() => {
+    if (waitingCardIndex != null && board[waitingCardIndex]?.revealed) {
+      setWaitingCardIndex(null); // eslint-disable-line react-hooks/set-state-in-effect -- sync with external board state
+    }
+  }, [board, waitingCardIndex]);
 
   // Cancel local tap
   const handleCancelLocalTap = useCallback(() => {
@@ -82,6 +92,7 @@ export default function OperativeScreen({
             canTap={canTap && !pendingTap && !localTapIndex}
             onTapCard={handleTapCard}
             pendingCardIndex={pendingTap?.cardIndex ?? localTapIndex}
+            waitingCardIndex={waitingCardIndex}
           />
         </div>
 
