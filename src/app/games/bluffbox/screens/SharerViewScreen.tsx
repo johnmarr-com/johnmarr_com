@@ -48,8 +48,8 @@ export default function SharerViewScreen({
   waitingForVotes = false,
 }: SharerViewScreenProps) {
   const roundLabel = `ROUND ${roundNumber} of ${totalRounds}`;
-  const [flipped, setFlipped] = useState(false);
-  const [flipComplete, setFlipComplete] = useState(false);
+  const [flipped, setFlipped] = useState(waitingForVotes);
+  const [flipComplete, setFlipComplete] = useState(waitingForVotes);
   const [isDealing, setIsDealing] = useState(false);
   const dealRequestedRef = useRef(false);
   const flipScheduledRef = useRef(false);
@@ -177,7 +177,7 @@ export default function SharerViewScreen({
             {`Tap to view contents.\nDon't let anyone see!`}
           </p>
         ) : waitingForVotes ? (
-          <p className="max-w-sm animate-pulse text-center text-lg font-semibold leading-snug text-white/60 sm:text-xl">
+          <p className="max-w-sm animate-pulse text-center text-xl font-bold leading-snug text-white/60 sm:text-2xl">
             Everyone is voting&nbsp;&hellip;
           </p>
         ) : (

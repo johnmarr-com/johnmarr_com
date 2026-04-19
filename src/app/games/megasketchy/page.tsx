@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { GameLandingPage, type GameMode } from "../_gamecore";
+import { GameLandingPage } from "../_gamecore";
 import { JMProButton } from "@/JMKit";
 import { useAuth } from "@/lib/AuthProvider";
 import { getContentBySlug } from "@/lib/content";
@@ -16,7 +16,6 @@ export default function MegaSketchyPage() {
   const router = useRouter();
   const { user, gamertag, avatarName, userTier, isAdmin, isLoading: authLoading } = useAuth();
   const initialSessionId = searchParams.get("sessionId");
-  const [mode, setMode] = useState<GameMode | null>(initialSessionId ? "friends" : null);
   const [sessionId, setSessionId] = useState<string | null>(initialSessionId);
   const [gameData, setGameData] = useState<JMContent | null>(null);
   const autoJoinRef = useRef(false);
@@ -48,10 +47,13 @@ export default function MegaSketchyPage() {
 
   const bgMusicLandingOnly = gameData?.bgMusicLandingOnly ?? false;
 
-  if (mode === "friends" && sessionId) {
+  // Prefer URL sessionId (handles client-side nav from My Games while already on this page)
+  const activeSessionId = initialSessionId ?? sessionId;
+
+  if (activeSessionId) {
     return (
       <MegaSketchyGame
-        sessionId={sessionId}
+        sessionId={activeSessionId}
         gameSlug="megasketchy"
         bgMusicLandingOnly={bgMusicLandingOnly}
         {...(gameData?.splashBgURL ? { splashBgURL: gameData.splashBgURL } : {})}
@@ -83,7 +85,6 @@ export default function MegaSketchyPage() {
     const sides: Record<string, string> = { [user.uid]: "player-1" };
     await startGame(sess.id, sides);
     setSessionId(sess.id);
-    setMode("friends");
     router.replace(`/games/megasketchy?sessionId=${sess.id}`);
   };
 
@@ -103,7 +104,6 @@ export default function MegaSketchyPage() {
       onSoloPlay={handleSoloPlay}
       onMultiplayerStart={(sid) => {
         setSessionId(sid);
-        setMode("friends");
         router.replace(`/games/megasketchy?sessionId=${sid}`);
       }}
     />
