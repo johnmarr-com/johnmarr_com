@@ -95,13 +95,10 @@ export default function BluffBoxGame({
   const guessCount = Object.keys(guesses).length;
   const allGuessesIn =
     guessCount >= expectedGuessCount && expectedGuessCount > 0;
-  /** Every guesser was wrong — triggers the "WOW! EVERYONE MISSED!" callout in TurnResultModal. */
-  const sharerFooledEveryone =
-    sharerChoice != null &&
-    expectedGuessCount > 0 &&
-    players
-      .filter((p) => p.uid !== currentSharer)
-      .every((p) => guesses[p.uid] !== sharerChoice);
+  const fooledCount = sharerChoice != null
+    ? players.filter((p) => p.uid !== currentSharer && guesses[p.uid] !== sharerChoice).length
+    : 0;
+  const sharerFooledEveryone = fooledCount > 0 && fooledCount === expectedGuessCount;
   const playerGuess = guesses[userId] ?? null;
   const hasGuessed = playerGuess != null;
 
@@ -707,6 +704,7 @@ export default function BluffBoxGame({
                 sharerChoice={sharerChoice}
                 cardURL={cardURL}
                 playerGuess={isSharer ? null : playerGuess}
+                sharerFooledCount={fooledCount}
                 sharerEarnedFoolBonus={sharerFooledEveryone}
                 onDismiss={() => {
                   if (isHost) {

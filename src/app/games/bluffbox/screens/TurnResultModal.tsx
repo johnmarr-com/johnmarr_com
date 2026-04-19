@@ -13,7 +13,9 @@ interface TurnResultModalProps {
   cardURL: string;
   /** The current player's guess, or null if this player was the sharer. */
   playerGuess: "truth" | "lie" | null;
-  /** 3+ player games: sharer gets +1 when no guesser was right. */
+  /** How many guessers the sharer fooled this turn. */
+  sharerFooledCount?: number;
+  /** Every single guesser was wrong — triggers extra "EVERYONE MISSED!" callout. */
   sharerEarnedFoolBonus?: boolean;
   onDismiss: () => void;
 }
@@ -31,6 +33,7 @@ export default function TurnResultModal({
   sharerChoice,
   cardURL,
   playerGuess,
+  sharerFooledCount = 0,
   sharerEarnedFoolBonus = false,
   onDismiss,
 }: TurnResultModalProps) {
@@ -84,7 +87,7 @@ export default function TurnResultModal({
           />
         </div>
 
-        {/* Personal result: guessers (CONGRATS / SORRY); sharer bonus when everyone missed (3+ players) */}
+        {/* Guesser result */}
         {!isSharer && (
           <div
             className={`flex flex-col items-center gap-1 text-center font-black uppercase tracking-wider ${
@@ -95,15 +98,34 @@ export default function TurnResultModal({
               {guessedCorrectly ? "CONGRATS!" : "SORRY!"}
             </span>
             <span className="text-2xl leading-tight">
-              {guessedCorrectly ? "+1 POINT!" : "NO POINT FOR YOU!"}
+              {guessedCorrectly ? "+1 Point!" : "No point for you!"}
             </span>
           </div>
         )}
-        {isSharer && sharerEarnedFoolBonus && (
+
+        {/* Sharer result */}
+        {isSharer && sharerFooledCount > 0 && (
           <div className="flex flex-col items-center gap-1 text-center font-black uppercase tracking-wider text-green-400">
-            <span className="text-4xl leading-tight">WOW!</span>
-            <span className="text-3xl leading-tight sm:text-4xl">EVERYONE MISSED!</span>
-            <span className="text-2xl leading-tight">+1 POINT!</span>
+            {sharerEarnedFoolBonus ? (
+              <>
+                <span className="text-4xl leading-tight">WOW!</span>
+                <span className="text-2xl leading-tight sm:text-3xl">Everyone missed!</span>
+              </>
+            ) : (
+              <span className="text-2xl leading-tight sm:text-3xl">
+                You fooled {sharerFooledCount} {sharerFooledCount === 1 ? "person" : "people"}!
+              </span>
+            )}
+            <span className="text-3xl leading-tight sm:text-4xl">
+              +{Math.min(sharerFooledCount, 3)} {Math.min(sharerFooledCount, 3) === 1 ? "Point" : "Points"}!
+            </span>
+          </div>
+        )}
+        {isSharer && sharerFooledCount === 0 && (
+          <div className="flex flex-col items-center gap-1 text-center font-black uppercase tracking-wider text-orange-400">
+            <span className="text-2xl leading-tight sm:text-3xl">
+              Nobody was fooled!
+            </span>
           </div>
         )}
 
