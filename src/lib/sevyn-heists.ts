@@ -80,8 +80,7 @@ export interface CreateHeistInput {
   setting: SevynHeist["setting"];
   assets: SevynHeist["assets"];
   civilians: SevynHeist["civilians"];
-  bomb: SevynHeist["bomb"];
-  bombDescription: string;
+  winMessage: string;
   words: SevynHeist["words"];
   visibility: SevynHeist["visibility"];
 }

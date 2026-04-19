@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "@/lib/firebase-admin";
 import { getAdminFirestore } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import type {
-  CardType,
-  SevynKeyDoc,
-  SevynBossView,
-  SevynRevealResult,
+import {
+  HEIST_ELEMENT_LABELS,
+  type CardType,
+  type SevynKeyDoc,
+  type SevynBossView,
+  type SevynRevealResult,
 } from "@/app/games/sevyn/sevynTypes";
 
 // ─── Per-UID rate limiting ──────────────────────────────────
@@ -147,8 +148,6 @@ async function handleGenerateKey(
     return NextResponse.json({ error: "Heist not found" }, { status: 404 });
   }
   const heist = heistSnap.data()!;
-  const bomb = heist["bomb"] as { name: string; imageUrl: string; soundEffect: string };
-  const bombDescription = (heist["bombDescription"] as string) ?? "";
   const words = heist["words"] as { tier1: string[]; tier2: string[]; tier3: string[] };
   const civilians = heist["civilians"] as { name: string; description: string; imageUrl: string }[];
 
@@ -213,7 +212,7 @@ async function handleGenerateKey(
       const civ = cIdx != null ? civilians[cIdx] : undefined;
       detail = `civilian="${civ?.name ?? "?"}"`;
     } else {
-      detail = `bomb="${bomb.name}"`;
+      detail = "BOMB";
     }
     const typeLabel = type === "T1" ? "Syndicate 1" : type === "T2" ? "Syndicate 2" : type === "N" ? "Civilian" : "BOMB";
     console.log(`[SEVYN DEBUG] Card ${i + 1}: word="${card.word}" | type=${typeLabel} | ${detail}`);
@@ -223,10 +222,6 @@ async function handleGenerateKey(
   return NextResponse.json({
     keyDocId: keyRef.id,
     board,
-    bombSoundEffect: bomb.soundEffect,
-    bombDescription,
-    bombName: bomb.name,
-    bombImageUrl: bomb.imageUrl,
   });
 }
 
@@ -343,10 +338,11 @@ async function handleRevealCard(
     return NextResponse.json({ error: "Heist not found" }, { status: 404 });
   }
   const heist = heistSnap.data()!;
-  const assets = heist["assets"] as { name: string; description: string; imageUrl: string }[];
+  const assets = heist["assets"] as {
+    name: string; description: string; imageUrl: string;
+    bombDescription?: string; bombImageUrl?: string; bombSoundEffect?: string;
+  }[];
   const civilians = heist["civilians"] as { name: string; description: string; imageUrl: string }[];
-  const bomb = heist["bomb"] as { name: string; imageUrl: string };
-  const bombDescription = (heist["bombDescription"] as string) ?? "";
 
   let result: SevynRevealResult;
 
@@ -378,13 +374,20 @@ async function handleRevealCard(
       imageUrl: civ?.imageUrl ?? "",
     };
   } else {
-    // BOMB
+    // BOMB — use per-element bomb based on which element the active team is on
+    const sessionData = sessionSnap.data()!;
+    const activeTeam = sessionData["activeTeam"] as string;
+    const countField = activeTeam === "syndicate1" ? "t1RevealCount" : "t2RevealCount";
+    const elementIndex = (keyData[countField] as number) ?? 0;
+    const elementAsset = assets[elementIndex];
+
     result = {
       cardIndex,
       cardType,
-      name: bomb.name,
-      description: bombDescription,
-      imageUrl: bomb.imageUrl,
+      name: HEIST_ELEMENT_LABELS[elementIndex] ?? "THE BOMB",
+      description: elementAsset?.bombDescription || "",
+      imageUrl: elementAsset?.bombImageUrl || "",
+      bombSoundEffect: elementAsset?.bombSoundEffect || "",
     };
   }
 

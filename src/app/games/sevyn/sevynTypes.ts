@@ -5,6 +5,20 @@
  * server-authoritative and never transmitted to operative clients.
  */
 
+// ─── Heist Element Labels (fixed narrative roles) ──────────
+
+export const HEIST_ELEMENT_LABELS = [
+  "Intel",
+  "Inside Man",
+  "Cover Story",
+  "Specialist",
+  "Distraction",
+  "Escape Route",
+  "Payday",
+] as const;
+
+export type HeistElementLabel = (typeof HEIST_ELEMENT_LABELS)[number];
+
 // ─── Heist Data (Firestore: sevynHeists/{id}) ──────────────
 
 export interface SevynHeistSetting {
@@ -18,6 +32,12 @@ export interface SevynAsset {
   name: string;
   description: string;
   imageUrl: string;
+  /** Per-element bomb: narrative description of what went wrong */
+  bombDescription: string;
+  /** Per-element bomb: failure image URL */
+  bombImageUrl: string;
+  /** Per-element bomb: failure sound effect URL */
+  bombSoundEffect: string;
 }
 
 export interface SevynCivilian {
@@ -27,13 +47,7 @@ export interface SevynCivilian {
   imageUrl: string;
 }
 
-export interface SevynBomb {
-  name: string;
-  imageUrl: string;
-  soundEffect: string;
-}
-
-/** Standalone bomb entity in sevynBombs collection */
+/** Standalone bomb entity in sevynBombs collection (used as templates for per-element bombs) */
 export interface SevynBombEntity {
   id: string;
   name: string;
@@ -61,10 +75,9 @@ export interface SevynHeist {
 
   setting: SevynHeistSetting;
 
-  assets: SevynAsset[]; // exactly 7
+  assets: SevynAsset[]; // exactly 7 — each carries its own per-element bomb
   civilians: SevynCivilian[]; // exactly 5
-  bomb: SevynBomb;
-  bombDescription: string;
+  winMessage: string;
   words: SevynWordPool;
 
   // Metadata
@@ -108,6 +121,8 @@ export interface SevynBoardCard {
   revealedImageUrl?: string;
   /** For assets: which number this was (1-7) for the owning team */
   revealedAssetNumber?: number;
+  /** For bombs: sound effect URL from the per-element bomb */
+  revealedSoundEffect?: string;
 }
 
 // ─── Teams & Roles ──────────────────────────────────────────
@@ -201,9 +216,6 @@ export interface SevynSessionState {
   loseByBomb: boolean;
   bombRevealedBy: string | null; // UID who tapped the bomb
 
-  // Bomb sound effect URL (stored so all clients can play it)
-  bombSoundUrl: string | null;
-
   // Server key reference (doc ID in sevynKeys collection)
   keyDocId: string | null;
 }
@@ -242,4 +254,6 @@ export interface SevynRevealResult {
   imageUrl: string;
   /** For assets: which number (1–7) for the owning team */
   assetNumber?: number;
+  /** For bombs: per-element sound effect URL */
+  bombSoundEffect?: string;
 }

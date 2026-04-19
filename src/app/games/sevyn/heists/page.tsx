@@ -1,16 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthProvider";
 import { GameSectionHeader } from "@/app/games/_gamecore";
+import { JMCloseCircleButton } from "@/JMKit/JMCloseCircleButton";
 import HeistEditor from "./HeistEditor";
 import HeistBrowser from "./HeistBrowser";
 import type { SevynHeist } from "../sevynTypes";
 
-type Tab = "create" | "browse";
+type Tab = "browse" | "create";
 
 export default function HeistBuilderPage() {
   const { isAdmin, userTier } = useAuth();
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("browse");
   const [editingHeist, setEditingHeist] = useState<SevynHeist | null>(null);
 
@@ -29,12 +32,21 @@ export default function HeistBuilderPage() {
     setTab("create");
   };
 
-  const handleNewHeist = () => {
-    setEditingHeist(null);
+  const handleCreateTab = () => {
+    // Tapping the Create tab while already on it clears any editing heist
+    if (tab === "create" && editingHeist) {
+      setEditingHeist(null);
+    }
+    setTab("create");
   };
 
   return (
-    <div className="min-h-dvh bg-black px-4 py-8">
+    <div className="relative min-h-dvh bg-black px-4 py-8">
+      {/* Close button — top right */}
+      <div className="absolute right-4 top-4 z-10">
+        <JMCloseCircleButton onClick={() => router.back()} />
+      </div>
+
       <div className="mx-auto max-w-2xl">
         <GameSectionHeader
           eyebrow="SEVYN"
@@ -43,44 +55,33 @@ export default function HeistBuilderPage() {
           eyebrowColorClass="text-[#E84C1E]/70"
         />
 
-        {/* Tabs */}
-        <div className="mt-4 flex justify-center gap-2">
+        {/* Top tabs — Browse | Create/Editing */}
+        <div className="mt-5 flex rounded-xl border border-white/10 bg-white/5 p-1">
           <button
-            className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
-              tab === "create" ? "bg-[#E84C1E] text-white" : "bg-white/10 text-white/60 hover:bg-white/20"
-            }`}
-            onClick={() => setTab("create")}
-          >
-            {editingHeist ? "Editing" : "Create"}
-          </button>
-          <button
-            className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
-              tab === "browse" ? "bg-[#E84C1E] text-white" : "bg-white/10 text-white/60 hover:bg-white/20"
+            className={`flex-1 rounded-lg py-2.5 text-sm font-bold tracking-wide transition ${
+              tab === "browse"
+                ? "bg-[#E84C1E] text-white shadow-lg"
+                : "text-white/50 active:bg-white/10"
             }`}
             onClick={() => setTab("browse")}
           >
             Browse
           </button>
+          <button
+            className={`flex-1 rounded-lg py-2.5 text-sm font-bold tracking-wide transition ${
+              tab === "create"
+                ? "bg-[#E84C1E] text-white shadow-lg"
+                : "text-white/50 active:bg-white/10"
+            }`}
+            onClick={handleCreateTab}
+          >
+            {editingHeist ? "Editing" : "Create"}
+          </button>
         </div>
 
-        <div className="mt-6">
+        <div className="mt-5">
           {tab === "create" && (
-            <>
-              {editingHeist && (
-                <div className="mb-4 flex items-center justify-between rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-2">
-                  <p className="text-xs text-yellow-400">
-                    Editing: <span className="font-bold">{editingHeist.title}</span>
-                  </p>
-                  <button
-                    className="text-xs text-white/40 hover:text-white/60"
-                    onClick={handleNewHeist}
-                  >
-                    New Heist
-                  </button>
-                </div>
-              )}
-              <HeistEditor key={editingHeist?.id ?? "new"} {...(editingHeist ? { editHeist: editingHeist } : {})} />
-            </>
+            <HeistEditor key={editingHeist?.id ?? "new"} {...(editingHeist ? { editHeist: editingHeist } : {})} />
           )}
           {tab === "browse" && <HeistBrowser onEditHeist={handleEditHeist} />}
         </div>

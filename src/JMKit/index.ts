@@ -89,3 +89,4 @@ export {
   type TruthLieChoice,
 } from "./JMTruthLieChoice";
 export { JMTeamInterstitial, type JMTeamInterstitialProps } from "./JMTeamInterstitial";
+export { JMGameResultOverlay, type JMGameResultOverlayProps } from "./JMGameResultOverlay";

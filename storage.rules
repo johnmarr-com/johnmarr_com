@@ -314,12 +314,12 @@ service firebase.storage {
     }
     
     // ─────────────────────────────────────────────────────────────
-    // SEVYN HEISTS (Heist background, target, asset, civilian images)
+    // SEVYN HEISTS (Heist images + per-element bomb sound effects)
     // ─────────────────────────────────────────────────────────────
 
     match /sevyn-heists/{heistId}/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuthenticated() && isImage() && maxSize(5);
+      allow write: if isAuthenticated() && (isImage() || isAudio()) && maxSize(5);
       allow delete: if isAdmin();
     }
 

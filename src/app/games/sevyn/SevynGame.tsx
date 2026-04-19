@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useAuth } from "@/lib/AuthProvider";
 import { GameGamertagBadge, getAIAuthHeaders } from "@/app/games/_gamecore";
-import { JMTeamInterstitial } from "@/JMKit";
+import { JMTeamInterstitial, JMGameResultOverlay } from "@/JMKit";
 import { useSevynSession } from "./useSevynSession";
 import type {
   SevynHeist,
@@ -22,7 +22,6 @@ import BossSelectScreen from "./screens/BossSelectScreen";
 import BossScreen from "./screens/BossScreen";
 import OperativeScreen from "./screens/OperativeScreen";
 import CardRevealOverlay from "./screens/CardRevealOverlay";
-import VictoryOverlay from "./screens/VictoryOverlay";
 
 // ─── Constants ──────────────────────────────────────────────
 
@@ -83,8 +82,8 @@ export default function SevynGame({
   // Team interstitial — shows when activeTeam changes during gameplay
   const [interstitialTeam, setInterstitialTeam] = useState<SevynTeam | null>(null);
   const prevActiveTeamRef = useRef<SevynTeam | null>(null);
-  // Victory overlay — crossfades in beneath card reveal / bomb loss
-  const [showVictoryOverlay, setShowVictoryOverlay] = useState(false);
+  // Game-over overlay: "loss" shows bomb loss first, then transitions to "win"
+  const [gameOverPhase, setGameOverPhase] = useState<"loss" | "win" | null>(null);
   const {
     svPhase,
     selectedHeistId,
@@ -146,9 +145,11 @@ export default function SevynGame({
   useEffect(() => {
     if (!heist) return;
     const urls: string[] = [];
-    for (const a of heist.assets) { if (a.imageUrl) urls.push(a.imageUrl); }
+    for (const a of heist.assets) {
+      if (a.imageUrl) urls.push(a.imageUrl);
+      if (a.bombImageUrl) urls.push(a.bombImageUrl);
+    }
     for (const c of heist.civilians) { if (c.imageUrl) urls.push(c.imageUrl); }
-    if (heist.bomb.imageUrl) urls.push(heist.bomb.imageUrl);
     for (const url of urls) {
       const img = new window.Image();
       img.src = url;
@@ -164,13 +165,17 @@ export default function SevynGame({
     }
   }, []);
 
-  // Preload bomb sound when it becomes available
+  // Preload per-element bomb sounds from heist data
   useEffect(() => {
-    if (!svState.bombSoundUrl) return;
-    const a = new Audio(svState.bombSoundUrl);
-    a.preload = "auto";
-    a.load();
-  }, [svState.bombSoundUrl]);
+    if (!heist) return;
+    for (const asset of heist.assets) {
+      if (asset.bombSoundEffect) {
+        const a = new Audio(asset.bombSoundEffect);
+        a.preload = "auto";
+        a.load();
+      }
+    }
+  }, [heist]);
 
   // ─── Fetch boss view when game starts and I'm a boss ─────────
   useEffect(() => {
@@ -242,7 +247,6 @@ export default function SevynGame({
       });
 
       await updateFields({
-        bombSoundUrl: data.bombSoundEffect ?? null,
         board: data.board,
         keyDocId: data.keyDocId,
         activeTeam: firstTeam,
@@ -328,6 +332,7 @@ export default function SevynGame({
           revealedName: result.name,
           revealedDescription: result.description,
           revealedImageUrl: result.imageUrl,
+          ...(result.bombSoundEffect ? { revealedSoundEffect: result.bombSoundEffect } : {}),
         };
       }
 
@@ -441,6 +446,7 @@ export default function SevynGame({
             description: cur.revealedDescription ?? "",
             imageUrl: cur.revealedImageUrl ?? "",
             ...(cur.revealedAssetNumber != null ? { assetNumber: cur.revealedAssetNumber } : {}),
+            ...(cur.revealedSoundEffect ? { bombSoundEffect: cur.revealedSoundEffect } : {}),
           },
         });
         break;
@@ -456,9 +462,9 @@ export default function SevynGame({
 
     if (!isHost || revealedIndex == null) return;
 
-    // If game is over, show victory overlay (clean win — no bomb loss screen)
+    // If game is over, show the appropriate overlay
     if (svState.winningTeam) {
-      if (!svState.loseByBomb) setShowVictoryOverlay(true);
+      setGameOverPhase(svState.loseByBomb ? "loss" : "win");
       return;
     }
 
@@ -529,7 +535,7 @@ export default function SevynGame({
   // ─── Play Again (host resets to boss-select) ─────────────
   const handlePlayAgain = useCallback(async () => {
     if (!isHost) return;
-    setShowVictoryOverlay(false);
+    setGameOverPhase(null);
     await updateFields({
       board: null,
       keyDocId: null,
@@ -553,12 +559,19 @@ export default function SevynGame({
     });
   }, [isHost, updateFields]);
 
-  // ─── Show victory overlay when entering game-over via Firestore sync (non-host clients) ──
+  // ─── Show game-over overlay when entering via Firestore sync (non-host clients) ──
   useEffect(() => {
-    if (svPhase === "game-over" && !animReveal && !showVictoryOverlay) {
-      setShowVictoryOverlay(true);
+    if (svPhase === "game-over" && !animReveal && !gameOverPhase) {
+      setGameOverPhase(loseByBomb ? "loss" : "win");
     }
-  }, [svPhase, animReveal, showVictoryOverlay]);
+  }, [svPhase, animReveal, gameOverPhase, loseByBomb]);
+
+  // ─── Bomb loss → win transition (show loss for 5s, then switch to win) ──
+  useEffect(() => {
+    if (gameOverPhase !== "loss") return;
+    const timer = setTimeout(() => setGameOverPhase("win"), 5000);
+    return () => clearTimeout(timer);
+  }, [gameOverPhase]);
 
   // ─── Render ───────────────────────────────────────────────
 
@@ -828,22 +841,37 @@ export default function SevynGame({
         {/* game-over phase: grid is hidden, victory overlay renders separately */}
       </div>
 
-      {/* Victory Overlay — rendered at z-40, beneath CardRevealOverlay (z-50) for crossfade */}
-      {showVictoryOverlay && heist && winningTeam && (
-        <VictoryOverlay
-          winningTeamName={winningTeam === "syndicate1" ? t1Display : t2Display}
-          winningTeamColor={winningTeam === "syndicate1" ? SEVYN_COLORS.t1 : SEVYN_COLORS.t2}
-          winningTeamLogoUrl={(winningTeam === "syndicate1" ? svState.draftT1Logo : svState.draftT2Logo) ?? ""}
-          targetImageUrl={heist.targetObjectImageUrl}
-          heistTitle={heist.title}
-          t1Score={t1Score}
-          t2Score={t2Score}
-          t1Name={t1Display}
-          t2Name={t2Display}
-          t1Color={SEVYN_COLORS.t1}
-          t2Color={SEVYN_COLORS.t2}
+      {/* Game-Over: Bomb Loss Overlay — fades in on top of everything */}
+      {gameOverPhase === "loss" && heist && winningTeam && (() => {
+        const losingTeam: SevynTeam = winningTeam === "syndicate1" ? "syndicate2" : "syndicate1";
+        const losingScore = losingTeam === "syndicate1" ? t1Score : t2Score;
+        const elementBomb = heist.assets[losingScore];
+        return (
+          <JMGameResultOverlay
+            variant="loss"
+            teamName={losingTeam === "syndicate1" ? t1Display : t2Display}
+            teamColor={losingTeam === "syndicate1" ? SEVYN_COLORS.t1 : SEVYN_COLORS.t2}
+            teamLogoUrl={(losingTeam === "syndicate1" ? svState.draftT1Logo : svState.draftT2Logo) ?? ""}
+            cardImageUrl={elementBomb?.bombImageUrl ?? ""}
+            heading={heist.title}
+            message={elementBomb?.bombDescription ?? ""}
+            audioUrl={elementBomb?.bombSoundEffect ?? null}
+          />
+        );
+      })()}
+
+      {/* Game-Over: Win Overlay — fades in on top (directly for clean wins, after loss for bombs) */}
+      {gameOverPhase === "win" && heist && winningTeam && (
+        <JMGameResultOverlay
+          variant="win"
+          teamName={winningTeam === "syndicate1" ? t1Display : t2Display}
+          teamColor={winningTeam === "syndicate1" ? SEVYN_COLORS.t1 : SEVYN_COLORS.t2}
+          teamLogoUrl={(winningTeam === "syndicate1" ? svState.draftT1Logo : svState.draftT2Logo) ?? ""}
+          cardImageUrl={heist.targetObjectImageUrl}
+          heading={heist.title}
+          message={heist.winMessage}
+          audioUrl={musicUrl}
           isHost={isHost}
-          musicUrl={musicUrl}
           onPlayAgain={handlePlayAgain}
         />
       )}
@@ -854,19 +882,8 @@ export default function SevynGame({
           result={animReveal.result}
           activeTeam={activeTeam!}
           boardWord={animReveal.word}
-          bombSoundUrl={animReveal.result.cardType === "BOMB" ? svState.bombSoundUrl : null}
+          bombSoundUrl={animReveal.result.bombSoundEffect ?? null}
           onDismiss={handleRevealDismissed}
-          bombLoss={
-            animReveal.result.cardType === "BOMB" && loseByBomb
-              ? {
-                  losingTeamName: activeTeamName,
-                  losingTeamColor: activeTeam === "syndicate1" ? SEVYN_COLORS.t1 : SEVYN_COLORS.t2,
-                  losingTeamLogoUrl: (activeTeam === "syndicate1" ? svState.draftT1Logo : svState.draftT2Logo) ?? "",
-                  bombMessage: heist?.bombDescription ?? "",
-                }
-              : null
-          }
-          onStartVictoryTransition={() => setShowVictoryOverlay(true)}
         />
       )}
 

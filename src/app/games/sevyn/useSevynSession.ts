@@ -115,7 +115,6 @@ export function useSevynSession({ sessionId, userId }: UseSevynSessionOptions) {
       loseByBomb: (s["loseByBomb"] as boolean) ?? false,
       bombRevealedBy: (s["bombRevealedBy"] as string) ?? null,
 
-      bombSoundUrl: (s["bombSoundUrl"] as string) ?? null,
       keyDocId: (s["keyDocId"] as string) ?? null,
     };
   }, [session]);
@@ -214,6 +213,5 @@ const defaultState: SevynSessionState = {
   loseByBomb: false,
   bombRevealedBy: null,
 
-  bombSoundUrl: null,
   keyDocId: null,
 };

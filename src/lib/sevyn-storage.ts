@@ -107,6 +107,30 @@ export async function uploadSevynImage(
 }
 
 /**
+ * Upload an audio file to Firebase Storage for a heist element's bomb sound.
+ * Returns the permanent public URL.
+ */
+export async function uploadSevynAudio(
+  heistId: string,
+  elementIndex: number,
+  file: File,
+): Promise<string> {
+  const { ref, uploadBytes } = await import("firebase/storage");
+  const storage = await getStorage();
+
+  const ext = file.name.split(".").pop() ?? "mp3";
+  const path = `sevyn-heists/${heistId}/bomb-sound-${elementIndex}-${v()}.${ext}`;
+  const storageRef = ref(storage, path);
+
+  await uploadBytes(storageRef, file, {
+    contentType: file.type || "audio/mpeg",
+    cacheControl: "public, max-age=31536000",
+  });
+
+  return getPublicStorageUrl(storage.app.options.storageBucket ?? "", path);
+}
+
+/**
  * Delete all images for a heist from Storage.
  */
 export async function deleteSevynHeistImages(heistId: string): Promise<void> {
