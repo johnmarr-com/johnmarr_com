@@ -29,6 +29,7 @@ import GroupGuessModal from "./screens/GroupGuessModal";
 import TurnResultModal from "./screens/TurnResultModal";
 import WinnerScreen from "./screens/WinnerScreen";
 import BluffPackPicker from "./BluffPackPicker";
+import BluffPackGridPicker from "./BluffPackGridPicker";
 import type { BluffBoxPack } from "@/lib/bluffbox-packs";
 import { JMConfettiOverlay } from "@/JMKit";
 
@@ -47,7 +48,7 @@ export default function BluffBoxGame({
   splashBgURL,
   gameLogoURL,
 }: BluffBoxGameProps) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const userId = user?.uid ?? "";
   const { state, updateFields, setPhase } = useBluffBoxSession(
     sessionId,
@@ -519,7 +520,7 @@ export default function BluffBoxGame({
                 Starting game&hellip;
               </p>
             </div>
-          ) : (
+          ) : isAdmin ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
               <h2 className="text-xl font-black uppercase tracking-wider text-amber-400">
                 Choose a Bluff Pack
@@ -528,6 +529,13 @@ export default function BluffBoxGame({
                 onSelect={handlePackSelected}
                 onClose={() => {}}
               />
+            </div>
+          ) : (
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 pt-4 pb-10">
+              <h2 className="text-center text-xl font-black uppercase tracking-wider text-amber-400">
+                Choose a Bluff Pack
+              </h2>
+              <BluffPackGridPicker onSelect={handlePackSelected} />
             </div>
           ))}
         {bbPhase === "pack-select" && !isHost && (
