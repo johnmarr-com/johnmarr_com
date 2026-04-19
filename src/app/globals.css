@@ -39,6 +39,12 @@ html {
   animation: badge-pulse 1.5s ease-in-out infinite;
 }
 
+/* Gentle floating bob */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
 /* Selection styling */
 ::selection {
   background: var(--accent);

@@ -541,13 +541,13 @@ export default function BluffBoxGame({
         {bbPhase === "pack-select" && !isHost && (
           <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6">
             {gameLogoURL != null && gameLogoURL.length > 0 ? (
-              <div className="motion-reduce:animate-none animate-bounce">
+              <div className="motion-reduce:animate-none animate-[float_3s_ease-in-out_infinite]">
                 <Image
                   src={gameLogoURL}
                   alt=""
-                  width={280}
-                  height={140}
-                  className="h-16 w-auto max-w-[min(240px,70vw)] object-contain select-none sm:h-20"
+                  width={400}
+                  height={200}
+                  className="h-24 w-auto max-w-[min(320px,80vw)] object-contain select-none sm:h-32"
                   priority={false}
                 />
               </div>
