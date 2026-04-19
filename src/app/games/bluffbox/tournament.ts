@@ -10,9 +10,7 @@
  * Tuned so every game produces a meaningful point spread.
  */
 export function calculateTotalRounds(playerCount: number): number {
-  if (playerCount <= 2) return 5;
-  if (playerCount === 3) return 4;
-  if (playerCount === 4) return 3;
+  if (playerCount <= 3) return 3;
   if (playerCount <= 8) return 2;
   return 1;
 }
