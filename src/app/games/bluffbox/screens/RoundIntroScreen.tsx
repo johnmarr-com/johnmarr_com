@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import Image from "next/image";
+import { useEffect, useState } from "react";
 
 interface RoundIntroScreenProps {
   roundNumber: number;
@@ -8,25 +9,33 @@ interface RoundIntroScreenProps {
   onComplete: () => void;
 }
 
-export default function RoundIntroScreen({ roundNumber, totalRounds, onComplete }: RoundIntroScreenProps) {
+export default function RoundIntroScreen({ roundNumber, onComplete }: RoundIntroScreenProps) {
+  const [visible, setVisible] = useState(false);
+
   useEffect(() => {
+    // Trigger fade+scale on next frame so the transition runs
+    const raf = requestAnimationFrame(() => setVisible(true));
     const timer = setTimeout(onComplete, 2500);
-    return () => clearTimeout(timer);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(timer);
+    };
   }, [onComplete]);
 
-  const subtitle =
-    roundNumber === 1
-      ? "Let the bluffing begin!"
-      : "Next round!";
+  const src = `/images/games/bluffbox/Round-${Math.min(roundNumber, 3)}.jpg`;
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4" onClick={onComplete}>
-      <p className="animate-pulse text-xs font-bold uppercase tracking-[0.4em] text-white/40">
-        {subtitle}
-      </p>
-      <h1 className="text-5xl font-black uppercase tracking-wider text-white drop-shadow-lg">
-        ROUND {roundNumber} <span className="text-2xl text-white/50">of {totalRounds}</span>
-      </h1>
+    <div className="flex flex-1 items-center justify-center" onClick={onComplete}>
+      <Image
+        src={src}
+        alt={`Round ${roundNumber}`}
+        width={600}
+        height={600}
+        className={`w-[60vw] max-w-[600px] mix-blend-screen transition-all duration-700 ease-out ${
+          visible ? "scale-100 opacity-100" : "scale-90 opacity-0"
+        }`}
+        priority
+      />
     </div>
   );
 }
