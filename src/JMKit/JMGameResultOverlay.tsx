@@ -25,6 +25,8 @@ export interface JMGameResultOverlayProps {
   isHost?: boolean;
   /** Called when host taps Play Again */
   onPlayAgain?: () => void;
+  /** Called when the overlay is tapped to dismiss (e.g. loss screen) */
+  onDismiss?: () => void;
 }
 
 const CARD_SIZE = 260;
@@ -40,6 +42,7 @@ export function JMGameResultOverlay({
   audioUrl,
   isHost,
   onPlayAgain,
+  onDismiss,
 }: JMGameResultOverlayProps) {
   const [show, setShow] = useState(false);
   const isWin = variant === "win";
@@ -71,7 +74,10 @@ export function JMGameResultOverlay({
       style={{
         opacity: show ? 1 : 0,
         transition: "opacity 600ms ease-out",
+        cursor: onDismiss ? "pointer" : undefined,
       }}
+      onClick={onDismiss}
+      role={onDismiss ? "button" : undefined}
     >
       {/* Dark team-colored backdrop */}
       <div
@@ -113,16 +119,31 @@ export function JMGameResultOverlay({
           />
         </div>
 
+        {/* Title: Wins! or Loses! — below logo, above card */}
+        <p
+          className="mt-4 text-4xl font-black"
+          style={{
+            color: teamColor,
+            opacity: show ? 1 : 0,
+            transform: show ? "translateY(0)" : "translateY(20px)",
+            transition: "opacity 600ms ease-out 250ms, transform 600ms ease-out 250ms",
+          }}
+        >
+          {teamName} {isWin
+            ? (teamName.endsWith("s") ? "Win!" : "Wins!")
+            : (teamName.endsWith("s") ? "Lose!" : "Loses!")}
+        </p>
+
         {/* Card image (target or bomb) */}
         <div
-          className="mt-6 overflow-hidden rounded-2xl"
+          className="mt-5 overflow-hidden rounded-2xl"
           style={{
             width: CARD_SIZE,
             height: CARD_SIZE,
             border: `6px solid ${teamColor}`,
             opacity: show ? 1 : 0,
             transform: show ? "scale(1)" : "scale(0.9)",
-            transition: "opacity 600ms ease-out 300ms, transform 600ms ease-out 300ms",
+            transition: "opacity 600ms ease-out 350ms, transform 600ms ease-out 350ms",
           }}
         >
           {cardImageUrl ? (
@@ -140,44 +161,32 @@ export function JMGameResultOverlay({
           )}
         </div>
 
-        {/* Heading */}
+        {/* Heading (heist title) — bold, team colored */}
         {heading && (
           <p
-            className="mt-4 text-xs font-bold uppercase tracking-wider text-white/60"
+            className="mt-4 text-sm font-black uppercase tracking-wider"
             style={{
+              color: teamColor,
               opacity: show ? 1 : 0,
-              transition: "opacity 600ms ease-out 400ms",
+              transition: "opacity 600ms ease-out 450ms",
             }}
           >
             {heading}
           </p>
         )}
 
-        {/* Message */}
+        {/* Message (win/loss description) — white */}
         {message && (
           <p
-            className="mt-2 max-w-xs text-center text-sm leading-relaxed text-white/70"
+            className="mt-2 max-w-xs text-center text-sm leading-relaxed text-white"
             style={{
               opacity: show ? 1 : 0,
-              transition: "opacity 600ms ease-out 450ms",
+              transition: "opacity 600ms ease-out 500ms",
             }}
           >
             {message}
           </p>
         )}
-
-        {/* Title: Wins! or Loses! */}
-        <p
-          className="mt-4 text-4xl font-black"
-          style={{
-            color: teamColor,
-            opacity: show ? 1 : 0,
-            transform: show ? "translateY(0)" : "translateY(20px)",
-            transition: "opacity 600ms ease-out 500ms, transform 600ms ease-out 500ms",
-          }}
-        >
-          {teamName} {isWin ? "Wins!" : "Loses!"}
-        </p>
 
         {/* Play Again — host only */}
         {isHost && onPlayAgain && (

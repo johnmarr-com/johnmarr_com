@@ -90,3 +90,5 @@ export {
 } from "./JMTruthLieChoice";
 export { JMTeamInterstitial, type JMTeamInterstitialProps } from "./JMTeamInterstitial";
 export { JMGameResultOverlay, type JMGameResultOverlayProps } from "./JMGameResultOverlay";
+export { JMTeamLogoButton, type JMTeamLogoButtonProps } from "./JMTeamLogoButton";
+export { JMTeamLogoPicker, type JMTeamLogoPickerProps } from "./JMTeamLogoPicker";

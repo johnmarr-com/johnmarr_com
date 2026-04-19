@@ -3,8 +3,10 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import type { GameSession } from "@/lib/game-sessions";
 import type { SevynTeam } from "../sevynTypes";
-import { GameSectionHeader, GamePrimaryButton, pickRandomTeams, type TeamName } from "@/app/games/_gamecore";
+import { GameSectionHeader, GamePrimaryButton, pickRandomTeams, type TeamName, type TeamIdentity } from "@/app/games/_gamecore";
 import { useAuth } from "@/lib/AuthProvider";
+import { JMTeamLogoButton } from "@/JMKit/JMTeamLogoButton";
+import { JMTeamLogoPicker } from "@/JMKit/JMTeamLogoPicker";
 import { SEVYN_COLORS } from "../SevynGame";
 
 interface TeamFormationScreenProps {
@@ -20,27 +22,7 @@ interface TeamFormationScreenProps {
   onDraftChanged?: (draft: { draftTeam1: string[]; draftTeam2: string[]; draftT1Logo: string; draftT2Logo: string }) => void;
 }
 
-// ─── Shared team zone UI (used by both host and non-host) ──
-
-function TeamLogo({ logoUrl, color }: { logoUrl: string; color: string }) {
-  return (
-    <div className="mb-3 flex justify-center">
-      <div
-        className="relative aspect-square w-[160px] max-w-[75%] shrink-0 overflow-hidden rounded-full"
-        style={{ backgroundColor: `${color}20` }}
-      >
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${logoUrl})` }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{ backgroundColor: color, mixBlendMode: "color" }}
-        />
-      </div>
-    </div>
-  );
-}
+// ─── Shared team zone UI ───────────────────────────────────
 
 function VsBadge() {
   return (
@@ -72,7 +54,7 @@ export default function TeamFormationScreen({
   const [team2, setTeam2] = useState<string[]>(externalTeam2 ?? []);
 
   // Restore identities from draft logos if returning from boss-select, otherwise pick random
-  const [teamIdentities] = useState(() => {
+  const [teamIdentities, setTeamIdentities] = useState<[TeamIdentity, TeamIdentity]>(() => {
     if (draftT1Logo && draftT2Logo) {
       const m1 = draftT1Logo.match(/Team-(\w+)\./);
       const m2 = draftT2Logo.match(/Team-(\w+)\./);
@@ -83,10 +65,14 @@ export default function TeamFormationScreen({
         ];
       }
     }
-    return pickRandomTeams(2);
+    const picked = pickRandomTeams(2);
+    return [picked[0]!, picked[1]!];
   });
-  const t1Identity = teamIdentities[0]!;
-  const t2Identity = teamIdentities[1]!;
+  const t1Identity = teamIdentities[0];
+  const t2Identity = teamIdentities[1];
+
+  // Logo picker modal state (host only)
+  const [logoPickerTeam, setLogoPickerTeam] = useState<"t1" | "t2" | null>(null);
 
   // Sync draft to Firestore whenever team1/team2 change (host only)
   const initialSyncDone = useRef(false);
@@ -232,8 +218,9 @@ export default function TeamFormationScreen({
     const logo2 = draftT2Logo ?? t2Identity.logoUrl;
 
     return (
-      <div className="flex min-h-dvh flex-col items-center px-4 py-16">
-        <div className="w-full max-w-lg">
+      <div className="relative flex min-h-dvh flex-col items-center px-4 py-16">
+        <div className="pointer-events-none absolute inset-0 bg-black/50" />
+        <div className="relative z-10 w-full max-w-lg">
           <GameSectionHeader
             eyebrow="SEVYN"
             title="Forming Teams"
@@ -247,7 +234,7 @@ export default function TeamFormationScreen({
 
             {/* Team 1 */}
             <div className="min-h-[200px] rounded-xl border-2 border-dashed border-[#E84C1E]/30 bg-[#E84C1E]/10 p-3">
-              <TeamLogo logoUrl={logo1} color={SEVYN_COLORS.t1} />
+              <JMTeamLogoButton logoUrl={logo1} color={SEVYN_COLORS.t1} />
               <div className="space-y-2">
                 {viewT1.map((uid) => (
                   <div
@@ -263,7 +250,7 @@ export default function TeamFormationScreen({
 
             {/* Team 2 */}
             <div className="min-h-[200px] rounded-xl border-2 border-dashed border-blue-400/30 bg-blue-400/10 p-3">
-              <TeamLogo logoUrl={logo2} color={SEVYN_COLORS.t2} />
+              <JMTeamLogoButton logoUrl={logo2} color={SEVYN_COLORS.t2} />
               <div className="space-y-2">
                 {viewT2.map((uid) => (
                   <div
@@ -293,8 +280,9 @@ export default function TeamFormationScreen({
   );
 
   return (
-    <div className="flex min-h-dvh flex-col items-center px-4 py-16">
-      <div className="w-full max-w-lg">
+    <div className="relative flex min-h-dvh flex-col items-center px-4 py-16">
+      <div className="pointer-events-none absolute inset-0 bg-black/50" />
+      <div className="relative z-10 w-full max-w-lg">
         <GameSectionHeader
           eyebrow="SEVYN"
           title="Forming Teams"
@@ -318,7 +306,7 @@ export default function TeamFormationScreen({
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, "s1")}
           >
-            <TeamLogo logoUrl={t1Identity.logoUrl} color={SEVYN_COLORS.t1} />
+            <JMTeamLogoButton logoUrl={t1Identity.logoUrl} color={SEVYN_COLORS.t1} onPress={() => setLogoPickerTeam("t1")} />
             <div className="space-y-2">
               {team1.map((uid) => (
                 <div
@@ -349,7 +337,7 @@ export default function TeamFormationScreen({
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, "s2")}
           >
-            <TeamLogo logoUrl={t2Identity.logoUrl} color={SEVYN_COLORS.t2} />
+            <JMTeamLogoButton logoUrl={t2Identity.logoUrl} color={SEVYN_COLORS.t2} onPress={() => setLogoPickerTeam("t2")} />
             <div className="space-y-2">
               {team2.map((uid) => (
                 <div
@@ -408,6 +396,21 @@ export default function TeamFormationScreen({
           </GamePrimaryButton>
         </div>
       </div>
+
+      {/* Team logo picker modal */}
+      {logoPickerTeam && (
+        <JMTeamLogoPicker
+          color={logoPickerTeam === "t1" ? SEVYN_COLORS.t1 : SEVYN_COLORS.t2}
+          currentName={logoPickerTeam === "t1" ? t1Identity.name : t2Identity.name}
+          onSelect={(team) => {
+            setTeamIdentities((prev) =>
+              logoPickerTeam === "t1" ? [team, prev[1]] : [prev[0], team],
+            );
+            setLogoPickerTeam(null);
+          }}
+          onClose={() => setLogoPickerTeam(null)}
+        />
+      )}
     </div>
   );
 }

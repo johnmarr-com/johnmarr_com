@@ -139,7 +139,7 @@ export function InviteKnownPlayersModal({
                       key={p.uid}
                       onClick={() => !isInvited && togglePlayer(p.uid)}
                       disabled={isInvited}
-                      className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${
+                      className={`flex items-center gap-3 rounded-xl px-3 py-3.5 transition-colors ${
                         isInvited
                           ? "cursor-default opacity-40"
                           : isSelected
@@ -147,18 +147,18 @@ export function InviteKnownPlayersModal({
                             : "bg-white/5 hover:bg-white/10"
                       }`}
                     >
-                      <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full">
+                      <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full">
                         {p.avatarName ? (
-                          <JMAvatarView width={32} avatarName={p.avatarName} />
+                          <JMAvatarView width={44} avatarName={p.avatarName} />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center bg-purple-500/20">
-                            <span className="text-xs font-bold text-purple-400">
+                            <span className="text-sm font-bold text-purple-400">
                               {p.gamertag.charAt(0).toUpperCase()}
                             </span>
                           </div>
                         )}
                       </div>
-                      <span className="flex-1 text-left text-sm font-bold text-white">
+                      <span className="flex-1 text-left text-base font-bold text-white">
                         {p.gamertag}
                       </span>
                       {isInvited && (
@@ -175,7 +175,7 @@ export function InviteKnownPlayersModal({
               <button
                 onClick={handleSend}
                 disabled={selected.size === 0 || sending || sent}
-                className={`flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold uppercase tracking-wider transition-all ${
+                className={`flex items-center justify-center gap-2 rounded-xl py-4 text-sm font-bold uppercase tracking-wider transition-all ${
                   sent
                     ? "bg-green-500/20 text-green-400"
                     : selected.size > 0

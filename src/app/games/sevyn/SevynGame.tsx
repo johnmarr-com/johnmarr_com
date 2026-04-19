@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useAuth } from "@/lib/AuthProvider";
-import { GameGamertagBadge, getAIAuthHeaders } from "@/app/games/_gamecore";
+import { GameGamertagBadge, getAIAuthHeaders, bgMusic } from "@/app/games/_gamecore";
 import { JMTeamInterstitial, JMGameResultOverlay } from "@/JMKit";
 import { useSevynSession } from "./useSevynSession";
 import type {
@@ -84,6 +84,7 @@ export default function SevynGame({
   const prevActiveTeamRef = useRef<SevynTeam | null>(null);
   // Game-over overlay: "loss" shows bomb loss first, then transitions to "win"
   const [gameOverPhase, setGameOverPhase] = useState<"loss" | "win" | null>(null);
+  const gameOverDismissedRef = useRef(false);
   const {
     svPhase,
     selectedHeistId,
@@ -535,6 +536,8 @@ export default function SevynGame({
   // ─── Play Again (host resets to boss-select) ─────────────
   const handlePlayAgain = useCallback(async () => {
     if (!isHost) return;
+    bgMusic.stop();
+    gameOverDismissedRef.current = true;
     setGameOverPhase(null);
     await updateFields({
       board: null,
@@ -561,15 +564,19 @@ export default function SevynGame({
 
   // ─── Show game-over overlay when entering via Firestore sync (non-host clients) ──
   useEffect(() => {
-    if (svPhase === "game-over" && !animReveal && !gameOverPhase) {
+    if (svPhase === "game-over" && !animReveal && !gameOverPhase && !gameOverDismissedRef.current) {
       setGameOverPhase(loseByBomb ? "loss" : "win");
+    }
+    // Reset the guard once Firestore has moved past game-over
+    if (svPhase !== "game-over") {
+      gameOverDismissedRef.current = false;
     }
   }, [svPhase, animReveal, gameOverPhase, loseByBomb]);
 
-  // ─── Bomb loss → win transition (show loss for 5s, then switch to win) ──
+  // ─── Bomb loss → win transition (show loss for 15s, then switch to win) ──
   useEffect(() => {
     if (gameOverPhase !== "loss") return;
-    const timer = setTimeout(() => setGameOverPhase("win"), 5000);
+    const timer = setTimeout(() => setGameOverPhase("win"), 15000);
     return () => clearTimeout(timer);
   }, [gameOverPhase]);
 
@@ -649,9 +656,13 @@ export default function SevynGame({
                     </span>
                   </>
                 ) : isActiveBoss ? (
-                  <span className="text-base font-black text-white">
+                  <button
+                    type="button"
+                    className="rounded-lg bg-[#E84C1E] px-4 py-1.5 text-xs font-bold text-white active:scale-95 transition-transform"
+                    onClick={() => window.dispatchEvent(new CustomEvent("sevyn-open-clue-modal"))}
+                  >
                     Create Clue
-                  </span>
+                  </button>
                 ) : null}
               </div>
             );
@@ -841,7 +852,7 @@ export default function SevynGame({
         {/* game-over phase: grid is hidden, victory overlay renders separately */}
       </div>
 
-      {/* Game-Over: Bomb Loss Overlay — fades in on top of everything */}
+      {/* Game-Over: Bomb Loss Overlay — fades in on top of everything, tap to skip */}
       {gameOverPhase === "loss" && heist && winningTeam && (() => {
         const losingTeam: SevynTeam = winningTeam === "syndicate1" ? "syndicate2" : "syndicate1";
         const losingScore = losingTeam === "syndicate1" ? t1Score : t2Score;
@@ -853,9 +864,9 @@ export default function SevynGame({
             teamColor={losingTeam === "syndicate1" ? SEVYN_COLORS.t1 : SEVYN_COLORS.t2}
             teamLogoUrl={(losingTeam === "syndicate1" ? svState.draftT1Logo : svState.draftT2Logo) ?? ""}
             cardImageUrl={elementBomb?.bombImageUrl ?? ""}
-            heading={heist.title}
             message={elementBomb?.bombDescription ?? ""}
             audioUrl={elementBomb?.bombSoundEffect ?? null}
+            onDismiss={() => setGameOverPhase("win")}
           />
         );
       })()}

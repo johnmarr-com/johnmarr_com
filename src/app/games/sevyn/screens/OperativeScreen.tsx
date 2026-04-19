@@ -118,7 +118,7 @@ export default function OperativeScreen({
       {/* Local tap confirmation — only the tapper sees this */}
       {localTapIndex != null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="w-72 rounded-2xl border border-white/20 bg-[#0D1B2E] p-6 text-center">
+          <div className="w-72 rounded-2xl border border-white/15 bg-neutral-900 p-6 text-center">
             <p className="text-lg font-bold text-white">
               &ldquo;{board[localTapIndex]?.word}&rdquo;
             </p>
@@ -158,7 +158,7 @@ export default function OperativeScreen({
 
       {passConfirmOpen && onPassTurn && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="w-72 rounded-2xl border border-white/20 bg-[#0D1B2E] p-6 text-center">
+          <div className="w-72 rounded-2xl border border-white/15 bg-neutral-900 p-6 text-center">
             <p className="text-lg font-bold text-white">Pass this turn?</p>
             <p className="mt-2 text-sm text-white/60">
               Your team will stop guessing; the other syndicate gets the next clue.

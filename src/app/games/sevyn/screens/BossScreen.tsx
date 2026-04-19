@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import type { SevynBoardCard, CardType, SevynTeam, SevynClue, SevynHeist, SevynPendingTap } from "../sevynTypes";
-import { GamePrimaryButton } from "@/app/games/_gamecore";
 import { getAIAuthHeaders } from "@/app/games/_gamecore";
+import { JMCloseCircleButton } from "@/JMKit/JMCloseCircleButton";
 import { SEVYN_COLORS } from "../SevynGame";
 import SevynGrid from "./SevynGrid";
 
@@ -39,6 +40,23 @@ export default function BossScreen({
   const [clueNumber, setClueNumber] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [clueModalOpen, setClueModalOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-focus the input when modal opens
+  useEffect(() => {
+    if (!clueModalOpen) return;
+    const t = setTimeout(() => inputRef.current?.focus(), 100);
+    return () => clearTimeout(t);
+  }, [clueModalOpen]);
+
+  // Listen for top-bar "Create Clue" button tap
+  useEffect(() => {
+    if (!isMyTurn || currentClue) return;
+    const open = () => setClueModalOpen(true);
+    window.addEventListener("sevyn-open-clue-modal", open);
+    return () => window.removeEventListener("sevyn-open-clue-modal", open);
+  }, [isMyTurn, currentClue]);
 
   const handleSubmit = useCallback(async () => {
     if (!onSubmitClue) return;
@@ -80,6 +98,7 @@ export default function BossScreen({
       onSubmitClue(word.toUpperCase(), clueNumber);
       setClueWord("");
       setClueNumber(1);
+      setClueModalOpen(false);
     } catch {
       setError("Failed to validate clue");
     } finally {
@@ -119,49 +138,84 @@ export default function BossScreen({
         )}
       </div>
 
-      {/* Clue input panel — only visible when it's my turn */}
+      {/* Create Clue button — only visible when it's my turn */}
       {isMyTurn && !currentClue && (
-        <div className="mt-4 rounded-xl border border-[#E84C1E]/30 bg-black/50 p-4 backdrop-blur-sm">
-          <p className="mb-3 text-center text-xs font-semibold uppercase tracking-wider text-[#E84C1E]">
-            Give Your Clue
-          </p>
-
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={clueWord}
-              onChange={(e) => {
-                setClueWord(e.target.value.replace(/\s/g, ""));
-                setError(null);
-              }}
-              placeholder="One word..."
-              className="flex-1 rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/30 outline-none focus:border-[#E84C1E]"
-              maxLength={30}
-              autoFocus
-            />
-            <select
-              value={clueNumber}
-              onChange={(e) => setClueNumber(Number(e.target.value))}
-              className="w-14 rounded-lg border border-white/20 bg-white/5 px-2 py-2 text-center text-sm text-white outline-none focus:border-[#E84C1E]"
-            >
-              {[1, 2, 3, 4, 5, 6, 7].map((n) => (
-                <option key={n} value={n} className="bg-[#0D1B2E]">
-                  {n}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {error && (
-            <p className="mt-2 text-center text-xs text-red-400">{error}</p>
-          )}
-
-          <div className="mt-3">
-            <GamePrimaryButton onClick={handleSubmit} loading={submitting} disabled={submitting}>
-              Submit Clue
-            </GamePrimaryButton>
-          </div>
+        <div className="mt-4">
+          <button
+            type="button"
+            className="w-full rounded-xl bg-[#E84C1E] py-3.5 text-sm font-bold text-white active:scale-[0.98] transition-transform"
+            onClick={() => setClueModalOpen(true)}
+          >
+            Create Clue
+          </button>
         </div>
+      )}
+
+      {/* Clue modal — portaled so keyboard doesn't push the grid */}
+      {clueModalOpen && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={() => { setClueModalOpen(false); setError(null); }}
+            aria-label="Close"
+          />
+          <div className="relative z-10 w-full max-w-sm rounded-2xl border border-white/10 bg-neutral-950 p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-sm font-bold uppercase tracking-wider text-[#E84C1E]">
+                Clue:
+              </p>
+              <JMCloseCircleButton onClick={() => { setClueModalOpen(false); setError(null); }} />
+            </div>
+
+            <form
+              onSubmit={(e) => { e.preventDefault(); void handleSubmit(); }}
+              className="flex flex-col gap-3"
+            >
+              <div className="flex gap-2">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={clueWord}
+                  onChange={(e) => {
+                    setClueWord(e.target.value.replace(/\s/g, ""));
+                    setError(null);
+                  }}
+                  placeholder="One word..."
+                  className="flex-1 rounded-lg border border-white/20 bg-white/5 px-3 py-3 text-sm text-white placeholder-white/30 outline-none focus:border-[#E84C1E]"
+                  maxLength={30}
+                  enterKeyHint="send"
+                  autoComplete="off"
+                  autoCapitalize="off"
+                />
+                <select
+                  value={clueNumber}
+                  onChange={(e) => setClueNumber(Number(e.target.value))}
+                  className="w-16 rounded-lg border border-white/20 bg-white/5 px-2 py-3 text-center text-sm text-white outline-none focus:border-[#E84C1E]"
+                >
+                  {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+                    <option key={n} value={n} className="bg-neutral-900">
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {error && (
+                <p className="text-center text-sm text-red-400">{error}</p>
+              )}
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full rounded-xl bg-green-600 py-3 text-sm font-bold text-white transition-colors hover:bg-green-500 disabled:opacity-50"
+              >
+                {submitting ? "Validating..." : "Share Clue"}
+              </button>
+            </form>
+          </div>
+        </div>,
+        document.body,
       )}
 
       {/* Clue active — brief status for active team boss only */}

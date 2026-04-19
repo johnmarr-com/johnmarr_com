@@ -5,6 +5,7 @@ import type { GameSession } from "@/lib/game-sessions";
 import type { SevynTeam, SevynTeamRoster } from "../sevynTypes";
 import { GameSectionHeader, GamePrimaryButton } from "@/app/games/_gamecore";
 import { useAuth } from "@/lib/AuthProvider";
+import { JMTeamLogoButton } from "@/JMKit/JMTeamLogoButton";
 import { SEVYN_COLORS } from "../SevynGame";
 
 interface BossSelectScreenProps {
@@ -16,28 +17,6 @@ interface BossSelectScreenProps {
   draftT2Logo?: string | null;
   onElected: (s1Boss: string, s2Boss: string) => void;
   onBack?: (() => void) | undefined;
-}
-
-// ─── Shared components ─────────────────────────────────────
-
-function TeamLogo({ logoUrl, color }: { logoUrl: string; color: string }) {
-  return (
-    <div className="mb-3 flex justify-center">
-      <div
-        className="relative aspect-square w-[160px] max-w-[75%] shrink-0 overflow-hidden rounded-full"
-        style={{ backgroundColor: `${color}20` }}
-      >
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${logoUrl})` }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{ backgroundColor: color, mixBlendMode: "color" }}
-        />
-      </div>
-    </div>
-  );
 }
 
 function VsBadge() {
@@ -88,8 +67,9 @@ export default function BossSelectScreen({
 
   if (!isHost) {
     return (
-      <div className="flex min-h-dvh flex-col items-center px-4 py-16">
-        <div className="w-full max-w-lg">
+      <div className="relative flex min-h-dvh flex-col items-center px-4 py-16">
+        <div className="pointer-events-none absolute inset-0 bg-black/50" />
+        <div className="relative z-10 w-full max-w-lg">
           <GameSectionHeader
             eyebrow="SEVYN"
             title="Selecting Bosses"
@@ -102,7 +82,7 @@ export default function BossSelectScreen({
 
             {/* Team 1 */}
             <div className="min-h-[200px] rounded-xl border-2 border-dashed border-[#E84C1E]/30 bg-[#E84C1E]/10 p-3">
-              {draftT1Logo && <TeamLogo logoUrl={draftT1Logo} color={SEVYN_COLORS.t1} />}
+              {draftT1Logo && <JMTeamLogoButton logoUrl={draftT1Logo} color={SEVYN_COLORS.t1} />}
               <div className="space-y-2">
                 {t1Members.map((uid) => (
                   <div
@@ -118,7 +98,7 @@ export default function BossSelectScreen({
 
             {/* Team 2 */}
             <div className="min-h-[200px] rounded-xl border-2 border-dashed border-blue-400/30 bg-blue-400/10 p-3">
-              {draftT2Logo && <TeamLogo logoUrl={draftT2Logo} color={SEVYN_COLORS.t2} />}
+              {draftT2Logo && <JMTeamLogoButton logoUrl={draftT2Logo} color={SEVYN_COLORS.t2} />}
               <div className="space-y-2">
                 {t2Members.map((uid) => (
                   <div
@@ -144,7 +124,8 @@ export default function BossSelectScreen({
   // ─── Host: boss selection view ────────────────────────────
 
   return (
-    <div className="flex min-h-dvh flex-col items-center px-4 py-16">
+    <div className="relative flex min-h-dvh flex-col items-center px-4 py-16">
+      <div className="pointer-events-none absolute inset-0 bg-black/50" />
       {onBack && (
         <button
           className="absolute left-4 top-4 z-20 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/70 hover:bg-white/20"
@@ -153,7 +134,7 @@ export default function BossSelectScreen({
           &larr; Edit Teams
         </button>
       )}
-      <div className="w-full max-w-lg">
+      <div className="relative z-10 w-full max-w-lg">
         <GameSectionHeader
           eyebrow="SEVYN"
           title="Select Bosses"
@@ -166,7 +147,7 @@ export default function BossSelectScreen({
 
           {/* Team 1 */}
           <div className="min-h-[200px] rounded-xl border-2 border-dashed border-[#E84C1E]/30 bg-[#E84C1E]/10 p-3">
-            {draftT1Logo && <TeamLogo logoUrl={draftT1Logo} color={SEVYN_COLORS.t1} />}
+            {draftT1Logo && <JMTeamLogoButton logoUrl={draftT1Logo} color={SEVYN_COLORS.t1} />}
             <div className="space-y-2">
               {t1Members.map((uid) => {
                 const isBoss = boss1 === uid;
@@ -189,7 +170,7 @@ export default function BossSelectScreen({
 
           {/* Team 2 */}
           <div className="min-h-[200px] rounded-xl border-2 border-dashed border-blue-400/30 bg-blue-400/10 p-3">
-            {draftT2Logo && <TeamLogo logoUrl={draftT2Logo} color={SEVYN_COLORS.t2} />}
+            {draftT2Logo && <JMTeamLogoButton logoUrl={draftT2Logo} color={SEVYN_COLORS.t2} />}
             <div className="space-y-2">
               {t2Members.map((uid) => {
                 const isBoss = boss2 === uid;
@@ -216,6 +197,9 @@ export default function BossSelectScreen({
           <GamePrimaryButton onClick={handleLaunch} disabled={!canLaunch}>
             {canLaunch ? "Launch Heist" : "Select a Boss for each team"}
           </GamePrimaryButton>
+          <p className="mt-3 text-center text-sm leading-relaxed text-white/40">
+            Bosses are the key players. They need a good understanding of game play. And they need to be able to form clues that are tied to multiple words.
+          </p>
         </div>
       </div>
     </div>
