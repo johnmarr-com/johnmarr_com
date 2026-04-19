@@ -70,7 +70,7 @@ export function JMGameResultOverlay({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex flex-col items-center justify-center"
+      className="fixed inset-0 z-60 flex flex-col items-center justify-center"
       style={{
         opacity: show ? 1 : 0,
         transition: "opacity 600ms ease-out",

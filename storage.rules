@@ -314,20 +314,20 @@ service firebase.storage {
     }
     
     // ─────────────────────────────────────────────────────────────
-    // SEVYN HEISTS (Heist images + per-element bomb sound effects)
+    // FYVE HEISTS (Heist images + per-element bomb sound effects)
     // ─────────────────────────────────────────────────────────────
 
-    match /sevyn-heists/{heistId}/{allPaths=**} {
+    match /fyve-heists/{heistId}/{allPaths=**} {
       allow read: if true;
       allow write: if isAuthenticated() && (isImage() || isAudio()) && maxSize(5);
       allow delete: if isAdmin();
     }
 
     // ─────────────────────────────────────────────────────────────
-    // SEVYN BOMBS (Bomb images and audio)
+    // FYVE BOMBS (Bomb images and audio)
     // ─────────────────────────────────────────────────────────────
 
-    match /sevyn-bombs/{bombId}/{allPaths=**} {
+    match /fyve-bombs/{bombId}/{allPaths=**} {
       allow read: if true;
       allow write: if isAuthenticated() && (isImage() || isAudio()) && maxSize(5);
       allow delete: if isAdmin();

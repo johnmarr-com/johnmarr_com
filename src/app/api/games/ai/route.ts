@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
             const path = await import("path");
             const os = await import("os");
             const desktop = path.join(os.homedir(), "Desktop");
-            const filename = `sevyn-ai-${Date.now()}.png`;
+            const filename = `fyve-ai-${Date.now()}.png`;
             const imgRes = await fetch(imageUrl);
             if (imgRes.ok) {
               const buf = Buffer.from(await imgRes.arrayBuffer());

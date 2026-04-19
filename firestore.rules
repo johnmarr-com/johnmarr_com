@@ -409,10 +409,10 @@ service cloud.firestore {
     }
     
     // ─────────────────────────────────────────────────────────────
-    // SEVYN HEISTS (Heist packs for SEVYN game)
+    // FYVE HEISTS (Heist packs for FYVE game)
     // ─────────────────────────────────────────────────────────────
 
-    match /sevynHeists/{heistId} {
+    match /fyveHeists/{heistId} {
       // Anyone authenticated can read official & shared heists,
       // creators can read their own private heists, admins read all
       allow read: if isAdmin()
@@ -437,10 +437,10 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // SEVYN BOMBS (Reusable bomb designs for SEVYN game)
+    // FYVE BOMBS (Reusable bomb designs for FYVE game)
     // ─────────────────────────────────────────────────────────────
 
-    match /sevynBombs/{bombId} {
+    match /fyveBombs/{bombId} {
       // Anyone authenticated can read official & shared bombs,
       // creators can read their own private bombs, admins read all
       allow read: if isAdmin()
@@ -465,10 +465,10 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // SEVYN KEYS (Server-only secret key assignments)
+    // FYVE KEYS (Server-only secret key assignments)
     // ─────────────────────────────────────────────────────────────
 
-    match /sevynKeys/{keyId} {
+    match /fyveKeys/{keyId} {
       // Keys are NEVER readable by clients — only via Admin SDK in API routes
       allow read, create, update, delete: if false;
     }

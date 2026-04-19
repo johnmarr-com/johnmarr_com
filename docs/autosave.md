@@ -64,4 +64,4 @@ function MyEditor() {
 
 ## Where it's used
 
-- **HeistEditor** (`src/app/games/sevyn/heists/HeistEditor.tsx`) — autosaves draft heists on input blur, image save, word add/remove, visibility change, bomb selection, and JSON populate.
+- **HeistEditor** (`src/app/games/fyve/heists/HeistEditor.tsx`) — autosaves draft heists on input blur, image save, word add/remove, visibility change, bomb selection, and JSON populate.
