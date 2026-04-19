@@ -22,6 +22,7 @@ import BossSelectScreen from "./screens/BossSelectScreen";
 import BossScreen from "./screens/BossScreen";
 import OperativeScreen from "./screens/OperativeScreen";
 import CardRevealOverlay from "./screens/CardRevealOverlay";
+import BombFailOverlay from "./screens/BombFailOverlay";
 
 // ─── Constants ──────────────────────────────────────────────
 
@@ -78,10 +79,25 @@ export default function FyveGame({
     word: string;
     result: FyveRevealResult;
   } | null>(null);
+  // Sync flag — set immediately when a reveal is detected so same-render
+  // effects (game-over) know a reveal is pending before state updates.
+  const revealPendingRef = useRef(false);
   const prevBoardRef = useRef<FyveBoardCard[] | null>(null);
+  // Bomb fail — dedicated overlay that owns the entire bomb-loss sequence
+  const [bombFail, setBombFail] = useState<{
+    cardIndex: number;
+    word: string;
+    imageUrl: string;
+    audioUrl: string | null;
+    description: string;
+  } | null>(null);
   // Team interstitial — shows when activeTeam changes during gameplay
   const [interstitialTeam, setInterstitialTeam] = useState<FyveTeam | null>(null);
   const prevActiveTeamRef = useRef<FyveTeam | null>(null);
+  // Theme splash — shown once when the grid first appears
+  const [themeShown, setThemeShown] = useState(false);
+  const [themeFading, setThemeFading] = useState(false);
+  const [themeDismissed, setThemeDismissed] = useState(false);
   // Game-over overlay: "loss" shows bomb loss first, then transitions to "win"
   const [gameOverPhase, setGameOverPhase] = useState<"loss" | "win" | null>(null);
   const gameOverDismissedRef = useRef(false);
@@ -95,7 +111,6 @@ export default function FyveGame({
     bonusGuessAvailable,
     keyDocId,
     winningTeam,
-    loseByBomb,
     t1Score,
     t2Score,
     t1Name,
@@ -359,7 +374,7 @@ export default function FyveGame({
           };
           updates["board"] = updatedBoard;
         }
-        if (newCount >= 7) {
+        if (newCount >= 5) {
           updates["winningTeam"] = "syndicate1";
           updates["svPhase"] = "game-over";
         }
@@ -374,7 +389,7 @@ export default function FyveGame({
           };
           updates["board"] = updatedBoard;
         }
-        if (newCount >= 7) {
+        if (newCount >= 5) {
           updates["winningTeam"] = "syndicate2";
           updates["svPhase"] = "game-over";
         }
@@ -426,7 +441,7 @@ export default function FyveGame({
 
   // ─── Detect board changes → trigger reveal animation (all clients) ──
   useEffect(() => {
-    if (animReveal) return; // Don't check during active animation
+    if (animReveal || bombFail) return; // Don't check during active animation
 
     const prev = prevBoardRef.current;
     prevBoardRef.current = board;
@@ -437,37 +452,51 @@ export default function FyveGame({
       const cur = board[i]!;
       const pre = prev[i];
       if (cur.revealed && !pre?.revealed && cur.revealedType) {
-        setAnimReveal({
-          cardIndex: i,
-          word: cur.word,
-          result: {
+        revealPendingRef.current = true;
+        if (cur.revealedType === "BOMB") {
+          // Bombs → dedicated BombFailOverlay (no CardRevealOverlay)
+          setBombFail({
             cardIndex: i,
-            cardType: cur.revealedType,
-            name: cur.revealedName ?? "",
-            description: cur.revealedDescription ?? "",
+            word: cur.word,
             imageUrl: cur.revealedImageUrl ?? "",
-            ...(cur.revealedAssetNumber != null ? { assetNumber: cur.revealedAssetNumber } : {}),
-            ...(cur.revealedSoundEffect ? { bombSoundEffect: cur.revealedSoundEffect } : {}),
-          },
-        });
+            audioUrl: cur.revealedSoundEffect ?? null,
+            description: cur.revealedDescription ?? "",
+          });
+        } else {
+          setAnimReveal({
+            cardIndex: i,
+            word: cur.word,
+            result: {
+              cardIndex: i,
+              cardType: cur.revealedType,
+              name: cur.revealedName ?? "",
+              description: cur.revealedDescription ?? "",
+              imageUrl: cur.revealedImageUrl ?? "",
+              ...(cur.revealedAssetNumber != null ? { assetNumber: cur.revealedAssetNumber } : {}),
+            },
+          });
+        }
         break;
       }
     }
-  }, [board, animReveal]);
+  }, [board, animReveal, bombFail]);
 
-  // ─── After Reveal Animation ───────────────────────────────
+  // ─── After Card Reveal Animation (non-bomb cards only) ─────
   const handleRevealDismissed = useCallback(async () => {
     const revealedIndex = animReveal?.cardIndex;
     prevBoardRef.current = board; // Sync ref to prevent re-trigger
+    revealPendingRef.current = false;
+
+    // 5th-card clean win: keep reveal visible under win overlay, then clean up
+    if (svState.winningTeam) {
+      setGameOverPhase("win");
+      setTimeout(() => setAnimReveal(null), 1200);
+      return;
+    }
+
     setAnimReveal(null);
 
     if (!isHost || revealedIndex == null) return;
-
-    // If game is over, show the appropriate overlay
-    if (svState.winningTeam) {
-      setGameOverPhase(svState.loseByBomb ? "loss" : "win");
-      return;
-    }
 
     const lastRevealed = board?.find(
       (c) => c.revealed && c.index === revealedIndex,
@@ -510,13 +539,21 @@ export default function FyveGame({
   }, [isHost, svState.pendingTap, handleRevealCard]);
 
   // ─── Team interstitial — fires when activeTeam changes during gameplay ──
+  // Suppress until theme splash has been shown and dismissed — will be triggered manually on dismiss
   useEffect(() => {
-    if (!board || !activeTeam) return;
+    if (!board || !activeTeam) {
+      // Reset ref when game is torn down (Play Again) so the next
+      // game's first team always triggers the interstitial.
+      prevActiveTeamRef.current = null;
+      return;
+    }
     if (prevActiveTeamRef.current !== activeTeam) {
-      setInterstitialTeam(activeTeam);
+      if (themeDismissed) {
+        setInterstitialTeam(activeTeam);
+      }
     }
     prevActiveTeamRef.current = activeTeam;
-  }, [activeTeam, board]);
+  }, [activeTeam, board, themeDismissed]);
 
   // ─── Pass Turn (any operative on the active team — same Firestore rules as pendingTap) ──
   const handlePassTurn = useCallback(async () => {
@@ -562,21 +599,36 @@ export default function FyveGame({
     });
   }, [isHost, updateFields]);
 
-  // ─── Show game-over overlay when entering via Firestore sync (non-host clients) ──
+  // ─── Reset gameOverPhase when game restarts (fixes stale state on non-host) ──
   useEffect(() => {
-    if (svPhase === "game-over" && !animReveal && !gameOverPhase && !gameOverDismissedRef.current) {
-      setGameOverPhase(loseByBomb ? "loss" : "win");
-    }
-    // Reset the guard once Firestore has moved past game-over
-    if (svPhase !== "game-over") {
+    if (svPhase !== "game-over" && gameOverPhase) {
+      setGameOverPhase(null);
       gameOverDismissedRef.current = false;
     }
-  }, [svPhase, animReveal, gameOverPhase, loseByBomb]);
+  }, [svPhase, gameOverPhase]);
 
-  // ─── Bomb loss → win transition (show loss for 15s, then switch to win) ──
+  // ─── Show game-over overlay when entering via Firestore sync (late join / reconnect) ──
+  // Checks revealPendingRef so we don't race ahead of a card reveal or bomb
+  // that was detected in the same render cycle (state not yet updated).
+  useEffect(() => {
+    if (svPhase === "game-over" && !animReveal && !bombFail && !revealPendingRef.current && !gameOverPhase && !gameOverDismissedRef.current) {
+      const hasBomb = board?.some((c) => c.revealed && c.revealedType === "BOMB");
+      setGameOverPhase(hasBomb ? "loss" : "win");
+    }
+  }, [svPhase, animReveal, bombFail, gameOverPhase, board]);
+
+  // ─── Theme splash — show once when gameplay begins ──
+  useEffect(() => {
+    if (themeShown || themeDismissed) return;
+    if (svPhase === "boss-clue" || svPhase === "operative-guess") {
+      setThemeShown(true);
+    }
+  }, [svPhase, themeShown, themeDismissed]);
+
+  // ─── Bomb loss → win transition (show loss for 10s, then switch to win) ──
   useEffect(() => {
     if (gameOverPhase !== "loss") return;
-    const timer = setTimeout(() => setGameOverPhase("win"), 15000);
+    const timer = setTimeout(() => setGameOverPhase("win"), 10000);
     return () => clearTimeout(timer);
   }, [gameOverPhase]);
 
@@ -598,7 +650,7 @@ export default function FyveGame({
       {/* Background image */}
       {bgUrl && (
         <div
-          className="absolute inset-0 bg-cover bg-center opacity-30 pointer-events-none"
+          className="absolute inset-0 bg-cover bg-center opacity-15 pointer-events-none"
           style={{ backgroundImage: `url(${bgUrl})` }}
         />
       )}
@@ -620,7 +672,7 @@ export default function FyveGame({
       {board && svPhase !== "game-over" && (
         <>
           {/* Left: Team 1 logo + score badge (top-right of logo) */}
-          <div className="absolute top-2 left-2 z-30 transition-opacity duration-500" style={{ opacity: activeTeam === "syndicate2" ? 0.15 : 1 }}>
+          <div className="absolute top-2 left-2 z-30 origin-top-left transition-all duration-500" style={{ opacity: activeTeam === "syndicate2" ? 0.15 : 1, transform: activeTeam === "syndicate2" ? "scale(0.7)" : "scale(1)" }}>
             <div
               className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full"
               style={{ backgroundColor: `${FYVE_COLORS.t1}20` }}
@@ -632,12 +684,13 @@ export default function FyveGame({
                 </>
               )}
             </div>
-            <div
+            {/* Score badge hidden — progress bars show score below grid */}
+            {/* <div
               className="absolute -top-1 z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 border-black bg-black"
               style={{ right: "-15px" }}
             >
-              <span className="text-base font-black leading-none" style={{ color: FYVE_COLORS.t1 }}>{t1Score}/7</span>
-            </div>
+              <span className="text-base font-black leading-none" style={{ color: FYVE_COLORS.t1 }}>{t1Score}/5</span>
+            </div> */}
           </div>
           {/* Center: Clue display or Boss prompt — bottom-aligned to grid top */}
           {activeTeam && (() => {
@@ -658,7 +711,7 @@ export default function FyveGame({
                 ) : isActiveBoss ? (
                   <button
                     type="button"
-                    className="rounded-lg bg-[#E84C1E] px-4 py-1.5 text-xs font-bold text-white active:scale-95 transition-transform"
+                    className="rounded-lg bg-green-600 px-4 py-2.5 text-sm font-bold text-white active:scale-95 transition-transform"
                     onClick={() => window.dispatchEvent(new CustomEvent("fyve-open-clue-modal"))}
                   >
                     Create Clue
@@ -668,7 +721,7 @@ export default function FyveGame({
             );
           })()}
           {/* Right: Team 2 logo + score badge (top-left of logo) */}
-          <div className="absolute top-2 right-2 z-30 transition-opacity duration-500" style={{ opacity: activeTeam === "syndicate1" ? 0.15 : 1 }}>
+          <div className="absolute top-2 right-2 z-30 origin-top-right transition-all duration-500" style={{ opacity: activeTeam === "syndicate1" ? 0.15 : 1, transform: activeTeam === "syndicate1" ? "scale(0.7)" : "scale(1)" }}>
             <div
               className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full"
               style={{ backgroundColor: `${FYVE_COLORS.t2}20` }}
@@ -680,12 +733,13 @@ export default function FyveGame({
                 </>
               )}
             </div>
-            <div
+            {/* Score badge hidden — progress bars show score below grid */}
+            {/* <div
               className="absolute -top-1 z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 border-black bg-black"
               style={{ left: "-15px" }}
             >
-              <span className="text-base font-black leading-none" style={{ color: FYVE_COLORS.t2 }}>{t2Score}/7</span>
-            </div>
+              <span className="text-base font-black leading-none" style={{ color: FYVE_COLORS.t2 }}>{t2Score}/5</span>
+            </div> */}
           </div>
         </>
       )}
@@ -755,6 +809,8 @@ export default function FyveGame({
               isMyTurn={true}
               onSubmitClue={handleClueSubmitted}
               heist={heist}
+              t1Score={t1Score}
+              t2Score={t2Score}
             />
           ) : isBoss ? (
             <BossScreen
@@ -766,6 +822,8 @@ export default function FyveGame({
               currentClue={currentClue}
               isMyTurn={false}
               heist={heist}
+              t1Score={t1Score}
+              t2Score={t2Score}
             />
           ) : (
             <OperativeScreen
@@ -778,6 +836,8 @@ export default function FyveGame({
               canTap={false}
               heist={heist}
               waitingForClue={isMyTeamActive}
+              t1Score={t1Score}
+              t2Score={t2Score}
             />
           )
         )}
@@ -794,6 +854,8 @@ export default function FyveGame({
               isMyTurn={false}
               pendingTap={svState.pendingTap}
               heist={heist}
+              t1Score={t1Score}
+              t2Score={t2Score}
             />
           ) : (
             <OperativeScreen
@@ -818,6 +880,8 @@ export default function FyveGame({
               }}
               onPassTurn={handlePassTurn}
               heist={heist}
+              t1Score={t1Score}
+              t2Score={t2Score}
             />
           )
         )}
@@ -834,6 +898,8 @@ export default function FyveGame({
               isMyTurn={false}
               pendingTap={svState.pendingTap}
               heist={heist}
+              t1Score={t1Score}
+              t2Score={t2Score}
             />
           ) : (
             <OperativeScreen
@@ -845,6 +911,8 @@ export default function FyveGame({
               guessesRemaining={guessesRemaining}
               canTap={false}
               heist={heist}
+              t1Score={t1Score}
+              t2Score={t2Score}
             />
           )
         )}
@@ -852,8 +920,68 @@ export default function FyveGame({
         {/* game-over phase: grid is hidden, victory overlay renders separately */}
       </div>
 
-      {/* Game-Over: Bomb Loss Overlay — fades in on top of everything, tap to skip */}
-      {gameOverPhase === "loss" && heist && winningTeam && (() => {
+      {/* Theme splash — shown once at game start */}
+      {themeShown && !themeDismissed && (
+        <div
+          className="fixed inset-0 z-40 flex flex-col items-center justify-center"
+          style={{
+            opacity: themeFading ? 0 : 1,
+            transition: "opacity 600ms ease",
+          }}
+          onClick={() => {
+            if (themeFading) return;
+            setThemeFading(true);
+            // Launch interstitial on top of the fading theme
+            if (activeTeam) setInterstitialTeam(activeTeam);
+            // Remove theme from DOM after fade completes
+            setTimeout(() => setThemeDismissed(true), 700);
+          }}
+          role="button"
+        >
+          <div
+            className="absolute inset-0 bg-black/85"
+            style={{ backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }}
+          />
+          <div className="relative z-10 flex flex-col items-center px-[50px]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/games/fyve/Fyve-Things.jpg"
+              alt="FYVE Things"
+              className="w-full max-w-[800px] rounded-2xl border border-white/20"
+              draggable={false}
+            />
+            <p className="mt-6 text-sm text-white/40 animate-pulse">
+              — Tap to continue —
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Bomb Fail Overlay — unified bomb card animation + loss screen */}
+      {bombFail && activeTeam && winningTeam && (() => {
+        const losingTeam: FyveTeam = winningTeam === "syndicate1" ? "syndicate2" : "syndicate1";
+        return (
+          <BombFailOverlay
+            cardIndex={bombFail.cardIndex}
+            boardWord={bombFail.word}
+            bombImageUrl={bombFail.imageUrl}
+            bombAudioUrl={bombFail.audioUrl}
+            bombDescription={bombFail.description}
+            losingTeam={losingTeam}
+            losingTeamName={losingTeam === "syndicate1" ? t1Display : t2Display}
+            losingTeamLogoUrl={(losingTeam === "syndicate1" ? svState.draftT1Logo : svState.draftT2Logo) ?? ""}
+            onDismiss={() => {
+              prevBoardRef.current = board;
+              revealPendingRef.current = false;
+              setBombFail(null);
+              setGameOverPhase("win");
+            }}
+          />
+        );
+      })()}
+
+      {/* Game-Over: Loss fallback (late-join/reconnect into finished bomb game) */}
+      {gameOverPhase === "loss" && !bombFail && heist && winningTeam && (() => {
         const losingTeam: FyveTeam = winningTeam === "syndicate1" ? "syndicate2" : "syndicate1";
         const losingScore = losingTeam === "syndicate1" ? t1Score : t2Score;
         const elementBomb = heist.assets[losingScore];
@@ -871,8 +999,8 @@ export default function FyveGame({
         );
       })()}
 
-      {/* Game-Over: Win Overlay — fades in on top (directly for clean wins, after loss for bombs) */}
-      {gameOverPhase === "win" && heist && winningTeam && (
+      {/* Game-Over: Win Overlay — directly for clean wins, after bomb/loss for bombs */}
+      {gameOverPhase === "win" && !bombFail && heist && winningTeam && (
         <JMGameResultOverlay
           variant="win"
           teamName={winningTeam === "syndicate1" ? t1Display : t2Display}
@@ -887,13 +1015,13 @@ export default function FyveGame({
         />
       )}
 
-      {/* Card Reveal Overlay — flies from grid card on ALL clients */}
+      {/* Card Reveal Overlay — non-bomb cards only */}
       {animReveal && (
         <CardRevealOverlay
           result={animReveal.result}
           activeTeam={activeTeam!}
           boardWord={animReveal.word}
-          bombSoundUrl={animReveal.result.bombSoundEffect ?? null}
+          isGameEnding={!!svState.winningTeam}
           onDismiss={handleRevealDismissed}
         />
       )}
@@ -905,6 +1033,7 @@ export default function FyveGame({
           teamColor={interstitialTeam === "syndicate1" ? FYVE_COLORS.t1 : FYVE_COLORS.t2}
           logoUrl={(interstitialTeam === "syndicate1" ? svState.draftT1Logo : svState.draftT2Logo) ?? ""}
           score={interstitialTeam === "syndicate1" ? t1Score : t2Score}
+          maxScore={5}
           onDismiss={() => setInterstitialTeam(null)}
         />
       )}

@@ -235,11 +235,11 @@ export default function TeamFormationScreen({
             {/* Team 1 */}
             <div className="min-h-[200px] rounded-xl border-2 border-dashed border-[#E84C1E]/30 bg-[#E84C1E]/10 p-3">
               <JMTeamLogoButton logoUrl={logo1} color={FYVE_COLORS.t1} />
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {viewT1.map((uid) => (
                   <div
                     key={uid}
-                    className="flex items-center justify-center gap-1.5 rounded-full bg-black/30 px-3 py-2.5 text-sm font-semibold text-white"
+                    className="flex items-center justify-center gap-1.5 truncate rounded-full bg-black/30 px-3 py-3.5 text-base font-semibold text-white"
                   >
                     {uid === myUid && <span className="text-yellow-400">&#9733;</span>}
                     {playerMap.get(uid) ?? uid}
@@ -251,11 +251,11 @@ export default function TeamFormationScreen({
             {/* Team 2 */}
             <div className="min-h-[200px] rounded-xl border-2 border-dashed border-blue-400/30 bg-blue-400/10 p-3">
               <JMTeamLogoButton logoUrl={logo2} color={FYVE_COLORS.t2} />
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {viewT2.map((uid) => (
                   <div
                     key={uid}
-                    className="flex items-center justify-center gap-1.5 rounded-full bg-black/30 px-3 py-2.5 text-sm font-semibold text-white"
+                    className="flex items-center justify-center gap-1.5 truncate rounded-full bg-black/30 px-3 py-3.5 text-base font-semibold text-white"
                   >
                     {uid === myUid && <span className="text-yellow-400">&#9733;</span>}
                     {playerMap.get(uid) ?? uid}
@@ -307,11 +307,11 @@ export default function TeamFormationScreen({
             onDrop={(e) => handleDrop(e, "s1")}
           >
             <JMTeamLogoButton logoUrl={t1Identity.logoUrl} color={FYVE_COLORS.t1} onPress={() => setLogoPickerTeam("t1")} />
-            <div className="space-y-2">
+            <div className="space-y-3">
               {team1.map((uid) => (
                 <div
                   key={uid}
-                  className="cursor-pointer rounded-full bg-black/30 px-3 py-2.5 text-center text-sm font-semibold text-white active:bg-red-900/40 hover:bg-black/50"
+                  className="cursor-pointer truncate rounded-full bg-black/30 px-3 py-3.5 text-center text-base font-semibold text-white active:bg-red-900/40 hover:bg-black/50"
                   onClick={() => removeFromTeam(uid)}
                 >
                   {playerMap.get(uid) ?? uid}
@@ -338,11 +338,11 @@ export default function TeamFormationScreen({
             onDrop={(e) => handleDrop(e, "s2")}
           >
             <JMTeamLogoButton logoUrl={t2Identity.logoUrl} color={FYVE_COLORS.t2} onPress={() => setLogoPickerTeam("t2")} />
-            <div className="space-y-2">
+            <div className="space-y-3">
               {team2.map((uid) => (
                 <div
                   key={uid}
-                  className="cursor-pointer rounded-full bg-black/30 px-3 py-2.5 text-center text-sm font-semibold text-white active:bg-red-900/40 hover:bg-black/50"
+                  className="cursor-pointer truncate rounded-full bg-black/30 px-3 py-3.5 text-center text-base font-semibold text-white active:bg-red-900/40 hover:bg-black/50"
                   onClick={() => removeFromTeam(uid)}
                 >
                   {playerMap.get(uid) ?? uid}
@@ -364,7 +364,7 @@ export default function TeamFormationScreen({
               Drag into a team — tap inside to remove
             </p>
           )}
-          <div className="flex flex-wrap justify-center gap-2">
+          <div className="flex flex-wrap justify-center gap-3">
             {unassigned.map((p) => (
               <div
                 key={p.uid}
@@ -374,7 +374,7 @@ export default function TeamFormationScreen({
                 onTouchStart={(e) => handleTouchStart(p.uid, e)}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
-                className={`cursor-grab select-none rounded-full bg-white/15 px-6 py-3 text-base font-semibold text-white active:cursor-grabbing active:bg-[#E84C1E]/40 hover:bg-white/25 ${
+                className={`cursor-grab select-none rounded-full bg-white/15 px-6 py-3.5 text-base font-semibold text-white active:cursor-grabbing active:bg-[#E84C1E]/40 hover:bg-white/25 ${
                   draggedUid === p.uid ? "opacity-40" : ""
                 }`}
               >

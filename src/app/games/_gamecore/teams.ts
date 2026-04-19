@@ -12,9 +12,11 @@ export const TEAM_NAMES = [
   "Ghosts", "Phantoms", "Reapers", "Wraiths", "Shadows", "Zombies", "Goblins", "Spooks",
   "Angels", "Devils", "Titans", "Dragons", "Kraken", "Hydras",
   "Misfits", "Mutants", "Freaks", "Skulls", "Exiles", "Outcasts", "Rebels", "Bandits",
-  "Ronin", "Hackers", "Vandals", "Hunters", "Savants", "Aces", "Ringers", "Sleepers",
+  "Warcraft", "Denizens", "Outlaws", "Alliance", "Insidious", "Saviors", "Hellions", "Vigilantes", "Equalizers",
+  "Ronin", "Hackers", "Vandals", "Hunters", "Savants", "Aces", "Ringers", "Sleepers", 
+  "Saints", "Mavericks", "Defenders", "Guardians", "Fixers", "Clerics", "Erasers", 
   "Crows", "Falcons", "Raptors", "Hounds",
-  "Hats", "Coats", "Boots", "Hoods", "Rising", "Plague", "Fury", "Rascals", "Sneakers",
+  "Hoods", "Rising", "Plague", "Fury", "Rascals", "Sneakers",
   "Tower",
 ] as const;
 

@@ -7,6 +7,7 @@ import { getAIAuthHeaders } from "@/app/games/_gamecore";
 import { JMCloseCircleButton } from "@/JMKit/JMCloseCircleButton";
 import { FYVE_COLORS } from "../FyveGame";
 import FyveGrid from "./FyveGrid";
+import HeistProgressBars from "./HeistProgressBars";
 
 
 interface BossScreenProps {
@@ -20,6 +21,8 @@ interface BossScreenProps {
   pendingTap?: FyvePendingTap | null;
   onSubmitClue?: (word: string, number: number) => void;
   heist?: FyveHeist | null;
+  t1Score: number;
+  t2Score: number;
 }
 
 export default function BossScreen({
@@ -33,9 +36,12 @@ export default function BossScreen({
   pendingTap,
   onSubmitClue,
   heist: _heist,
+  t1Score,
+  t2Score,
 }: BossScreenProps) {
   void _heist; // reserved for background
   const isMyTeamActive = activeTeam === myTeam;
+  const teamAccent = myTeam === "syndicate1" ? "#E84C1E" : "#3B82F6";
   const [clueWord, setClueWord] = useState("");
   const [clueNumber, setClueNumber] = useState(1);
   const [error, setError] = useState<string | null>(null);
@@ -122,12 +128,9 @@ export default function BossScreen({
 
         {/* Other team is playing — non-active team boss */}
         {!isMyTeamActive && (
-          <div
-            className="pointer-events-none absolute inset-x-0 flex justify-center"
-            style={{ top: "40%", transform: "translateY(-50%)" }}
-          >
-            <div className="rounded-xl bg-black/85 px-5 py-3 backdrop-blur-sm">
-              <p className="text-sm font-semibold animate-pulse">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div className="rounded-2xl bg-black/85 px-7 py-4 backdrop-blur-sm">
+              <p className="text-base font-bold animate-pulse">
                 <span style={{ color: activeTeam === "syndicate1" ? FYVE_COLORS.t1 : FYVE_COLORS.t2 }}>
                   {activeTeamName}
                 </span>
@@ -138,12 +141,15 @@ export default function BossScreen({
         )}
       </div>
 
+      {/* Heist progress bars */}
+      <HeistProgressBars t1Score={t1Score} t2Score={t2Score} activeTeam={activeTeam} />
+
       {/* Create Clue button — only visible when it's my turn */}
       {isMyTurn && !currentClue && (
         <div className="mt-4">
           <button
             type="button"
-            className="w-full rounded-xl bg-[#E84C1E] py-3.5 text-sm font-bold text-white active:scale-[0.98] transition-transform"
+            className="w-full rounded-xl bg-green-600 py-4.5 text-base font-bold text-white active:scale-[0.98] transition-transform"
             onClick={() => setClueModalOpen(true)}
           >
             Create Clue
@@ -162,7 +168,7 @@ export default function BossScreen({
           />
           <div className="relative z-10 w-full max-w-sm rounded-2xl border border-white/10 bg-neutral-950 p-5">
             <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm font-bold uppercase tracking-wider text-[#E84C1E]">
+              <p className="text-sm font-bold uppercase tracking-wider" style={{ color: teamAccent }}>
                 Clue:
               </p>
               <JMCloseCircleButton onClick={() => { setClueModalOpen(false); setError(null); }} />
@@ -182,7 +188,9 @@ export default function BossScreen({
                     setError(null);
                   }}
                   placeholder="One word..."
-                  className="flex-1 rounded-lg border border-white/20 bg-white/5 px-3 py-3 text-sm text-white placeholder-white/30 outline-none focus:border-[#E84C1E]"
+                  className="flex-1 rounded-lg border border-white/20 bg-white/5 px-3 py-3 text-sm text-white placeholder-white/30 outline-none"
+                  onFocus={(e) => { e.currentTarget.style.borderColor = teamAccent; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = ""; }}
                   maxLength={30}
                   enterKeyHint="send"
                   autoComplete="off"
@@ -191,9 +199,11 @@ export default function BossScreen({
                 <select
                   value={clueNumber}
                   onChange={(e) => setClueNumber(Number(e.target.value))}
-                  className="w-16 rounded-lg border border-white/20 bg-white/5 px-2 py-3 text-center text-sm text-white outline-none focus:border-[#E84C1E]"
+                  className="w-16 rounded-lg border border-white/20 bg-white/5 px-2 py-3 text-center text-sm text-white outline-none"
+                  onFocus={(e) => { e.currentTarget.style.borderColor = teamAccent; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = ""; }}
                 >
-                  {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+                  {[1, 2, 3, 4, 5].map((n) => (
                     <option key={n} value={n} className="bg-neutral-900">
                       {n}
                     </option>

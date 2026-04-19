@@ -151,16 +151,16 @@ async function handleGenerateKey(
   const words = heist["words"] as { tier1: string[]; tier2: string[]; tier3: string[] };
   const civilians = heist["civilians"] as { name: string; description: string; imageUrl: string }[];
 
-  // Build the 20-card board — ALL words come from the pool (no character names)
+  // Build the 16-card board — ALL words come from the pool (no character names)
   const fullPool = [...words.tier1, ...words.tier2, ...words.tier3];
   console.log(`[FYVE DEBUG] Full word pool (${fullPool.length} words):`, fullPool);
-  const boardWords = shuffle(fullPool).slice(0, 20);
-  console.log(`[FYVE DEBUG] Selected 20 board words:`, boardWords);
+  const boardWords = shuffle(fullPool).slice(0, 16);
+  console.log(`[FYVE DEBUG] Selected 16 board words:`, boardWords);
 
   // Generate the key template and shuffle it
   const keyTemplate: CardType[] = [
-    "T1", "T1", "T1", "T1", "T1", "T1", "T1", // 7 syndicate one
-    "T2", "T2", "T2", "T2", "T2", "T2", "T2", // 7 syndicate two
+    "T1", "T1", "T1", "T1", "T1",             // 5 syndicate one
+    "T2", "T2", "T2", "T2", "T2",             // 5 syndicate two
     "N", "N", "N", "N", "N",                   // 5 neutral civilians
     "BOMB",                                      // 1 bomb
   ];

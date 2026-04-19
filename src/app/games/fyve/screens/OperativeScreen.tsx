@@ -5,6 +5,7 @@ import type { FyveBoardCard, FyveTeam, FyveClue, FyvePendingTap, FyveHeist } fro
 import { useAuth } from "@/lib/AuthProvider";
 import { FYVE_COLORS } from "../FyveGame";
 import FyveGrid from "./FyveGrid";
+import HeistProgressBars from "./HeistProgressBars";
 
 interface OperativeScreenProps {
   board: FyveBoardCard[];
@@ -20,6 +21,8 @@ interface OperativeScreenProps {
   onPassTurn?: () => void | Promise<void>;
   heist?: FyveHeist | null;
   waitingForClue?: boolean;
+  t1Score: number;
+  t2Score: number;
 }
 
 export default function OperativeScreen({
@@ -36,6 +39,8 @@ export default function OperativeScreen({
   onPassTurn,
   heist: _heist,
   waitingForClue,
+  t1Score,
+  t2Score,
 }: OperativeScreenProps) {
   void _heist; // reserved for future background
   void _guessesRemaining; // displayed elsewhere
@@ -98,11 +103,11 @@ export default function OperativeScreen({
 
         {/* Waiting for Boss's clue — active team operatives only */}
         <div
-          className="pointer-events-none absolute inset-x-0 flex justify-center transition-opacity duration-500"
-          style={{ top: "40%", transform: "translateY(-50%)", opacity: waitingForClue ? 1 : 0 }}
+          className="pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity duration-500"
+          style={{ opacity: waitingForClue ? 1 : 0 }}
         >
-          <div className="rounded-xl bg-black/85 px-5 py-3 backdrop-blur-sm">
-            <p className="text-sm font-semibold text-white/70 animate-pulse">
+          <div className="rounded-2xl bg-black/85 px-7 py-4 backdrop-blur-sm">
+            <p className="text-base font-bold text-white/70 animate-pulse">
               Waiting for Boss&apos;s clue...
             </p>
           </div>
@@ -110,12 +115,9 @@ export default function OperativeScreen({
 
         {/* Other team is playing — non-active team operatives */}
         {!isMyTeamActive && !waitingForClue && (
-          <div
-            className="pointer-events-none absolute inset-x-0 flex justify-center"
-            style={{ top: "40%", transform: "translateY(-50%)" }}
-          >
-            <div className="rounded-xl bg-black/85 px-5 py-3 backdrop-blur-sm">
-              <p className="text-sm font-semibold animate-pulse">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div className="rounded-2xl bg-black/85 px-7 py-4 backdrop-blur-sm">
+              <p className="text-base font-bold animate-pulse">
                 <span style={{ color: activeTeam === "syndicate1" ? FYVE_COLORS.t1 : FYVE_COLORS.t2 }}>
                   {activeTeamName}
                 </span>
@@ -126,10 +128,13 @@ export default function OperativeScreen({
         )}
       </div>
 
+      {/* Heist progress bars */}
+      <HeistProgressBars t1Score={t1Score} t2Score={t2Score} activeTeam={activeTeam} />
+
       {/* Local tap confirmation — only the tapper sees this */}
       {localTapIndex != null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="w-72 rounded-2xl border border-white/15 bg-neutral-900 p-6 text-center">
+          <div className="w-72 rounded-2xl border-2 bg-neutral-900 p-6 text-center" style={{ borderColor: myTeam === "syndicate1" ? "#dc2626" : "#3B82F6" }}>
             <p className="text-lg font-bold text-white">
               &ldquo;{board[localTapIndex]?.word}&rdquo;
             </p>
@@ -144,7 +149,7 @@ export default function OperativeScreen({
                 No
               </button>
               <button
-                className="flex-1 rounded-lg bg-[#E84C1E] py-2 text-sm font-semibold text-white hover:bg-[#E84C1E]/80"
+                className="flex-1 rounded-lg bg-green-600 py-2 text-sm font-semibold text-white hover:bg-green-500"
                 onClick={handleConfirmLocalTap}
               >
                 Yes
@@ -169,7 +174,7 @@ export default function OperativeScreen({
 
       {passConfirmOpen && onPassTurn && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="w-72 rounded-2xl border border-white/15 bg-neutral-900 p-6 text-center">
+          <div className="w-72 rounded-2xl border-2 bg-neutral-900 p-6 text-center" style={{ borderColor: myTeam === "syndicate1" ? "#dc2626" : "#3B82F6" }}>
             <p className="text-lg font-bold text-white">Pass this turn?</p>
             <p className="mt-2 text-sm text-white/60">
               Your team will stop guessing; the other syndicate gets the next clue.

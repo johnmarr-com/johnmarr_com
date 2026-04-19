@@ -9,11 +9,9 @@
 
 export const HEIST_ELEMENT_LABELS = [
   "Intel",
-  "Inside Man",
-  "Cover Story",
-  "Specialist",
-  "Distraction",
-  "Escape Route",
+  "Insider",
+  "Distract",
+  "Escape",
   "Payday",
 ] as const;
 
@@ -75,7 +73,7 @@ export interface FyveHeist {
 
   setting: FyveHeistSetting;
 
-  assets: FyveAsset[]; // exactly 7 — each carries its own per-element bomb
+  assets: FyveAsset[]; // exactly 5 — each carries its own per-element bomb
   civilians: FyveCivilian[]; // exactly 5
   winMessage: string;
   words: FyveWordPool;
@@ -119,7 +117,7 @@ export interface FyveBoardCard {
   revealedName?: string;
   revealedDescription?: string;
   revealedImageUrl?: string;
-  /** For assets: which number this was (1-7) for the owning team */
+  /** For assets: which number this was (1-5) for the owning team */
   revealedAssetNumber?: number;
   /** For bombs: sound effect URL from the per-element bomb */
   revealedSoundEffect?: string;
@@ -140,14 +138,14 @@ export interface FyveTeamRoster {
 
 export interface FyveClue {
   word: string;
-  number: number;          // 1–7
+  number: number;          // 1–5
   givenBy: string;         // boss UID
 }
 
 // ─── Tap / Cancel State ─────────────────────────────────────
 
 export interface FyvePendingTap {
-  /** Index of the tapped card (0–19) */
+  /** Index of the tapped card (0–15) */
   cardIndex: number;
   /** UID of the operative who tapped */
   tappedBy: string;
@@ -188,7 +186,7 @@ export interface FyveSessionState {
   // (boss selection is host-only — no votes field needed)
 
   // Board
-  board: FyveBoardCard[] | null;  // 20 cards, no color info for operatives
+  board: FyveBoardCard[] | null;  // 16 cards, no color info for operatives
 
   // Turn state
   activeTeam: FyveTeam | null;
@@ -227,8 +225,8 @@ export interface FyveKeyDoc {
   /** The secret assignment: key[i] maps to board[i] */
   key: CardType[];
   /** Sequential reveal counters — assets are revealed in story order, not pre-assigned */
-  t1RevealCount: number; // 0–7, next asset index for red team
-  t2RevealCount: number; // 0–7, next asset index for blue team
+  t1RevealCount: number; // 0–5, next asset index for red team
+  t2RevealCount: number; // 0–5, next asset index for blue team
   /** Civilian assignments: which board index maps to which civilian */
   civilianAssignments: Record<number, number>; // boardIndex → heist.civilians index
   /** The bomb board index */
@@ -252,7 +250,7 @@ export interface FyveRevealResult {
   name: string;
   description: string;
   imageUrl: string;
-  /** For assets: which number (1–7) for the owning team */
+  /** For assets: which number (1–5) for the owning team */
   assetNumber?: number;
   /** For bombs: per-element sound effect URL */
   bombSoundEffect?: string;

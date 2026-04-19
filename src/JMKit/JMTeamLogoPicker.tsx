@@ -44,7 +44,7 @@ export function JMTeamLogoPicker({
           <JMCloseCircleButton onClick={onClose} />
         </div>
         <div className="grid grid-cols-3 gap-4">
-          {TEAM_NAMES.map((name) => {
+          {[...TEAM_NAMES].sort((a, b) => a.localeCompare(b)).map((name) => {
             const url = getTeamLogoUrl(name);
             const isActive = currentName === name;
             return (

@@ -598,6 +598,9 @@ export async function removePlayerFromSession(
 /**
  * Get all active (lobby or playing) game sessions for a given user.
  * Requires a composite index on playerUids (array-contains) + status.
+ *
+ * Filters out stale sessions: "playing" not updated in 2 h, "lobby" in 4 h.
+ * Abandoned games naturally drop off without waiting for the daily cleanup.
  */
 export async function getActiveSessionsForUser(
   userId: string,
@@ -629,14 +632,24 @@ export async function getActiveSessionsForUser(
     });
   }
 
+  // Drop stale sessions — abandoned games that never got set to "finished"
+  const now = Date.now();
+  const STALE_PLAYING_MS = 2 * 60 * 60 * 1000; // 2 hours
+  const STALE_LOBBY_MS = 4 * 60 * 60 * 1000;   // 4 hours
+  const fresh = sessions.filter((s) => {
+    const updatedMs = s.updatedAt?.toMillis?.() ?? 0;
+    const age = now - updatedMs;
+    return s.status === "playing" ? age < STALE_PLAYING_MS : age < STALE_LOBBY_MS;
+  });
+
   // Most recently updated first
-  sessions.sort((a, b) => {
+  fresh.sort((a, b) => {
     const aMs = a.updatedAt?.toMillis?.() ?? 0;
     const bMs = b.updatedAt?.toMillis?.() ?? 0;
     return bMs - aMs;
   });
 
-  return sessions;
+  return fresh;
 }
 
 // ─────────────────────────────────────────────────────────────

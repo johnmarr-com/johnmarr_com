@@ -181,8 +181,8 @@ export function GameMultiplayerFlow({
           setKicked(true);
         }
 
-        // Host: add new human players to own knownPlayerUids
-        if (updated.ownerId === user?.uid) {
+        // All players: add other human players to own knownPlayerUids
+        if (user?.uid) {
           const newUids = updated.players
             .map((p) => p.uid)
             .filter((uid) => uid !== user.uid && !isAiPlayer(uid) && !trackedPlayersRef.current.has(uid));

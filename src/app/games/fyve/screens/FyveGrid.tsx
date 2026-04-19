@@ -1,8 +1,12 @@
 "use client";
 
+import { useRef, useEffect, useState, useCallback } from "react";
 import { Loader2 } from "lucide-react";
 import type { FyveBoardCard, CardType, FyveTeam } from "../fyveTypes";
 import { FYVE_COLORS } from "../FyveGame";
+
+const FONT_MAX = 14;
+const FONT_MIN = 9;
 
 // ─── Color helpers ──────────────────────────────────────────
 
@@ -17,6 +21,47 @@ function getCardTypeColor(type: CardType): string {
     case "BOMB":
       return FYVE_COLORS.bomb;
   }
+}
+
+// ─── Auto-fit text per card ─────────────────────────────────
+
+function FitText({ word, className, style }: { word: string; className?: string; style?: React.CSSProperties }) {
+  const spanRef = useRef<HTMLSpanElement>(null);
+  const [size, setSize] = useState(FONT_MAX);
+
+  const fit = useCallback(() => {
+    const span = spanRef.current;
+    const parent = span?.parentElement;
+    if (!span || !parent) return;
+    // Available width = parent width minus horizontal padding (4px each side)
+    const available = parent.clientWidth - 8;
+    let s = FONT_MAX;
+    span.style.fontSize = `${s}px`;
+    // Shrink until single-line text fits or we hit the minimum
+    while (s > FONT_MIN && span.scrollWidth > available) {
+      s -= 1;
+      span.style.fontSize = `${s}px`;
+    }
+    setSize(s);
+  }, []);
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(fit);
+    const ro = new ResizeObserver(fit);
+    const parent = spanRef.current?.parentElement;
+    if (parent) ro.observe(parent);
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); };
+  }, [fit]);
+
+  return (
+    <span
+      ref={spanRef}
+      className={className}
+      style={{ ...style, fontSize: size, whiteSpace: size > FONT_MIN ? "nowrap" : undefined }}
+    >
+      {word}
+    </span>
+  );
 }
 
 // ─── Props ──────────────────────────────────────────────────
@@ -47,6 +92,7 @@ export default function FyveGrid({
   waitingCardIndex,
 }: FyveGridProps) {
   void _activeTeam; // reserved for turn highlight styling
+
   return (
     <div className="grid grid-cols-4 gap-1.5">
       {board.map((card) => {
@@ -60,16 +106,14 @@ export default function FyveGrid({
           const revealColor = card.revealedType ? getCardTypeColor(card.revealedType) : "#666";
           const isNeutral = card.revealedType === "N";
           const isBomb = card.revealedType === "BOMB";
-          // Borders: true red for T1/bomb, dark gray for neutrals, team color otherwise
           const revealBorder = card.revealedType === "T1" ? "#dc2626"
             : isBomb ? "#dc2626"
             : isNeutral ? "#444"
             : revealColor;
-          // Team color tint over image
           const tintColor = isNeutral ? "rgba(0, 0, 0, 0.55)"
             : card.revealedType === "T1" ? "rgba(220, 38, 38, 0.35)"
             : card.revealedType === "T2" ? "rgba(59, 130, 246, 0.35)"
-            : "rgba(220, 38, 38, 0.4)"; // bomb
+            : "rgba(220, 38, 38, 0.4)";
 
           return (
             <div
@@ -87,15 +131,12 @@ export default function FyveGrid({
                   style={{ backgroundImage: `url(${card.revealedImageUrl})` }}
                 />
               ) : (
-                /* Fallback when no image — show word */
-                <span
-                  className="px-1 text-xs font-bold leading-tight sm:text-sm"
+                <FitText
+                  word={card.word}
+                  className="px-1 font-bold leading-tight text-center"
                   style={{ color: revealColor }}
-                >
-                  {card.word}
-                </span>
+                />
               )}
-              {/* Team tint overlay */}
               <div className="absolute inset-0 pointer-events-none" style={{ backgroundColor: tintColor }} />
             </div>
           );
@@ -114,7 +155,7 @@ export default function FyveGrid({
           <button
             key={card.index}
             data-card-index={card.index}
-            className={`relative flex aspect-square items-center justify-center overflow-hidden rounded-lg border-2 text-center transition-all ${
+            className={`relative flex aspect-square items-center justify-center rounded-lg border-2 text-center transition-all ${
               canTap
                 ? "cursor-pointer active:scale-95 hover:brightness-125"
                 : "cursor-default"
@@ -130,13 +171,12 @@ export default function FyveGrid({
             disabled={!canTap || isRevealed}
             onClick={() => canTap && onTapCard?.(card.index)}
           >
-            <span
-              className={`px-1 text-xs font-bold leading-tight sm:text-sm ${
+            <FitText
+              word={card.word}
+              className={`px-1 font-bold leading-tight text-center ${
                 colorType ? "text-white" : "text-white/80"
               }`}
-            >
-              {card.word}
-            </span>
+            />
             {isWaiting && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                 <Loader2 className="h-6 w-6 animate-spin text-yellow-400" />

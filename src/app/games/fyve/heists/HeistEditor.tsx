@@ -56,16 +56,16 @@ export default function HeistEditor({ editHeist }: HeistEditorProps = {}) {
   const [bgUrl, setBgUrl] = useState(eh?.backgroundImageUrl ?? "");
   const [targetUrl, setTargetUrl] = useState(eh?.targetObjectImageUrl ?? "");
 
-  // Assets (7) — ensure bomb fields have defaults for heists created before per-element bombs
+  // Assets (5) — ensure bomb fields have defaults for heists created before per-element bombs
   const [assets, setAssets] = useState<FyveAsset[]>(() =>
     eh?.assets?.length
-      ? eh.assets.map((a) => ({
+      ? eh.assets.slice(0, 5).map((a) => ({
           ...a,
           bombDescription: a.bombDescription ?? "",
           bombImageUrl: a.bombImageUrl ?? "",
           bombSoundEffect: a.bombSoundEffect ?? "",
         }))
-      : Array.from({ length: 7 }, emptyAsset),
+      : Array.from({ length: 5 }, emptyAsset),
   );
 
   // Civilians (5)
@@ -170,7 +170,7 @@ export default function HeistEditor({ editHeist }: HeistEditorProps = {}) {
       if (data.assets) {
         setAssets(data.assets.map((a: Record<string, unknown>, i: number) => ({
           id: `asset-${i}`,
-          name: (a["name"] as string) ?? "",
+          name: HEIST_ELEMENT_LABELS[i] ?? "",
           description: (a["description"] as string) ?? "",
           imageUrl: "",            // images always blank — uploaded separately
           bombDescription: (a["bombDescription"] as string) ?? "",
@@ -181,7 +181,7 @@ export default function HeistEditor({ editHeist }: HeistEditorProps = {}) {
       if (data.civilians) {
         setCivilians(data.civilians.map((c: Record<string, unknown>, i: number) => ({
           id: `civ-${i}`,
-          name: (c["name"] as string) ?? "",
+          name: `Civilian ${i + 1}`,
           description: (c["description"] as string) ?? "",
           imageUrl: "",            // uploaded separately
         })));
@@ -207,24 +207,22 @@ export default function HeistEditor({ editHeist }: HeistEditorProps = {}) {
         era: "Time period here (e.g. 1960s)",
         atmosphere: "Atmosphere description here (e.g. glamorous, tense)",
       },
-      winMessage: "Victory message shown when a team collects all 7 elements and secures the target",
-      _assetsNote: "Exactly 7 assets required — one per heist element: 1. Intel, 2. Inside Man, 3. Cover Story, 4. Specialist, 5. Distraction, 6. Escape Route, 7. Payday. Each asset also has a bombDescription for what goes wrong if that element fails. Images and sounds are uploaded separately in the editor.",
+      winMessage: "Victory message shown when a team collects all 5 elements and secures the target",
+      _assetsNote: "Exactly 5 assets required — one per heist element: 1. Intel, 2. Insider, 3. Distract, 4. Escape, 5. Payday. Each asset has a description and a bombDescription for what goes wrong if that element fails. Images and sounds are uploaded separately in the editor.",
       assets: [
-        { name: "Intel asset name", description: "What this intel source is", bombDescription: "What goes wrong — e.g. intercepted communications" },
-        { name: "Inside Man asset name", description: "Who the inside contact is", bombDescription: "What goes wrong — e.g. the mole is discovered" },
-        { name: "Cover Story asset name", description: "What the cover identity is", bombDescription: "What goes wrong — e.g. cover is blown" },
-        { name: "Specialist asset name", description: "Who the specialist is", bombDescription: "What goes wrong — e.g. specialist captured" },
-        { name: "Distraction asset name", description: "What the diversion is", bombDescription: "What goes wrong — e.g. distraction backfires" },
-        { name: "Escape Route asset name", description: "How the team gets out", bombDescription: "What goes wrong — e.g. exit is blocked" },
-        { name: "Payday asset name", description: "The final prize", bombDescription: "What goes wrong — e.g. the vault is empty" },
+        { _element: "Intel", description: "What this intel source is", bombDescription: "What goes wrong — e.g. intercepted communications" },
+        { _element: "Insider", description: "Who the inside contact is", bombDescription: "What goes wrong — e.g. the mole is discovered" },
+        { _element: "Distract", description: "What the diversion is", bombDescription: "What goes wrong — e.g. distraction backfires" },
+        { _element: "Escape", description: "How the team gets out", bombDescription: "What goes wrong — e.g. exit is blocked" },
+        { _element: "Payday", description: "The final prize", bombDescription: "What goes wrong — e.g. the vault is empty" },
       ],
       _civiliansNote: "Exactly 5 civilians required — innocent bystanders on the board. Guessing a civilian wastes a turn. Images are uploaded separately in the editor.",
       civilians: [
-        { name: "Civilian 1 name", description: "Who this bystander is" },
-        { name: "Civilian 2 name", description: "Who this bystander is" },
-        { name: "Civilian 3 name", description: "Who this bystander is" },
-        { name: "Civilian 4 name", description: "Who this bystander is" },
-        { name: "Civilian 5 name", description: "Who this bystander is" },
+        { _label: "Civilian-1", description: "Who this bystander is" },
+        { _label: "Civilian-2", description: "Who this bystander is" },
+        { _label: "Civilian-3", description: "Who this bystander is" },
+        { _label: "Civilian-4", description: "Who this bystander is" },
+        { _label: "Civilian-5", description: "Who this bystander is" },
       ],
       _wordNote: "These lists are combined and used randomly in-game. They are separate here only to make it easier to create excellent heists.",
       words: {
@@ -290,9 +288,9 @@ export default function HeistEditor({ editHeist }: HeistEditorProps = {}) {
     // Only validate completeness when publishing
     if (!isDraft) {
       const totalWords = words.tier1.length + words.tier2.length + words.tier3.length;
-      if (totalWords < 30) { setError(`Need at least 30 words (have ${totalWords})`); return; }
-      if (assets.some((a) => !a.name.trim())) { setError("All 7 assets need names"); return; }
-      if (civilians.some((c) => !c.name.trim())) { setError("All 5 civilians need names"); return; }
+      if (totalWords < 16) { setError(`Need at least 16 words (have ${totalWords})`); return; }
+      if (assets.some((a) => !a.description.trim())) { setError("All 5 assets need descriptions"); return; }
+      if (civilians.some((c) => !c.description.trim())) { setError("All 5 civilians need descriptions"); return; }
     }
 
     setSaving(true);
@@ -434,7 +432,7 @@ export default function HeistEditor({ editHeist }: HeistEditorProps = {}) {
         </div>
       </section>
 
-      {/* ═══ Heist Elements (7) ═══ */}
+      {/* ═══ Heist Elements (5) ═══ */}
       {assets.map((asset, i) => (
         <section key={asset.id} className="overflow-hidden rounded-xl border border-white/10 bg-black/30">
           {/* Element header bar */}
@@ -465,19 +463,8 @@ export default function HeistEditor({ editHeist }: HeistEditorProps = {}) {
               </button>
               <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                 <input
-                  className="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm font-medium text-white placeholder-white/30 outline-none focus:border-[#E84C1E]"
-                  placeholder={`${HEIST_ELEMENT_LABELS[i]} name`}
-                  value={asset.name}
-                  onChange={(e) => {
-                    const next = [...assets];
-                    next[i] = { ...next[i]!, name: e.target.value };
-                    setAssets(next);
-                  }}
-                  onBlur={triggerAutosave}
-                />
-                <input
                   className="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/30 outline-none focus:border-white/30"
-                  placeholder="Description"
+                  placeholder={`${HEIST_ELEMENT_LABELS[i]} description`}
                   value={asset.description}
                   onChange={(e) => {
                     const next = [...assets];
@@ -546,7 +533,7 @@ export default function HeistEditor({ editHeist }: HeistEditorProps = {}) {
       <section className="overflow-hidden rounded-xl border border-white/10 bg-black/30">
         <div className="bg-gray-500/10 px-4 py-2.5">
           <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">
-            Civilians ({civilians.filter((c) => c.name.trim()).length}/5)
+            Civilians ({civilians.filter((c) => c.description.trim()).length}/5)
           </h3>
         </div>
         <div className="space-y-3 p-4">
@@ -567,19 +554,8 @@ export default function HeistEditor({ editHeist }: HeistEditorProps = {}) {
               </button>
               <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                 <input
-                  className="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm font-medium text-white placeholder-white/30 outline-none focus:border-white/30"
-                  placeholder={`Civilian ${i + 1} name`}
-                  value={civ.name}
-                  onChange={(e) => {
-                    const newCivs = [...civilians];
-                    newCivs[i] = { ...newCivs[i]!, name: e.target.value };
-                    setCivilians(newCivs);
-                  }}
-                  onBlur={triggerAutosave}
-                />
-                <input
                   className="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/30 outline-none focus:border-white/30"
-                  placeholder="Description"
+                  placeholder={`Civilian ${i + 1} description`}
                   value={civ.description}
                   onChange={(e) => {
                     const newCivs = [...civilians];
@@ -839,8 +815,8 @@ export default function HeistEditor({ editHeist }: HeistEditorProps = {}) {
         const item = isAsset ? assets[indexed.index] : civilians[indexed.index];
         if (!item) return null;
         const modalLabel = isAsset
-          ? `${HEIST_ELEMENT_LABELS[indexed.index]}${item.name ? ` — ${item.name}` : ""}`
-          : `Civilian ${indexed.index + 1}${item.name ? ` — ${item.name}` : ""}`;
+          ? HEIST_ELEMENT_LABELS[indexed.index] ?? `Asset ${indexed.index + 1}`
+          : `Civilian ${indexed.index + 1}`;
         return (
           <HeistImageModal
             label={modalLabel}
@@ -867,14 +843,14 @@ export default function HeistEditor({ editHeist }: HeistEditorProps = {}) {
 
       {/* Per-element sound upload modal */}
       {soundUploadForElement != null && createPortal(
-        <div className="fixed inset-0 z-60 flex items-end justify-center sm:items-center">
+        <div className="fixed inset-0 z-60 flex items-center justify-center">
           <button
             type="button"
             className="absolute inset-0 bg-black/80 backdrop-blur-sm"
             onClick={() => setSoundUploadForElement(null)}
             aria-label="Close"
           />
-          <div className="relative z-10 w-full max-w-sm rounded-t-2xl border border-red-600/20 bg-neutral-950 p-5 shadow-2xl sm:rounded-2xl">
+          <div className="relative z-10 w-full max-w-sm rounded-2xl border border-red-600/20 bg-neutral-950 p-5 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-base font-bold text-white">
                 {HEIST_ELEMENT_LABELS[soundUploadForElement]} — Sound Effect

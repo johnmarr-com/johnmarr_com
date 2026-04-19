@@ -83,11 +83,11 @@ export default function BossSelectScreen({
             {/* Team 1 */}
             <div className="min-h-[200px] rounded-xl border-2 border-dashed border-[#E84C1E]/30 bg-[#E84C1E]/10 p-3">
               {draftT1Logo && <JMTeamLogoButton logoUrl={draftT1Logo} color={FYVE_COLORS.t1} />}
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {t1Members.map((uid) => (
                   <div
                     key={uid}
-                    className="flex items-center justify-center gap-1.5 rounded-full bg-black/30 px-3 py-2.5 text-sm font-semibold text-white"
+                    className="flex items-center justify-center gap-1.5 truncate rounded-full bg-black/30 px-3 py-3.5 text-base font-semibold text-white"
                   >
                     {uid === myUid && <span className="text-yellow-400">&#9733;</span>}
                     {playerMap.get(uid) ?? uid}
@@ -99,11 +99,11 @@ export default function BossSelectScreen({
             {/* Team 2 */}
             <div className="min-h-[200px] rounded-xl border-2 border-dashed border-blue-400/30 bg-blue-400/10 p-3">
               {draftT2Logo && <JMTeamLogoButton logoUrl={draftT2Logo} color={FYVE_COLORS.t2} />}
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {t2Members.map((uid) => (
                   <div
                     key={uid}
-                    className="flex items-center justify-center gap-1.5 rounded-full bg-black/30 px-3 py-2.5 text-sm font-semibold text-white"
+                    className="flex items-center justify-center gap-1.5 truncate rounded-full bg-black/30 px-3 py-3.5 text-base font-semibold text-white"
                   >
                     {uid === myUid && <span className="text-yellow-400">&#9733;</span>}
                     {playerMap.get(uid) ?? uid}
@@ -148,13 +148,13 @@ export default function BossSelectScreen({
           {/* Team 1 */}
           <div className="min-h-[200px] rounded-xl border-2 border-dashed border-[#E84C1E]/30 bg-[#E84C1E]/10 p-3">
             {draftT1Logo && <JMTeamLogoButton logoUrl={draftT1Logo} color={FYVE_COLORS.t1} />}
-            <div className="space-y-2">
+            <div className="space-y-3">
               {t1Members.map((uid) => {
                 const isBoss = boss1 === uid;
                 return (
                   <button
                     key={uid}
-                    className={`w-full rounded-full px-3 py-2.5 text-center text-sm font-semibold transition ${
+                    className={`w-full truncate rounded-full px-3 py-3.5 text-center text-base font-semibold transition ${
                       isBoss
                         ? "bg-yellow-400 text-black"
                         : "bg-black/30 text-white hover:bg-black/50"
@@ -171,13 +171,13 @@ export default function BossSelectScreen({
           {/* Team 2 */}
           <div className="min-h-[200px] rounded-xl border-2 border-dashed border-blue-400/30 bg-blue-400/10 p-3">
             {draftT2Logo && <JMTeamLogoButton logoUrl={draftT2Logo} color={FYVE_COLORS.t2} />}
-            <div className="space-y-2">
+            <div className="space-y-3">
               {t2Members.map((uid) => {
                 const isBoss = boss2 === uid;
                 return (
                   <button
                     key={uid}
-                    className={`w-full rounded-full px-3 py-2.5 text-center text-sm font-semibold transition ${
+                    className={`w-full truncate rounded-full px-3 py-3.5 text-center text-base font-semibold transition ${
                       isBoss
                         ? "bg-yellow-400 text-black"
                         : "bg-black/30 text-white hover:bg-black/50"

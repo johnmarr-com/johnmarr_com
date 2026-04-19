@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { bgMusic } from "@/app/games/_gamecore";
 import { JMConfettiOverlay } from "./JMConfettiOverlay";
 
@@ -27,6 +28,8 @@ export interface JMGameResultOverlayProps {
   onPlayAgain?: () => void;
   /** Called when the overlay is tapped to dismiss (e.g. loss screen) */
   onDismiss?: () => void;
+  /** Duration in ms for the loss countdown bar (default: 10000) */
+  lossDuration?: number;
 }
 
 const CARD_SIZE = 260;
@@ -45,8 +48,10 @@ export function JMGameResultOverlay({
   isHost,
   onPlayAgain,
   onDismiss,
+  lossDuration = 10000,
 }: JMGameResultOverlayProps) {
   const [show, setShow] = useState(false);
+  const [barStarted, setBarStarted] = useState(false);
   const isWin = variant === "win";
 
   // Fade in on mount
@@ -56,6 +61,13 @@ export function JMGameResultOverlay({
     });
     return () => cancelAnimationFrame(t);
   }, []);
+
+  // Start loss countdown bar after fade-in completes
+  useEffect(() => {
+    if (!show || isWin) return;
+    const t = setTimeout(() => setBarStarted(true), 700);
+    return () => clearTimeout(t);
+  }, [show, isWin]);
 
   // Play audio on mount
   useEffect(() => {
@@ -94,6 +106,22 @@ export function JMGameResultOverlay({
           WebkitBackdropFilter: "blur(16px)",
         }}
       />
+
+      {/* Exit button — win screen, top left */}
+      {isWin && (
+        <Link
+          href="/"
+          className="absolute top-4 left-4 z-20 flex items-center gap-1.5 px-2 py-2 text-sm font-bold text-white active:scale-95 transition-transform"
+          style={{
+            opacity: show ? 1 : 0,
+            transition: "opacity 600ms ease-out 800ms",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <span className="text-xs leading-none">&#9664;</span>
+          EXIT
+        </Link>
+      )}
 
       {/* Confetti — win only, single play */}
       {isWin && show && <JMConfettiOverlay />}
@@ -174,7 +202,7 @@ export function JMGameResultOverlay({
       <div
         className="absolute left-0 right-0 flex flex-col items-center px-4"
         style={{
-          top: `calc(50% - ${CARD_OFFSET_Y}px + ${CARD_SIZE / 2 + 16}px)`,
+          top: `calc(50% + ${CARD_OFFSET_Y + CARD_SIZE / 2 + 16}px)`,
           zIndex: 10,
         }}
       >
@@ -195,14 +223,34 @@ export function JMGameResultOverlay({
         {/* Message (win/loss description) — white */}
         {message && (
           <p
-            className="mt-2 max-w-xs text-center text-sm leading-relaxed text-white"
+            className="mt-2 max-w-xs whitespace-pre-line text-center text-sm leading-relaxed text-white"
             style={{
               opacity: show ? 1 : 0,
               transition: "opacity 600ms ease-out 500ms",
             }}
           >
-            {message}
+            {message.replace(/\\n/g, "\n")}
           </p>
+        )}
+
+        {/* Loss countdown bar */}
+        {!isWin && (
+          <div
+            className="mt-4 h-1 w-48 overflow-hidden rounded-full bg-black/50"
+            style={{
+              opacity: show ? 1 : 0,
+              transition: "opacity 600ms ease-out 600ms",
+            }}
+          >
+            <div
+              className="h-full rounded-full"
+              style={{
+                backgroundColor: teamColor,
+                width: barStarted ? "100%" : "0%",
+                transition: barStarted ? `width ${lossDuration}ms linear` : "none",
+              }}
+            />
+          </div>
         )}
 
         {/* Play Again — host only */}
