@@ -56,6 +56,7 @@ export default function BluffBoxGame({
   );
   const aiProcessingRef = useRef(false);
   const [resultDismissed, setResultDismissed] = useState(false);
+  const [showRoundIntro, setShowRoundIntro] = useState(false);
 
   const {
     session,
@@ -343,6 +344,13 @@ export default function BluffBoxGame({
     }
   }, [bbPhase]);
 
+  // Show round-intro overlay when entering that phase; it self-dismisses via setShowRoundIntro(false).
+  useEffect(() => {
+    if (bbPhase === "round-intro") {
+      setShowRoundIntro(true);
+    }
+  }, [bbPhase]);
+
   // ─── Host: Advance from result ────────────────────────────
 
   const advanceFromResult = useCallback(async () => {
@@ -556,14 +564,15 @@ export default function BluffBoxGame({
           </div>
         )}
 
-        {/* ── Round Intro ── */}
-        {bbPhase === "round-intro" && (
+        {/* ── Round Intro (overlay — persists through phase change for exit animation) ── */}
+        {showRoundIntro && (
           <RoundIntroScreen
             roundNumber={roundNumber}
             totalRounds={totalRounds}
             onComplete={() => {
               if (isHost) startFirstTurn();
             }}
+            onAnimationDone={() => setShowRoundIntro(false)}
           />
         )}
 
@@ -725,6 +734,8 @@ export default function BluffBoxGame({
             <WinnerScreen
               winners={players.filter((p) => winners.includes(p.uid))}
               winnerPoints={winnerPoints}
+              allPlayers={players}
+              scores={scores}
               isHost={isHost}
               onPlayAgain={handlePlayAgain}
             />
