@@ -104,7 +104,7 @@ export function InviteKnownPlayersModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-h-[80dvh] overflow-y-auto bg-black/95 sm:max-w-sm">
+      <DialogContent className="max-h-[80dvh] overflow-y-auto bg-black/95 sm:max-w-sm" onInteractOutside={(e) => e.preventDefault()} onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="text-center text-white">
             Invite Players

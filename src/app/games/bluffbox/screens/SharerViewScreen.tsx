@@ -26,6 +26,8 @@ interface SharerViewScreenProps {
   onChoose: (choice: "truth" | "lie") => void;
   /** Set once Truth/Lie is committed (e.g. from session); locks the control visually. */
   sharerChoice?: "truth" | "lie" | null;
+  /** When true, hide the Truth/Lie buttons and show a "waiting for votes" label. */
+  waitingForVotes?: boolean;
 }
 
 function requestDoubleRaf(cb: () => void) {
@@ -43,6 +45,7 @@ export default function SharerViewScreen({
   onRevealBox,
   onChoose,
   sharerChoice = null,
+  waitingForVotes = false,
 }: SharerViewScreenProps) {
   const roundLabel = `ROUND ${roundNumber} of ${totalRounds}`;
   const [flipped, setFlipped] = useState(false);
@@ -172,6 +175,10 @@ export default function SharerViewScreen({
         {!flipped ? (
           <p className="max-w-sm whitespace-pre-line text-center text-lg font-medium leading-snug text-white/50 sm:text-xl">
             {`Tap to view contents.\nDon't let anyone see!`}
+          </p>
+        ) : waitingForVotes ? (
+          <p className="max-w-sm animate-pulse text-center text-lg font-semibold leading-snug text-white/60 sm:text-xl">
+            Everyone is voting&nbsp;&hellip;
           </p>
         ) : (
           <>

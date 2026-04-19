@@ -637,7 +637,23 @@ export default function BluffBoxGame({
         )}
 
         {/* ── Guessing ── */}
-        {bbPhase === "guessing" && (
+        {bbPhase === "guessing" && isSharer && !isAiPlayer(userId) && (
+          <SharerViewScreen
+            key={`sharer-voting-${roundNumber}-${currentTurnIndex}`}
+            roundNumber={roundNumber}
+            totalRounds={totalRounds}
+            {...(gameLogoURL != null && gameLogoURL.length > 0
+              ? { gameLogoURL }
+              : {})}
+            cardURL={cardURL}
+            packCoverURL={selectedPackCoverURL}
+            onRevealBox={handleRevealBox}
+            onChoose={handleSharerChoice}
+            sharerChoice={sharerChoice}
+            waitingForVotes
+          />
+        )}
+        {bbPhase === "guessing" && (!isSharer || isAiPlayer(userId)) && (
           <>
             <MatchupScreen
               roundNumber={roundNumber}
