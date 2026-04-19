@@ -4,6 +4,7 @@ import { getAdminFirestore } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import {
   HEIST_ELEMENT_LABELS,
+  ASSETS_PER_TEAM,
   type CardType,
   type FyveKeyDoc,
   type FyveBossView,
@@ -151,18 +152,19 @@ async function handleGenerateKey(
   const words = heist["words"] as { tier1: string[]; tier2: string[]; tier3: string[] };
   const civilians = heist["civilians"] as { name: string; description: string; imageUrl: string }[];
 
-  // Build the 16-card board — ALL words come from the pool (no character names)
+  // Build the board — ALL words come from the pool (no character names)
+  const boardSize = ASSETS_PER_TEAM * 3 + 1; // T1 + T2 + neutral + bomb
   const fullPool = [...words.tier1, ...words.tier2, ...words.tier3];
   console.log(`[FYVE DEBUG] Full word pool (${fullPool.length} words):`, fullPool);
-  const boardWords = shuffle(fullPool).slice(0, 16);
-  console.log(`[FYVE DEBUG] Selected 16 board words:`, boardWords);
+  const boardWords = shuffle(fullPool).slice(0, boardSize);
+  console.log(`[FYVE DEBUG] Selected ${boardSize} board words:`, boardWords);
 
   // Generate the key template and shuffle it
   const keyTemplate: CardType[] = [
-    "T1", "T1", "T1", "T1", "T1",             // 5 syndicate one
-    "T2", "T2", "T2", "T2", "T2",             // 5 syndicate two
-    "N", "N", "N", "N", "N",                   // 5 neutral civilians
-    "BOMB",                                      // 1 bomb
+    ...Array<CardType>(ASSETS_PER_TEAM).fill("T1"),   // team 1 assets
+    ...Array<CardType>(ASSETS_PER_TEAM).fill("T2"),   // team 2 assets
+    ...Array<CardType>(ASSETS_PER_TEAM).fill("N"),     // neutral civilians
+    "BOMB",                                             // 1 bomb
   ];
   const key = shuffle(keyTemplate);
 
@@ -189,6 +191,7 @@ async function handleGenerateKey(
     t2RevealCount: 0,
     civilianAssignments,
     bombIndex,
+    revealedCards: [],
     createdAt: FieldValue.serverTimestamp(),
   };
   await keyRef.set(keyDoc);
@@ -305,7 +308,8 @@ async function handleRevealCard(
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  if (cardIndex < 0 || cardIndex > 19) {
+  const maxCardIndex = ASSETS_PER_TEAM * 3; // last valid index = boardSize - 1
+  if (cardIndex < 0 || cardIndex > maxCardIndex) {
     return NextResponse.json({ error: "Invalid card index" }, { status: 400 });
   }
 
@@ -320,18 +324,6 @@ async function handleRevealCard(
     return NextResponse.json({ error: "Only the host can reveal cards" }, { status: 403 });
   }
 
-  // Load the key
-  const keySnap = await db.doc(`fyveKeys/${keyDocId}`).get();
-  if (!keySnap.exists) {
-    return NextResponse.json({ error: "Key not found" }, { status: 404 });
-  }
-  const keyData = keySnap.data() as FyveKeyDoc;
-  if (keyData.sessionId !== sessionId) {
-    return NextResponse.json({ error: "Key/session mismatch" }, { status: 403 });
-  }
-
-  const cardType = keyData.key[cardIndex]!;
-
   // Load the heist for asset/civilian/bomb metadata
   const heistSnap = await db.doc(`fyveHeists/${heistId}`).get();
   if (!heistSnap.exists) {
@@ -344,54 +336,87 @@ async function handleRevealCard(
   }[];
   const civilians = heist["civilians"] as { name: string; description: string; imageUrl: string }[];
 
-  let result: FyveRevealResult;
+  // Use a transaction for atomic read + idempotency check + counter update
+  const keyRef = db.doc(`fyveKeys/${keyDocId}`);
+  try {
+    const result = await db.runTransaction(async (tx) => {
+      const keySnap = await tx.get(keyRef);
+      if (!keySnap.exists) throw new Error("Key not found");
+      const keyData = keySnap.data() as FyveKeyDoc;
+      if (keyData.sessionId !== sessionId) throw new Error("Key/session mismatch");
 
-  if (cardType === "T1" || cardType === "T2") {
-    // Assets reveal in story order: the Nth reveal for this team shows asset #N
-    const countField = cardType === "T1" ? "t1RevealCount" : "t2RevealCount";
-    const currentCount = (keyData[countField] as number) ?? 0;
-    const asset = assets[currentCount];
+      // Idempotency: reject if this card was already revealed
+      const alreadyRevealed = keyData.revealedCards ?? [];
+      if (alreadyRevealed.includes(cardIndex)) throw new Error("Card already revealed");
 
-    // Increment the counter in the key doc
-    const keyRef = db.doc(`fyveKeys/${keyDocId}`);
-    await keyRef.update({ [countField]: currentCount + 1 });
+      const cardType = keyData.key[cardIndex]!;
 
-    result = {
-      cardIndex,
-      cardType,
-      name: asset?.name ?? "ASSET",
-      description: asset?.description ?? "",
-      imageUrl: asset?.imageUrl ?? "",
-    };
-  } else if (cardType === "N") {
-    const civIdx = keyData.civilianAssignments[cardIndex];
-    const civ = civIdx != null ? civilians[civIdx] : undefined;
-    result = {
-      cardIndex,
-      cardType,
-      name: civ?.name ?? "CIVILIAN",
-      description: civ?.description ?? "",
-      imageUrl: civ?.imageUrl ?? "",
-    };
-  } else {
-    // BOMB — use per-element bomb based on which element the active team is on
-    const sessionData = sessionSnap.data()!;
-    const activeTeam = sessionData["activeTeam"] as string;
-    const countField = activeTeam === "syndicate1" ? "t1RevealCount" : "t2RevealCount";
-    const elementIndex = (keyData[countField] as number) ?? 0;
-    const elementAsset = assets[elementIndex];
+      // Track this card as revealed
+      const keyUpdates: Record<string, unknown> = {
+        revealedCards: [...alreadyRevealed, cardIndex],
+      };
 
-    result = {
-      cardIndex,
-      cardType,
-      name: HEIST_ELEMENT_LABELS[elementIndex] ?? "THE BOMB",
-      description: elementAsset?.bombDescription || "",
-      imageUrl: elementAsset?.bombImageUrl || "",
-      bombSoundEffect: elementAsset?.bombSoundEffect || "",
-    };
+      let txResult: FyveRevealResult;
+
+      if (cardType === "T1" || cardType === "T2") {
+        const countField = cardType === "T1" ? "t1RevealCount" : "t2RevealCount";
+        const currentCount = (keyData[countField] as number) ?? 0;
+        const asset = assets[currentCount];
+        keyUpdates[countField] = currentCount + 1;
+
+        txResult = {
+          cardIndex,
+          cardType,
+          name: asset?.name ?? "ASSET",
+          description: asset?.description ?? "",
+          imageUrl: asset?.imageUrl ?? "",
+        };
+      } else if (cardType === "N") {
+        const civIdx = keyData.civilianAssignments[cardIndex];
+        const civ = civIdx != null ? civilians[civIdx] : undefined;
+        txResult = {
+          cardIndex,
+          cardType,
+          name: civ?.name ?? "CIVILIAN",
+          description: civ?.description ?? "",
+          imageUrl: civ?.imageUrl ?? "",
+        };
+      } else {
+        // BOMB — use per-element bomb based on which element the active team is on
+        const sessionData = sessionSnap.data()!;
+        const activeTeam = sessionData["activeTeam"] as string;
+        const countField = activeTeam === "syndicate1" ? "t1RevealCount" : "t2RevealCount";
+        const elementIndex = (keyData[countField] as number) ?? 0;
+        const elementAsset = assets[elementIndex];
+
+        txResult = {
+          cardIndex,
+          cardType,
+          name: HEIST_ELEMENT_LABELS[elementIndex] ?? "THE BOMB",
+          description: elementAsset?.bombDescription || "",
+          imageUrl: elementAsset?.bombImageUrl || "",
+          bombSoundEffect: elementAsset?.bombSoundEffect || "",
+        };
+      }
+
+      tx.update(keyRef, keyUpdates);
+      return txResult;
+    });
+
+    return NextResponse.json(result);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Transaction failed";
+    if (msg === "Card already revealed") {
+      return NextResponse.json({ error: msg }, { status: 409 });
+    }
+    if (msg === "Key not found") {
+      return NextResponse.json({ error: msg }, { status: 404 });
+    }
+    if (msg === "Key/session mismatch") {
+      return NextResponse.json({ error: msg }, { status: 403 });
+    }
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
-
-  return NextResponse.json(result);
 }
 
 // ─── VALIDATE CLUE ──────────────────────────────────────────

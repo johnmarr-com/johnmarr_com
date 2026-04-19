@@ -312,10 +312,22 @@ service cloud.firestore {
     match /gameSessions/{sessionId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      // Only allow updates if the caller will be a participant after the write.
-      // Covers existing participants, joining players, and host operations.
-      allow update: if isAuthenticated()
-        && request.auth.uid in request.resource.data.playerUids;
+
+      // Host (ownerId) can write any field.
+      // Non-host players can only modify gameplay-action and join-related fields.
+      // Critical fields (board, scores, teams, winningTeam, keyDocId, etc.)
+      // are host-only to prevent cheating via direct Firestore writes.
+      allow update: if isAuthenticated() && (
+        resource.data.ownerId == request.auth.uid
+        || (request.auth.uid in request.resource.data.playerUids
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'pendingTap', 'currentClue', 'guessesRemaining',
+            'guessesUsedThisTurn', 'bonusGuessAvailable',
+            'activeTeam', 'svPhase', 'updatedAt',
+            'playerUids', 'players', 'playerCount'
+          ]))
+      );
+
       allow delete: if isAdmin();
     }
     

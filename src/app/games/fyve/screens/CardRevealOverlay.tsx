@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { FyveRevealResult, FyveTeam, CardType } from "../fyveTypes";
 import { FYVE_COLORS } from "../FyveGame";
-import { bgMusic } from "@/app/games/_gamecore";
+import { bgMusic, SFX } from "@/app/games/_gamecore";
+import { useGridCardRect, useImagePreload } from "./overlayHooks";
 
 interface CardRevealOverlayProps {
   result: FyveRevealResult;
@@ -17,10 +18,10 @@ interface CardRevealOverlayProps {
 
 function getRevealColor(type: CardType): string {
   switch (type) {
-    case "T1": return "#dc2626";
+    case "T1": return FYVE_COLORS.t1;
     case "T2": return FYVE_COLORS.t2;
     case "N": return FYVE_COLORS.neutral;
-    case "BOMB": return "#ef4444"; // shouldn't reach here — bombs use BombFailOverlay
+    case "BOMB": return FYVE_COLORS.t1; // shouldn't reach here — bombs use BombFailOverlay
   }
 }
 
@@ -28,6 +29,9 @@ type Phase = "init" | "fly-out" | "show" | "fly-back" | "done";
 
 const TARGET_W = 260;
 const TARGET_H = 260;
+const FLY_DURATION = 700;
+const SHOW_DURATION = 4500;
+const FLYBACK_DURATION = 700;
 
 export default function CardRevealOverlay({
   result,
@@ -39,35 +43,11 @@ export default function CardRevealOverlay({
   const [phase, setPhase] = useState<Phase>("init");
   const dismissedRef = useRef(false);
 
-  const [gridRect] = useState<DOMRect | null>(() => {
-    if (typeof document === "undefined") return null;
-    const el = document.querySelector(`[data-card-index="${result.cardIndex}"]`);
-    return el ? el.getBoundingClientRect() : null;
-  });
-
+  const gridRect = useGridCardRect(result.cardIndex);
   const color = getRevealColor(result.cardType);
 
   // Preload image, THEN kick off animation
-  useEffect(() => {
-    let started = false;
-    const startAnim = () => {
-      if (started) return;
-      started = true;
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => setPhase("fly-out"));
-      });
-    };
-    if (result.imageUrl) {
-      const img = new Image();
-      img.onload = startAnim;
-      img.onerror = startAnim;
-      img.src = result.imageUrl;
-      const timeout = setTimeout(startAnim, 3000);
-      return () => { started = true; clearTimeout(timeout); };
-    }
-    startAnim();
-    return () => { started = true; };
-  }, [result.cardIndex, result.imageUrl]);
+  useImagePreload(result.imageUrl, () => setPhase("fly-out"));
 
   // Play reveal sound when fly-out begins
   const isOwnAsset =
@@ -76,7 +56,7 @@ export default function CardRevealOverlay({
 
   useEffect(() => {
     if (phase !== "fly-out") return;
-    bgMusic.playSfx(isOwnAsset ? "/music/Sound-Success.mp3" : "/music/Sound-Fail.mp3");
+    bgMusic.playSfx(isOwnAsset ? SFX.SUCCESS : SFX.FAIL);
   }, [phase, isOwnAsset]);
 
   // Phase timeline
@@ -84,7 +64,7 @@ export default function CardRevealOverlay({
     let timer: ReturnType<typeof setTimeout>;
     switch (phase) {
       case "fly-out":
-        timer = setTimeout(() => setPhase("show"), 700);
+        timer = setTimeout(() => setPhase("show"), FLY_DURATION);
         break;
       case "show":
         if (isGameEnding) {
@@ -94,9 +74,9 @@ export default function CardRevealOverlay({
               dismissedRef.current = true;
               onDismiss();
             }
-          }, 4500);
+          }, SHOW_DURATION);
         } else {
-          timer = setTimeout(() => setPhase("fly-back"), 4500);
+          timer = setTimeout(() => setPhase("fly-back"), SHOW_DURATION);
         }
         break;
       case "fly-back":
@@ -106,7 +86,7 @@ export default function CardRevealOverlay({
             dismissedRef.current = true;
             onDismiss();
           }
-        }, 700);
+        }, FLYBACK_DURATION);
         break;
     }
     return () => clearTimeout(timer!);

@@ -284,6 +284,12 @@ class BackgroundMusicPlayer {
   }
 }
 
+/** Common game SFX paths */
+export const SFX = {
+  SUCCESS: "/music/Sound-Success.mp3",
+  FAIL: "/music/Sound-Fail.mp3",
+} as const;
+
 export const bgMusic =
   typeof window !== "undefined"
     ? BackgroundMusicPlayer.getInstance()

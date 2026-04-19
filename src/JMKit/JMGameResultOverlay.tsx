@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { bgMusic } from "@/app/games/_gamecore";
+import { bgMusic, SFX } from "@/app/games/_gamecore";
 import { JMConfettiOverlay } from "./JMConfettiOverlay";
 
 export interface JMGameResultOverlayProps {
@@ -78,7 +78,7 @@ export function JMGameResultOverlay({
         bgMusic.playSfx(audioUrl);
       }
     } else if (isWin) {
-      bgMusic.playSfx("/music/Sound-Success.mp3");
+      bgMusic.playSfx(SFX.SUCCESS);
     }
   }, [audioUrl, isWin]);
 

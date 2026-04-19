@@ -17,6 +17,9 @@ export const HEIST_ELEMENT_LABELS = [
 
 export type HeistElementLabel = (typeof HEIST_ELEMENT_LABELS)[number];
 
+/** Number of assets each team must secure to win */
+export const ASSETS_PER_TEAM = HEIST_ELEMENT_LABELS.length; // 5
+
 // ─── Heist Data (Firestore: fyveHeists/{id}) ──────────────
 
 export interface FyveHeistSetting {
@@ -231,6 +234,8 @@ export interface FyveKeyDoc {
   civilianAssignments: Record<number, number>; // boardIndex → heist.civilians index
   /** The bomb board index */
   bombIndex: number;
+  /** Card indices that have already been revealed (idempotency guard) */
+  revealedCards: number[];
   createdAt: unknown; // Timestamp
 }
 

@@ -5,6 +5,7 @@ import {
   subscribeToSession,
   type GameSession,
 } from "@/lib/game-sessions";
+import { updateSessionFields } from "@/app/games/_gamecore";
 import {
   getPlayerQueue,
   isPlayerFullyDone,
@@ -47,26 +48,9 @@ export interface MegaSketchyState {
   scoringResult: ScoringResult | null;
 }
 
-// ─── Firestore Helpers ───────────────────────────────────────
+// ─── Game-Specific Helpers ──────────────────────────────────
 
-async function getDb() {
-  const { initializeFirebase } = await import("@/lib/firebase");
-  const { getFirestore } = await import("firebase/firestore");
-  const { app } = await initializeFirebase();
-  return getFirestore(app);
-}
-
-export async function updateSessionFields(
-  sessionId: string,
-  fields: Record<string, unknown>,
-): Promise<void> {
-  const { doc, updateDoc, serverTimestamp } = await import("firebase/firestore");
-  const db = await getDb();
-  await updateDoc(doc(db, "gameSessions", sessionId), {
-    ...fields,
-    updatedAt: serverTimestamp(),
-  });
-}
+export { updateSessionFields };
 
 export async function appendChainEntry(
   sessionId: string,

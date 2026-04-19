@@ -3,15 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useAuth } from "@/lib/AuthProvider";
-import { GameGamertagBadge, getAIAuthHeaders, bgMusic } from "@/app/games/_gamecore";
+import { GameGamertagBadge, getAIAuthHeaders, bgMusic, SFX } from "@/app/games/_gamecore";
 import { JMTeamInterstitial, JMGameResultOverlay } from "@/JMKit";
 import { useFyveSession } from "./useFyveSession";
-import type {
-  FyveHeist,
-  FyveTeam,
-  FyveRevealResult,
-  FyveBoardCard,
-  CardType,
+import {
+  ASSETS_PER_TEAM,
+  type FyveHeist,
+  type FyveTeam,
+  type FyveRevealResult,
+  type FyveBoardCard,
+  type CardType,
 } from "./fyveTypes";
 
 // Screens
@@ -38,6 +39,20 @@ const FYVE_COLORS = {
 } as const;
 
 export { FYVE_COLORS };
+
+/** Resolve display props for a team: name, color, logo, score */
+function teamDisplay(
+  team: FyveTeam,
+  svState: { t1Name: string | null; t2Name: string | null; t1Score: number; t2Score: number; draftT1Logo: string | null; draftT2Logo: string | null },
+) {
+  const isT1 = team === "syndicate1";
+  return {
+    name: (isT1 ? svState.t1Name : svState.t2Name) ?? (isT1 ? "Team 1" : "Team 2"),
+    color: isT1 ? FYVE_COLORS.t1 : FYVE_COLORS.t2,
+    logo: (isT1 ? svState.draftT1Logo : svState.draftT2Logo) ?? "",
+    score: isT1 ? svState.t1Score : svState.t2Score,
+  };
+}
 
 
 // ─── Props ──────────────────────────────────────────────────
@@ -120,7 +135,7 @@ export default function FyveGame({
   // Display names — fallback to generic if not yet assigned
   const t1Display = t1Name ?? "Team 1";
   const t2Display = t2Name ?? "Team 2";
-  const activeTeamName = activeTeam ? (activeTeam === "syndicate1" ? t1Display : t2Display) : "";
+  const activeTeamName = activeTeam ? teamDisplay(activeTeam, svState).name : "";
 
   // ─── Auto-advance from lobby heist selection ───────────────
   // If lobby selected a heist (fyveLobbyHeist* fields), apply it on first load
@@ -174,7 +189,7 @@ export default function FyveGame({
 
   // ─── Preload reveal sound effects ─────────────────────────
   useEffect(() => {
-    for (const src of ["/music/Sound-Success.mp3", "/music/Sound-Fail.mp3"]) {
+    for (const src of [SFX.SUCCESS, SFX.FAIL]) {
       const a = new Audio(src);
       a.preload = "auto";
       a.load();
@@ -289,7 +304,7 @@ export default function FyveGame({
   // ─── Boss Selection Complete → immediately start game ──────
   const handleBossesSelected = useCallback(
     async (s1Boss: string, s2Boss: string) => {
-      if (!svState.teams) return;
+      if (!isHost || !svState.teams) return;
       await updateFields({
         teams: {
           syndicate1: { ...svState.teams.syndicate1, bossUid: s1Boss },
@@ -308,6 +323,7 @@ export default function FyveGame({
   // ─── Clue Submitted ──────────────────────────────────────
   const handleClueSubmitted = useCallback(
     async (word: string, number: number) => {
+      if (!isBoss || !isMyTeamActive) return;
       await updateFields({
         currentClue: { word, number, givenBy: userId },
         guessesRemaining: number,
@@ -316,7 +332,7 @@ export default function FyveGame({
         svPhase: "operative-guess",
       });
     },
-    [updateFields, userId],
+    [updateFields, userId, isBoss, isMyTeamActive],
   );
 
   // ─── Card Reveal (host calls server) ─────────────────────
@@ -374,7 +390,7 @@ export default function FyveGame({
           };
           updates["board"] = updatedBoard;
         }
-        if (newCount >= 5) {
+        if (newCount >= ASSETS_PER_TEAM) {
           updates["winningTeam"] = "syndicate1";
           updates["svPhase"] = "game-over";
         }
@@ -389,7 +405,7 @@ export default function FyveGame({
           };
           updates["board"] = updatedBoard;
         }
-        if (newCount >= 5) {
+        if (newCount >= ASSETS_PER_TEAM) {
           updates["winningTeam"] = "syndicate2";
           updates["svPhase"] = "game-over";
         }
@@ -959,7 +975,8 @@ export default function FyveGame({
 
       {/* Bomb Fail Overlay — unified bomb card animation + loss screen */}
       {bombFail && activeTeam && winningTeam && (() => {
-        const losingTeam: FyveTeam = winningTeam === "syndicate1" ? "syndicate2" : "syndicate1";
+        const loser: FyveTeam = winningTeam === "syndicate1" ? "syndicate2" : "syndicate1";
+        const ld = teamDisplay(loser, svState);
         return (
           <BombFailOverlay
             cardIndex={bombFail.cardIndex}
@@ -967,9 +984,9 @@ export default function FyveGame({
             bombImageUrl={bombFail.imageUrl}
             bombAudioUrl={bombFail.audioUrl}
             bombDescription={bombFail.description}
-            losingTeam={losingTeam}
-            losingTeamName={losingTeam === "syndicate1" ? t1Display : t2Display}
-            losingTeamLogoUrl={(losingTeam === "syndicate1" ? svState.draftT1Logo : svState.draftT2Logo) ?? ""}
+            losingTeam={loser}
+            losingTeamName={ld.name}
+            losingTeamLogoUrl={ld.logo}
             onDismiss={() => {
               prevBoardRef.current = board;
               revealPendingRef.current = false;
@@ -982,15 +999,15 @@ export default function FyveGame({
 
       {/* Game-Over: Loss fallback (late-join/reconnect into finished bomb game) */}
       {gameOverPhase === "loss" && !bombFail && heist && winningTeam && (() => {
-        const losingTeam: FyveTeam = winningTeam === "syndicate1" ? "syndicate2" : "syndicate1";
-        const losingScore = losingTeam === "syndicate1" ? t1Score : t2Score;
-        const elementBomb = heist.assets[losingScore];
+        const loser: FyveTeam = winningTeam === "syndicate1" ? "syndicate2" : "syndicate1";
+        const ld = teamDisplay(loser, svState);
+        const elementBomb = heist.assets[ld.score];
         return (
           <JMGameResultOverlay
             variant="loss"
-            teamName={losingTeam === "syndicate1" ? t1Display : t2Display}
-            teamColor={losingTeam === "syndicate1" ? FYVE_COLORS.t1 : FYVE_COLORS.t2}
-            teamLogoUrl={(losingTeam === "syndicate1" ? svState.draftT1Logo : svState.draftT2Logo) ?? ""}
+            teamName={ld.name}
+            teamColor={ld.color}
+            teamLogoUrl={ld.logo}
             cardImageUrl={elementBomb?.bombImageUrl ?? ""}
             message={elementBomb?.bombDescription ?? ""}
             audioUrl={elementBomb?.bombSoundEffect ?? null}
@@ -1000,20 +1017,23 @@ export default function FyveGame({
       })()}
 
       {/* Game-Over: Win Overlay — directly for clean wins, after bomb/loss for bombs */}
-      {gameOverPhase === "win" && !bombFail && heist && winningTeam && (
-        <JMGameResultOverlay
-          variant="win"
-          teamName={winningTeam === "syndicate1" ? t1Display : t2Display}
-          teamColor={winningTeam === "syndicate1" ? FYVE_COLORS.t1 : FYVE_COLORS.t2}
-          teamLogoUrl={(winningTeam === "syndicate1" ? svState.draftT1Logo : svState.draftT2Logo) ?? ""}
-          cardImageUrl={heist.targetObjectImageUrl}
-          heading={heist.title}
-          message={heist.winMessage}
-          audioUrl={musicUrl}
-          isHost={isHost}
-          onPlayAgain={handlePlayAgain}
-        />
-      )}
+      {gameOverPhase === "win" && !bombFail && heist && winningTeam && (() => {
+        const wd = teamDisplay(winningTeam, svState);
+        return (
+          <JMGameResultOverlay
+            variant="win"
+            teamName={wd.name}
+            teamColor={wd.color}
+            teamLogoUrl={wd.logo}
+            cardImageUrl={heist.targetObjectImageUrl}
+            heading={heist.title}
+            message={heist.winMessage}
+            audioUrl={musicUrl}
+            isHost={isHost}
+            onPlayAgain={handlePlayAgain}
+          />
+        );
+      })()}
 
       {/* Card Reveal Overlay — non-bomb cards only */}
       {animReveal && (
@@ -1027,16 +1047,19 @@ export default function FyveGame({
       )}
 
       {/* Team interstitial — "Now Playing" splash on turn change */}
-      {interstitialTeam && (
-        <JMTeamInterstitial
-          teamName={interstitialTeam === "syndicate1" ? t1Display : t2Display}
-          teamColor={interstitialTeam === "syndicate1" ? FYVE_COLORS.t1 : FYVE_COLORS.t2}
-          logoUrl={(interstitialTeam === "syndicate1" ? svState.draftT1Logo : svState.draftT2Logo) ?? ""}
-          score={interstitialTeam === "syndicate1" ? t1Score : t2Score}
-          maxScore={5}
-          onDismiss={() => setInterstitialTeam(null)}
-        />
-      )}
+      {interstitialTeam && (() => {
+        const td = teamDisplay(interstitialTeam, svState);
+        return (
+          <JMTeamInterstitial
+            teamName={td.name}
+            teamColor={td.color}
+            logoUrl={td.logo}
+            score={td.score}
+            maxScore={ASSETS_PER_TEAM}
+            onDismiss={() => setInterstitialTeam(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

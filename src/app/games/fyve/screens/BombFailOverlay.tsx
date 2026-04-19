@@ -13,6 +13,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import type { FyveTeam } from "../fyveTypes";
 import { FYVE_COLORS } from "../FyveGame";
 import { bgMusic } from "@/app/games/_gamecore";
+import { useGridCardRect, useImagePreload } from "./overlayHooks";
 
 // ─── Constants ─────────────────────────────────────────────
 
@@ -63,34 +64,10 @@ export default function BombFailOverlay({
 
   const teamColor = losingTeam === "syndicate1" ? FYVE_COLORS.t1 : FYVE_COLORS.t2;
 
-  // ─── Capture grid card position on mount ───────────────────
-  const [gridRect] = useState<DOMRect | null>(() => {
-    if (typeof document === "undefined") return null;
-    const el = document.querySelector(`[data-card-index="${cardIndex}"]`);
-    return el ? el.getBoundingClientRect() : null;
-  });
+  const gridRect = useGridCardRect(cardIndex);
 
   // ─── Preload bomb image, then start ────────────────────────
-  useEffect(() => {
-    let started = false;
-    const go = () => {
-      if (started) return;
-      started = true;
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => setPhase("fly"));
-      });
-    };
-    if (bombImageUrl) {
-      const img = new Image();
-      img.onload = go;
-      img.onerror = go;
-      img.src = bombImageUrl;
-      const t = setTimeout(go, 3000);
-      return () => { started = true; clearTimeout(t); };
-    }
-    go();
-    return () => { started = true; };
-  }, [bombImageUrl]);
+  useImagePreload(bombImageUrl, () => setPhase("fly"));
 
   // ─── Phase timeline ────────────────────────────────────────
   useEffect(() => {

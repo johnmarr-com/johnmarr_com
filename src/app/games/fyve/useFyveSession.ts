@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import type { GameSession } from "@/lib/game-sessions";
+import { updateSessionFields } from "@/app/games/_gamecore";
 import type {
   FyvePhase,
   FyveSessionState,
@@ -12,27 +13,6 @@ import type {
   FyvePendingTap,
   FyveHeistSetting,
 } from "./fyveTypes";
-
-// ─── Firestore Helpers ──────────────────────────────────────
-
-async function getDb() {
-  const { initializeFirebase } = await import("@/lib/firebase");
-  const { getFirestore } = await import("firebase/firestore");
-  const { app } = await initializeFirebase();
-  return getFirestore(app);
-}
-
-export async function updateSessionFields(
-  sessionId: string,
-  fields: Record<string, unknown>,
-): Promise<void> {
-  const { doc, updateDoc, serverTimestamp } = await import("firebase/firestore");
-  const db = await getDb();
-  await updateDoc(doc(db, "gameSessions", sessionId), {
-    ...fields,
-    updatedAt: serverTimestamp(),
-  });
-}
 
 // ─── Hook ───────────────────────────────────────────────────
 

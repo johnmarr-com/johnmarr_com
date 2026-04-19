@@ -2,7 +2,8 @@ export { GameLandingPage, type GameLandingPageProps, type GameMode } from "./Gam
 export { GameMultiplayerFlow } from "./GameMultiplayerFlow";
 export { useMultiplayerRound, type RoundResolver, type MpPhase, type ResolverOutput } from "./useMultiplayerRound";
 export { useGameMusic } from "./useGameMusic";
-export { bgMusic } from "./BackgroundMusicPlayer";
+export { bgMusic, SFX } from "./BackgroundMusicPlayer";
+export { updateSessionFields } from "./sessionHelpers";
 export {
   simpleMove,
   postGameComment,

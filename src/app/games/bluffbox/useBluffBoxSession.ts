@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { GameSession } from "@/lib/game-sessions";
+import { updateSessionFields } from "@/app/games/_gamecore";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -77,16 +78,7 @@ export function useBluffBoxSession(sessionId: string, userId: string): {
   }, [sessionId]);
 
   const updateFields = useCallback(async (fields: Record<string, unknown>) => {
-    const { updateDoc, doc, serverTimestamp } = await import("firebase/firestore");
-    const { initializeFirebase } = await import("@/lib/firebase");
-    const { getFirestore } = await import("firebase/firestore");
-    const { app } = await initializeFirebase();
-    const db = getFirestore(app);
-
-    await updateDoc(doc(db, "gameSessions", sessionId), {
-      ...fields,
-      updatedAt: serverTimestamp(),
-    });
+    await updateSessionFields(sessionId, fields);
   }, [sessionId]);
 
   const setPhase = useCallback(async (phase: BluffBoxPhase) => {
