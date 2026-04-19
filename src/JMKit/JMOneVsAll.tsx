@@ -116,16 +116,12 @@ function SidePanel({
   const bgGradient =
     align === "right"
       ? "bg-linear-to-b from-blue-950/40 to-neutral-950/90"
-      : align === "center"
-        ? "bg-linear-to-b from-sky-950/40 to-neutral-950/90"
-        : "bg-linear-to-b from-amber-950/40 to-neutral-950/90";
+      : "bg-linear-to-b from-amber-950/40 to-neutral-950/90";
 
   const ringGradient =
     align === "right"
       ? "bg-linear-to-br from-blue-300/60 to-blue-700/20 shadow-[0_0_36px_rgba(96,165,250,0.22)]"
-      : align === "center"
-        ? "bg-linear-to-br from-sky-300/60 to-teal-500/20 shadow-[0_0_36px_rgba(56,189,248,0.22)]"
-        : "bg-linear-to-br from-amber-300/60 to-amber-600/20 shadow-[0_0_36px_rgba(251,191,36,0.22)]";
+      : "bg-linear-to-br from-amber-300/60 to-amber-600/20 shadow-[0_0_36px_rgba(251,191,36,0.22)]";
 
   return (
     <div
