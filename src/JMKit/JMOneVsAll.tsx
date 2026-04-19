@@ -15,7 +15,7 @@ import JMAvatarView from "./JMAvatarView";
 /** Default avatar size for the VS row (2× the previous 72px baseline). */
 export const OneVsAll_DEFAULT_AVATAR_WIDTH = 144;
 
-export type OneVsAllRoleTone = "amber" | "blue" | "violet" | "emerald" | "neutral";
+export type OneVsAllRoleTone = "amber" | "blue" | "sky" | "violet" | "emerald" | "neutral";
 
 export interface OneVsAllSide {
   /** Primary label under the avatar */
@@ -58,6 +58,7 @@ export interface OneVsAllProps {
 const ROLE_CORNER: Record<OneVsAllRoleTone, string> = {
   amber: "text-amber-200 drop-shadow-[0_0_10px_rgba(251,191,36,0.5)]",
   blue: "text-blue-200 drop-shadow-[0_0_10px_rgba(96,165,250,0.45)]",
+  sky: "text-sky-200 drop-shadow-[0_0_10px_rgba(56,189,248,0.5)]",
   violet: "text-violet-200 drop-shadow-[0_0_10px_rgba(167,139,250,0.4)]",
   emerald: "text-emerald-200 drop-shadow-[0_0_10px_rgba(52,211,153,0.4)]",
   neutral: "text-white/90",
@@ -87,7 +88,9 @@ function SidePanel({
   const gradientRing =
     align === "right"
       ? "from-blue-400/50 via-blue-400/10 to-transparent"
-      : "from-amber-400/50 via-amber-400/10 to-transparent"; // left + center both use amber
+      : align === "center"
+        ? "from-sky-400/50 via-teal-400/10 to-transparent"
+        : "from-amber-400/50 via-amber-400/10 to-transparent";
 
   const cornerTone = ROLE_CORNER[roleTone] ?? ROLE_CORNER.neutral;
 
@@ -113,12 +116,16 @@ function SidePanel({
   const bgGradient =
     align === "right"
       ? "bg-linear-to-b from-blue-950/40 to-neutral-950/90"
-      : "bg-linear-to-b from-amber-950/40 to-neutral-950/90";
+      : align === "center"
+        ? "bg-linear-to-b from-sky-950/40 to-neutral-950/90"
+        : "bg-linear-to-b from-amber-950/40 to-neutral-950/90";
 
   const ringGradient =
     align === "right"
       ? "bg-linear-to-br from-blue-300/60 to-blue-700/20 shadow-[0_0_36px_rgba(96,165,250,0.22)]"
-      : "bg-linear-to-br from-amber-300/60 to-amber-600/20 shadow-[0_0_36px_rgba(251,191,36,0.22)]";
+      : align === "center"
+        ? "bg-linear-to-br from-sky-300/60 to-teal-500/20 shadow-[0_0_36px_rgba(56,189,248,0.22)]"
+        : "bg-linear-to-br from-amber-300/60 to-amber-600/20 shadow-[0_0_36px_rgba(251,191,36,0.22)]";
 
   return (
     <div

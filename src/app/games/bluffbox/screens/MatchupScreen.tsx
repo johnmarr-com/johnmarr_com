@@ -41,8 +41,8 @@ export default function MatchupScreen({
     : {
         name: sharerPlayer.gamertag,
         ...(sharerPlayer.avatarName != null ? { avatarName: sharerPlayer.avatarName } : {}),
-        roleLabel: "SHARING" as const,
-        roleTone: "amber" as const,
+        roleLabel: "NOW SHARING" as const,
+        roleTone: "sky" as const,
       };
 
   const leftHeader =
