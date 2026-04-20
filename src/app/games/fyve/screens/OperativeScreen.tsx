@@ -106,7 +106,7 @@ export default function OperativeScreen({
           className="pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity duration-500"
           style={{ opacity: waitingForClue ? 1 : 0 }}
         >
-          <div className="rounded-2xl bg-black/85 px-7 py-4 backdrop-blur-sm">
+          <div className="rounded-2xl border border-[#daa520] bg-black/85 px-7 py-4 backdrop-blur-sm">
             <p className="text-base font-bold text-white/70 animate-pulse">
               Waiting for Boss&apos;s clue...
             </p>
@@ -116,7 +116,7 @@ export default function OperativeScreen({
         {/* Other team is playing — non-active team operatives */}
         {!isMyTeamActive && !waitingForClue && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div className="rounded-2xl bg-black/85 px-7 py-4 backdrop-blur-sm">
+            <div className="rounded-2xl border border-[#daa520] bg-black/85 px-7 py-4 backdrop-blur-sm">
               <p className="text-base font-bold animate-pulse">
                 <span style={{ color: activeTeam === "syndicate1" ? FYVE_COLORS.t1 : FYVE_COLORS.t2 }}>
                   {activeTeamName}
@@ -149,7 +149,7 @@ export default function OperativeScreen({
                 No
               </button>
               <button
-                className="flex-1 rounded-lg bg-green-600 py-2 text-sm font-semibold text-white hover:bg-green-500"
+                className="flex-1 rounded-lg bg-linear-to-br from-[#b8860b] via-[#daa520] to-[#8b6914] py-2 text-sm font-semibold text-neutral-950"
                 onClick={handleConfirmLocalTap}
               >
                 Yes
@@ -164,7 +164,7 @@ export default function OperativeScreen({
         <div className="mt-4">
           <button
             type="button"
-            className="w-full rounded-xl border border-black/20 bg-[#F5D547] py-3 text-sm font-semibold text-black shadow-sm hover:bg-[#edd03d] active:bg-[#e4c735]"
+            className="w-full rounded-xl bg-linear-to-br from-[#b8860b] via-[#daa520] to-[#8b6914] py-4 text-base font-bold text-neutral-950 active:scale-[0.98] transition-transform"
             onClick={() => setPassConfirmOpen(true)}
           >
             Optional: Pass Turn
@@ -189,7 +189,7 @@ export default function OperativeScreen({
               </button>
               <button
                 type="button"
-                className="flex-1 rounded-lg bg-[#F5D547] py-2 text-sm font-semibold text-black hover:bg-[#edd03d]"
+                className="flex-1 rounded-lg bg-linear-to-br from-[#b8860b] via-[#daa520] to-[#8b6914] py-2 text-sm font-semibold text-neutral-950"
                 onClick={() => {
                   setPassConfirmOpen(false);
                   void onPassTurn();

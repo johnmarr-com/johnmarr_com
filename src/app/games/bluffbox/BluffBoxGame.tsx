@@ -18,7 +18,7 @@ import { isAiPlayer, getPersona } from "@/app/games/_gamecore";
 import { aiShare, aiGuess } from "./aiBluffPlayer";
 import { GameGamertagBadge } from "@/app/games/_gamecore";
 import { PointsManager, Activity } from "@/lib/points";
-import { recordGameStats } from "./recordGameStats";
+import { recordGameStats } from "@/app/games/_gamecore";
 
 import RoundIntroScreen from "./screens/RoundIntroScreen";
 import MatchupScreen from "./screens/MatchupScreen";
@@ -397,6 +397,7 @@ export default function BluffBoxGame({
       bbPhase: "game-over",
     });
     PointsManager.award(Activity.PLAY_GAME);
+    if (isHost) PointsManager.award(Activity.HOST_GAME);
     recordGameStats(playerUids, w, session?.ownerId ?? "");
   }, [
     isHost,
@@ -513,7 +514,7 @@ export default function BluffBoxGame({
         />
       ) : null}
       <div className="relative z-10 flex min-h-0 flex-1 flex-col">
-        <GameGamertagBadge badgeClassName="bg-indigo-950/90 backdrop-blur-sm" />
+        <GameGamertagBadge badgeClassName="bg-black" />
 
         {/* ── Pack Select ── */}
         {bbPhase === "pack-select" &&

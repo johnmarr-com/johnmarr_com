@@ -35,6 +35,7 @@ export { GameSectionHeader } from "./GameSectionHeader";
 export { GamePrimaryButton } from "./GamePrimaryButton";
 export { GameStatusMessage } from "./GameStatusMessage";
 export { useAutosave, SavedFlash } from "./useAutosave";
+export { recordGameStats } from "./recordGameStats";
 export {
   TEAM_NAMES,
   type TeamName,

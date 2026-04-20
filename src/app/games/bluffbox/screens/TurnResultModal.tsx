@@ -70,7 +70,7 @@ export default function TurnResultModal({
               <>
                 <span className="normal-case">You</span>
                 {"\n"}
-                <span className={lied ? "text-orange-400" : "text-green-400"}>
+                <span className={lied ? "bb-negative-text" : "bb-accent-text"}>
                   {lied ? "LIED!" : "TOLD THE TRUTH!"}
                 </span>
               </>
@@ -78,7 +78,7 @@ export default function TurnResultModal({
               <>
                 {sharerName}
                 {"\n"}
-                <span className={lied ? "text-orange-400" : "text-green-400"}>
+                <span className={lied ? "bb-negative-text" : "bb-accent-text"}>
                   {lied ? "LIED!" : "told the TRUTH!"}
                 </span>
               </>
@@ -111,7 +111,7 @@ export default function TurnResultModal({
           {!isSharer && (
             <div
               className={`flex flex-col items-center gap-1 text-center font-black uppercase tracking-wider ${
-                guessedCorrectly ? "text-green-400" : "text-orange-400"
+                guessedCorrectly ? "bb-accent-text" : "bb-negative-text"
               }`}
             >
               <span className="text-4xl leading-tight">
@@ -125,7 +125,7 @@ export default function TurnResultModal({
 
           {/* Sharer result */}
           {isSharer && sharerFooledCount > 0 && (
-            <div className="flex flex-col items-center gap-1 text-center font-black uppercase tracking-wider text-green-400">
+            <div className="bb-accent-text flex flex-col items-center gap-1 text-center font-black uppercase tracking-wider">
               {sharerEarnedFoolBonus ? (
                 <>
                   <span className="text-4xl leading-tight">WOW!</span>
@@ -142,7 +142,7 @@ export default function TurnResultModal({
             </div>
           )}
           {isSharer && sharerFooledCount === 0 && (
-            <div className="flex flex-col items-center gap-1 text-center font-black uppercase tracking-wider text-orange-400">
+            <div className="flex flex-col items-center gap-1 text-center font-black uppercase tracking-wider bb-negative-text">
               <span className="text-2xl leading-tight sm:text-3xl">
                 Nobody was fooled!
               </span>

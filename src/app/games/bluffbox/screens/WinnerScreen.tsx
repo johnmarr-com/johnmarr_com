@@ -1,6 +1,7 @@
 "use client";
 
-import { JMAvatarView } from "@/JMKit";
+import Link from "next/link";
+import { JMAvatarView, JMSimpleButton } from "@/JMKit";
 import type { GameSessionPlayer } from "@/lib/game-sessions";
 
 interface WinnerScreenProps {
@@ -30,11 +31,38 @@ export default function WinnerScreen({
     .sort((a, b) => (scores[b.uid] ?? 0) - (scores[a.uid] ?? 0));
 
   return (
-    <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center gap-5 overflow-hidden px-6 py-8">
-      {/* Title */}
-      <h1 className="text-center text-4xl font-black uppercase tracking-wider text-green-400">
-        {winners.length !== 1 ? "THE WINNERS" : "THE WINNER"}
-      </h1>
+    <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-5 overflow-hidden px-6 py-8">
+      {/* Exit button — top left */}
+      <Link href="/" className="absolute top-4 left-4 z-20" onClick={(e) => e.stopPropagation()}>
+        <JMSimpleButton
+          title="EXIT"
+          size="sm"
+          variant="ghost"
+          titleColor="#ffffff"
+          className="gap-1.5 opacity-70"
+        >
+          <span className="text-xs leading-none">&#9664;</span> EXIT
+        </JMSimpleButton>
+      </Link>
+
+      {/* Winner banner — luminance mask makes black pixels transparent */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/images/games/bluffbox/Winner.jpg"
+        alt="Winner"
+        className="h-[200px] w-[400px] max-w-[90vw] object-contain"
+        style={{
+          WebkitMaskImage: "url(/images/games/bluffbox/Winner.jpg)",
+          WebkitMaskSize: "contain",
+          WebkitMaskRepeat: "no-repeat",
+          WebkitMaskPosition: "center",
+          maskImage: "url(/images/games/bluffbox/Winner.jpg)",
+          maskMode: "luminance",
+          maskSize: "contain",
+          maskRepeat: "no-repeat",
+          maskPosition: "center",
+        }}
+      />
 
       {/* Winner avatar(s) */}
       {winners.length === 1 && (
@@ -63,20 +91,17 @@ export default function WinnerScreen({
         </div>
       )}
 
-      {/* Winner line: "Gamertag - N points!" */}
-      {winners.length === 1 ? (
-        <p className="bg-linear-to-b from-sky-200 via-sky-300 to-sky-400/80 bg-clip-text text-center text-2xl font-black uppercase tracking-wider text-transparent drop-shadow-[0_0_12px_rgba(56,189,248,0.35)]">
-          {winners[0]!.gamertag} – {winnerPoints} {winnerPoints === 1 ? "point" : "points"}!
+      {/* Winner name(s) + points */}
+      <div className="flex flex-col items-center gap-1">
+        {winners.map((w) => (
+          <p key={w.uid} className="bb-accent-text text-center text-2xl font-black uppercase tracking-wider drop-shadow-[0_0_12px_rgba(56,189,248,0.35)]">
+            {w.gamertag}
+          </p>
+        ))}
+        <p className="bb-accent-text text-center text-xl font-black uppercase tracking-wider drop-shadow-[0_0_12px_rgba(56,189,248,0.35)]">
+          {winnerPoints} {winnerPoints === 1 ? "point" : "points"}!
         </p>
-      ) : (
-        <div className="flex flex-col items-center gap-1">
-          {winners.map((w) => (
-            <p key={w.uid} className="bg-linear-to-b from-sky-200 via-sky-300 to-sky-400/80 bg-clip-text text-center text-2xl font-black uppercase tracking-wider text-transparent drop-shadow-[0_0_12px_rgba(56,189,248,0.35)]">
-              {w.gamertag} – {winnerPoints} {winnerPoints === 1 ? "point" : "points"}!
-            </p>
-          ))}
-        </div>
-      )}
+      </div>
 
       {/* Other players — 2-column grid */}
       {others.length > 0 && (
@@ -99,7 +124,7 @@ export default function WinnerScreen({
       {isHost && (
         <button
           onClick={onPlayAgain}
-          className="mt-4 w-full max-w-xs rounded-xl bg-white py-4 text-lg font-bold uppercase tracking-wider text-black shadow-lg shadow-white/20 transition-all hover:scale-[1.02] active:scale-95"
+          className="mt-4 w-full max-w-xs rounded-xl bg-linear-to-br from-sky-200 via-sky-400 to-teal-600 py-4 text-lg font-black uppercase tracking-wider text-neutral-950 shadow-lg shadow-sky-400/20 transition-all hover:scale-[1.02] active:scale-95"
         >
           Play Again
         </button>

@@ -103,11 +103,11 @@ export default function TurnResultScreen({
             <span className="block text-white">{sharerName}</span>
             {sharerChoice === "truth" ? (
               <span className="mt-1 block text-white">
-                TOLD THE <span className="text-green-400">TRUTH</span>!
+                TOLD THE <span className="bb-accent-text">TRUTH</span>!
               </span>
             ) : (
               <span className="mt-1 block text-white">
-                <span className="text-orange-400">LIED</span>!
+                <span className="bb-negative-text">LIED</span>!
               </span>
             )}
           </div>
@@ -124,12 +124,12 @@ export default function TurnResultScreen({
               {opponentGuess === "truth" ? (
                 <>
                   <span>{opponentName} guessed: </span>
-                  <span className="text-green-400">TRUTH</span>
+                  <span className="bb-accent-text">TRUTH</span>
                 </>
               ) : (
                 <>
                   <span>{opponentName} guessed: </span>
-                  <span className="text-orange-400">LIED</span>
+                  <span className="bb-negative-text">LIED</span>
                 </>
               )}
             </p>
@@ -138,7 +138,7 @@ export default function TurnResultScreen({
           {/* Outcome */}
           <p
             className={`max-w-lg text-center text-3xl font-black uppercase tracking-wider ${
-              sharerEliminated ? "text-orange-400" : "text-green-400"
+              sharerEliminated ? "bb-negative-text" : "bb-accent-text"
             }`}
           >
             {sharerEliminated ? `${sharerName} Eliminated` : `${sharerName} Survives!`}

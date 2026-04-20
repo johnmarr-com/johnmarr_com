@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
-import { useGameMusic, GameGamertagBadge, GameSectionHeader, GamePrimaryButton, GameStatusMessage } from "../_gamecore";
+import { useGameMusic, GameGamertagBadge, GameSectionHeader, GamePrimaryButton, GameStatusMessage, recordGameStats } from "../_gamecore";
+import { PointsManager, Activity } from "@/lib/points";
 import { useMegaSketchySession, updateSessionFields } from "./useMegaSketchySession";
 import { buildInitialChains, type ChainEntry } from "./chainEngine";
 
@@ -188,6 +189,11 @@ export default function MegaSketchyGame({
         await updateSessionFields(sessionId, { skPhase: "voting" });
       } else {
         await updateSessionFields(sessionId, { skPhase: "done" });
+        PointsManager.award(Activity.PLAY_GAME);
+        if (isHost) PointsManager.award(Activity.HOST_GAME);
+        const allUids = session?.playerUids ?? [];
+        const passed = skState.scoringResult?.passed ?? false;
+        recordGameStats(allUids, passed ? allUids : [], session?.ownerId ?? "");
       }
     },
     [isHost, skState.gameMode, skState.scoringResult, sessionId, session?.players],
@@ -207,7 +213,12 @@ export default function MegaSketchyGame({
   const handleVotingProceed = useCallback(async () => {
     if (!isHost) return;
     await updateSessionFields(sessionId, { skPhase: "done" });
-  }, [isHost, sessionId]);
+    PointsManager.award(Activity.PLAY_GAME);
+    if (isHost) PointsManager.award(Activity.HOST_GAME);
+    const allUids = session?.playerUids ?? [];
+    const passed = skState.scoringResult?.passed ?? false;
+    recordGameStats(allUids, passed ? allUids : [], session?.ownerId ?? "");
+  }, [isHost, sessionId, session?.playerUids, session?.ownerId, skState.scoringResult]);
 
   // Host-only: reset game for another round
   const handlePlayAgain = useCallback(async () => {

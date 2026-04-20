@@ -142,7 +142,7 @@ export default function FyveGrid({
           );
         }
 
-        // Unrevealed card — solid dark gray
+        // Unrevealed card
         const bossBg = colorType
           ? `${getCardTypeColor(colorType)}30`
           : undefined;
@@ -161,7 +161,7 @@ export default function FyveGrid({
                 : "cursor-default"
             } ${isPending ? "ring-2 ring-yellow-400 ring-offset-1 ring-offset-black animate-pulse" : ""}`}
             style={{
-              backgroundColor: bossBg ?? "rgba(255,255,255,0.06)",
+              background: bossBg ?? "rgba(255,255,255,0.06)",
               borderColor: isBombBoss
                 ? "#dc2626"
                 : isPending

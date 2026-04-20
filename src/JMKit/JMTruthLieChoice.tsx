@@ -65,7 +65,7 @@ export function JMTruthLieChoice({
       }}
       className={cn(
         "flex-1 rounded-xl font-black uppercase tracking-wider transition-all",
-        "bg-linear-to-br from-emerald-300 via-green-500 to-teal-800",
+        "bg-linear-to-br from-sky-200 via-sky-400 to-teal-600",
         "text-neutral-950",
         sz,
         isLocked &&
@@ -93,7 +93,7 @@ export function JMTruthLieChoice({
       }}
       className={cn(
         "flex-1 rounded-xl font-black uppercase tracking-wider transition-all",
-        "bg-linear-to-br from-rose-500 via-red-600 to-red-950",
+        "bg-linear-to-br from-[#740078] to-[#240c35]",
         "text-white",
         sz,
         isLocked &&

@@ -129,7 +129,7 @@ export default function BossScreen({
         {/* Other team is playing — non-active team boss */}
         {!isMyTeamActive && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div className="rounded-2xl bg-black/85 px-7 py-4 backdrop-blur-sm">
+            <div className="rounded-2xl border border-[#daa520] bg-black/85 px-7 py-4 backdrop-blur-sm">
               <p className="text-base font-bold animate-pulse">
                 <span style={{ color: activeTeam === "syndicate1" ? FYVE_COLORS.t1 : FYVE_COLORS.t2 }}>
                   {activeTeamName}
@@ -149,7 +149,7 @@ export default function BossScreen({
         <div className="mt-4">
           <button
             type="button"
-            className="w-full rounded-xl bg-green-600 py-4.5 text-base font-bold text-white active:scale-[0.98] transition-transform"
+            className="w-full rounded-xl bg-linear-to-br from-[#b8860b] via-[#daa520] to-[#8b6914] py-4.5 text-base font-bold text-neutral-950 active:scale-[0.98] transition-transform"
             onClick={() => setClueModalOpen(true)}
           >
             Create Clue
@@ -218,7 +218,7 @@ export default function BossScreen({
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full rounded-xl bg-green-600 py-3 text-sm font-bold text-white transition-colors hover:bg-green-500 disabled:opacity-50"
+                className="w-full rounded-xl bg-linear-to-br from-[#b8860b] via-[#daa520] to-[#8b6914] py-3 text-sm font-bold text-neutral-950 disabled:opacity-50"
               >
                 {submitting ? "Validating..." : "Share Clue"}
               </button>

@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type Phase = "idle" | "in" | "hold" | "out" | "done";
@@ -82,24 +81,33 @@ export default function RoundIntroScreen({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-black transition-opacity duration-700 ease-out ${
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-950 transition-opacity duration-700 ease-out ${
         visible ? "opacity-100" : "opacity-0"
       }`}
       onClick={handleTap}
     >
-      <Image
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
         src={src}
         alt={`Round ${roundNumber}`}
-        width={600}
-        height={600}
-        className={`w-[60vw] max-w-[600px] mix-blend-screen transition-all duration-700 ease-out ${
+        className={`w-[60vw] max-w-[600px] transition-all duration-700 ease-out ${
           visible
             ? "scale-100 opacity-100"
             : phase === "out"
               ? "scale-110 opacity-0"
               : "scale-75 opacity-0"
         }`}
-        priority
+        style={{
+          WebkitMaskImage: `url(${src})`,
+          WebkitMaskSize: "contain",
+          WebkitMaskRepeat: "no-repeat",
+          WebkitMaskPosition: "center",
+          maskImage: `url(${src})`,
+          maskMode: "luminance",
+          maskSize: "contain",
+          maskRepeat: "no-repeat",
+          maskPosition: "center",
+        }}
       />
     </div>
   );

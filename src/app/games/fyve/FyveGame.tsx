@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useAuth } from "@/lib/AuthProvider";
-import { GameGamertagBadge, getAIAuthHeaders, bgMusic, SFX } from "@/app/games/_gamecore";
+import { GameGamertagBadge, getAIAuthHeaders, bgMusic, SFX, recordGameStats } from "@/app/games/_gamecore";
+import { PointsManager, Activity } from "@/lib/points";
 import { JMTeamInterstitial, JMGameResultOverlay } from "@/JMKit";
 import { useFyveSession } from "./useFyveSession";
 import {
@@ -420,6 +421,12 @@ export default function FyveGame({
       // Mark session finished so it leaves "active games" lists
       if (updates["winningTeam"]) {
         updates["status"] = "finished";
+        PointsManager.award(Activity.PLAY_GAME);
+        if (isHost) PointsManager.award(Activity.HOST_GAME);
+        const allUids = session?.playerUids ?? [];
+        const winTeam = updates["winningTeam"] as FyveTeam;
+        const winnerUids = svState.teams?.[winTeam]?.members ?? [];
+        recordGameStats(allUids, winnerUids, session?.ownerId ?? "");
       }
 
       // If not game-over, handle turn continuation / switching
@@ -452,7 +459,7 @@ export default function FyveGame({
       await updateFields(updates);
       // Overlay is triggered by board-change detection (useEffect below)
     },
-    [isHost, keyDocId, selectedHeistId, sessionId, board, activeTeam, svState, updateFields],
+    [isHost, keyDocId, selectedHeistId, sessionId, board, activeTeam, svState, updateFields, session?.playerUids, session?.ownerId],
   );
 
   // ─── Detect board changes → trigger reveal animation (all clients) ──
@@ -662,11 +669,20 @@ export default function FyveGame({
   const bgUrl = svState.selectedHeistBgUrl;
 
   return (
-    <div className="relative min-h-dvh bg-black text-white overflow-hidden">
-      {/* Background image */}
+    <div className="relative min-h-dvh bg-black text-white">
+      {/* Full-bleed background image — visible beyond the 800px game column */}
       {bgUrl && (
         <div
-          className="absolute inset-0 bg-cover bg-center opacity-15 pointer-events-none"
+          className="fixed inset-0 bg-cover bg-center opacity-25 pointer-events-none"
+          style={{ backgroundImage: `url(${bgUrl})` }}
+        />
+      )}
+
+    <div className="relative mx-auto min-h-dvh max-w-[800px] bg-black overflow-hidden">
+      {/* Inner background image — same image layered inside the game column */}
+      {bgUrl && (
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-25 pointer-events-none"
           style={{ backgroundImage: `url(${bgUrl})` }}
         />
       )}
@@ -727,7 +743,7 @@ export default function FyveGame({
                 ) : isActiveBoss ? (
                   <button
                     type="button"
-                    className="rounded-lg bg-green-600 px-4 py-2.5 text-sm font-bold text-white active:scale-95 transition-transform"
+                    className="rounded-lg bg-linear-to-br from-[#b8860b] via-[#daa520] to-[#8b6914] px-4 py-2.5 text-sm font-bold text-neutral-950 active:scale-95 transition-transform"
                     onClick={() => window.dispatchEvent(new CustomEvent("fyve-open-clue-modal"))}
                   >
                     Create Clue
@@ -961,9 +977,9 @@ export default function FyveGame({
           <div className="relative z-10 flex flex-col items-center px-[50px]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/images/games/fyve/Fyve-Things.jpg"
+              src="/images/games/fyve/Fyve-Things-2.jpg"
               alt="FYVE Things"
-              className="w-full max-w-[800px] rounded-2xl border border-white/20"
+              className="w-full max-w-[300px] rounded-2xl border border-white/20"
               draggable={false}
             />
             <p className="mt-6 text-sm text-white/40 animate-pulse">
@@ -1060,6 +1076,7 @@ export default function FyveGame({
           />
         );
       })()}
+    </div>
     </div>
   );
 }

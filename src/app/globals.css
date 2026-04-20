@@ -39,6 +39,19 @@ html {
   animation: badge-pulse 1.5s ease-in-out infinite;
 }
 
+/* BluffBox accent gradient text — replaces solid green */
+.bb-accent-text {
+  background-image: linear-gradient(to bottom, #bae6fd, #7dd3fc, #38bdf8cc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* BluffBox negative/loss text — matches Lie button purple */
+.bb-negative-text {
+  color: #740078;
+}
+
 /* Gentle floating bob */
 @keyframes float {
   0%, 100% { transform: translateY(0); }
