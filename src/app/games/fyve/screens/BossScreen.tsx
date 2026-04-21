@@ -47,6 +47,7 @@ export default function BossScreen({
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [clueModalOpen, setClueModalOpen] = useState(false);
+  const [numberPickerOpen, setNumberPickerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Auto-focus the input when modal opens
@@ -162,23 +163,24 @@ export default function BossScreen({
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <button
             type="button"
-            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/70 backdrop-blur-md"
             onClick={() => { setClueModalOpen(false); setError(null); }}
             aria-label="Close"
           />
-          <div className="relative z-10 w-full max-w-sm rounded-2xl border border-white/10 bg-neutral-950 p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm font-bold uppercase tracking-wider" style={{ color: teamAccent }}>
-                Clue:
-              </p>
-              <JMCloseCircleButton onClick={() => { setClueModalOpen(false); setError(null); }} />
-            </div>
+          <div className="relative z-10 w-full max-w-sm overflow-hidden rounded-[28px] border border-white/15 bg-linear-to-b from-neutral-950 via-neutral-900 to-neutral-950 p-6 shadow-2xl shadow-black/50">
+            <JMCloseCircleButton
+              className="absolute right-4 top-4 z-20"
+              onClick={() => { setClueModalOpen(false); setError(null); }}
+            />
+            <p className="mb-5 text-lg font-black uppercase tracking-wider" style={{ color: teamAccent }}>
+              Create Clue
+            </p>
 
             <form
               onSubmit={(e) => { e.preventDefault(); void handleSubmit(); }}
-              className="flex flex-col gap-3"
+              className="flex flex-col gap-4"
             >
-              <div className="flex gap-2">
+              <div className="flex items-center gap-3">
                 <input
                   ref={inputRef}
                   type="text"
@@ -188,7 +190,7 @@ export default function BossScreen({
                     setError(null);
                   }}
                   placeholder="One word..."
-                  className="flex-1 rounded-lg border border-white/20 bg-white/5 px-3 py-3 text-sm text-white placeholder-white/30 outline-none"
+                  className="flex-1 rounded-xl border border-white/20 bg-white/5 px-4 py-4 text-base font-bold text-white placeholder-white/30 outline-none"
                   onFocus={(e) => { e.currentTarget.style.borderColor = teamAccent; }}
                   onBlur={(e) => { e.currentTarget.style.borderColor = ""; }}
                   maxLength={30}
@@ -196,33 +198,58 @@ export default function BossScreen({
                   autoComplete="off"
                   autoCapitalize="off"
                 />
-                <select
-                  value={clueNumber}
-                  onChange={(e) => setClueNumber(Number(e.target.value))}
-                  className="w-16 rounded-lg border border-white/20 bg-white/5 px-2 py-3 text-center text-sm text-white outline-none"
-                  onFocus={(e) => { e.currentTarget.style.borderColor = teamAccent; }}
-                  onBlur={(e) => { e.currentTarget.style.borderColor = ""; }}
+                <button
+                  type="button"
+                  onClick={() => setNumberPickerOpen(true)}
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 text-2xl font-black text-white transition-all active:scale-90"
+                  style={{ borderColor: teamAccent, backgroundColor: `${teamAccent}20` }}
                 >
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <option key={n} value={n} className="bg-neutral-900">
-                      {n}
-                    </option>
-                  ))}
-                </select>
+                  {clueNumber}
+                </button>
               </div>
 
               {error && (
-                <p className="text-center text-sm text-red-400">{error}</p>
+                <p className="text-center text-sm font-bold text-red-400">{error}</p>
               )}
 
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full rounded-xl bg-linear-to-br from-[#b8860b] via-[#daa520] to-[#8b6914] py-3 text-sm font-bold text-neutral-950 disabled:opacity-50"
+                className="w-full rounded-xl bg-linear-to-br from-[#b8860b] via-[#daa520] to-[#8b6914] py-4 text-base font-black uppercase tracking-wider text-neutral-950 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
               >
                 {submitting ? "Validating..." : "Share Clue"}
               </button>
             </form>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {/* Number picker popup */}
+      {numberPickerOpen && createPortal(
+        <div className="fixed inset-0 z-60 flex items-center justify-center px-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/70 backdrop-blur-md"
+            onClick={() => setNumberPickerOpen(false)}
+            aria-label="Close"
+          />
+          <div className="relative z-10 flex gap-4">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => { setClueNumber(n); setNumberPickerOpen(false); }}
+                className={`flex h-16 w-16 items-center justify-center rounded-full text-2xl font-black transition-all active:scale-90 ${
+                  n === clueNumber
+                    ? "border-2 text-white"
+                    : "border border-white/20 bg-white/5 text-white/70"
+                }`}
+                style={n === clueNumber ? { borderColor: teamAccent, backgroundColor: `${teamAccent}30` } : undefined}
+              >
+                {n}
+              </button>
+            ))}
           </div>
         </div>,
         document.body,

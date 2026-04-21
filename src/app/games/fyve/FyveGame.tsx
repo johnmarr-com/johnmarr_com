@@ -110,10 +110,6 @@ export default function FyveGame({
   // Team interstitial — shows when activeTeam changes during gameplay
   const [interstitialTeam, setInterstitialTeam] = useState<FyveTeam | null>(null);
   const prevActiveTeamRef = useRef<FyveTeam | null>(null);
-  // Theme splash — shown once when the grid first appears
-  const [themeShown, setThemeShown] = useState(false);
-  const [themeFading, setThemeFading] = useState(false);
-  const [themeDismissed, setThemeDismissed] = useState(false);
   // Game-over overlay: "loss" shows bomb loss first, then transitions to "win"
   const [gameOverPhase, setGameOverPhase] = useState<"loss" | "win" | null>(null);
   const gameOverDismissedRef = useRef(false);
@@ -563,7 +559,6 @@ export default function FyveGame({
   }, [isHost, svState.pendingTap, handleRevealCard]);
 
   // ─── Team interstitial — fires when activeTeam changes during gameplay ──
-  // Suppress until theme splash has been shown and dismissed — will be triggered manually on dismiss
   useEffect(() => {
     if (!board || !activeTeam) {
       // Reset ref when game is torn down (Play Again) so the next
@@ -572,12 +567,10 @@ export default function FyveGame({
       return;
     }
     if (prevActiveTeamRef.current !== activeTeam) {
-      if (themeDismissed) {
-        setInterstitialTeam(activeTeam);
-      }
+      setInterstitialTeam(activeTeam);
     }
     prevActiveTeamRef.current = activeTeam;
-  }, [activeTeam, board, themeDismissed]);
+  }, [activeTeam, board]);
 
   // ─── Pass Turn (any operative on the active team — same Firestore rules as pendingTap) ──
   const handlePassTurn = useCallback(async () => {
@@ -641,13 +634,6 @@ export default function FyveGame({
     }
   }, [svPhase, animReveal, bombFail, gameOverPhase, board]);
 
-  // ─── Theme splash — show once when gameplay begins ──
-  useEffect(() => {
-    if (themeShown || themeDismissed) return;
-    if (svPhase === "boss-clue" || svPhase === "operative-guess") {
-      setThemeShown(true);
-    }
-  }, [svPhase, themeShown, themeDismissed]);
 
   // ─── Bomb loss → win transition (show loss for 10s, then switch to win) ──
   useEffect(() => {
@@ -779,7 +765,7 @@ export default function FyveGame({
 
       {/* Phase router */}
       <div className="relative z-10">
-        {svPhase === "heist-select" && (
+        {svPhase === "heist-select" && isHost && (
           <div className="flex min-h-dvh flex-col items-center justify-center px-4">
             {gameLogoURL && (
               <div className="animate-gentle-float">
@@ -794,6 +780,20 @@ export default function FyveGame({
               </div>
             )}
             <p className="mt-6 text-white/40 text-sm animate-pulse">Loading heist...</p>
+          </div>
+        )}
+        {svPhase === "heist-select" && !isHost && (
+          <div className="relative z-10 flex min-h-dvh flex-col items-center justify-center px-6">
+            <div className="absolute right-6 top-[29px] flex items-center gap-2">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              <p className="text-xs font-bold uppercase tracking-wider text-white/60">Prepping Game</p>
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/games/fyve/Fyve-Things-2.jpg"
+              alt="FYVE Things"
+              className="max-h-[85dvh] max-w-[90vw] object-contain"
+            />
           </div>
         )}
 
@@ -953,42 +953,6 @@ export default function FyveGame({
         {/* game-over phase: grid is hidden, victory overlay renders separately */}
       </div>
 
-      {/* Theme splash — shown once at game start */}
-      {themeShown && !themeDismissed && (
-        <div
-          className="fixed inset-0 z-40 flex flex-col items-center justify-center"
-          style={{
-            opacity: themeFading ? 0 : 1,
-            transition: "opacity 600ms ease",
-          }}
-          onClick={() => {
-            if (themeFading) return;
-            setThemeFading(true);
-            // Launch interstitial on top of the fading theme
-            if (activeTeam) setInterstitialTeam(activeTeam);
-            // Remove theme from DOM after fade completes
-            setTimeout(() => setThemeDismissed(true), 700);
-          }}
-          role="button"
-        >
-          <div
-            className="absolute inset-0 bg-black/85"
-            style={{ backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }}
-          />
-          <div className="relative z-10 flex flex-col items-center px-[50px]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/images/games/fyve/Fyve-Things-2.jpg"
-              alt="FYVE Things"
-              className="w-full max-w-[300px] rounded-2xl border border-white/20"
-              draggable={false}
-            />
-            <p className="mt-6 text-sm text-white/40 animate-pulse">
-              — Tap to continue —
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* Bomb Fail Overlay — unified bomb card animation + loss screen */}
       {bombFail && activeTeam && winningTeam && (() => {
