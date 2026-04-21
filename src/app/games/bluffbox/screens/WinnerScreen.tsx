@@ -39,9 +39,9 @@ export default function WinnerScreen({
           size="sm"
           variant="ghost"
           titleColor="#ffffff"
-          className="gap-1.5 opacity-70"
+          className="gap-1.5 rounded-lg bg-black/50 backdrop-blur-sm"
         >
-          <span className="text-xs leading-none">&#9664;</span> EXIT
+          <span className="text-sm leading-none">&#9664;</span> EXIT
         </JMSimpleButton>
       </Link>
 

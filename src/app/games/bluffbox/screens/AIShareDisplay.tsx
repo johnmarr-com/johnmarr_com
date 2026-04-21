@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { JMAIAvatarView } from "@/JMKit";
-import { GameBgUnderlay } from "../GameBgUnderlay";
+import { GameBgUnderlay } from "@/app/games/_gamecore";
 
 interface AIShareDisplayProps {
   /** Game splash under the scrim (30%). */

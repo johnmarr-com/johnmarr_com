@@ -2,8 +2,9 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useJMStyle } from "@/JMStyle";
-import { JMBannerText, JMGameScoreboard } from "@/JMKit";
+import { JMBannerText, JMGameScoreboard, JMCloseCircleButton, JMSimpleButton } from "@/JMKit";
 import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, GameGamertagBadge, type GameMode, type ResolverOutput, type AIPersona } from "../_gamecore";
 import { useAuth } from "@/lib/AuthProvider";
 import { startGame, type GameSession } from "@/lib/game-sessions";
@@ -695,6 +696,19 @@ export default function SweepTheLegGame({
   return (
     <div className="relative flex h-dvh flex-col bg-black">
       <GameGamertagBadge />
+      {phase === "finished" && (
+        <Link href="/" className="absolute left-4 top-24 z-20">
+          <JMSimpleButton
+            title="EXIT"
+            size="sm"
+            variant="ghost"
+            titleColor="#ffffff"
+            className="gap-1.5 rounded-lg bg-black/50 backdrop-blur-sm"
+          >
+            <span className="text-sm leading-none">&#9664;</span> EXIT
+          </JMSimpleButton>
+        </Link>
+      )}
       {splashBgURL && (
         <div
           className="absolute inset-0 z-0 bg-cover bg-center opacity-50"
@@ -845,12 +859,7 @@ export default function SweepTheLegGame({
                     <span className="text-sm font-bold uppercase tracking-widest text-white/70">
                       {isFriends ? "Match Transcript" : "AI Transcript"}
                     </span>
-                    <button
-                      onClick={() => setShowTranscript(false)}
-                      className="rounded-full border border-white/20 px-4 py-1 text-xs font-bold uppercase tracking-widest text-white/60 hover:bg-white/10 hover:text-white"
-                    >
-                      Close
-                    </button>
+                    <JMCloseCircleButton onClick={() => setShowTranscript(false)} />
                   </div>
                   <div className="flex-1 overflow-y-auto px-5 pb-5">
                     {aiPostGame && (
@@ -900,6 +909,16 @@ export default function SweepTheLegGame({
         </div>
 
         {/* Player label + Attack buttons */}
+        {/* Invisible spacer to keep video centered when attack buttons are hidden */}
+        {phase !== "ready" && phase !== "animating" && phase !== "idle" && (
+          <div className="shrink-0 py-3" aria-hidden>
+            <p className="invisible mb-2 text-sm">placeholder</p>
+            <div className="flex gap-3">
+              <div className="flex-1 rounded-xl py-3"><span className="invisible block text-xl">X</span><span className="invisible mt-0.5 block text-[10px]">x</span></div>
+            </div>
+          </div>
+        )}
+
         {(phase === "ready" || phase === "animating") && (
           <div className="shrink-0 py-3">
             <p className="mb-2 text-center text-sm font-bold uppercase tracking-widest text-white/40">

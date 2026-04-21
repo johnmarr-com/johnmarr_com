@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useJMStyle } from "@/JMStyle";
-import { JMBannerText, JMChampionPicker, JMGameScoreboard, type ChampionOption } from "@/JMKit";
+import { JMBannerText, JMChampionPicker, JMCloseCircleButton, JMGameScoreboard, type ChampionOption } from "@/JMKit";
 import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, GameGamertagBadge, type GameMode, type ResolverOutput, type AIPersona } from "../_gamecore";
 import { useAuth } from "@/lib/AuthProvider";
 import { startGame, type GameSession } from "@/lib/game-sessions";
@@ -793,12 +793,7 @@ export default function TapSmashArenaGame({
                     <span className="text-sm font-bold uppercase tracking-widest text-white/70">
                       {isFriends ? "Match Transcript" : "AI Transcript"}
                     </span>
-                    <button
-                      onClick={() => setShowTranscript(false)}
-                      className="rounded-full border border-white/20 px-4 py-1 text-xs font-bold uppercase tracking-widest text-white/60 hover:bg-white/10 hover:text-white"
-                    >
-                      Close
-                    </button>
+                    <JMCloseCircleButton onClick={() => setShowTranscript(false)} />
                   </div>
                   <div className="flex-1 overflow-y-auto px-5 pb-5">
                     {aiPostGame && (

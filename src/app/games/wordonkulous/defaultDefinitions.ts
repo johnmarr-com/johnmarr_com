@@ -1,0 +1,36 @@
+/**
+ * Hardcoded definition pack for local development and testing.
+ * In production, packs are created via the pack creator UI.
+ */
+export const DEFAULT_DEFINITIONS: string[] = [
+  "The crunchy bits of burnt and scummy bacon left in the pan after cooking a full pound",
+  "The panic when you wave back at someone who wasn't waving at you",
+  "The specific frustration of a USB plug not going in on the first two tries",
+  "The feeling of stepping on a LEGO brick at 2am in the dark",
+  "A person who always arrives exactly 5 minutes late to everything",
+  "The sound your stomach makes in a completely silent room during a meeting",
+  "The act of pretending you didn't see someone you know in public to avoid conversation",
+  "The tiny surge of joy when you find money in your pocket you forgot about",
+  "The fear that you accidentally replied-all to an embarrassing email",
+  "The disappointment of biting into a chocolate chip cookie that turns out to be raisin",
+  "The art of looking busy at work while doing absolutely nothing",
+  "The strange instinct to lower the car radio volume when looking for a parking spot",
+  "The guilt of not finishing a book you told everyone you were reading",
+  "The awkward dance you do with a stranger when you both try to dodge the same direction",
+  "The urge to push a button or flip a switch that clearly says DO NOT TOUCH",
+  "The phantom phone vibration you feel in your pocket when your phone isn't even there",
+  "The special type of cold you feel when you flip the pillow to the cool side",
+  "The anxiety of watching someone type a message to you and then seeing them stop",
+  "The irrational anger at a song you used to love because it was your alarm tone",
+  "The exhaustion of pretending to understand a story someone is excitedly telling you",
+  "The immediate regret after sending a risky text message",
+  "The talent of finding the one squeaky floorboard when sneaking at night",
+  "The pride of perfectly guessing which Tupperware lid fits before trying it",
+  "The despair of realizing the bathroom has no toilet paper after you've already committed",
+  "A sneeze that builds up dramatically but never actually arrives",
+  "The weird satisfaction of peeling a price sticker off in one clean piece",
+  "The existential crisis you have while staring into the refrigerator at midnight",
+  "The optimism of setting 5 alarms knowing you'll snooze through all of them",
+  "The specific annoyance of a shopping cart with one wonky wheel",
+  "The betrayal of sitting on a public toilet seat that is unexpectedly warm",
+];

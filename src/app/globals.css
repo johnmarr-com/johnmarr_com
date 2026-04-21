@@ -326,3 +326,30 @@ select:focus-visible {
   from { transform: translateY(50px); opacity: 0; }
   to   { transform: translateY(0); opacity: 1; }
 }
+
+/* ─── BLARF! ──────────────────────────────────────────────── */
+@keyframes bf-reveal-in {
+  from { transform: translateY(30px) scale(0.9); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes bf-card-flip {
+  0%   { transform: rotateY(0deg); }
+  100% { transform: rotateY(180deg); }
+}
+.bf-flip-card {
+  perspective: 800px;
+}
+.bf-flip-card-inner {
+  position: relative;
+  transform-style: preserve-3d;
+  animation: bf-card-flip 0.8s ease-in-out forwards;
+}
+.bf-flip-card-front,
+.bf-flip-card-back {
+  backface-visibility: hidden;
+}
+.bf-flip-card-back {
+  position: absolute;
+  inset: 0;
+  transform: rotateY(180deg);
+}

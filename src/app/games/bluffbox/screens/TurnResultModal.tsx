@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { JMAvatarView } from "@/JMKit";
-import { GameBgUnderlay } from "../GameBgUnderlay";
+import { GameBgUnderlay } from "@/app/games/_gamecore";
 
 interface TurnResultModalProps {
   /** Game splash under the modal scrim (30%). */

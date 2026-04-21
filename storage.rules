@@ -314,6 +314,26 @@ service firebase.storage {
     }
     
     // ─────────────────────────────────────────────────────────────
+    // WORDONKULOUS PACKS (Pack cover images)
+    // ─────────────────────────────────────────────────────────────
+
+    match /wordonkulous-packs/{packId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isImage() && maxSize(5);
+      allow delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // BLARF PACKS (Pack cover images)
+    // ─────────────────────────────────────────────────────────────
+
+    match /blarf-packs/{packId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isImage() && maxSize(5);
+      allow delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // FYVE HEISTS (Heist images + per-element bomb sound effects)
     // ─────────────────────────────────────────────────────────────
 

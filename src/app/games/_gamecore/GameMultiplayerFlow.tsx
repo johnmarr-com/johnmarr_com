@@ -179,6 +179,10 @@ export function GameMultiplayerFlow({
 
         if (updated.kickedUids?.includes(user?.uid ?? "")) {
           setKicked(true);
+          setTimeout(() => {
+            onOpenChange(false);
+            router.push("/");
+          }, 2500);
         }
 
         // All players: add other human players to own knownPlayerUids
@@ -240,10 +244,10 @@ export function GameMultiplayerFlow({
 
   const handleRemovePending = useCallback(
     async (toUid: string) => {
-      if (!session) return;
-      await removePendingInviteByUid(session.id, toUid);
+      if (!session || !user) return;
+      await removePendingInviteByUid(session.id, toUid, user.uid);
     },
-    [session],
+    [session, user],
   );
 
   const handleBootPlayer = useCallback(
@@ -351,7 +355,7 @@ export function GameMultiplayerFlow({
         onInteractOutside={(e) => e.preventDefault()}
         onPointerDownOutside={(e) => e.preventDefault()}
         overlayClassName="fixed inset-0 z-50 bg-black/70 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
-        className="max-h-[90dvh] w-full max-w-md gap-0 overflow-hidden rounded-[28px] border border-white/15 bg-linear-to-b from-neutral-950 via-neutral-900 to-neutral-950 p-0 shadow-2xl shadow-black/50"
+        className="max-h-[90dvh] max-w-md gap-0 overflow-hidden rounded-[28px] border border-white/15 bg-linear-to-b from-neutral-950 via-neutral-900 to-neutral-950 p-0 shadow-2xl shadow-black/50"
       >
         <div
           className="pointer-events-none absolute inset-0 rounded-[28px] bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(251,191,36,0.1),transparent),radial-gradient(ellipse_60%_40%_at_100%_50%,rgba(59,130,246,0.07),transparent)]"
@@ -363,7 +367,7 @@ export function GameMultiplayerFlow({
         <div className="relative z-10 flex max-h-[90dvh] flex-col gap-4 overflow-y-auto overflow-x-hidden p-5 sm:p-6">
         {/* Game logo — gentle float */}
         {gameInput.gameLogoURL && (
-          <div className="-mt-2 flex justify-center animate-gentle-float">
+          <div className="mt-2 flex justify-center animate-gentle-float">
             <Image
               src={gameInput.gameLogoURL}
               alt={gameInput.gameName}
@@ -379,7 +383,7 @@ export function GameMultiplayerFlow({
         {step === "choice" && (
           <>
             <DialogHeader>
-              <DialogTitle className="text-center text-white">
+              <DialogTitle className="sr-only">
                 {gameInput.gameName}
               </DialogTitle>
               <DialogDescription className="text-center text-white/50">
@@ -438,7 +442,7 @@ export function GameMultiplayerFlow({
         {step === "hosting" && session && (
           <>
             <DialogHeader className="sr-only">
-              <DialogTitle>Invite Players / AI</DialogTitle>
+              <DialogTitle>{allowAI ? "Invite Players / AI" : "Invite Players"}</DialogTitle>
               <DialogDescription>
                 Share your invite code or QR with {is1v1 ? "a friend" : "friends"}
               </DialogDescription>
@@ -448,7 +452,7 @@ export function GameMultiplayerFlow({
               {/* Invite section */}
               <div className="w-full rounded-xl border border-white/15 bg-white/8 p-4">
                 <p className="mb-3 text-center text-lg font-semibold text-white">
-                  Invite Players / <span className="text-red-400">AI</span>
+                  {allowAI ? <>Invite Players / <span className="text-red-400">AI</span></> : "Invite Players"}
                 </p>
                 <p className="text-center text-base text-white/50">
                   Share this code with {is1v1 ? "a friend" : "friends"} to join.

@@ -341,19 +341,18 @@ export async function joinGameSession(
       return { ok: true as const, session, wasAlreadyJoined: false };
     });
 
-    if (!result.ok) return { ok: false, reason: result.reason };
+    // Always clean up invite docs when the player acts on a game link,
+    // regardless of join outcome.
+    const invQ = query(
+      collection(db, "gameInvites"),
+      where("sessionId", "==", entry.gameSessionId),
+      where("toUid", "==", userId),
+    );
+    getDocs(invQ).then((snap) => {
+      snap.docs.forEach((d) => deleteDoc(d.ref));
+    }).catch(() => {});
 
-    // Clean up any pending invite doc (fire-and-forget, outside transaction)
-    if (!result.wasAlreadyJoined) {
-      const invQ = query(
-        collection(db, "gameInvites"),
-        where("sessionId", "==", entry.gameSessionId),
-        where("toUid", "==", userId),
-      );
-      getDocs(invQ).then((snap) => {
-        snap.docs.forEach((d) => deleteDoc(d.ref));
-      }).catch(() => {});
-    }
+    if (!result.ok) return { ok: false, reason: result.reason };
 
     return { ok: true, session: result.session };
   } catch {
@@ -429,19 +428,18 @@ export async function joinGameSessionById(
       return { ok: true as const, session, wasAlreadyJoined: false };
     });
 
-    if (!result.ok) return { ok: false, reason: result.reason };
+    // Always clean up invite docs when the player acts on a game link,
+    // regardless of whether the join succeeded, failed, or was redundant.
+    const invQ = query(
+      collection(db, "gameInvites"),
+      where("sessionId", "==", sessionId),
+      where("toUid", "==", userId),
+    );
+    getDocs(invQ).then((snap) => {
+      snap.docs.forEach((d) => deleteDoc(d.ref));
+    }).catch(() => {});
 
-    // Clean up invite doc (fire-and-forget, outside transaction)
-    if (!result.wasAlreadyJoined) {
-      const invQ = query(
-        collection(db, "gameInvites"),
-        where("sessionId", "==", sessionId),
-        where("toUid", "==", userId),
-      );
-      getDocs(invQ).then((snap) => {
-        snap.docs.forEach((d) => deleteDoc(d.ref));
-      }).catch(() => {});
-    }
+    if (!result.ok) return { ok: false, reason: result.reason };
 
     return { ok: true, session: result.session };
   } catch {

@@ -398,9 +398,11 @@ export default function BluffBoxGame({
     });
     PointsManager.award(Activity.PLAY_GAME);
     if (isHost) PointsManager.award(Activity.HOST_GAME);
+    if (w.includes(userId)) PointsManager.award(Activity.WIN_GAME);
     recordGameStats(playerUids, w, session?.ownerId ?? "");
   }, [
     isHost,
+    userId,
     currentTurnIndex,
     turnOrder.length,
     roundNumber,

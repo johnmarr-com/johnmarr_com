@@ -324,7 +324,8 @@ service cloud.firestore {
             'pendingTap', 'currentClue', 'guessesRemaining',
             'guessesUsedThisTurn', 'bonusGuessAvailable',
             'activeTeam', 'svPhase', 'updatedAt',
-            'playerUids', 'players', 'playerCount'
+            'playerUids', 'players', 'playerCount',
+            'pendingInviteUids'
           ]))
       );
 
@@ -473,6 +474,62 @@ service cloud.firestore {
         && (request.resource.data.visibility != "official" || isAdmin());
 
       // Creator can delete their own bombs, admins can delete any
+      allow delete: if (isAuthenticated() && resource.data.creatorId == request.auth.uid) || isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // WORDONKULOUS PACKS (Definition packs for Wordonkulous game)
+    // ─────────────────────────────────────────────────────────────
+
+    match /wordonkulousPacks/{packId} {
+      // Anyone authenticated can read official & shared packs,
+      // creators can read their own private packs, admins read all
+      allow read: if isAdmin()
+        || resource.data.visibility == "official"
+        || resource.data.visibility == "shared"
+        || (isAuthenticated() && resource.data.creatorId == request.auth.uid);
+
+      // Authenticated users can create packs (pro/admin gating is client-side).
+      // creatorId must match the requesting user.
+      // Only admins can create "official" packs.
+      allow create: if isAuthenticated()
+        && request.resource.data.creatorId == request.auth.uid
+        && (request.resource.data.visibility != "official" || isAdmin());
+
+      // Creator can update their own packs, admins can update any.
+      // Only admins can set visibility to "official".
+      allow update: if (isAuthenticated() && resource.data.creatorId == request.auth.uid || isAdmin())
+        && (request.resource.data.visibility != "official" || isAdmin());
+
+      // Creator can delete their own packs, admins can delete any
+      allow delete: if (isAuthenticated() && resource.data.creatorId == request.auth.uid) || isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // BLARF PACKS (Word packs for BLARF game)
+    // ─────────────────────────────────────────────────────────────
+
+    match /blarfPacks/{packId} {
+      // Anyone authenticated can read official & shared packs,
+      // creators can read their own private packs, admins read all
+      allow read: if isAdmin()
+        || resource.data.visibility == "official"
+        || resource.data.visibility == "shared"
+        || (isAuthenticated() && resource.data.creatorId == request.auth.uid);
+
+      // Authenticated users can create packs (pro/admin gating is client-side).
+      // creatorId must match the requesting user.
+      // Only admins can create "official" packs.
+      allow create: if isAuthenticated()
+        && request.resource.data.creatorId == request.auth.uid
+        && (request.resource.data.visibility != "official" || isAdmin());
+
+      // Creator can update their own packs, admins can update any.
+      // Only admins can set visibility to "official".
+      allow update: if (isAuthenticated() && resource.data.creatorId == request.auth.uid || isAdmin())
+        && (request.resource.data.visibility != "official" || isAdmin());
+
+      // Creator can delete their own packs, admins can delete any
       allow delete: if (isAuthenticated() && resource.data.creatorId == request.auth.uid) || isAdmin();
     }
 

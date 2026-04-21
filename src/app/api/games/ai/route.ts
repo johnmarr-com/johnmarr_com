@@ -310,19 +310,26 @@ export async function POST(request: NextRequest) {
     }
 
     // ─── Text: move or comment ──────────────────────────────
-    const { prompt, maxTokens, temperature } = body as {
+    const { prompt, maxTokens, temperature, model } = body as {
       prompt: string;
       type: "move" | "comment";
       maxTokens?: number;
       temperature?: number;
+      model?: string;
     };
 
     if (!prompt) {
       return NextResponse.json({ error: "Missing prompt" }, { status: 400 });
     }
 
+    const ALLOWED_MODELS: Record<string, string> = {
+      haiku: "claude-haiku-4-5-20251001",
+      sonnet: "claude-sonnet-4-6",
+    };
+    const resolvedModel = (model && ALLOWED_MODELS[model]) || "claude-haiku-4-5-20251001";
+
     const response = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model: resolvedModel,
       max_tokens: maxTokens ?? (type === "comment" ? 200 : 256),
       temperature: temperature ?? (type === "comment" ? 0.7 : 0.3),
       messages: [{ role: "user", content: prompt }],

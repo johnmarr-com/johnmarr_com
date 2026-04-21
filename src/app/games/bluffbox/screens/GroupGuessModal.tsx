@@ -2,7 +2,7 @@
 
 import { JMTruthLieChoice } from "@/JMKit";
 import type { TruthLieChoice } from "@/JMKit";
-import { GameBgUnderlay } from "../GameBgUnderlay";
+import { GameBgUnderlay } from "@/app/games/_gamecore";
 
 interface GroupGuessModalProps {
   /** Game splash under the modal scrim (30%). */

@@ -69,9 +69,9 @@ export function JMSimpleButton({
 }: JMSimpleButtonProps) {
   // Size classes
   const sizeClasses = {
-    sm: "px-3 py-1.5 text-xs",
-    default: "px-5 py-2 text-sm",
-    lg: "px-6 py-3 text-base",
+    sm: "px-5 py-3 text-base",
+    default: "px-6 py-3 text-base",
+    lg: "px-8 py-4 text-lg",
   };
 
   // Build the background style

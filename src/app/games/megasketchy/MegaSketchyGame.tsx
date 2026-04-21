@@ -193,6 +193,7 @@ export default function MegaSketchyGame({
         if (isHost) PointsManager.award(Activity.HOST_GAME);
         const allUids = session?.playerUids ?? [];
         const passed = skState.scoringResult?.passed ?? false;
+        if (passed) PointsManager.award(Activity.WIN_GAME);
         recordGameStats(allUids, passed ? allUids : [], session?.ownerId ?? "");
       }
     },
@@ -217,6 +218,7 @@ export default function MegaSketchyGame({
     if (isHost) PointsManager.award(Activity.HOST_GAME);
     const allUids = session?.playerUids ?? [];
     const passed = skState.scoringResult?.passed ?? false;
+    if (passed) PointsManager.award(Activity.WIN_GAME);
     recordGameStats(allUids, passed ? allUids : [], session?.ownerId ?? "");
   }, [isHost, sessionId, session?.playerUids, session?.ownerId, skState.scoringResult]);
 

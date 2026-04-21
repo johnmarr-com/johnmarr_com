@@ -23,6 +23,7 @@ export const ACTIVITY_KEYS = [
   "listen_song",
   "play_game",
   "host_game",
+  "win_game",
   "share_social",
 ] as const;
 
@@ -35,6 +36,7 @@ export const ACTIVITY_LABELS: Record<ActivityKey, string> = {
   listen_song: "Listen to Song",
   play_game: "Play Game",
   host_game: "Host a Game",
+  win_game: "Win a Game",
   share_social: "Share to Social",
 };
 
@@ -84,7 +86,7 @@ export async function seedDefaultActivities(): Promise<void> {
     if (!snap.exists()) {
       await setDoc(ref, {
         label: ACTIVITY_LABELS[key],
-        points: 0,
+        points: key === "win_game" ? 5 : 0,
         order,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -115,6 +117,7 @@ export const Activity = {
   LISTEN_SONG: "listen_song",
   PLAY_GAME: "play_game",
   HOST_GAME: "host_game",
+  WIN_GAME: "win_game",
   SHARE_SOCIAL: "share_social",
 } as const satisfies Record<string, ActivityKey>;
 

@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { Check, Star } from "lucide-react";
 import { JMAvatarView } from "@/JMKit";
 import type { GameSessionPlayer } from "@/lib/game-sessions";
-import { GameBgUnderlay } from "../GameBgUnderlay";
+import { GameBgUnderlay } from "@/app/games/_gamecore";
 
 interface LeaderboardPanelProps {
   players: GameSessionPlayer[];

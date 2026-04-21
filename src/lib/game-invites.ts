@@ -183,15 +183,19 @@ export async function fetchKnownPlayers(
 export async function removePendingInviteByUid(
   sessionId: string,
   toUid: string,
+  fromUid: string,
 ): Promise<void> {
   const { collection, query, where, getDocs, deleteDoc, doc, updateDoc, arrayRemove } =
     await import("firebase/firestore");
   const db = await getDb();
 
+  // Query must include fromUid so the caller satisfies the Firestore read
+  // rule (which requires the reader to be the sender OR recipient).
   const q = query(
     collection(db, "gameInvites"),
     where("sessionId", "==", sessionId),
     where("toUid", "==", toUid),
+    where("fromUid", "==", fromUid),
   );
   const snap = await getDocs(q);
   const inviteDoc = snap.docs[0];

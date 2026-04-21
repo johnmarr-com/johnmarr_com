@@ -22,6 +22,7 @@ export interface JMChampionPickerProps<T extends string = string> {
   buttonsTopPercent?: number;
   /** Percentage from bottom for button area padding (default 6) */
   buttonsBottomPercent?: number;
+
 }
 
 const SWAY_CLASSES = [

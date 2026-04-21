@@ -426,6 +426,7 @@ export default function FyveGame({
         const allUids = session?.playerUids ?? [];
         const winTeam = updates["winningTeam"] as FyveTeam;
         const winnerUids = svState.teams?.[winTeam]?.members ?? [];
+        if (winnerUids.includes(userId)) PointsManager.award(Activity.WIN_GAME);
         recordGameStats(allUids, winnerUids, session?.ownerId ?? "");
       }
 
@@ -459,7 +460,7 @@ export default function FyveGame({
       await updateFields(updates);
       // Overlay is triggered by board-change detection (useEffect below)
     },
-    [isHost, keyDocId, selectedHeistId, sessionId, board, activeTeam, svState, updateFields, session?.playerUids, session?.ownerId],
+    [isHost, userId, keyDocId, selectedHeistId, sessionId, board, activeTeam, svState, updateFields, session?.playerUids, session?.ownerId],
   );
 
   // ─── Detect board changes → trigger reveal animation (all clients) ──
