@@ -277,7 +277,7 @@ select:focus-visible {
 
 @keyframes champion-sway {
   0%, 100% { transform: translateX(0); }
-  50% { transform: translateX(8px); }
+  50% { transform: translateX(20px); }
 }
 .animate-champion-sway-1 {
   animation: champion-sway 3s ease-in-out infinite;
@@ -302,4 +302,27 @@ select:focus-visible {
 }
 .animate-champion-overlay-out {
   animation: champion-overlay-out 0.35s ease-in forwards;
+}
+
+@keyframes rock {
+  0%, 100% { transform: rotate(4deg); }
+  50% { transform: rotate(-4deg); }
+}
+
+/* Wordonkulous entrance animations */
+@keyframes wk-slide-in-tl {
+  from { transform: translate(-120%, -120%); opacity: 0; }
+  to   { transform: translate(0, 0); opacity: 1; }
+}
+@keyframes wk-slide-in-tr {
+  from { transform: translate(120%, -120%) rotate(4deg); opacity: 0; }
+  to   { transform: translate(0, 0) rotate(4deg); opacity: 1; }
+}
+@keyframes wk-slide-down {
+  from { transform: translateY(-120px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+@keyframes wk-fade-up {
+  from { transform: translateY(50px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
 }
