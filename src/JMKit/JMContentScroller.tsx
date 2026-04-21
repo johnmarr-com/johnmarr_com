@@ -99,6 +99,7 @@ export function JMContentScroller({
 
   const rowScale = isDesktop ? rowScaleDesktop : rowScaleMobile;
   const rowHeight = BASE_HEIGHT * rowScale;
+  const isGameRow = items.length > 1 && items.every(item => item.contentType === "game");
 
   return (
     <div className="relative group max-w-[1500px] mx-auto">
@@ -134,12 +135,16 @@ export function JMContentScroller({
         {/* Items row */}
         <div
           ref={scrollRef}
-          className="flex gap-3 sm:gap-4 overflow-x-auto scrollbar-hide px-4 sm:px-6 lg:px-8 pb-2"
+          className={`flex overflow-x-auto scrollbar-hide ${
+            isGameRow ? "group/gamerow py-3 gap-6 sm:gap-8" : "gap-3 sm:gap-4 pb-2"
+          }`}
           style={{
             scrollSnapType: "x mandatory",
             WebkitOverflowScrolling: "touch",
+            scrollPaddingInlineStart: 25,
           }}
         >
+          <div className="shrink-0 w-[25px]" aria-hidden />
           {items.map((item) => {
             const isStory = item.contentType === "story";
             const isGame = item.contentType === "game";
@@ -153,11 +158,19 @@ export function JMContentScroller({
               <div
                 key={item.id}
                 onClick={() => onItemClick?.(item)}
-                className="shrink-0 cursor-pointer group/item"
+                className={`shrink-0 cursor-pointer group/item ${
+                  isGameRow
+                    ? "relative transition-opacity duration-300 group-hover/gamerow:opacity-40 hover:opacity-100! hover:z-10"
+                    : ""
+                }`}
                 style={{ scrollSnapAlign: "start" }}
               >
                 <div
-                  className={`relative overflow-hidden ${isGame ? "" : "rounded-lg"}`}
+                  className={`relative overflow-hidden ${isGame ? "" : "rounded-lg"} ${
+                    isGameRow && isGame
+                      ? "transition-transform duration-300 group-hover/item:scale-110"
+                      : ""
+                  }`}
                   style={{
                     height: rowHeight,
                     width: itemWidth,
@@ -174,13 +187,19 @@ export function JMContentScroller({
                       alt={item.name}
                       fill
                       sizes={`${Math.round(itemWidth)}px`}
-                      className="object-cover transition-transform duration-300 group-hover/item:scale-110"
+                      className={`object-cover ${
+                        isGameRow && isGame
+                          ? ""
+                          : "transition-transform duration-300 group-hover/item:scale-110"
+                      }`}
                     />
                   ) : (
                     <div
-                      className={`h-full w-full flex flex-col items-center justify-center transition-transform duration-300 group-hover/item:scale-110 ${
-                        isStory ? "gap-2 px-3" : ""
-                      }`}
+                      className={`h-full w-full flex flex-col items-center justify-center ${
+                        isGameRow && isGame
+                          ? ""
+                          : "transition-transform duration-300 group-hover/item:scale-110"
+                      } ${isStory ? "gap-2 px-3" : ""}`}
                       style={{ color: theme.text.tertiary }}
                     >
                       {isStory ? (
