@@ -386,6 +386,22 @@ select:focus-visible {
   100% { transform: scale(0); opacity: 0; }
 }
 
+/* Gator sink / rise between cells */
+@keyframes bt-gator-sink {
+  0%   { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(60%); opacity: 0; }
+}
+@keyframes bt-gator-rise {
+  0%   { transform: translateY(60%); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.bt-gator-sink {
+  animation: bt-gator-sink 0.35s ease-in forwards;
+}
+.bt-gator-rise {
+  animation: bt-gator-rise 0.35s ease-out forwards;
+}
+
 /* Grid flip: 3D rotation for swamp view switching */
 @keyframes bt-flip-out {
   0%   { transform: perspective(800px) rotateY(0deg); opacity: 1; }

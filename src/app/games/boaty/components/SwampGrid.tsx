@@ -1,9 +1,30 @@
 "use client";
 
-import { useState, useRef, useCallback, useId, useLayoutEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useId, useLayoutEffect } from "react";
 import Image from "next/image";
+import Lottie from "lottie-react";
 import type { Position, RaftDef, RaftType, Rotation } from "../boatyTypes";
 import { GRID_SIZE, getOccupiedSquares, posKey } from "../boatyLogic";
+
+// ─── Lottie loader (loaded once per URL, shared across all cells) ──
+const lottieCache = new Map<string, object>();
+const lottiePromises = new Map<string, Promise<object | null>>();
+function useLottie(url: string) {
+  const [data, setData] = useState<object | null>(() => lottieCache.get(url) ?? null);
+  useEffect(() => {
+    if (data) return;
+    let promise = lottiePromises.get(url);
+    if (!promise) {
+      promise = fetch(url)
+        .then((r) => r.json() as Promise<object>)
+        .then((d) => { lottieCache.set(url, d); return d; })
+        .catch(() => null);
+      lottiePromises.set(url, promise);
+    }
+    void promise.then((d) => { if (d) setData(d); });
+  }, [data, url]);
+  return data;
+}
 
 // ─── Swamp art ───────────────────────────────────────────────
 const SWAMP_BG = "/images/games/boaty/Swamp.jpg";
@@ -18,8 +39,6 @@ const ALLIGATOR_IMG = "/images/games/boaty/Alligator.png";
 /** Wash under raft art when selected — second `background-image` layer (under URL). */
 const SELECTED_RAFT_TINT = "rgba(250, 215, 60, 0.42)";
 const SELECTED_RAFT_TINT_LAYER = `linear-gradient(${SELECTED_RAFT_TINT}, ${SELECTED_RAFT_TINT})`;
-const COLOR_HIT = "#DC143C";       // crimson red (flames)
-const COLOR_MISS = "#4169E1";      // royal blue (ripple)
 const COLOR_TAPPABLE = "rgba(255,255,255,0.06)";
 
 // Grid layout constants (must match the JSX: p-2 = 8px, gap-1 = 4px)
@@ -116,6 +135,8 @@ export default function SwampGrid({
   onDragDrop,
   pendingCell,
 }: SwampGridProps) {
+  const fireLottie = useLottie("/lottie/fire.json");
+  const rippleLottie = useLottie("/lottie/ripple.json");
   const gridRef = useRef<HTMLDivElement>(null);
   const floatingRef = useRef<HTMLDivElement>(null);
   const swampHoleMaskId = useId().replace(/:/g, "");
@@ -162,6 +183,36 @@ export default function SwampGrid({
 
   // State only to trigger re-render: show/hide floating raft + hide grid cells
   const [draggingRaftIndex, setDraggingRaftIndex] = useState<number | null>(null);
+
+  // ─── Gator sink / rise animation ─────────────────────────────
+  const prevGatorKeyRef = useRef(gator ? posKey(gator) : null);
+  const [displayedGator, setDisplayedGator] = useState(gator ?? null);
+  const [gatorPhase, setGatorPhase] = useState<"idle" | "sinking" | "rising">("idle");
+
+  useEffect(() => {
+    const newKey = gator ? posKey(gator) : null;
+    const oldKey = prevGatorKeyRef.current;
+    prevGatorKeyRef.current = newKey;
+
+    // No gator or first render — show immediately
+    if (!gator || !oldKey || oldKey === newKey) {
+      setDisplayedGator(gator ?? null);
+      setGatorPhase("idle");
+      return;
+    }
+
+    // Position changed — sink at old spot, then rise at new spot
+    setGatorPhase("sinking");
+    const t1 = setTimeout(() => {
+      setDisplayedGator(gator);
+      setGatorPhase("rising");
+    }, 350);
+    const t2 = setTimeout(() => {
+      setGatorPhase("idle");
+    }, 700);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by position, not object identity
+  }, [gator ? posKey(gator) : null]);
 
   // Convert pointer coordinates to grid cell (row, col). Returns null if outside grid.
   const pointerToCell = useCallback((clientX: number, clientY: number): { row: number; col: number } | null => {
@@ -292,7 +343,7 @@ export default function SwampGrid({
 
   const hitSet = new Set(hits.map(posKey));
   const missSet = new Set(misses.map(posKey));
-  const gatorKey = gator ? posKey(gator) : null;
+  const displayedGatorKey = displayedGator ? posKey(displayedGator) : null;
   const attackedSet = new Set([...hitSet, ...missSet]);
 
   const cells: React.ReactNode[] = [];
@@ -303,7 +354,7 @@ export default function SwampGrid({
       const raftInfo = raftMap.get(key);
       const isHit = hitSet.has(key);
       const isMiss = missSet.has(key);
-      const isGator = key === gatorKey;
+      const isGator = key === displayedGatorKey;
       const isAttacked = attackedSet.has(key);
       const isPending = pendingCell != null && row === pendingCell.row && col === pendingCell.col;
 
@@ -318,23 +369,30 @@ export default function SwampGrid({
         // Attacked but result not yet revealed — neutral pulsing state
         bg = "rgba(255,255,255,0.15)";
       } else if (isHit) {
-        bg = COLOR_HIT;
-        content = <span className="text-lg">🔥</span>;
+        content = fireLottie
+          ? <Lottie animationData={fireLottie} loop autoplay className="h-full w-full" />
+          : <span className="text-lg">🔥</span>;
       } else if (isMiss) {
-        bg = COLOR_MISS;
-        content = <span className="text-lg">💧</span>;
+        content = rippleLottie
+          ? <Lottie animationData={rippleLottie} loop autoplay className="h-full w-full" />
+          : <span className="text-lg">💧</span>;
       } else if (isGator && !tappable) {
         // Show gator only on own board (not attack view)
         bg = "transparent";
+        const animClass =
+          gatorPhase === "sinking" ? "bt-gator-sink" :
+          gatorPhase === "rising" ? "bt-gator-rise" : "";
         content = (
-          <Image
-            src={ALLIGATOR_IMG}
-            alt=""
-            width={64}
-            height={64}
-            className="h-[85%] w-[85%] max-h-full object-contain object-center select-none"
-            draggable={false}
-          />
+          <div className="flex h-full w-full items-center justify-center overflow-hidden">
+            <Image
+              src={ALLIGATOR_IMG}
+              alt=""
+              width={64}
+              height={64}
+              className={`h-[85%] w-[85%] max-h-full object-contain object-center select-none ${animClass}`}
+              draggable={false}
+            />
+          </div>
         );
       } else if (raftInfo != null && !tappable) {
         const raft = rafts[raftInfo.raftIndex];
