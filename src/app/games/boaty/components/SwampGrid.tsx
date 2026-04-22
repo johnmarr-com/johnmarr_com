@@ -1,20 +1,23 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useId, useLayoutEffect } from "react";
+import Image from "next/image";
 import type { Position, RaftDef, RaftType, Rotation } from "../boatyTypes";
 import { GRID_SIZE, getOccupiedSquares, posKey } from "../boatyLogic";
 
 // ─── Swamp art ───────────────────────────────────────────────
 const SWAMP_BG = "/images/games/boaty/Swamp.jpg";
+/** Single overlay layer: darkens swamp in gaps/margins; cut out via SVG mask (not 25 cell backgrounds). */
+const SWAMP_BG_DARKEN_ALPHA = 0.5;
 const RAFT_SQUARE_BG = "/images/games/boaty/Raft-Square.png";
 const RAFT_SMALL_BG = "/images/games/boaty/Raft-Small.png";
 const RAFT_L_BG = "/images/games/boaty/Raft-L.png";
+const ALLIGATOR_IMG = "/images/games/boaty/Alligator.png";
 
 // ─── Placeholder Colors ──────────────────────────────────────
 /** Wash under raft art when selected — second `background-image` layer (under URL). */
 const SELECTED_RAFT_TINT = "rgba(250, 215, 60, 0.42)";
 const SELECTED_RAFT_TINT_LAYER = `linear-gradient(${SELECTED_RAFT_TINT}, ${SELECTED_RAFT_TINT})`;
-const COLOR_GATOR = "#228B22";     // forest green
 const COLOR_HIT = "#DC143C";       // crimson red (flames)
 const COLOR_MISS = "#4169E1";      // royal blue (ripple)
 const COLOR_TAPPABLE = "rgba(255,255,255,0.06)";
@@ -40,13 +43,27 @@ function raftGridSpan(raft: RaftDef): { r0: number; c0: number; nr: number; nc: 
   return { r0, c0, nr: Math.max(...rs) - r0 + 1, nc: Math.max(...cs) - c0 + 1 };
 }
 
-/** Small raft PNG authored for vertical (rotation 0°); always rotate with game `rotation`. */
-function shortyArtStyle(rotation: Rotation, isSelected: boolean): React.CSSProperties {
+/**
+ * View box for shorty art: **2× along the short axis** of the domino bbox so `scale(½)` on the image
+ * keeps the bitmap domino-sized without a cramped stage. Wide → extra height (`aspect-ratio 1/2`); tall → extra **width** + height (`200%` × `200%` so the stage matches the wide case in spirit).
+ */
+function shortySquareSizerStyle(wideDomino: boolean): React.CSSProperties {
+  return wideDomino
+    ? { width: "100%", height: "auto", aspectRatio: "1 / 2" }
+    : { width: "200%", height: "200%" };
+}
+
+/** `dominoTightScale` = min/max span (always ½ for a 2×1 domino) so `cover` on the circumscribed square matches the pre-square bbox. */
+function shortyArtStyle(
+  rotation: Rotation,
+  isSelected: boolean,
+  dominoTightScale: number,
+): React.CSSProperties {
   const tint = isSelected ? `, ${SELECTED_RAFT_TINT_LAYER}` : "";
   return {
     width: "100%",
     height: "100%",
-    transform: `rotate(${rotation}deg)`,
+    transform: `rotate(${rotation}deg) scale(${dominoTightScale})`,
     transformOrigin: "center center",
     backgroundImage: `url(${RAFT_SMALL_BG})${tint}`,
     backgroundSize: isSelected ? "cover, 100% 100%" : "cover",
@@ -74,8 +91,10 @@ interface SwampGridProps {
   onCellTap?: (row: number, col: number, e?: React.MouseEvent) => void;
   /** If true, show raft tap targets for selection (setup mode). */
   onRaftTap?: (raftIndex: number) => void;
-  /** Called when a drag starts. companions = relative offsets from touched cell to other raft cells. */
+  /** Called on pointer down on a raft (before we know if it’s a tap or drag). Set drag refs only — do not force selection here if tap should toggle off. */
   onDragStart?: (raftIndex: number, companions: { dr: number; dc: number }[], touchToAnchor: { dr: number; dc: number }) => void;
+  /** First real movement after pointer down — user is dragging; select this raft for the drag. */
+  onDragRaftLift?: (raftIndex: number) => void;
   /** Called on finger release after a drag — the cell the finger was over. */
   onDragDrop?: (touchRow: number, touchCol: number) => void;
   /** Cell currently being attacked — suppress hit/miss rendering until animation completes. */
@@ -93,11 +112,39 @@ export default function SwampGrid({
   onCellTap,
   onRaftTap,
   onDragStart,
+  onDragRaftLift,
   onDragDrop,
   pendingCell,
 }: SwampGridProps) {
   const gridRef = useRef<HTMLDivElement>(null);
   const floatingRef = useRef<HTMLDivElement>(null);
+  const swampHoleMaskId = useId().replace(/:/g, "");
+  const [swampMaskLayout, setSwampMaskLayout] = useState<{
+    bw: number;
+    bh: number;
+    cw: number;
+    ch: number;
+  } | null>(null);
+
+  useLayoutEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    const update = () => {
+      const bw = el.clientWidth;
+      const bh = el.clientHeight;
+      const innerW = bw - 2 * GRID_PADDING;
+      const innerH = bh - 2 * GRID_PADDING;
+      const cw = (innerW - (GRID_SIZE - 1) * GRID_GAP) / GRID_SIZE;
+      const ch = (innerH - (GRID_SIZE - 1) * GRID_GAP) / GRID_SIZE;
+      if (bw > 0 && bh > 0 && cw > 0 && ch > 0) {
+        setSwampMaskLayout({ bw, bh, cw, ch });
+      }
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // All drag data lives in a ref for performance (no re-render on every pointer move)
   const dragData = useRef<{
@@ -202,6 +249,7 @@ export default function SwampGrid({
       // First move — lift the raft off the grid
       dd.moved = true;
       setDraggingRaftIndex(dd.raftIndex);
+      onDragRaftLift?.(dd.raftIndex);
       return; // floating element appears on next render at initial position
     }
 
@@ -209,7 +257,7 @@ export default function SwampGrid({
     if (floatingRef.current) {
       floatingRef.current.style.transform = `translate(${dd.fingerX}px, ${dd.fingerY}px)`;
     }
-  }, []);
+  }, [onDragRaftLift]);
 
   const handlePointerUp = useCallback((e: React.PointerEvent) => {
     const dd = dragData.current;
@@ -221,9 +269,11 @@ export default function SwampGrid({
       const cell = pointerToCell(e.clientX, e.clientY);
       if (cell) onDragDrop?.(cell.row, cell.col);
       setDraggingRaftIndex(null);
+    } else if (onRaftTap) {
+      // Tap (no drag): pointer path — click is often lost after preventDefault + capture
+      onRaftTap(dd.raftIndex);
     }
-    // If !moved it was a tap — the cell button onClick handles it
-  }, [onDragDrop, pointerToCell]);
+  }, [onDragDrop, onRaftTap, pointerToCell]);
 
   const handlePointerCancel = useCallback(() => {
     if (!dragData.current) return;
@@ -275,8 +325,17 @@ export default function SwampGrid({
         content = <span className="text-lg">💧</span>;
       } else if (isGator && !tappable) {
         // Show gator only on own board (not attack view)
-        bg = COLOR_GATOR;
-        content = <span className="text-lg">🐊</span>;
+        bg = "transparent";
+        content = (
+          <Image
+            src={ALLIGATOR_IMG}
+            alt=""
+            width={64}
+            height={64}
+            className="h-[85%] w-[85%] max-h-full object-contain object-center select-none"
+            draggable={false}
+          />
+        );
       } else if (raftInfo != null && !tappable) {
         const raft = rafts[raftInfo.raftIndex];
         if (
@@ -314,7 +373,7 @@ export default function SwampGrid({
       const handleTap = (e: React.MouseEvent) => {
         if (tappable && !tapLocked && !isAttacked && onCellTap) {
           onCellTap(row, col, e);
-        } else if (onRaftTap && raftInfo != null) {
+        } else if (onRaftTap && raftInfo != null && !onDragStart) {
           onRaftTap(raftInfo.raftIndex);
         } else if (onCellTap && !tappable) {
           onCellTap(row, col);
@@ -333,7 +392,7 @@ export default function SwampGrid({
             // Explicit placement so L-raft span overlays don’t reshuffle auto-placed cells when rafts move.
             gridRow: row + 1,
             gridColumn: col + 1,
-            zIndex: 1,
+            zIndex: 2,
             backgroundColor: bg,
             ...raftSquareBg,
             ...(isSeamlessRaftTile ? {} : { border, borderRadius: 4 }),
@@ -366,7 +425,7 @@ export default function SwampGrid({
       const outerStyle: React.CSSProperties = {
         gridColumn: `${c0 + 1} / span ${nc}`,
         gridRow: `${r0 + 1} / span ${nr}`,
-        zIndex: 0,
+        zIndex: 1,
       };
 
       if (raft.type === "square") {
@@ -392,13 +451,23 @@ export default function SwampGrid({
       }
 
       if (raft.type === "shorty") {
+        const wideDomino = nc > nr;
+        const dominoTightScale = Math.min(nr, nc) / Math.max(nr, nc);
         return (
           <div
             key={`raft-art-${raftIndex}`}
-            className="pointer-events-none min-h-0 min-w-0 overflow-hidden"
-            style={{ ...outerStyle, borderRadius: RAFT_ART_OUTER_RADIUS }}
+            className="pointer-events-none relative min-h-0 min-w-0 overflow-visible"
+            style={{ ...outerStyle, borderRadius: RAFT_ART_OUTER_RADIUS, position: "relative" }}
           >
-            <div className="h-full w-full" style={shortyArtStyle(raft.rotation, isRaftSelected)} />
+            <div
+              className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+              style={shortySquareSizerStyle(wideDomino)}
+            >
+              <div
+                className="h-full w-full"
+                style={shortyArtStyle(raft.rotation, isRaftSelected, dominoTightScale)}
+              />
+            </div>
           </div>
         );
       }
@@ -407,7 +476,7 @@ export default function SwampGrid({
         <div
           key={`raft-art-${raftIndex}`}
           className="pointer-events-none min-h-0 min-w-0 overflow-hidden"
-          style={outerStyle}
+          style={{ ...outerStyle, borderRadius: RAFT_ART_OUTER_RADIUS }}
         >
           <div
             className="h-full w-full"
@@ -428,10 +497,12 @@ export default function SwampGrid({
       );
     });
 
+  const swampHoleMaskUrl = `url(#${swampHoleMaskId})`;
+
   return (
     <div
       ref={gridRef}
-      className="relative mx-auto grid w-full max-w-[600px] gap-1 rounded-xl p-2 touch-none"
+      className="relative mx-auto grid w-full max-w-[500px] gap-1 rounded-xl p-2 touch-none"
       style={{
         gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
         backgroundImage: `url(${SWAMP_BG})`,
@@ -444,6 +515,54 @@ export default function SwampGrid({
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
     >
+      {swampMaskLayout != null && (
+        <>
+          <svg
+            aria-hidden
+            className="pointer-events-none absolute h-0 w-0 overflow-hidden"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <defs>
+              <mask
+                id={swampHoleMaskId}
+                maskUnits="userSpaceOnUse"
+                x={0}
+                y={0}
+                width={swampMaskLayout.bw}
+                height={swampMaskLayout.bh}
+              >
+                <rect width={swampMaskLayout.bw} height={swampMaskLayout.bh} fill="white" />
+                {Array.from({ length: GRID_SIZE }, (_, row) =>
+                  Array.from({ length: GRID_SIZE }, (_, col) => {
+                    const x = GRID_PADDING + col * (swampMaskLayout.cw + GRID_GAP);
+                    const y = GRID_PADDING + row * (swampMaskLayout.ch + GRID_GAP);
+                    return (
+                      <rect
+                        key={`${row}-${col}`}
+                        x={x}
+                        y={y}
+                        width={swampMaskLayout.cw}
+                        height={swampMaskLayout.ch}
+                        fill="black"
+                      />
+                    );
+                  }),
+                ).flat()}
+              </mask>
+            </defs>
+          </svg>
+          <div
+            className="pointer-events-none absolute inset-0 z-0 rounded-[inherit]"
+            style={{
+              backgroundColor: `rgba(0,0,0,${SWAMP_BG_DARKEN_ALPHA})`,
+              mask: swampHoleMaskUrl,
+              WebkitMask: swampHoleMaskUrl,
+              maskRepeat: "no-repeat",
+              WebkitMaskRepeat: "no-repeat",
+            }}
+          />
+        </>
+      )}
       {raftArtOverlays}
       {cells}
 
@@ -497,7 +616,7 @@ export default function SwampGrid({
                 top: anchorTop,
                 width: cs * 2,
                 height: cs * 2,
-                borderRadius: dd.raftType === "square" ? RAFT_ART_OUTER_RADIUS : 0,
+                borderRadius: RAFT_ART_OUTER_RADIUS,
               }}
             >
               <div className="h-full w-full" style={squareOrL} />
@@ -518,9 +637,11 @@ export default function SwampGrid({
         const left = -cs / 2 + (minLdc - touch.dc) * cs;
         const top = -cs / 2 + (minLdr - touch.dr) * cs;
 
+        const wideDomino = fw > fh;
+        const dominoTightScale = Math.min(fw, fh) / Math.max(fw, fh);
         return shell(
           <div
-            className="absolute overflow-hidden"
+            className="absolute overflow-visible"
             style={{
               left,
               top,
@@ -530,9 +651,14 @@ export default function SwampGrid({
             }}
           >
             <div
-              className="h-full w-full"
-              style={{ ...shortyArtStyle(r, floatSel), opacity: 0.98 }}
-            />
+              className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+              style={shortySquareSizerStyle(wideDomino)}
+            >
+              <div
+                className="h-full w-full"
+                style={{ ...shortyArtStyle(r, floatSel, dominoTightScale), opacity: 0.98 }}
+              />
+            </div>
           </div>,
         );
       })()}

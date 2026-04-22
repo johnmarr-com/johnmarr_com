@@ -15,7 +15,7 @@ import {
   SQUARE_FIXED_ROTATION,
 } from "../boatyLogic";
 import SwampGrid from "../components/SwampGrid";
-import Banner from "../components/Banner";
+import SwampSignFrame from "../components/SwampSignFrame";
 import { RotateCw } from "lucide-react";
 
 interface SetupScreenProps {
@@ -113,11 +113,19 @@ export default function SetupScreen({
 
   // ─── Drag handlers ──────────────────────────────────────────
   const handleDragStart = useCallback(
-    (raftIndex: number, companions: { dr: number; dc: number }[], touchToAnchor: { dr: number; dc: number }) => {
+    (_raftIndex: number, companions: { dr: number; dc: number }[], touchToAnchor: { dr: number; dc: number }) => {
       if (hasSubmitted) return;
-      setSelectedRaft(raftIndex);
       dragCompanionsRef.current = companions;
       dragTouchToAnchorRef.current = touchToAnchor;
+    },
+    [hasSubmitted],
+  );
+
+  /** Select raft only once the finger actually moves (drag); taps use `onRaftTap` on pointer up so same-raft tap can deselect. */
+  const handleDragRaftLift = useCallback(
+    (raftIndex: number) => {
+      if (hasSubmitted) return;
+      setSelectedRaft(raftIndex);
     },
     [hasSubmitted],
   );
@@ -198,9 +206,16 @@ export default function SetupScreen({
   if (hasSubmitted) {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center gap-4 px-4 py-6">
-        <Banner label="MY SWAMP" />
-        <SwampGrid rafts={rafts} gator={gator} />
-        <div className="flex flex-col items-center gap-3 py-4">
+        <div className="flex min-h-0 w-full flex-1 flex-col items-center overflow-visible">
+          <div aria-hidden className="min-h-0 w-full flex-[1.7] basis-0 shrink-0" />
+          <div className="w-full max-w-[500px] shrink-0">
+            <SwampSignFrame variant="my">
+              <SwampGrid rafts={rafts} gator={gator} />
+            </SwampSignFrame>
+          </div>
+          <div aria-hidden className="min-h-0 w-full flex-[0.3] basis-0 shrink-0" />
+        </div>
+        <div className="flex shrink-0 flex-col items-center gap-3 py-4">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
           <p className="text-center text-sm font-bold uppercase tracking-wider text-white">
             Waiting for opponent&hellip; ({readyCount}/{totalPlayers})
@@ -212,47 +227,58 @@ export default function SetupScreen({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center gap-4 px-4 py-6">
-      <p className="animate-[wk-fade-up_0.4s_ease-out_both] text-center text-sm font-bold uppercase tracking-wider text-white/70">
-        Tap a raft to select, then tap a cell to move it
-      </p>
-
-      <Banner label="MY SWAMP" />
-      <SwampGrid
-        rafts={rafts}
-        selectedRaftIndex={selectedRaft}
-        gator={gator}
-        onCellTap={handleCellTap}
-        onRaftTap={handleRaftTap}
-        onDragStart={handleDragStart}
-        onDragDrop={handleDragDrop}
-      />
-
-      {/* Rotate button */}
-      <div className="flex h-12 items-center">
-        {hasSelection && (
-          <button
-            onClick={handleRotate}
-            disabled={rotateDisabled}
-            className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold uppercase tracking-wider transition-all ${
-              rotateDisabled
-                ? "bg-white/5 text-white/25"
-                : "bg-white/15 text-white hover:bg-white/25 active:scale-95"
-            }`}
-          >
-            <RotateCw size={18} />
-            Rotate
-          </button>
-        )}
+      <div className="flex min-h-0 w-full flex-1 flex-col items-center overflow-visible">
+        <div aria-hidden className="min-h-0 w-full flex-[1.7] basis-0 shrink-0" />
+        <div className="relative z-10 flex w-full max-w-[500px] shrink-0 flex-col items-center">
+          <SwampSignFrame variant="my">
+            <SwampGrid
+              rafts={rafts}
+              selectedRaftIndex={selectedRaft}
+              gator={gator}
+              onCellTap={handleCellTap}
+              onRaftTap={handleRaftTap}
+              onDragStart={handleDragStart}
+              onDragRaftLift={handleDragRaftLift}
+              onDragDrop={handleDragDrop}
+            />
+          </SwampSignFrame>
+        </div>
+        <div aria-hidden className="min-h-0 w-full flex-[0.3] basis-0 shrink-0" />
       </div>
 
-      {/* Done button */}
-      <button
-        onClick={handleDone}
-        className="w-full max-w-[600px] rounded-xl py-4 text-lg font-black uppercase tracking-wider text-black transition-all hover:scale-[1.02] active:scale-95"
-        style={{ backgroundColor: primary, boxShadow: `0 10px 15px -3px ${primary}40` }}
-      >
-        Done
-      </button>
+      <div className="relative z-20 flex w-full max-w-[500px] shrink-0 flex-col items-center gap-3">
+        <p className="max-w-[500px] -translate-y-[15px] animate-[wk-fade-up_0.4s_ease-out_both] px-2 text-center text-sm font-bold uppercase tracking-wider text-white/70">
+          Drag and rotate your rafts to prep for battle
+        </p>
+
+        <div className="grid w-full grid-cols-4 gap-3">
+          <div className="col-span-1 flex min-h-13 items-stretch">
+            {hasSelection && (
+              <button
+                type="button"
+                onClick={handleRotate}
+                disabled={rotateDisabled}
+                className={`flex w-full items-center justify-center gap-1 rounded-xl px-2 py-3 text-xs font-bold uppercase tracking-wider transition-all sm:gap-2 sm:px-3 sm:text-sm ${
+                  rotateDisabled
+                    ? "bg-white/5 text-white/25"
+                    : "bg-white/15 text-white hover:bg-white/25 active:scale-95"
+                }`}
+              >
+                <RotateCw className="size-4 shrink-0 sm:size-[18px]" />
+                <span className="truncate">Rotate</span>
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={handleDone}
+            className="col-span-3 rounded-xl py-4 text-lg font-black uppercase tracking-wider text-black transition-all hover:scale-[1.02] active:scale-95"
+            style={{ backgroundColor: primary, boxShadow: `0 10px 15px -3px ${primary}40` }}
+          >
+            Ready
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

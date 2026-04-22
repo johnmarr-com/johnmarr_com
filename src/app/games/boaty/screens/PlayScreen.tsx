@@ -14,8 +14,9 @@ import {
   BOATY_THROW_MS,
   BOATY_IMPACT_ANIM_MS,
 } from "../boatyLogic";
+import Image from "next/image";
 import SwampGrid from "../components/SwampGrid";
-import Banner from "../components/Banner";
+import SwampSignFrame from "../components/SwampSignFrame";
 
 interface PlayScreenProps {
   currentUserId: string;
@@ -237,7 +238,7 @@ export default function PlayScreen({
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center gap-3 overflow-y-auto px-4 py-4">
       {/* Player avatars */}
-      <div className="flex w-full max-w-[600px] items-center justify-between px-2">
+      <div className="flex w-full max-w-[500px] shrink-0 items-center justify-between px-2">
         <PlayerBadge player={me} isActive={isMyTurn} side="left" />
         <p className="text-xs font-black uppercase tracking-widest text-white/40">VS</p>
         <PlayerBadge player={opponent} isActive={!isMyTurn} side="right" />
@@ -245,45 +246,49 @@ export default function PlayScreen({
 
       {/* Turn indicator */}
       <p
-        className="text-center text-sm font-black uppercase tracking-wider"
+        className="shrink-0 text-center text-sm font-black uppercase tracking-wider"
         style={{ color: isMyTurn ? primary : danger }}
       >
         {isMyTurn ? "Your turn — pick a target!" : "Opponent's turn..."}
       </p>
 
-      {/* Grid with 3D flip */}
-      <div
-        ref={gridRef}
-        className="w-full max-w-[600px] shrink-0"
-        style={{
-          animation: flipAnim ? `${flipAnim} 0.25s ease-in-out both` : undefined,
-          transformStyle: "preserve-3d",
-        }}
-      >
-        {displayView === "attack" ? (
-          <>
-            <Banner label="THEIR SWAMP" />
-            <SwampGrid
-              hits={attacksOnOpponent.hits}
-              misses={attacksOnOpponent.misses}
-              tappable={isMyTurn}
-              tapLocked={attacking}
-              onCellTap={handleAttackCell}
-              pendingCell={displayView === "attack" ? pendingCell : null}
-            />
-          </>
-        ) : (
-          <>
-            <Banner label="MY SWAMP" />
-            <SwampGrid
-              rafts={myBoard.rafts}
-              gator={swampGator}
-              hits={attacksOnMe.hits}
-              misses={attacksOnMe.misses}
-              pendingCell={displayView === "defend" ? pendingCell : null}
-            />
-          </>
-        )}
+      {/* Board: flex spacers (1.7 / 0.3) push map lower in the band */}
+      <div className="flex min-h-0 w-full flex-1 flex-col items-center overflow-visible">
+        <div aria-hidden className="min-h-0 w-full flex-[1.7] basis-0 shrink-0" />
+        <div className="w-full max-w-[500px] shrink-0">
+          <div
+            ref={gridRef}
+            className="w-full"
+            style={{
+              animation: flipAnim ? `${flipAnim} 0.25s ease-in-out both` : undefined,
+              transformStyle: "preserve-3d",
+            }}
+          >
+            {displayView === "attack" ? (
+              <SwampSignFrame variant="their">
+                <SwampGrid
+                  hits={attacksOnOpponent.hits}
+                  misses={attacksOnOpponent.misses}
+                  tappable={isMyTurn}
+                  tapLocked={attacking}
+                  onCellTap={handleAttackCell}
+                  pendingCell={displayView === "attack" ? pendingCell : null}
+                />
+              </SwampSignFrame>
+            ) : (
+              <SwampSignFrame variant="my">
+                <SwampGrid
+                  rafts={myBoard.rafts}
+                  gator={swampGator}
+                  hits={attacksOnMe.hits}
+                  misses={attacksOnMe.misses}
+                  pendingCell={displayView === "defend" ? pendingCell : null}
+                />
+              </SwampSignFrame>
+            )}
+          </div>
+        </div>
+        <div aria-hidden className="min-h-0 w-full flex-[0.3] basis-0 shrink-0" />
       </div>
 
       {/* Molotov throw + impact animation */}
@@ -343,8 +348,16 @@ export default function PlayScreen({
               animation: "wk-fade-up 0.3s ease-out both",
             }}
           >
-            <p className="text-2xl font-black text-white">
-              🐊 YOU HIT THEIR GATOR!
+            <p className="flex flex-wrap items-center justify-center gap-2 text-2xl font-black text-white">
+              <Image
+                src="/images/games/boaty/Alligator.png"
+                alt=""
+                width={40}
+                height={40}
+                className="h-10 w-10 shrink-0 object-contain"
+                draggable={false}
+              />
+              YOU HIT THEIR GATOR!
             </p>
             <p className="mt-1 text-base font-bold text-white/80">
               Go again!
