@@ -7,26 +7,33 @@
  * Consolidated from the nearly-identical WinnerScreen components
  * in Wordonkulous and Blarf. Colors driven by gameData.primaryColor
  * and gameData.secondaryColor.
+ *
+ * Per-game overrides via `resultOptions`:
+ *   logoRight    — Tailwind right-* class for logo position
+ *   hideScores   — hide points subtitle + leaderboard
+ *   playMusic    — resume background music on this screen
  */
 
+import { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { registerVariant } from "../registry";
 import type { GC4Props } from "../types";
 import { JMAvatarView, JMWinnerLoserCard, JMConfettiOverlay, JMSimpleButton } from "@/JMKit";
 import { GameGamertagBadge } from "../../GameGamertagBadge";
+import { useGameColors } from "../../GameColorsProvider";
+import { bgMusic } from "../../BackgroundMusicPlayer";
 
 function GC4ResultLeaderboard({
   gameData,
   result,
   isHost,
   onPlayAgain,
+  resultOptions,
 }: GC4Props) {
   const { winners, winnerPoints, allPlayers, scores } = result;
-
-  // Theme colors: fall back to the WK/BF defaults if no game colors set
-  const nameColor = gameData.primaryColor || "#00fffc";
-  const scoreColor = gameData.secondaryColor || "#8eff0e";
+  const { logoRight, hideScores, playMusic } = resultOptions ?? {};
+  const { primary, secondary } = useGameColors();
   const gameLogoURL = gameData.splashLogoURL ?? gameData.coverURL;
   const bgDim = gameData.splashBgDim ?? 50;
 
@@ -34,6 +41,21 @@ function GC4ResultLeaderboard({
   const others = allPlayers
     .filter((p) => !winnerUids.has(p.uid))
     .sort((a, b) => (scores[b.uid] ?? 0) - (scores[a.uid] ?? 0));
+
+  // Resume background music on the result screen if requested
+  useEffect(() => {
+    if (!playMusic) return;
+    const slug = gameData.slug;
+    const url = gameData.backgroundMusicURL || (slug ? `/music/${slug}.mp3` : null);
+    if (url) {
+      bgMusic.play(url, gameData.backgroundMusicVolume ?? 0.3);
+    }
+    return () => {
+      if (playMusic) bgMusic.stop();
+    };
+  }, [playMusic, gameData.slug, gameData.backgroundMusicURL, gameData.backgroundMusicVolume]);
+
+  const logoRightClass = logoRight ?? "right-[-8px]";
 
   return (
     <div
@@ -69,7 +91,7 @@ function GC4ResultLeaderboard({
 
       {/* Animated game logo — top right */}
       {gameLogoURL && (
-        <div className="pointer-events-none absolute right-[-8px] top-2 z-20 animate-[wk-slide-in-tr_0.6s_ease-out_both]">
+        <div className={`pointer-events-none absolute ${logoRightClass} top-2 z-20 animate-[wk-slide-in-tr_0.6s_ease-out_both]`}>
           <Image
             src={gameLogoURL}
             alt=""
@@ -84,13 +106,15 @@ function GC4ResultLeaderboard({
 
       {/* Content — above the overlay */}
       <div className="relative z-10 flex flex-col items-center gap-5">
-        {/* Winner card(s) */}
+        {/* Winner card(s) — primary = "WINNER!" title, secondary = gamertag name */}
         {winners.length === 1 && (
           <JMWinnerLoserCard
             variant="winner"
             avatarName={winners[0]!.avatarName ?? "default"}
             name={winners[0]!.gamertag}
-            subtitle={`${winnerPoints} ${winnerPoints === 1 ? "point" : "points"}!`}
+            titleColor={primary}
+            nameColor={secondary}
+            {...(hideScores ? {} : { subtitle: `${winnerPoints} ${winnerPoints === 1 ? "point" : "points"}!` })}
           />
         )}
 
@@ -102,14 +126,16 @@ function GC4ResultLeaderboard({
                 variant="winner"
                 avatarName={w.avatarName ?? "default"}
                 name={w.gamertag}
-                subtitle={`${winnerPoints} ${winnerPoints === 1 ? "point" : "points"}!`}
+                titleColor={primary}
+                nameColor={secondary}
+                {...(hideScores ? {} : { subtitle: `${winnerPoints} ${winnerPoints === 1 ? "point" : "points"}!` })}
               />
             ))}
           </div>
         )}
 
         {/* Leaderboard */}
-        {others.length > 0 && (
+        {!hideScores && others.length > 0 && (
           <div
             className="w-full max-w-md rounded-xl border border-white/10 bg-black/40 px-4 py-3"
             style={{
@@ -128,13 +154,13 @@ function GC4ResultLeaderboard({
                   </div>
                   <span
                     className="min-w-0 flex-1 truncate text-sm font-black"
-                    style={{ color: nameColor }}
+                    style={{ color: secondary }}
                   >
                     {p.gamertag}
                   </span>
                   <span
                     className="text-sm font-black tabular-nums"
-                    style={{ color: scoreColor }}
+                    style={{ color: primary }}
                   >
                     {scores[p.uid] ?? 0}
                   </span>
@@ -149,7 +175,7 @@ function GC4ResultLeaderboard({
           <button
             onClick={onPlayAgain}
             className="mt-4 w-full max-w-xs rounded-xl py-4 text-lg font-black uppercase tracking-wider text-black shadow-lg transition-all hover:scale-[1.02] active:scale-95"
-            style={{ backgroundColor: scoreColor }}
+            style={{ backgroundColor: primary }}
           >
             Play Again
           </button>

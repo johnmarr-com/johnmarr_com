@@ -1,6 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { JMAvatarView } from "@/JMKit";
+import { useGameColors } from "@/app/games/_gamecore";
 import type { GameSessionPlayer } from "@/lib/game-sessions";
 
 interface BlarferRevealScreenProps {
@@ -36,6 +38,8 @@ export default function BlarferRevealScreen({
   onContinue,
 }: BlarferRevealScreenProps) {
 
+  const { primary, danger } = useGameColors();
+
   // Players sorted by score descending
   const sortedPlayers = [...players].sort(
     (a, b) => (scores[b.uid] ?? 0) - (scores[a.uid] ?? 0),
@@ -57,7 +61,7 @@ export default function BlarferRevealScreen({
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto px-4 pt-[calc(1.5rem+75px)] pb-6">
       {/* Header */}
-      <p className="text-lg font-black uppercase tracking-widest" style={{ color: "#F7D047" }}>
+      <p className="text-lg font-black uppercase tracking-widest" style={{ color: primary }}>
         Round {roundNumber}/{totalRounds}
       </p>
 
@@ -71,16 +75,20 @@ export default function BlarferRevealScreen({
               <div className="bf-flip-card w-full max-w-[300px]">
                 <div className="bf-flip-card-inner">
                   <div className="bf-flip-card-front">
-                    <img
+                    <Image
                       src="/images/games/blarf/Blarf-Vote.png"
                       alt=""
+                      width={300}
+                      height={300}
                       className="w-full object-contain drop-shadow-lg"
                     />
                   </div>
                   <div className="bf-flip-card-back">
-                    <img
+                    <Image
                       src="/images/games/blarf/Blarf-Reveal.png"
                       alt="Reveal the Blarfer"
+                      width={300}
+                      height={300}
                       className="w-full object-contain drop-shadow-lg"
                     />
                   </div>
@@ -93,9 +101,9 @@ export default function BlarferRevealScreen({
                 onClick={onReveal}
                 className="w-full rounded-xl py-4 text-lg font-black uppercase tracking-wider transition-all hover:scale-[1.02] active:scale-95"
                 style={{
-                  backgroundColor: "#C93C3C",
+                  backgroundColor: danger,
                   color: "#ffffff",
-                  boxShadow: "0 10px 15px -3px rgba(201,60,60,0.25)",
+                  boxShadow: `0 10px 15px -3px ${danger}40`,
                 }}
               >
                 Show Results
@@ -106,16 +114,20 @@ export default function BlarferRevealScreen({
               <div className="bf-flip-card w-full max-w-[300px]">
                 <div className="bf-flip-card-inner">
                   <div className="bf-flip-card-front">
-                    <img
+                    <Image
                       src="/images/games/blarf/Blarf-Vote.png"
                       alt=""
+                      width={300}
+                      height={300}
                       className="w-full object-contain drop-shadow-lg"
                     />
                   </div>
                   <div className="bf-flip-card-back">
-                    <img
+                    <Image
                       src="/images/games/blarf/Blarf-Reveal.png"
                       alt="Reveal the Blarfer"
+                      width={300}
+                      height={300}
                       className="w-full object-contain drop-shadow-lg"
                     />
                   </div>
@@ -153,7 +165,7 @@ export default function BlarferRevealScreen({
                     </p>
                     <p
                       className="text-sm font-black uppercase tracking-wider"
-                      style={{ color: "#C93C3C" }}
+                      style={{ color: danger }}
                     >
                       BLARFER!
                     </p>
@@ -207,7 +219,7 @@ export default function BlarferRevealScreen({
                     )}
                     <span
                       className="text-sm font-black tabular-nums"
-                      style={{ color: "#F7D047" }}
+                      style={{ color: primary }}
                     >
                       {scores[p.uid] ?? 0}
                     </span>
@@ -222,7 +234,7 @@ export default function BlarferRevealScreen({
             <button
               onClick={onContinue}
               className="mt-2 w-full max-w-md rounded-xl py-4 text-lg font-black uppercase tracking-wider text-black transition-all hover:scale-[1.02] active:scale-95"
-              style={{ backgroundColor: "#F7D047" }}
+              style={{ backgroundColor: primary }}
             >
               {roundNumber < totalRounds ? "Next Round" : "See Winner"}
             </button>

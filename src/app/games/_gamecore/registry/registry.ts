@@ -50,7 +50,8 @@ export function registerVariant<S extends GCSlot>(
 
 /** Get metadata for all registered variants for a slot. */
 export function getVariantsForSlot(slot: GCSlot): VariantMeta[] {
-  return (VARIANT_REGISTRY.get(slot) ?? []).map(({ component: _, ...meta }) => meta);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  return (VARIANT_REGISTRY.get(slot) ?? []).map(({ component, ...meta }) => meta);
 }
 
 /** Resolve a variant's React component by slot + variantId. */

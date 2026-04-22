@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useGameColors } from "@/app/games/_gamecore";
 import DefinitionCard from "./DefinitionCard";
 
 interface WordEntry {
@@ -33,6 +34,7 @@ export default function VotingScreen({
   totalVoters,
   onVote,
 }: VotingScreenProps) {
+  const { primary, tertiary, danger } = useGameColors();
   const [confirmTarget, setConfirmTarget] = useState<WordEntry | null>(null);
   const [dismissing, setDismissing] = useState(false);
   const [voting, setVoting] = useState(false);
@@ -109,7 +111,7 @@ export default function VotingScreen({
                     : "border-transparent text-white hover:scale-[1.01] active:scale-95"
                 }`}
                 style={{
-                  ...(!isOwn ? { background: "linear-gradient(135deg, #0d9488 0%, #2563eb 50%, #0d9488 100%)" } : {}),
+                  ...(!isOwn ? { background: `linear-gradient(135deg, #0d9488 0%, ${tertiary} 50%, #0d9488 100%)` } : {}),
                   animation: `wk-fade-up ${duration}s ease-out ${delay}s both`,
                 }}
               >
@@ -137,8 +139,8 @@ export default function VotingScreen({
           <div
             className="mx-4 w-full max-w-sm rounded-2xl border-[6px] p-6"
             style={{
-              backgroundColor: "#ff1493",
-              borderColor: "#2563eb",
+              backgroundColor: danger,
+              borderColor: tertiary,
               animation: `${dismissing ? "wk-modal-out" : "wk-modal-in"} 0.2s ease-out both`,
             }}
             onClick={(e) => e.stopPropagation()}
@@ -157,7 +159,7 @@ export default function VotingScreen({
                 onClick={handleConfirm}
                 disabled={voting}
                 className="flex-1 rounded-xl py-3 text-base font-bold uppercase tracking-wider text-black transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
-                style={{ backgroundColor: "#8eff0e" }}
+                style={{ backgroundColor: primary }}
               >
                 {voting ? "..." : "Confirm"}
               </button>

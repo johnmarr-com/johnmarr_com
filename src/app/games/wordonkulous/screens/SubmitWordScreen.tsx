@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
+import { useGameColors } from "@/app/games/_gamecore";
 import DefinitionCard from "./DefinitionCard";
 
 interface SubmitWordScreenProps {
@@ -25,6 +26,7 @@ export default function SubmitWordScreen({
   totalPlayers,
   onSubmit,
 }: SubmitWordScreenProps) {
+  const { primary } = useGameColors();
   const [word, setWord] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -115,7 +117,7 @@ export default function SubmitWordScreen({
                 ? "text-black shadow-lg hover:scale-[1.02] active:scale-95"
                 : "cursor-not-allowed bg-white/20 text-white/50"
             }`}
-            style={word.trim().length > 0 && !submitting ? { backgroundColor: "#8eff0e", boxShadow: "0 10px 15px -3px rgba(142,255,14,0.25)" } : undefined}
+            style={word.trim().length > 0 && !submitting ? { backgroundColor: primary, boxShadow: `0 10px 15px -3px ${primary}40` } : undefined}
           >
             {submitting ? (
               <Loader2 className="mx-auto h-5 w-5 animate-spin" />

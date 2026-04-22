@@ -87,6 +87,7 @@ export interface GameSession {
   playerSides?: Record<string, string>;
   winner?: string | null;
 
+  replayCount?: number;
   retentionDays?: number;
   expiresAt?: Timestamp;
 }

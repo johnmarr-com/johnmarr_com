@@ -13,7 +13,7 @@
 import { registerVariant } from "../registry";
 import type { GC5Props } from "../types";
 
-function GC5ReplayStandard(_props: GC5Props) {
+function GC5ReplayStandard(_props: GC5Props) { // eslint-disable-line @typescript-eslint/no-unused-vars -- required by registerVariant interface
   // Replay behavior is handled by composeGame:
   // 1. Calls config.resetFields(session) to get the field map
   // 2. Writes those fields to Firestore via updateSessionFields

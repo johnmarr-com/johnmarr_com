@@ -17,7 +17,7 @@ import {
   determineWinners,
 } from "./blarfTypes";
 import type { BlarfRoundScoreResult } from "./blarfTypes";
-import { GameGamertagBadge, recordGameStats } from "@/app/games/_gamecore";
+import { GameGamertagBadge, recordGameStats, useGameColors } from "@/app/games/_gamecore";
 import { PointsManager, Activity } from "@/lib/points";
 import { JMConfettiOverlay, JMSimpleButton } from "@/JMKit";
 import { GamePrimaryButton } from "@/app/games/_gamecore";
@@ -62,6 +62,7 @@ export default function BlarfGame({
 }: BlarfGameProps) {
   const { user } = useAuth();
   const router = useRouter();
+  const { tertiary } = useGameColors();
   const userId = user?.uid ?? "";
   const { state, updateFields } = useBlarfSession(sessionId, userId);
   const [showRoundIntro, setShowRoundIntro] = useState(false);
@@ -393,7 +394,7 @@ export default function BlarfGame({
   if (!session) return null;
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-[#2B4B6F]">
+    <div className="fixed inset-0 flex flex-col" style={{ backgroundColor: tertiary }}>
       {splashBgURL && (
         <div
           aria-hidden
@@ -417,9 +418,11 @@ export default function BlarfGame({
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
             <p className="text-xs font-bold uppercase tracking-wider text-white/60">Prepping Game</p>
           </div>
-          <img
+          <Image
             src="/images/games/blarf/Blarf-Epic.png"
             alt="BLARF!"
+            width={800}
+            height={800}
             className="max-h-[85dvh] max-w-[90vw] object-contain"
           />
         </div>

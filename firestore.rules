@@ -325,7 +325,10 @@ service cloud.firestore {
             'guessesUsedThisTurn', 'bonusGuessAvailable',
             'activeTeam', 'svPhase', 'updatedAt',
             'playerUids', 'players', 'playerCount',
-            'pendingInviteUids'
+            'pendingInviteUids',
+            // Boaty McBoatface — both players write boards, attacks, turns
+            'btBoards', 'btReady', 'btAttacks', 'btLastAttack',
+            'btCurrentTurn', 'btWinner', 'btPhase'
           ]))
       );
 

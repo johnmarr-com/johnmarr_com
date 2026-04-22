@@ -316,7 +316,6 @@ export default function BluffBoxGame({
       sharerChoice,
       guesses,
       currentSharer,
-      playerUids.length,
     );
     const newScores = applyScoreDeltas(scores, deltas);
 

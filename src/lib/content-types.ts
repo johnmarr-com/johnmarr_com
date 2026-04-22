@@ -179,6 +179,8 @@ export interface JMContent {
   retentionDays?: number;         // 1 = delete session data after 24h (default). 30 = keep for 30 days.
   primaryColor?: string;          // Primary accent hex (e.g. "#E84C1E") for in-game UI + asset selectors
   secondaryColor?: string;        // Secondary accent hex (e.g. "#3B82F6") for complementary UI elements
+  tertiaryColor?: string;         // Tertiary accent hex — backgrounds, secondary actions
+  dangerColor?: string;           // Danger/alert accent hex — warnings, destructive actions, enemy labels
 
   // ─── GameCore Assembly ────────────────────────────────────
   /** Which phase component variants to use for each GC slot. Set via admin Game Assembly GUI. */
@@ -235,6 +237,8 @@ export interface JMContentInput {
   retentionDays?: number;
   primaryColor?: string;
   secondaryColor?: string;
+  tertiaryColor?: string;
+  dangerColor?: string;
   brandId?: string;
   parentId?: string | null;
   order?: number;

@@ -122,6 +122,16 @@ export interface GC3Props {
   onGameEnd: (result: GameEndResult) => void;
 }
 
+/** Per-game overrides for the GC4 result screen. */
+export interface GC4ResultOptions {
+  /** Tailwind `right-*` class for the logo position (default: "right-[-8px]"). */
+  logoRight?: string;
+  /** Hide the points subtitle on winner cards and the leaderboard section. */
+  hideScores?: boolean;
+  /** Resume the game's background music on the result screen. */
+  playMusic?: boolean;
+}
+
 /** GC4: Result — win/lose screen after gameplay ends. */
 export interface GC4Props {
   gameData: JMContent;
@@ -130,6 +140,7 @@ export interface GC4Props {
   isHost: boolean;
   onPlayAgain: () => void;
   onExit: () => void;
+  resultOptions?: GC4ResultOptions;
 }
 
 /** GC5: Replay — quick reconfig before starting again. */
@@ -164,6 +175,12 @@ export interface ComposeGameInput {
   pulseIcon?: boolean;
   /** Rock the splash icon left/right on the landing page. */
   rockIcon?: boolean;
+  /** "versus" = 2-player with sides. "party" = N-player (default). */
+  multiplayerFlowMode?: "versus" | "party";
+  /** Side labels for versus mode (e.g. ["Red", "Blue"]). */
+  sideLabels?: [string, string];
+  /** Per-game overrides for the GC4 result screen. */
+  resultOptions?: GC4ResultOptions;
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useAuth } from "@/lib/AuthProvider";
 import { useWordonkulousSession } from "./useWordonkulousSession";
@@ -14,7 +14,7 @@ import {
   determineWinners,
 } from "./wordonkulousTypes";
 import type { RoundScoreResult } from "./wordonkulousTypes";
-import { isAiPlayer, getPersona, recordGameStats, GameGamertagBadge } from "@/app/games/_gamecore";
+import { isAiPlayer, getPersona, recordGameStats, GameGamertagBadge, useGameColors } from "@/app/games/_gamecore";
 import { aiSubmitWord, aiVote } from "./aiWordonkulousPlayer";
 import { submitWord, submitVote } from "./wordonkulousApi";
 import Link from "next/link";
@@ -25,11 +25,11 @@ import { JMConfettiOverlay, JMSimpleButton } from "@/JMKit";
 import { GamePrimaryButton } from "@/app/games/_gamecore";
 import type { GameLengthPreset } from "@/app/games/_gamecore/gameLengthPresets";
 
-const WK_LENGTH_PRESETS: GameLengthPreset[] = [
-  { key: "learn", label: "Learn", rounds: 1, estimatedMinutes: 3, icon: GraduationCap, iconColor: "#ffffff" },
-  { key: "quick", label: "Quick", rounds: 3, estimatedMinutes: 8, icon: Zap, iconColor: "#facc15" },
-  { key: "standard", label: "Standard", rounds: 5, estimatedMinutes: 12, icon: Timer, iconColor: "#ff1493" },
-  { key: "marathon", label: "Marathon", rounds: 7, estimatedMinutes: 17, icon: SportShoe, iconColor: "#00fffc" },
+const WK_LENGTH_PRESETS_BASE: Omit<GameLengthPreset, "iconColor">[] = [
+  { key: "learn", label: "Learn", rounds: 1, estimatedMinutes: 3, icon: GraduationCap },
+  { key: "quick", label: "Quick", rounds: 3, estimatedMinutes: 8, icon: Zap },
+  { key: "standard", label: "Standard", rounds: 5, estimatedMinutes: 12, icon: Timer },
+  { key: "marathon", label: "Marathon", rounds: 7, estimatedMinutes: 17, icon: SportShoe },
 ];
 import type { WordonkulousPack } from "@/lib/wordonkulous-packs";
 import type { JMContent } from "@/lib/content-types";
@@ -63,12 +63,26 @@ export default function WordonkulousGame({
 }: WordonkulousGameProps) {
   const { user } = useAuth();
   const router = useRouter();
+  const { primary, secondary, danger } = useGameColors();
   const userId = user?.uid ?? "";
   const { state, updateFields } = useWordonkulousSession(sessionId, userId);
   const aiProcessingRef = useRef(false);
   const [showRoundIntro, setShowRoundIntro] = useState(false);
   const [lastRoundResult, setLastRoundResult] = useState<RoundScoreResult | null>(null);
   const [pickerLengthKey, setPickerLengthKey] = useState("standard");
+
+  const WK_LENGTH_PRESETS: GameLengthPreset[] = useMemo(() => {
+    const colorMap: Record<string, string> = {
+      learn: "#ffffff",
+      quick: primary,
+      standard: danger,
+      marathon: secondary,
+    };
+    return WK_LENGTH_PRESETS_BASE.map((p) => ({
+      ...p,
+      iconColor: colorMap[p.key] ?? "#ffffff",
+    }));
+  }, [primary, secondary, danger]);
 
   const {
     session,
@@ -90,7 +104,7 @@ export default function WordonkulousGame({
     isHost,
   } = state;
 
-  const players = session?.players ?? [];
+  const players = useMemo(() => session?.players ?? [], [session?.players]);
   const playerUids = players.map((p) => p.uid);
   const kicked = session?.kickedUids?.includes(userId) ?? false;
   const definition = getCurrentDefinition(wkDefinitions, wkCurrentRound);
@@ -121,7 +135,7 @@ export default function WordonkulousGame({
       const match = WK_LENGTH_PRESETS.find((p) => p.rounds === wkLobbyRounds);
       if (match) setPickerLengthKey(match.key);
     }
-  }, [wkLobbyRounds]);
+  }, [wkLobbyRounds, WK_LENGTH_PRESETS]);
 
   // ─── Host: Auto-apply lobby pack ──────────────────────────
 
@@ -185,7 +199,7 @@ export default function WordonkulousGame({
         wkLobbyRounds: deleteField(),
       });
     },
-    [playerUids, wkLobbyRounds, pickerLengthKey, updateFields],
+    [playerUids, wkLobbyRounds, pickerLengthKey, updateFields, WK_LENGTH_PRESETS],
   );
 
   // ─── Round intro lifecycle ────────────────────────────────

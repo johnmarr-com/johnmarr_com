@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useMemo } from "react";
 import { JMAvatarView } from "@/JMKit";
+import { useGameColors } from "@/app/games/_gamecore";
 import type { GameSessionPlayer } from "@/lib/game-sessions";
 import DefinitionCard from "./DefinitionCard";
 
@@ -37,6 +38,7 @@ export default function RoundResultsScreen({
   isHost,
   onContinue,
 }: RoundResultsScreenProps) {
+  const { primary, secondary } = useGameColors();
   const autoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Host auto-advance
@@ -66,7 +68,7 @@ export default function RoundResultsScreen({
 
       {/* 1st Place */}
       {firstPlace.length > 0 && (
-        <div className="flex w-full max-w-md flex-col items-center gap-6 rounded-2xl border bg-black/50 p-5" style={{ borderColor: "rgba(142,255,14,0.3)", boxShadow: "inset 0 4px 8px rgba(0,0,0,0.5), inset 0 -2px 4px rgba(255,255,255,0.1)" }}>
+        <div className="flex w-full max-w-md flex-col items-center gap-6 rounded-2xl border bg-black/50 p-5" style={{ borderColor: `${primary}4D`, boxShadow: "inset 0 4px 8px rgba(0,0,0,0.5), inset 0 -2px 4px rgba(255,255,255,0.1)" }}>
           {firstPlace.map((uid, idx) => {
             const p = getPlayer(uid);
             return (
@@ -78,10 +80,10 @@ export default function RoundResultsScreen({
                 <div className="flex w-full items-start gap-3">
                   {/* Left: Winner + name, right-aligned */}
                   <div className="z-10 flex min-w-0 flex-1 flex-col items-end" style={{ paddingTop: 26 }}>
-                    <p className="h-5 text-sm font-black uppercase tracking-widest leading-5" style={{ color: "#8eff0e" }}>
+                    <p className="h-5 text-sm font-black uppercase tracking-widest leading-5" style={{ color: primary }}>
                       {firstPlace.length >= 2 ? "Tie" : "Winner"}
                     </p>
-                    <p className="mt-1 text-xl font-black leading-tight" style={{ color: "#00fffc" }}>{p?.gamertag ?? uid}</p>
+                    <p className="mt-1 text-xl font-black leading-tight" style={{ color: secondary }}>{p?.gamertag ?? uid}</p>
                   </div>
                   {/* Center: Avatar */}
                   <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-full bg-black">
@@ -91,16 +93,16 @@ export default function RoundResultsScreen({
                   </div>
                   {/* Right: Votes + points, left-aligned */}
                   <div className="z-10 flex min-w-0 flex-1 flex-col items-start" style={{ paddingTop: 26 }}>
-                    <p className="h-5 text-sm font-black uppercase tracking-widest leading-5" style={{ color: "#8eff0e" }}>
+                    <p className="h-5 text-sm font-black uppercase tracking-widest leading-5" style={{ color: primary }}>
                       {voteCounts[uid] ?? 0} {(voteCounts[uid] ?? 0) === 1 ? "vote" : "votes"}
                     </p>
-                    <p className="mt-1 text-sm font-black uppercase tracking-widest leading-tight" style={{ color: "#00fffc" }}>
+                    <p className="mt-1 text-sm font-black uppercase tracking-widest leading-tight" style={{ color: secondary }}>
                       +{roundDeltas[uid] ?? 0} pts
                     </p>
                   </div>
                 </div>
                 {/* Winning word — overlaps bottom of avatar */}
-                <p className="-mt-4 z-10 text-2xl font-black lowercase tracking-wider" style={{ color: "#8eff0e" }}>
+                <p className="-mt-4 z-10 text-2xl font-black lowercase tracking-wider" style={{ color: primary }}>
                   &ldquo;{submissions[uid]}&rdquo;
                 </p>
               </div>
@@ -122,8 +124,8 @@ export default function RoundResultsScreen({
                 <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-black">
                   <JMAvatarView width={32} avatarName={p.avatarName ?? "default"} />
                 </div>
-                <span className="min-w-0 flex-1 truncate text-sm font-black" style={{ color: "#00fffc" }}>{p.gamertag}</span>
-                <span className="text-sm font-black tabular-nums" style={{ color: "#8eff0e" }}>
+                <span className="min-w-0 flex-1 truncate text-sm font-black" style={{ color: secondary }}>{p.gamertag}</span>
+                <span className="text-sm font-black tabular-nums" style={{ color: primary }}>
                   {scores[p.uid] ?? 0}
                 </span>
               </div>
@@ -139,7 +141,7 @@ export default function RoundResultsScreen({
             onContinue();
           }}
           className="mt-2 w-full max-w-md rounded-xl py-4 text-lg font-bold uppercase tracking-wider text-black shadow-lg transition-all hover:scale-[1.02] active:scale-95"
-          style={{ backgroundColor: "#8eff0e", boxShadow: "0 10px 15px -3px rgba(142,255,14,0.25)" }}
+          style={{ backgroundColor: primary, boxShadow: `0 10px 15px -3px ${primary}40` }}
         >
           {roundNumber < totalRounds ? "Next Round" : "Final Results"}
         </button>

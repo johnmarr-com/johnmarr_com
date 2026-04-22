@@ -12,7 +12,7 @@
 import { registerVariant } from "../registry";
 import type { GC2Props } from "../types";
 
-function GC2LobbyPartyPacks(_props: GC2Props) {
+function GC2LobbyPartyPacks(_props: GC2Props) { // eslint-disable-line @typescript-eslint/no-unused-vars -- required by registerVariant interface
   // Rendering handled by composeGame via GameMultiplayerFlow.
   // This component is a placeholder for direct-use scenarios.
   return null;

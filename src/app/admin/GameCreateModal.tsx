@@ -33,6 +33,8 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
   const [retentionDays, setRetentionDays] = useState(1);
   const [primaryColor, setPrimaryColor] = useState("");
   const [secondaryColor, setSecondaryColor] = useState("");
+  const [tertiaryColor, setTertiaryColor] = useState("");
+  const [dangerColor, setDangerColor] = useState("");
   const [isPublished, setIsPublished] = useState(false);
 
   const tempIdRef = useRef(`new-${Date.now()}`);
@@ -94,6 +96,8 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
       input.retentionDays = retentionDays;
       if (primaryColor.trim()) input.primaryColor = primaryColor.trim();
       if (secondaryColor.trim()) input.secondaryColor = secondaryColor.trim();
+      if (tertiaryColor.trim()) input.tertiaryColor = tertiaryColor.trim();
+      if (dangerColor.trim()) input.dangerColor = dangerColor.trim();
 
       await createContent(input, user.uid);
       onCreated();
@@ -522,8 +526,60 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
                   </div>
                 </div>
               </div>
+              <div className="mt-3 flex gap-4">
+                <div className="flex-1">
+                  <label className="mb-1 block text-sm font-medium" style={{ color: theme.text.secondary }}>
+                    Tertiary
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={tertiaryColor || "#ffffff"}
+                      onChange={(e) => setTertiaryColor(e.target.value)}
+                      className="h-9 w-9 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                    />
+                    <input
+                      type="text"
+                      value={tertiaryColor}
+                      onChange={(e) => setTertiaryColor(e.target.value)}
+                      placeholder="#2B4B6F"
+                      className="w-full rounded-lg border px-3 py-2 text-sm font-mono"
+                      style={{
+                        backgroundColor: "rgba(0, 0, 0, 0.4)",
+                        borderColor: "rgba(255, 255, 255, 0.2)",
+                        color: theme.text.primary,
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <label className="mb-1 block text-sm font-medium" style={{ color: theme.text.secondary }}>
+                    Danger
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={dangerColor || "#ffffff"}
+                      onChange={(e) => setDangerColor(e.target.value)}
+                      className="h-9 w-9 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                    />
+                    <input
+                      type="text"
+                      value={dangerColor}
+                      onChange={(e) => setDangerColor(e.target.value)}
+                      placeholder="#C93C3C"
+                      className="w-full rounded-lg border px-3 py-2 text-sm font-mono"
+                      style={{
+                        backgroundColor: "rgba(0, 0, 0, 0.4)",
+                        borderColor: "rgba(255, 255, 255, 0.2)",
+                        color: theme.text.primary,
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
               <p className="mt-1 text-xs" style={{ color: theme.text.tertiary }}>
-                Accent colors used in asset selectors and in-game UI.
+                Game palette: primary (titles, highlights), secondary (names, accents), tertiary (backgrounds, secondary actions), danger (alerts, enemy labels).
               </p>
             </div>
 

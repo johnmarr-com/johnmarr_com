@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { JMAvatarView } from "@/JMKit";
+import { useGameColors } from "@/app/games/_gamecore";
 import { submitVotes } from "../blarfApi";
 import { getVotesPerPlayer } from "../blarfTypes";
 import type { GameSessionPlayer } from "@/lib/game-sessions";
@@ -31,6 +33,7 @@ export default function MultiVoteScreen({
   roundNumber,
   totalRounds,
 }: MultiVoteScreenProps) {
+  const { primary, secondary, danger } = useGameColors();
   const totalVotesAllowed = getVotesPerPlayer(playerCount);
   const [allocations, setAllocations] = useState<Record<string, number>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -92,13 +95,15 @@ export default function MultiVoteScreen({
   if (hasVoted) {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto px-4 pt-[calc(1.5rem+75px)] pb-6">
-        <p className="text-lg font-black uppercase tracking-widest" style={{ color: "#F7D047" }}>
+        <p className="text-lg font-black uppercase tracking-widest" style={{ color: primary }}>
           Round {roundNumber}/{totalRounds}
         </p>
         <div className="flex flex-col items-center gap-5 py-4">
-          <img
+          <Image
             src="/images/games/blarf/Blarf-Vote.png"
             alt="Vote submitted"
+            width={300}
+            height={300}
             className="w-full max-w-[300px] object-contain drop-shadow-lg animate-gentle-pulse"
           />
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
@@ -115,7 +120,7 @@ export default function MultiVoteScreen({
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto px-4 pt-[calc(1.5rem+75px)] pb-6">
       {/* Header */}
-      <p className="text-lg font-black uppercase tracking-widest" style={{ color: "#F7D047" }}>
+      <p className="text-lg font-black uppercase tracking-widest" style={{ color: primary }}>
         Round {roundNumber}/{totalRounds}
       </p>
       <p className="-mt-2 text-sm font-bold text-white/60">
@@ -128,7 +133,7 @@ export default function MultiVoteScreen({
           {secondsLeft}s to vote
         </p>
       )}
-      <div className="rounded-full px-6 py-2.5" style={{ backgroundColor: votesRemaining > 0 ? "#C93C3C" : "#4BA3C7" }}>
+      <div className="rounded-full px-6 py-2.5" style={{ backgroundColor: votesRemaining > 0 ? danger : secondary }}>
         <p className="text-lg font-black text-white">
           {votesRemaining > 0
             ? `Who Blarfed? — ${votesRemaining} vote${votesRemaining !== 1 ? "s" : ""}`
@@ -169,7 +174,7 @@ export default function MultiVoteScreen({
                 {myVotes > 0 && (
                   <div
                     className="absolute -right-1 -top-1 z-20 flex h-7 w-7 items-center justify-center rounded-full text-sm font-black text-black shadow-lg"
-                    style={{ backgroundColor: "#F7D047" }}
+                    style={{ backgroundColor: primary }}
                   >
                     {myVotes}
                   </div>
@@ -193,7 +198,7 @@ export default function MultiVoteScreen({
           onClick={handleSubmit}
           disabled={submitting}
           className="mt-2 w-full max-w-md rounded-xl py-4 text-lg font-black uppercase tracking-wider text-black transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
-          style={{ backgroundColor: "#F7D047" }}
+          style={{ backgroundColor: primary }}
         >
           {submitting ? "Submitting..." : `Confirm Vote${totalVotesAllowed !== 1 ? "s" : ""}`}
         </button>

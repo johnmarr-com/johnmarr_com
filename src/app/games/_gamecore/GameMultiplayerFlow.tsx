@@ -150,6 +150,10 @@ export function GameMultiplayerFlow({
   const [pendingPlayerDetails, setPendingPlayerDetails] = useState<KnownPlayer[]>([]);
   const unsubRef = useRef<(() => void) | null>(null);
   const trackedPlayersRef = useRef<Set<string>>(new Set());
+  const onOpenChangeRef = useRef(onOpenChange);
+  onOpenChangeRef.current = onOpenChange;
+  const routerRef = useRef(router);
+  routerRef.current = router;
 
   const is1v1 = gameInput.maxPlayers === 2;
 
@@ -180,8 +184,8 @@ export function GameMultiplayerFlow({
         if (updated.kickedUids?.includes(user?.uid ?? "")) {
           setKicked(true);
           setTimeout(() => {
-            onOpenChange(false);
-            router.push("/");
+            onOpenChangeRef.current(false);
+            routerRef.current.push("/");
           }, 2500);
         }
 

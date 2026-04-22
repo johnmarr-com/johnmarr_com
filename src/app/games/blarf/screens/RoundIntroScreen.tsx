@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useGameColors } from "@/app/games/_gamecore";
 
 type Phase = "idle" | "in" | "hold" | "out" | "done";
 
@@ -19,6 +20,7 @@ export default function RoundIntroScreen({
   onComplete,
   onAnimationDone,
 }: RoundIntroScreenProps) {
+  const { primary, tertiary } = useGameColors();
   const [phase, setPhase] = useState<Phase>("idle");
 
   const onCompleteRef = useRef(onComplete);
@@ -70,9 +72,10 @@ export default function RoundIntroScreen({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-[#2B4B6F]/90 ${
+      className={`fixed inset-0 z-50 flex items-center justify-center ${
         phase === "out" ? "pointer-events-none" : ""
       }`}
+      style={{ backgroundColor: `${tertiary}e6` }}
       onClick={handleTap}
     >
       <div
@@ -87,8 +90,8 @@ export default function RoundIntroScreen({
         <h1
           className="text-6xl font-black uppercase tracking-wider sm:text-7xl"
           style={{
-            color: "#F7D047",
-            textShadow: "0 0 24px rgba(247,208,71,0.5), 0 4px 12px rgba(0,0,0,0.4)",
+            color: primary,
+            textShadow: `0 0 24px ${primary}80, 0 4px 12px rgba(0,0,0,0.4)`,
           }}
         >
           Round {roundNumber}

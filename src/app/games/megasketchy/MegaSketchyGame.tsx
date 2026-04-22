@@ -197,7 +197,7 @@ export default function MegaSketchyGame({
         recordGameStats(allUids, passed ? allUids : [], session?.ownerId ?? "");
       }
     },
-    [isHost, skState.gameMode, skState.scoringResult, sessionId, session?.players],
+    [isHost, skState.gameMode, skState.scoringResult, sessionId, session?.players, session?.ownerId, session?.playerUids],
   );
 
   // Player action: cast a vote

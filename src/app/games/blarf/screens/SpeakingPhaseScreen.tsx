@@ -1,5 +1,6 @@
 "use client";
 
+import { useGameColors } from "@/app/games/_gamecore";
 import { VOICE_STYLE_LABELS } from "../blarfTypes";
 import type { VoiceStyle } from "../blarfTypes";
 
@@ -28,6 +29,7 @@ export default function SpeakingPhaseScreen({
   isLastSpeaker,
   onNextSpeaker,
 }: SpeakingPhaseScreenProps) {
+  const { primary, tertiary } = useGameColors();
   const currentSpeakerUid = speakingOrder[currentSpeakerIndex] ?? "";
   const isMyTurn = currentSpeakerUid === currentUserId;
 
@@ -39,7 +41,7 @@ export default function SpeakingPhaseScreen({
       {/* Yellow flash overlay — fades in when it's your turn */}
       <div
         className="pointer-events-none fixed inset-0 z-0 transition-opacity duration-500"
-        style={{ backgroundColor: "#F7D047", opacity: isMyTurn ? 1 : 0 }}
+        style={{ backgroundColor: primary, opacity: isMyTurn ? 1 : 0 }}
       />
 
       <div className="relative z-10 flex flex-col items-center gap-6">
@@ -62,7 +64,7 @@ export default function SpeakingPhaseScreen({
                 </p>
                 <p
                   className="mb-4 text-6xl font-black"
-                  style={{ color: "#F7D047" }}
+                  style={{ color: primary }}
                 >
                   {letter}
                 </p>
@@ -79,7 +81,7 @@ export default function SpeakingPhaseScreen({
                 </p>
                 <h1
                   className="mb-4 text-[clamp(2rem,8vw,4rem)] font-black lowercase leading-tight tracking-wider"
-                  style={{ color: "#F7D047" }}
+                  style={{ color: primary }}
                 >
                   {myWord}
                 </h1>
@@ -99,9 +101,9 @@ export default function SpeakingPhaseScreen({
             onClick={onNextSpeaker}
             className="w-full max-w-sm rounded-xl py-4 text-lg font-black uppercase tracking-wider transition-all duration-500 hover:scale-[1.02] active:scale-95"
             style={{
-              backgroundColor: isMyTurn ? "#2B4B6F" : "#F7D047",
+              backgroundColor: isMyTurn ? tertiary : primary,
               color: isMyTurn ? "#ffffff" : "#000000",
-              boxShadow: isMyTurn ? "0 10px 15px -3px rgba(43,75,111,0.25)" : "none",
+              boxShadow: isMyTurn ? `0 10px 15px -3px ${tertiary}40` : "none",
             }}
           >
             {isLastSpeaker ? "Start Voting" : "Next Speaker"}

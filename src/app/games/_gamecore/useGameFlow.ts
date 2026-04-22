@@ -55,6 +55,7 @@ export function useGameFlow(config: ComposeGameInput): GameFlowState & GameFlowA
   const [isLoading, setIsLoading] = useState(true);
 
   const autoJoinRef = useRef(false);
+  const lastReplayCountRef = useRef<number>(0);
 
   // Prefer URL sessionId (handles client-side nav from My Games)
   const activeSessionId = initialSessionId ?? sessionId;
@@ -75,12 +76,26 @@ export function useGameFlow(config: ComposeGameInput): GameFlowState & GameFlowA
   }, [initialSessionId, authLoading, user, gamertag, avatarName]);
 
   // ─── Subscribe to session when active ────────────────────
+  // Also detects host's "Play Again" via replayCount increment
+  // so non-host players transition back to the game phase.
   useEffect(() => {
     if (!activeSessionId) return;
     let cancelled = false;
     let unsub: (() => void) | undefined;
     subscribeToSession(activeSessionId, (updated) => {
-      if (!cancelled) setSession(updated);
+      if (cancelled || !updated) return;
+      // Detect replay: host incremented replayCount
+      const count = updated.replayCount ?? 0;
+      if (count > lastReplayCountRef.current) {
+        lastReplayCountRef.current = count;
+        // Non-host players: leave result screen and re-enter game
+        const hostOwned = user && updated.ownerId === user.uid;
+        if (!hostOwned) {
+          setGameResult(null);
+          setPhase("game");
+        }
+      }
+      setSession(updated);
     }).then((fn) => {
       if (cancelled) { fn(); } else { unsub = fn; }
     });
@@ -88,7 +103,7 @@ export function useGameFlow(config: ComposeGameInput): GameFlowState & GameFlowA
       cancelled = true;
       unsub?.();
     };
-  }, [activeSessionId]);
+  }, [activeSessionId, user]);
 
   // ─── Derive isHost ───────────────────────────────────────
   const isHost = !!(session && user && session.ownerId === user.uid);
@@ -106,9 +121,12 @@ export function useGameFlow(config: ComposeGameInput): GameFlowState & GameFlowA
   }, []);
 
   const handlePlayAgain = useCallback(async () => {
-    if (!activeSessionId) return;
-    const fields = config.resetFields(session!);
-    await updateSessionFields(activeSessionId, fields);
+    if (!activeSessionId || !session) return;
+    const fields = config.resetFields(session);
+    await updateSessionFields(activeSessionId, {
+      ...fields,
+      replayCount: (session.replayCount ?? 0) + 1,
+    });
     setGameResult(null);
     setPhase("game");
   }, [activeSessionId, config, session]);

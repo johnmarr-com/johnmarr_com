@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useGameColors } from "@/app/games/_gamecore";
 import { confirmRole } from "../blarfApi";
 import { VOICE_STYLE_LABELS } from "../blarfTypes";
 import type { VoiceStyle } from "../blarfTypes";
@@ -26,6 +27,7 @@ export default function RoleRevealScreen({
   confirmCount,
   totalPlayers,
 }: RoleRevealScreenProps) {
+  const { primary } = useGameColors();
   const [confirming, setConfirming] = useState(false);
 
   const handleConfirm = async () => {
@@ -58,7 +60,7 @@ export default function RoleRevealScreen({
             </p>
             <p
               className="mb-4 text-6xl font-black"
-              style={{ color: "#F7D047" }}
+              style={{ color: primary }}
             >
               {letter}
             </p>
@@ -75,7 +77,7 @@ export default function RoleRevealScreen({
             onClick={handleConfirm}
             disabled={confirming}
             className="w-full max-w-sm rounded-xl py-4 text-lg font-black uppercase tracking-wider text-black transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
-            style={{ backgroundColor: "#F7D047" }}
+            style={{ backgroundColor: primary }}
           >
             {confirming ? "..." : "Got it!"}
           </button>
@@ -104,7 +106,7 @@ export default function RoleRevealScreen({
           </p>
           <h1
             className="mb-4 text-[clamp(2rem,8vw,4rem)] font-black lowercase leading-tight tracking-wider"
-            style={{ color: "#F7D047" }}
+            style={{ color: primary }}
           >
             {word}
           </h1>
@@ -121,7 +123,7 @@ export default function RoleRevealScreen({
           onClick={handleConfirm}
           disabled={confirming}
           className="w-full max-w-sm rounded-xl py-4 text-lg font-black uppercase tracking-wider text-black transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
-          style={{ backgroundColor: "#F7D047" }}
+          style={{ backgroundColor: primary }}
         >
           {confirming ? "..." : "Got it!"}
         </button>

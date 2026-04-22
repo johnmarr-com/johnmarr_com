@@ -38,7 +38,6 @@ export function scoreTurn(
   sharerChoice: "truth" | "lie",
   guesses: Record<string, "truth" | "lie">,
   sharerUid: string,
-  _totalPlayerCount: number,
 ): Record<string, number> {
   const deltas: Record<string, number> = {};
   const guesserUids = Object.keys(guesses).filter((uid) => uid !== sharerUid);

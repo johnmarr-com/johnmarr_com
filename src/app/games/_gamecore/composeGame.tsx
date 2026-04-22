@@ -22,6 +22,7 @@ import { resolveVariant } from "./registry/registry";
 import type { ComposeGameInput, GC3Props, GC4Props, GameAssembly } from "./registry/types";
 import { useGameFlow } from "./useGameFlow";
 import { GameLandingPage } from "./GameLandingPage";
+import { GameColorsProvider } from "./GameColorsProvider";
 
 // Import the registry index to auto-register all built-in variants
 import "./registry";
@@ -62,6 +63,7 @@ function GC4ResultRenderer({
   isHost,
   onPlayAgain,
   onExit,
+  resultOptions,
 }: { variantId: string } & GC4Props) {
   const GC4Component = useMemo(
     () => resolveVariant("gc4", variantId),
@@ -75,6 +77,7 @@ function GC4ResultRenderer({
       isHost={isHost}
       onPlayAgain={onPlayAgain}
       onExit={onExit}
+      {...(resultOptions ? { resultOptions } : {})}
     />
   );
 }
@@ -122,26 +125,31 @@ function ComposedGameInner({ config }: { config: ComposeGameInput }) {
   if (phase === "game" && activeSessionId) {
     const GameComponent = config.GameComponent as ComponentType<GC3Props>;
     return (
-      <GameComponent
-        sessionId={activeSessionId}
-        gameData={gameData}
-        onGameEnd={handleGameEnd}
-      />
+      <GameColorsProvider gameData={gameData}>
+        <GameComponent
+          sessionId={activeSessionId}
+          gameData={gameData}
+          onGameEnd={handleGameEnd}
+        />
+      </GameColorsProvider>
     );
   }
 
   // ─── GC4: Result ─────────────────────────────────────────
   if (phase === "result" && gameResult && session) {
     return (
-      <GC4ResultRenderer
-        variantId={assembly.gc4.variantId}
-        gameData={gameData}
-        session={session}
-        result={gameResult}
-        isHost={isHost}
-        onPlayAgain={handlePlayAgain}
-        onExit={handleExit}
-      />
+      <GameColorsProvider gameData={gameData}>
+        <GC4ResultRenderer
+          variantId={assembly.gc4.variantId}
+          gameData={gameData}
+          session={session}
+          result={gameResult}
+          isHost={isHost}
+          onPlayAgain={handlePlayAgain}
+          onExit={handleExit}
+          {...(config.resultOptions ? { resultOptions: config.resultOptions } : {})}
+        />
+      </GameColorsProvider>
     );
   }
 
@@ -161,7 +169,7 @@ function ComposedGameInner({ config }: { config: ComposeGameInput }) {
       {...(gameData.subtitle ? { subtitle: gameData.subtitle } : {})}
       minPlayers={gameData.minPlayers ?? 1}
       {...(gameData.maxPlayers != null ? { maxPlayers: gameData.maxPlayers } : {})}
-      multiplayerFlowMode="party"
+      multiplayerFlowMode={config.multiplayerFlowMode ?? "party"}
       {...(gameData.minPlayers != null ? { multiplayerMinPlayers: gameData.minPlayers } : {})}
       {...(config.allowAI != null ? { allowAI: config.allowAI } : {})}
       disabled={!gameData.isPublished}
@@ -170,6 +178,7 @@ function ComposedGameInner({ config }: { config: ComposeGameInput }) {
       {...(config.lobbyCanStart ? { lobbyCanStart: config.lobbyCanStart } : {})}
       {...(config.pulseIcon != null ? { pulseIcon: config.pulseIcon } : {})}
       {...(config.rockIcon != null ? { rockIcon: config.rockIcon } : {})}
+      {...(config.sideLabels ? { sideLabels: config.sideLabels } : {})}
       onMultiplayerStart={handleMultiplayerStart}
     />
   );

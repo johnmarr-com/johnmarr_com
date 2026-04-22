@@ -50,6 +50,7 @@ export {
 } from "./gameLengthPresets";
 
 // ─── GameCore Factory ──────────────────────────────────────
+export { GameColorsProvider, useGameColors, colorsFromGameData, type GameColors } from "./GameColorsProvider";
 export { composeGame } from "./composeGame";
 export { useGameFlow } from "./useGameFlow";
 export {

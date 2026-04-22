@@ -11,7 +11,7 @@
 import { registerVariant } from "../registry";
 import type { GC1Props } from "../types";
 
-function GC1GateModal(_props: GC1Props) {
+function GC1GateModal(_props: GC1Props) { // eslint-disable-line @typescript-eslint/no-unused-vars -- required by registerVariant interface
   // Rendering handled by composeGame via GameMultiplayerFlow.
   // This component is a placeholder for direct-use scenarios.
   return null;
