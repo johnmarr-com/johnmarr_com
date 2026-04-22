@@ -19,7 +19,7 @@ import { aiSubmitWord, aiVote } from "./aiWordonkulousPlayer";
 import { submitWord, submitVote } from "./wordonkulousApi";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { GraduationCap, Zap, Clock, Footprints } from "lucide-react";
+import { GraduationCap, Zap, Timer, SportShoe } from "lucide-react";
 import { PointsManager, Activity } from "@/lib/points";
 import { JMConfettiOverlay, JMSimpleButton } from "@/JMKit";
 import { GamePrimaryButton } from "@/app/games/_gamecore";
@@ -28,10 +28,12 @@ import type { GameLengthPreset } from "@/app/games/_gamecore/gameLengthPresets";
 const WK_LENGTH_PRESETS: GameLengthPreset[] = [
   { key: "learn", label: "Learn", rounds: 1, estimatedMinutes: 3, icon: GraduationCap, iconColor: "#ffffff" },
   { key: "quick", label: "Quick", rounds: 3, estimatedMinutes: 8, icon: Zap, iconColor: "#facc15" },
-  { key: "standard", label: "Standard", rounds: 5, estimatedMinutes: 12, icon: Clock, iconColor: "#ff1493" },
-  { key: "marathon", label: "Marathon", rounds: 7, estimatedMinutes: 17, icon: Footprints, iconColor: "#00fffc" },
+  { key: "standard", label: "Standard", rounds: 5, estimatedMinutes: 12, icon: Timer, iconColor: "#ff1493" },
+  { key: "marathon", label: "Marathon", rounds: 7, estimatedMinutes: 17, icon: SportShoe, iconColor: "#00fffc" },
 ];
 import type { WordonkulousPack } from "@/lib/wordonkulous-packs";
+import type { JMContent } from "@/lib/content-types";
+import type { GameEndResult } from "@/app/games/_gamecore/registry/types";
 
 import RoundIntroScreen from "./screens/RoundIntroScreen";
 import SubmitWordScreen from "./screens/SubmitWordScreen";
@@ -48,12 +50,16 @@ interface WordonkulousGameProps {
   splashBgURL?: string;
   gameLogoURL?: string;
   splashIconURL?: string;
+  /** When provided (via composeGame), the game calls this instead of rendering its own WinnerScreen. */
+  gameData?: JMContent;
+  onGameEnd?: (result: GameEndResult) => void;
 }
 
 export default function WordonkulousGame({
   sessionId,
   splashBgURL,
   gameLogoURL,
+  onGameEnd,
 }: WordonkulousGameProps) {
   const { user } = useAuth();
   const router = useRouter();
@@ -405,6 +411,24 @@ export default function WordonkulousGame({
     });
   }, [updateFields]);
 
+  // ─── Delegate to composeGame result screen when available ──
+  const gameEndFiredRef = useRef(false);
+  useEffect(() => {
+    if (wkPhase === "final" && wkWinners.length > 0 && onGameEnd && !gameEndFiredRef.current) {
+      gameEndFiredRef.current = true;
+      const players = session?.players ?? [];
+      onGameEnd({
+        winners: players.filter((p) => wkWinners.includes(p.uid)),
+        winnerPoints: wkWinnerPoints,
+        allPlayers: players,
+        scores: wkScores,
+      });
+    }
+    if (wkPhase !== "final") {
+      gameEndFiredRef.current = false;
+    }
+  }, [wkPhase, wkWinners, wkWinnerPoints, wkScores, onGameEnd, session?.players]);
+
   // ─── Non-host: store round result locally when phase changes to results ─
 
   useEffect(() => {
@@ -547,8 +571,8 @@ export default function WordonkulousGame({
         </div>
       )}
 
-      {/* Final winner screen */}
-      {wkPhase === "final" && wkWinners.length > 0 && (
+      {/* Final winner screen — skipped when composeGame handles result via onGameEnd */}
+      {wkPhase === "final" && wkWinners.length > 0 && !onGameEnd && (
         <div className="relative z-10 flex min-h-0 flex-1 flex-col">
           <JMConfettiOverlay loop />
           <WinnerScreen

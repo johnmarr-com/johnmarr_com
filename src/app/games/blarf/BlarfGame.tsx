@@ -24,6 +24,8 @@ import { GamePrimaryButton } from "@/app/games/_gamecore";
 import type { GameLengthPreset } from "@/app/games/_gamecore/gameLengthPresets";
 import { GraduationCap, Zap, Clock, Footprints } from "lucide-react";
 import type { BlarfPack } from "@/lib/blarf-packs";
+import type { JMContent } from "@/lib/content-types";
+import type { GameEndResult } from "@/app/games/_gamecore/registry/types";
 
 import BlarfPackPicker from "./BlarfPackPicker";
 import RoundIntroScreen from "./screens/RoundIntroScreen";
@@ -47,12 +49,16 @@ interface BlarfGameProps {
   splashBgURL?: string;
   gameLogoURL?: string;
   splashIconURL?: string;
+  /** When provided (via composeGame), the game calls this instead of rendering its own WinnerScreen. */
+  gameData?: JMContent;
+  onGameEnd?: (result: GameEndResult) => void;
 }
 
 export default function BlarfGame({
   sessionId,
   splashBgURL,
   gameLogoURL,
+  onGameEnd,
 }: BlarfGameProps) {
   const { user } = useAuth();
   const router = useRouter();
@@ -351,6 +357,24 @@ export default function BlarfGame({
     });
   }, [updateFields]);
 
+  // ─── Delegate to composeGame result screen when available ──
+  const gameEndFiredRef = useRef(false);
+  useEffect(() => {
+    if (bfPhase === "final" && bfWinners.length > 0 && onGameEnd && !gameEndFiredRef.current) {
+      gameEndFiredRef.current = true;
+      const players = session?.players ?? [];
+      onGameEnd({
+        winners: players.filter((p) => bfWinners.includes(p.uid)),
+        winnerPoints: bfWinnerPoints,
+        allPlayers: players,
+        scores: bfScores,
+      });
+    }
+    if (bfPhase !== "final") {
+      gameEndFiredRef.current = false;
+    }
+  }, [bfPhase, bfWinners, bfWinnerPoints, bfScores, onGameEnd, session?.players]);
+
   // ─── Non-host: compute round result locally ───────────────
 
   useEffect(() => {
@@ -504,8 +528,8 @@ export default function BlarfGame({
         </div>
       )}
 
-      {/* Final winner screen */}
-      {bfPhase === "final" && bfWinners.length > 0 && (
+      {/* Final winner screen — skipped when composeGame handles result via onGameEnd */}
+      {bfPhase === "final" && bfWinners.length > 0 && !onGameEnd && (
         <div className="relative z-10 flex min-h-0 flex-1 flex-col">
           <JMConfettiOverlay loop />
           <WinnerScreen

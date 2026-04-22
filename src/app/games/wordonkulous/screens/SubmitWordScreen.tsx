@@ -113,7 +113,7 @@ export default function SubmitWordScreen({
             className={`w-full rounded-xl py-4 text-lg font-bold uppercase tracking-wider transition-all ${
               word.trim().length > 0 && !submitting
                 ? "text-black shadow-lg hover:scale-[1.02] active:scale-95"
-                : "cursor-not-allowed bg-white/10 text-white/25"
+                : "cursor-not-allowed bg-white/20 text-white/50"
             }`}
             style={word.trim().length > 0 && !submitting ? { backgroundColor: "#8eff0e", boxShadow: "0 10px 15px -3px rgba(142,255,14,0.25)" } : undefined}
           >
@@ -130,8 +130,8 @@ export default function SubmitWordScreen({
         </div>
       ) : (
         <div className="flex flex-col items-center gap-4 py-8">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
-          <p className="text-center text-sm font-bold uppercase tracking-wider text-white/50">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-yellow-400 border-t-transparent" />
+          <p className="text-center text-sm font-bold uppercase tracking-wider text-white">
             Waiting for others&hellip; ({submissionCount}/{totalPlayers})
           </p>
         </div>

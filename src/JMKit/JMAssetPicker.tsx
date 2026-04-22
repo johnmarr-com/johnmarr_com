@@ -33,6 +33,8 @@ export interface JMAssetPickerColors {
   accent?: string;
   /** Action button text */
   buttonText?: string;
+  /** Modal border color + width (e.g. "#2563eb"). If set, uses a thick border. */
+  border?: string;
 }
 
 const DEFAULTS: Required<JMAssetPickerColors> = {
@@ -41,6 +43,7 @@ const DEFAULTS: Required<JMAssetPickerColors> = {
   activeTab: "#3b82f6",
   accent: "#8eff0e",
   buttonText: "#000000",
+  border: "",
 };
 
 export interface JMAssetPickerProps<T extends JMAssetPickerItem = JMAssetPickerItem> {
@@ -116,8 +119,8 @@ export function JMAssetPicker<T extends JMAssetPickerItem>({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
       <div
-        className="mx-[30px] flex max-h-[80dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/15"
-        style={{ backgroundColor: c.background }}
+        className={`mx-[30px] flex max-h-[80dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl ${c.border ? "border-[6px]" : "border border-white/15"}`}
+        style={{ backgroundColor: c.background, ...(c.border ? { borderColor: c.border } : {}) }}
       >
         {/* ── Header ── */}
         <div className="relative px-5 py-4">

@@ -91,18 +91,23 @@ export default function MultiVoteScreen({
 
   if (hasVoted) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-5 px-6 py-8">
-        <img
-          src="/images/games/blarf/Blarf-Vote.png"
-          alt="Vote submitted"
-          className="w-full max-w-[300px] object-contain drop-shadow-lg animate-gentle-pulse"
-        />
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
-        <p className="text-center text-lg font-bold text-white">
-          Waiting for other players&hellip;
-          <br />
-          <span className="text-base">({voteCount} of {totalVoters} voted)</span>
+      <div className="flex min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto px-4 pt-[calc(1.5rem+75px)] pb-6">
+        <p className="text-lg font-black uppercase tracking-widest" style={{ color: "#F7D047" }}>
+          Round {roundNumber}/{totalRounds}
         </p>
+        <div className="flex flex-col items-center gap-5 py-4">
+          <img
+            src="/images/games/blarf/Blarf-Vote.png"
+            alt="Vote submitted"
+            className="w-full max-w-[300px] object-contain drop-shadow-lg animate-gentle-pulse"
+          />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
+          <p className="text-center text-lg font-bold text-white">
+            Waiting for other players&hellip;
+            <br />
+            <span className="text-base">({voteCount} of {totalVoters} voted)</span>
+          </p>
+        </div>
       </div>
     );
   }

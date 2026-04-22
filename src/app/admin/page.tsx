@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ShieldUser } from "lucide-react";
+import { Lollipop } from "lucide-react";
 import { AdminGate } from "@/lib/AdminGate";
 import { useJMStyle } from "@/JMStyle";
 import { JMAppHeader, JMAdminDropdown, type AdminFocus } from "@/JMKit";
@@ -54,16 +54,16 @@ function AdminContent() {
           >
             {/* Left: Title with icon */}
             <div className="flex items-center gap-3">
-              <ShieldUser 
-                size={28} 
+              <Lollipop
+                size={28}
                 color={theme.accents.goldenGlow}
                 strokeWidth={2}
               />
-              <h1 
+              <h1
                 className="text-xl font-semibold"
                 style={{ color: theme.text.primary }}
               >
-                Admin Dashboard
+                Inventing Room
               </h1>
             </div>
 

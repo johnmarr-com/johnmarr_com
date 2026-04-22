@@ -66,7 +66,7 @@ export default function BlarferRevealScreen({
           {isHost ? (
             <div className="flex w-full max-w-md flex-col items-center gap-5 py-4">
               <p className="text-center text-xl font-black text-white">
-                Have {blarferLabel} reveal themselves!
+                Have {blarferLabel} reveal {blarfers.length === 1 ? "themself" : "themselves"}!
               </p>
               <div className="bf-flip-card w-full max-w-[300px]">
                 <div className="bf-flip-card-inner">
@@ -86,7 +86,7 @@ export default function BlarferRevealScreen({
                   </div>
                 </div>
               </div>
-              <p className="text-center text-sm text-white/50">
+              <p className="text-center text-sm font-bold text-white">
                 Let the group react, then show the results.
               </p>
               <button
@@ -144,8 +144,8 @@ export default function BlarferRevealScreen({
                 }}
               >
                 <div className="flex items-center gap-4">
-                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-black/30 ring-4 ring-red-500/50">
-                    <JMAvatarView width={64} avatarName={blarfer?.avatarName ?? "default"} />
+                  <div className="h-24 w-24 shrink-0 animate-gentle-pulse overflow-hidden rounded-full bg-black/30 ring-4 ring-red-500/50">
+                    <JMAvatarView width={96} avatarName={blarfer?.avatarName ?? "default"} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-xl font-black text-white">

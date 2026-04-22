@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ShieldUser, Eye } from "lucide-react";
+import { Lollipop, Eye } from "lucide-react";
 import { useJMStyle } from "@/JMStyle";
 import { useAuth, type UserTier } from "@/lib/AuthProvider";
 import { JMSimpleButton } from "./JMSimpleButton";
@@ -117,13 +117,13 @@ export function JMAppHeader({
             </div>
           )}
 
-          {/* Admin badge - clickable link to admin */}
+          {/* Inventing Room — admin portal */}
           {isAdmin && (
             <Link
               href="/admin"
               className="transition-opacity hover:opacity-80"
             >
-              <ShieldUser
+              <Lollipop
                 size={22}
                 color={theme.accents.goldenGlow}
                 strokeWidth={2}

@@ -18,7 +18,7 @@ export default function DefinitionCard({
     <div className="relative" style={{ margin: "65px 50px 0" }}>
       {/* Card */}
       <div
-        className={`relative overflow-hidden rounded-2xl border border-gray-200 bg-linear-to-br from-gray-200 via-white to-gray-200 ${
+        className={`relative z-10 overflow-hidden rounded-2xl border border-gray-200 bg-linear-to-br from-gray-200 via-white to-gray-200 ${
           compact ? "p-4" : "p-6"
         }`}
       >
@@ -36,7 +36,7 @@ export default function DefinitionCard({
       {/* Curled-paper shadow — behind card, anchored to card bottom */}
       <svg
         aria-hidden
-        className="pointer-events-none absolute left-1/2 z-[-1]"
+        className="pointer-events-none absolute left-1/2"
         style={{ bottom: 0, width: "calc(100% - 10px)", transform: "translateX(-50%)", height: 30, filter: "drop-shadow(0 16px 10px rgba(0,0,0,0.3))" }}
         viewBox="0 0 200 30"
         preserveAspectRatio="none"

@@ -80,6 +80,7 @@ export default function WordonkulousPackPicker({
         activeTab: "#0272de",
         accent: "#8eff0e",
         buttonText: "#000000",
+        border: "#2563eb",
       }}
       lengthPresets={lengthPresets}
       selectedLengthKey={selectedLengthKey}

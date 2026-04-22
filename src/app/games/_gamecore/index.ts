@@ -48,3 +48,19 @@ export {
   type GameLengthPreset,
   resolvePreset,
 } from "./gameLengthPresets";
+
+// ─── GameCore Factory ──────────────────────────────────────
+export { composeGame } from "./composeGame";
+export { useGameFlow } from "./useGameFlow";
+export {
+  type GCSlot,
+  type VariantMeta,
+  type GameAssembly,
+  type GameEndResult,
+  type GC3Props,
+  type ComposeGameInput,
+  type GameFlowPhase,
+  GC_SLOT_LABELS,
+  getAllVariants,
+  getVariantsForSlot,
+} from "./registry";

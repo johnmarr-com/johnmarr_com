@@ -6,6 +6,8 @@ import { useJMStyle } from "@/JMStyle";
 import { JMImageUpload, JMAudioUpload } from "@/JMKit";
 import { getContent, updateContent, deleteContent, uploadContentImage, uploadGameBackgroundMusic } from "@/lib/content";
 import type { JMContent } from "@/lib/content-types";
+import type { GameAssembly } from "@/app/games/_gamecore/registry/types";
+import { GameAssemblyEditor } from "./GameAssemblyEditor";
 
 interface GameEditModalProps {
   gameId: string;
@@ -21,6 +23,7 @@ interface EditState {
   coverURL: string;
   backdropURL: string;
   splashBgURL: string;
+  splashBgDim: number;
   splashIconURL: string;
   splashLogoURL: string;
   backgroundMusicURL: string;
@@ -33,6 +36,7 @@ interface EditState {
   primaryColor: string;
   secondaryColor: string;
   isPublished: boolean;
+  assembly: GameAssembly | undefined;
 }
 
 function stateFromGame(game: JMContent): EditState {
@@ -44,6 +48,7 @@ function stateFromGame(game: JMContent): EditState {
     coverURL: game.coverURL,
     backdropURL: game.backdropURL ?? "",
     splashBgURL: game.splashBgURL ?? "",
+    splashBgDim: game.splashBgDim ?? 50,
     splashIconURL: game.splashIconURL ?? "",
     splashLogoURL: game.splashLogoURL ?? "",
     backgroundMusicURL: game.backgroundMusicURL ?? "",
@@ -56,6 +61,7 @@ function stateFromGame(game: JMContent): EditState {
     primaryColor: game.primaryColor ?? "",
     secondaryColor: game.secondaryColor ?? "",
     isPublished: game.isPublished,
+    assembly: (game as unknown as Record<string, unknown>)["assembly"] as GameAssembly | undefined,
   };
 }
 
@@ -146,6 +152,7 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
       if (editState.slug.trim()) updates.slug = editState.slug.trim();
       if (editState.backdropURL.trim()) updates.backdropURL = editState.backdropURL.trim();
       if (editState.splashBgURL.trim()) updates.splashBgURL = editState.splashBgURL.trim();
+      updates.splashBgDim = editState.splashBgDim;
       if (editState.splashIconURL.trim()) updates.splashIconURL = editState.splashIconURL.trim();
       if (editState.splashLogoURL.trim()) updates.splashLogoURL = editState.splashLogoURL.trim();
       if (editState.backgroundMusicURL.trim()) {
@@ -159,6 +166,7 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
       updates.retentionDays = editState.retentionDays;
       if (editState.primaryColor.trim()) updates.primaryColor = editState.primaryColor.trim();
       if (editState.secondaryColor.trim()) updates.secondaryColor = editState.secondaryColor.trim();
+      if (editState.assembly) updates.assembly = editState.assembly;
 
       await updateContent(gameId, updates);
 
@@ -374,6 +382,25 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
                     aspectRatio="landscape"
                     previewSize={200}
                   />
+                  {editState.splashBgURL && (
+                    <div>
+                      <label
+                        className="mb-1 block text-sm font-medium"
+                        style={{ color: theme.text.secondary }}
+                      >
+                        Background Dim — {editState.splashBgDim}%
+                      </label>
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={5}
+                        value={editState.splashBgDim}
+                        onChange={(e) => update({ splashBgDim: parseInt(e.target.value) })}
+                        className="w-full accent-yellow-400"
+                      />
+                    </div>
+                  )}
                   <JMImageUpload
                     label="Splash Logo (2:1)"
                     value={editState.splashLogoURL}
@@ -635,6 +662,13 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
                   Accent colors used in asset selectors and in-game UI.
                 </p>
               </div>
+
+              {/* Game Assembly */}
+              <GameAssemblyEditor
+                value={editState.assembly}
+                gameName={editState.name || "Game"}
+                onChange={(assembly) => update({ assembly })}
+              />
 
               {error && (
                 <div

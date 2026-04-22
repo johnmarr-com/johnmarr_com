@@ -146,7 +146,7 @@ export default function RoundResultsScreen({
       )}
 
       {!isHost && (
-        <p className="mt-2 text-center text-sm text-white/30">
+        <p className="mt-2 text-center text-sm font-semibold text-white">
           Waiting for host to continue&hellip;
         </p>
       )}

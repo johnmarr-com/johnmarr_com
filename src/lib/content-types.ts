@@ -167,6 +167,7 @@ export interface JMContent {
   
   // ─── Game Splash (for games) ────────────────────────────
   splashBgURL?: string;           // Full-screen background for game landing page
+  splashBgDim?: number;           // 0–100 overlay darkness on splash bg (0 = none, 50 = half). Default 50.
   splashIconURL?: string;         // 4:3 game icon for landing page
   splashLogoURL?: string;         // 2:1 game title logo for landing page
   backgroundMusicURL?: string;    // Looping background music for gameplay (falls back to /music/{slug}.mp3)
@@ -178,6 +179,16 @@ export interface JMContent {
   retentionDays?: number;         // 1 = delete session data after 24h (default). 30 = keep for 30 days.
   primaryColor?: string;          // Primary accent hex (e.g. "#E84C1E") for in-game UI + asset selectors
   secondaryColor?: string;        // Secondary accent hex (e.g. "#3B82F6") for complementary UI elements
+
+  // ─── GameCore Assembly ────────────────────────────────────
+  /** Which phase component variants to use for each GC slot. Set via admin Game Assembly GUI. */
+  assembly?: {
+    gc0: { variantId: string };
+    gc1: { variantId: string };
+    gc2: { variantId: string };
+    gc4: { variantId: string };
+    gc5: { variantId: string };
+  };
 
   // ─── Hierarchy & Ordering ─────────────────────────────────
   parentId: string | null;        // null = top-level content
@@ -212,6 +223,7 @@ export interface JMContentInput {
   coverURL: string;
   backdropURL?: string;
   splashBgURL?: string;
+  splashBgDim?: number;
   splashIconURL?: string;
   splashLogoURL?: string;
   backgroundMusicURL?: string;

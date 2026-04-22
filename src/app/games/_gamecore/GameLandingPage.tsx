@@ -14,6 +14,8 @@ export type GameMode = "solo" | "ai" | "friends";
 
 export interface GameLandingPageProps {
   splashBgURL?: string;
+  /** 0–100 overlay darkness on splash bg (0 = none, 100 = full black). Default 60. */
+  splashBgDim?: number;
   splashIconURL?: string;
   splashLogoURL?: string;
   gameSlug?: string;
@@ -23,6 +25,8 @@ export interface GameLandingPageProps {
   iconPadding?: number;
   /** Pulse the splash icon in scale */
   pulseIcon?: boolean;
+  /** Rock the splash icon left/right (±4deg rotation) */
+  rockIcon?: boolean;
   /** Game content info needed for multiplayer session creation */
   multiplayerInput?: CreateSessionInput;
   /** Side labels for multiplayer (e.g. ["red","white"] or ["p1","p2"]). Only used in versus mode. */
@@ -60,6 +64,7 @@ export interface GameLandingPageProps {
 
 export function GameLandingPage({
   splashBgURL,
+  splashBgDim,
   splashIconURL,
   splashLogoURL,
   gameSlug,
@@ -67,6 +72,7 @@ export function GameLandingPage({
   backgroundMusicVolume = 0.3,
   iconPadding = 25,
   pulseIcon = false,
+  rockIcon = false,
   multiplayerInput,
   sideLabels,
   multiplayerFlowMode,
@@ -111,8 +117,8 @@ export function GameLandingPage({
           onLoad={(e) => { (e.target as HTMLImageElement).classList.remove("opacity-0"); }}
         />
       )}
-      {/* Dim overlay for legibility */}
-      <div className="absolute inset-0 z-1 bg-black/60" />
+      {/* Dim overlay for legibility — driven by splashBgDim (0–100, default 60) */}
+      <div className="absolute inset-0 z-1" style={{ backgroundColor: `rgba(0,0,0,${(splashBgDim ?? 60) / 100})` }} />
 
       {/* Title div — centered, max 600px, 50px side padding */}
       <div
@@ -140,7 +146,7 @@ export function GameLandingPage({
 
         {/* Splash Icon — always reserves 4:3 space, image fades in when available */}
         <div
-          className={pulseIcon ? "w-full animate-icon-pulse" : "w-full"}
+          className={`w-full${pulseIcon ? " animate-icon-pulse" : ""}${rockIcon ? " animate-[rock_4.2s_ease-in-out_infinite]" : ""}`}
           style={{ padding: iconPadding }}
         >
           <div className="relative w-full overflow-hidden rounded-[12%]" style={{ aspectRatio: "4 / 3" }}>
@@ -259,8 +265,8 @@ export function GameLandingPage({
       {/* Float + fade animation keyframes */}
       <style jsx global>{`
         @keyframes game-float {
-          0%, 100% { transform: translateY(8px); }
-          50% { transform: translateY(-8px); }
+          0%, 100% { transform: translateY(14px); }
+          50% { transform: translateY(-14px); }
         }
         .animate-game-float {
           animation: game-float 3s ease-in-out infinite;

@@ -34,6 +34,7 @@ export default function VotingScreen({
   onVote,
 }: VotingScreenProps) {
   const [confirmTarget, setConfirmTarget] = useState<WordEntry | null>(null);
+  const [dismissing, setDismissing] = useState(false);
   const [voting, setVoting] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
 
@@ -49,6 +50,11 @@ export default function VotingScreen({
     return () => clearInterval(id);
   }, [deadline]);
 
+  const dismissModal = () => {
+    setDismissing(true);
+    setTimeout(() => { setConfirmTarget(null); setDismissing(false); }, 200);
+  };
+
   const handleConfirm = async () => {
     if (!confirmTarget || voting) return;
     setVoting(true);
@@ -57,7 +63,7 @@ export default function VotingScreen({
     } catch {
       setVoting(false);
     }
-    setConfirmTarget(null);
+    dismissModal();
   };
 
   const timerColor =
@@ -65,14 +71,12 @@ export default function VotingScreen({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto px-4 py-6">
-      <div className="animate-[wk-slide-down_0.5s_ease-out_both]">
-        <DefinitionCard
-          definition={definition}
-          roundNumber={roundNumber}
-          totalRounds={totalRounds}
-          compact
-        />
-      </div>
+      <DefinitionCard
+        definition={definition}
+        roundNumber={roundNumber}
+        totalRounds={totalRounds}
+        compact
+      />
 
       {/* Timer */}
       {deadline > 0 && !hasVoted && (
@@ -82,16 +86,18 @@ export default function VotingScreen({
       )}
 
       {!hasVoted ? (
-        <div className="flex w-full max-w-md animate-[wk-fade-up_0.5s_ease-out_0.2s_both] flex-col gap-3">
-          <p className="text-center text-sm font-bold uppercase tracking-wider text-white drop-shadow-md">
+        <div className="flex w-full max-w-md flex-col gap-3">
+          <p className="animate-[wk-fade-up_0.3s_ease-out_0.1s_both] text-center text-sm font-bold uppercase tracking-wider text-white drop-shadow-md">
             Vote for your favourite
           </p>
           {[...words].sort((a, b) => {
             const aOwn = a.authorId === currentUserId ? 1 : 0;
             const bOwn = b.authorId === currentUserId ? 1 : 0;
             return aOwn - bOwn;
-          }).map((w) => {
+          }).map((w, i) => {
             const isOwn = w.authorId === currentUserId;
+            const delay = 0.15 + i * 0.1;
+            const duration = Math.max(0.25, 0.4 - i * 0.03);
             return (
               <button
                 key={w.authorId}
@@ -100,8 +106,12 @@ export default function VotingScreen({
                 className={`w-full rounded-xl border px-4 py-4 text-center text-2xl font-black lowercase tracking-wider transition-all ${
                   isOwn
                     ? "cursor-default border-transparent bg-black/40 text-white/50"
-                    : "border-transparent bg-blue-500/80 text-white hover:scale-[1.01] hover:bg-blue-500 active:scale-95"
+                    : "border-transparent text-white hover:scale-[1.01] active:scale-95"
                 }`}
+                style={{
+                  ...(!isOwn ? { background: "linear-gradient(135deg, #0d9488 0%, #2563eb 50%, #0d9488 100%)" } : {}),
+                  animation: `wk-fade-up ${duration}s ease-out ${delay}s both`,
+                }}
               >
                 {w.word}
               </button>
@@ -120,12 +130,17 @@ export default function VotingScreen({
       {/* Vote confirmation popup */}
       {confirmTarget && !hasVoted && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-          onClick={() => setConfirmTarget(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm"
+          style={{ animation: `${dismissing ? "wk-overlay-out" : "wk-overlay-in"} 0.2s ease-out both`, backgroundColor: "rgba(0,0,0,0.7)" }}
+          onClick={dismissModal}
         >
           <div
-            className="mx-4 w-full max-w-sm rounded-2xl border border-white/15 p-6"
-            style={{ backgroundColor: "#ff1493" }}
+            className="mx-4 w-full max-w-sm rounded-2xl border-[6px] p-6"
+            style={{
+              backgroundColor: "#ff1493",
+              borderColor: "#2563eb",
+              animation: `${dismissing ? "wk-modal-out" : "wk-modal-in"} 0.2s ease-out both`,
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             <p className="mb-4 text-center text-lg font-bold text-white">
@@ -133,7 +148,7 @@ export default function VotingScreen({
             </p>
             <div className="flex gap-3">
               <button
-                onClick={() => setConfirmTarget(null)}
+                onClick={dismissModal}
                 className="flex-1 rounded-xl border border-black/20 bg-black/30 py-3 text-base font-bold uppercase tracking-wider text-white transition-all hover:bg-black/40 active:scale-95"
               >
                 Cancel
