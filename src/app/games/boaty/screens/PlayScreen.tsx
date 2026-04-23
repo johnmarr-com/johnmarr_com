@@ -1,7 +1,17 @@
 "use client";
 
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from "react";
-import { useGameColors } from "@/app/games/_gamecore";
+import Lottie, { type LottieRefCurrentProps } from "lottie-react";
+import { useGameColors, bgMusic } from "@/app/games/_gamecore";
+
+const SFX_WHOOSH = "/images/games/boaty/whoosh.mp3";
+const SFX_SPLASH = "/images/games/boaty/splash.mp3";
+const SFX_EXPLOSION = "/images/games/boaty/explosion.mp3";
+const MOLOTOV_LOTTIE_URL = "/images/games/boaty/molotov.json";
+// Container sized at MOLOTOV_BASE_SIZE; the Lottie inside gets the registered scale override
+// so the bottle artwork renders at its intended size. will-change hints keep Safari crisp.
+const MOLOTOV_BASE_SIZE = 1200;
+const MOLOTOV_OVERRIDE_SCALE = 1.5; //getAvatarScale("YI9IA7"); // 3
 import { JMAvatarView } from "@/JMKit";
 import type { GameSessionPlayer } from "@/lib/game-sessions";
 import type { PlayerBoard, AttackRecord, LastAttack, AttackResult } from "../boatyTypes";
@@ -10,10 +20,27 @@ import {
   checkWin,
   moveGator,
   posKey,
+  findRaftAt,
+  isRaftDestroyed,
   BOATY_ATTACK_ANIM_MS,
   BOATY_THROW_MS,
-  BOATY_IMPACT_ANIM_MS,
 } from "../boatyLogic";
+import type { RaftType } from "../boatyTypes";
+
+const RAFT_TAUNT_CODE: Record<RaftType, "S" | "L" | "B"> = {
+  square: "S",
+  lshape: "L",
+  shorty: "B",
+};
+const RAFT_SINK_NAME: Record<RaftType, string> = {
+  square: "Big Raft!",
+  lshape: "Crooked Raft!",
+  shorty: "Paddle Boat!",
+};
+const TAUNT_VARIANTS = 5;
+const TAUNT_EXTRA_HOLD_MS = 2000; // 5s total instead of the normal 3s post-reveal
+const tauntSfxUrl = (player: "p1" | "p2", code: "S" | "L" | "B" | "G", n: number) =>
+  `/images/games/boaty/${player}/${code}-${n}.mp3`;
 import Image from "next/image";
 import SwampGrid from "../components/SwampGrid";
 import SwampSignFrame from "../components/SwampSignFrame";
@@ -21,6 +48,7 @@ import SwampSignFrame from "../components/SwampSignFrame";
 interface PlayScreenProps {
   currentUserId: string;
   opponentUid: string;
+  ownerUid: string;
   players: GameSessionPlayer[];
   currentTurn: string;
   myBoard: PlayerBoard;
@@ -44,6 +72,7 @@ interface PlayScreenProps {
 export default function PlayScreen({
   currentUserId,
   opponentUid,
+  ownerUid,
   players,
   currentTurn,
   myBoard,
@@ -54,11 +83,43 @@ export default function PlayScreen({
   onAttack,
   onTurnEnd,
 }: PlayScreenProps) {
-  const { primary, danger, tertiary } = useGameColors();
   const [attacking, setAttacking] = useState(false);
-  const [gatorHitPopup, setGatorHitPopup] = useState(false);
+  const [molotovLottieData, setMolotovLottieData] = useState<object | null>(null);
+  const molotovLottieRef = useRef<LottieRefCurrentProps | null>(null);
+  useEffect(() => {
+    fetch(MOLOTOV_LOTTIE_URL)
+      .then((r) => r.json() as Promise<object>)
+      .then(setMolotovLottieData)
+      .catch(() => {});
+  }, []);
+  // Fully-qualified same-document URL works around WebKit bug #189499 where Safari
+  // mis-resolves bare `url(#id)` filter fragments on composited subtrees.
+  const molotovFilterUrl = useMemo(() => {
+    if (typeof window === "undefined") return "url(#bt-molotov-fx)";
+    const base = window.location.href.split("#")[0];
+    return `url('${base}#bt-molotov-fx')`;
+  }, []);
+  const [gatorHitPopup, setGatorHitPopup] = useState<null | "attacker" | "defender">(null);
+  const [gatorHitFading, setGatorHitFading] = useState(false);
+  const [raftSinkPopup, setRaftSinkPopup] = useState<RaftType | null>(null);
+  const [raftSinkFading, setRaftSinkFading] = useState(false);
   const [myGator, setMyGator] = useState(myBoard.gator);
   const [pendingCell, setPendingCell] = useState<{ row: number; col: number } | null>(null);
+
+  // Gator taunts: shuffle-bag per player so we cycle all 5 before repeating any.
+  const gatorBagRef = useRef<{ p1: number[]; p2: number[] }>({ p1: [], p2: [] });
+  const pickGatorIndex = useCallback((player: "p1" | "p2"): number => {
+    const bag = gatorBagRef.current[player];
+    if (bag.length === 0) {
+      const fresh = Array.from({ length: TAUNT_VARIANTS }, (_, i) => i + 1);
+      for (let i = fresh.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [fresh[i], fresh[j]] = [fresh[j]!, fresh[i]!];
+      }
+      gatorBagRef.current[player] = fresh;
+    }
+    return gatorBagRef.current[player].pop()!;
+  }, []);
 
   // ── Grid flip state ──────────────────────────────────────
   const isMyTurn = currentTurn === currentUserId;
@@ -131,8 +192,36 @@ export default function PlayScreen({
     // Suppress the hit/miss emoji on the grid until the animation reveals it
     setPendingCell({ row, col });
 
+    // Determine whether this attack destroyed a raft, and whether it was a win —
+    // use the defender's board + post-attack hits list (Firestore sends these atomically with btLastAttack).
+    const defenderIsMe = lastAttack.targetUid === currentUserId;
+    const targetRafts = defenderIsMe ? myBoard.rafts : opponentBoard.rafts;
+    const targetHits = defenderIsMe ? attacksOnMe.hits : attacksOnOpponent.hits;
+    const hitRaft = result === "hit" ? findRaftAt(targetRafts, row, col) : undefined;
+    const raftDestroyed = !!hitRaft && isRaftDestroyed(hitRaft, targetHits);
+    const attackerWon = result === "hit" && targetHits.length >= 9; // TOTAL_RAFT_SQUARES
+
+    // Pick the taunt to play (if any). Raft-sink sounds play even on the winning kill shot
+    // (scores the win screen); gator sounds only when the game continues.
+    let tauntUrl: string | null = null;
+    const playerDir: "p1" | "p2" = lastAttack.attackerUid === ownerUid ? "p1" : "p2";
+    let code: "S" | "L" | "B" | "G" | null = null;
+    if (result === "gator" && !attackerWon) {
+      code = "G";
+    } else if (raftDestroyed && hitRaft) {
+      code = RAFT_TAUNT_CODE[hitRaft.type];
+    }
+    if (code) {
+      // Gator fires often, so cycle through all 5 before any repeat; raft-sink taunts stay purely random.
+      const n = code === "G"
+        ? pickGatorIndex(playerDir)
+        : 1 + Math.floor(Math.random() * TAUNT_VARIANTS);
+      tauntUrl = tauntSfxUrl(playerDir, code, n);
+    }
+
     // Phase 1: throw
     setMolotov({ phase: "throw", landX: center.x, landY: center.y, fromLeft });
+    bgMusic.playSfx(SFX_WHOOSH);
 
     const t1 = setTimeout(() => {
       // Re-measure so impact lines up after any layout change during the throw
@@ -146,17 +235,25 @@ export default function PlayScreen({
         fromLeft,
         result,
       });
-      if (result === "gator") setGatorHitPopup(true);
+      bgMusic.playSfx(result === "miss" ? SFX_SPLASH : SFX_EXPLOSION);
+      if (tauntUrl) bgMusic.playSfx(tauntUrl);
+      if (result === "gator") setGatorHitPopup(iAmAttacker ? "attacker" : "defender");
+      // Attacker-only sunk-raft popup — skipped on the winning kill shot (the win screen takes over).
+      if (iAmAttacker && raftDestroyed && hitRaft && !attackerWon) {
+        setRaftSinkPopup(hitRaft.type);
+      }
       // Defender gator position: single source of truth is Firestore (already moved in attack write).
     }, BOATY_THROW_MS);
 
-    // Phase 3: after impact animation, hold result 3s, then clean up and advance turn / end game
+    // Phase 3: hold result, then clean up and advance turn / end game.
+    // Extra 2s when a raft was destroyed so the taunt can play out before the flip.
+    const holdExtraMs = raftDestroyed && !attackerWon ? TAUNT_EXTRA_HOLD_MS : 0;
     const t2 = setTimeout(() => {
       setMolotov(null);
       if (iAmAttacker) {
         void onTurnEnd().finally(() => setAttacking(false));
       }
-    }, BOATY_ATTACK_ANIM_MS);
+    }, BOATY_ATTACK_ANIM_MS + holdExtraMs);
 
     return () => {
       clearTimeout(t1);
@@ -184,12 +281,23 @@ export default function PlayScreen({
     return () => clearTimeout(t);
   }, [currentTurn, currentUserId]);
 
-  // Dismiss gator popup after 2s
+  // Gator popup: hold ~4s, then fade out over 500ms, then unmount
   useEffect(() => {
     if (!gatorHitPopup) return;
-    const t = setTimeout(() => setGatorHitPopup(false), 2000);
-    return () => clearTimeout(t);
+    setGatorHitFading(false);
+    const tFade = setTimeout(() => setGatorHitFading(true), 4000);
+    const tHide = setTimeout(() => setGatorHitPopup(null), 4500);
+    return () => { clearTimeout(tFade); clearTimeout(tHide); };
   }, [gatorHitPopup]);
+
+  // Raft-sink popup: same hold + fade cycle as the gator popup
+  useEffect(() => {
+    if (!raftSinkPopup) return;
+    setRaftSinkFading(false);
+    const tFade = setTimeout(() => setRaftSinkFading(true), 4000);
+    const tHide = setTimeout(() => setRaftSinkPopup(null), 4500);
+    return () => { clearTimeout(tFade); clearTimeout(tHide); };
+  }, [raftSinkPopup]);
 
   const handleAttackCell = useCallback(
     async (row: number, col: number) => {
@@ -236,26 +344,47 @@ export default function PlayScreen({
   );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col items-center gap-3 overflow-y-auto px-4 py-4">
-      {/* Player avatars */}
-      <div className="flex w-full max-w-[500px] shrink-0 items-center justify-between px-2">
+    <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center gap-3 overflow-y-auto px-4 py-4">
+      {/* SVG inner-glow filter — uses SourceAlpha on the first feComposite (not SourceGraphic).
+       * SourceAlpha is the cross-browser-reliable input per the canonical inner-glow recipe;
+       * SourceGraphic silently fails to composite on Safari when the filtered subtree is
+       * a CSS-transformed / composited Lottie.
+       * References:
+       *   https://riptutorial.com/svg/example/12623/shadow-filters--inner-glow
+       *   https://bugs.webkit.org/show_bug.cgi?id=189499 (fragment url resolution) */}
+      <svg aria-hidden className="pointer-events-none absolute h-0 w-0 overflow-hidden">
+        <defs>
+          <filter
+            id="bt-molotov-fx"
+            filterUnits="userSpaceOnUse"
+            x="-200"
+            y="-200"
+            width="1600"
+            height="1600"
+            colorInterpolationFilters="sRGB"
+          >
+            <feFlood floodColor="#ffaa1a" floodOpacity="1" />
+            <feComposite in2="SourceAlpha" operator="out" />
+            <feGaussianBlur stdDeviation="20" />
+            <feComposite in2="SourceGraphic" operator="atop" />
+          </filter>
+        </defs>
+      </svg>
+      {/* Extra dim over the game bg on the enemy swamp view — more menacing, fades back on home swamp */}
+      <div
+        aria-hidden
+        className={`pointer-events-none absolute inset-0 -z-10 bg-black transition-opacity duration-500 ${displayView === "attack" ? "opacity-50" : "opacity-0"}`}
+      />
+      {/* Player avatars — absolutely positioned so they don't push grid layout */}
+      <div className="pointer-events-none absolute inset-x-0 top-4 z-20 flex items-start justify-between px-4">
         <PlayerBadge player={me} isActive={isMyTurn} side="left" />
-        <p className="text-xs font-black uppercase tracking-widest text-white/40">VS</p>
         <PlayerBadge player={opponent} isActive={!isMyTurn} side="right" />
       </div>
 
-      {/* Turn indicator */}
-      <p
-        className="shrink-0 text-center text-sm font-black uppercase tracking-wider"
-        style={{ color: isMyTurn ? primary : danger }}
-      >
-        {isMyTurn ? "Your turn — pick a target!" : "Opponent's turn..."}
-      </p>
-
-      {/* Board: flex spacers (1.7 / 0.3) push map lower in the band */}
+      {/* Board: flex spacers push map into the middle of the band so it sits further from the bottom */}
       <div className="flex min-h-0 w-full flex-1 flex-col items-center overflow-visible">
-        <div aria-hidden className="min-h-0 w-full flex-[1.7] basis-0 shrink-0" />
-        <div className="w-full max-w-[500px] shrink-0">
+        <div aria-hidden className="min-h-0 w-full flex-[1.1] basis-0 shrink-0" />
+        <div className="relative w-full max-w-[500px] shrink-0">
           <div
             ref={gridRef}
             className="w-full"
@@ -273,6 +402,7 @@ export default function PlayScreen({
                   tapLocked={attacking}
                   onCellTap={handleAttackCell}
                   pendingCell={displayView === "attack" ? pendingCell : null}
+                  enemyView
                 />
               </SwampSignFrame>
             ) : (
@@ -287,84 +417,124 @@ export default function PlayScreen({
               </SwampSignFrame>
             )}
           </div>
-        </div>
-        <div aria-hidden className="min-h-0 w-full flex-[0.3] basis-0 shrink-0" />
-      </div>
-
-      {/* Molotov throw + impact animation */}
-      {molotov && (
-        <div className="pointer-events-none fixed inset-0 z-50">
-          {molotov.phase === "throw" ? (() => {
-            const sw = window.innerWidth;
-            const sh = window.innerHeight;
-            const startX = molotov.fromLeft ? -200 : sw + 200;
-            const startY = Math.round(sh / 2 + 200);
-            const endX = molotov.landX;
-            const endY = molotov.landY;
-            // Single control point: midpoint X, pulled upward for a gentle arch
-            const cpX = Math.round((startX + endX) / 2);
-            const cpY = Math.round(Math.min(startY, endY) - 150);
-            return (
-            <div
-              className="absolute"
-              style={{
-                offsetPath: `path("M ${startX} ${startY} Q ${cpX} ${cpY}, ${endX} ${endY}")`,
-                offsetRotate: "0deg",
-                animation: `bt-molotov-throw ${BOATY_THROW_MS / 1000}s ease-in forwards`,
-              }}
-            >
-              <div className="flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-orange-500 shadow-lg shadow-orange-500/50">
-                <span className="text-2xl">🔥</span>
+          {/* "{GAMERTAG}'s turn" overlay — shows at the start of their turn, fades out once their attack animation begins */}
+          <div
+            className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${!isMyTurn && !molotov ? "opacity-100" : "opacity-0"}`}
+          >
+            <div className="rounded-2xl border border-[#daa520] bg-black/85 px-7 py-4 backdrop-blur-sm">
+              <p className="animate-pulse text-lg font-black uppercase tracking-wider text-white/80">
+                {opponent?.gamertag ?? "Opponent"}&apos;s turn!
+              </p>
+            </div>
+          </div>
+          {/* Sunk-raft popup — attacker only, skipped on the winning kill shot */}
+          {raftSinkPopup && (
+            <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center">
+              <div
+                className="mx-4 flex flex-col items-center rounded-2xl bg-black/85 px-8 py-5 text-center shadow-2xl backdrop-blur-sm"
+                style={{
+                  animation: raftSinkFading
+                    ? "bt-gator-popup-out 0.5s ease-in both"
+                    : "bt-gator-popup-in 0.35s ease-out both",
+                }}
+              >
+                <p className="text-base font-black uppercase tracking-wider text-white/80">
+                  You sunk their
+                </p>
+                <p className="mt-1 text-3xl font-black uppercase tracking-wider text-white">
+                  {RAFT_SINK_NAME[raftSinkPopup]}
+                </p>
               </div>
             </div>
-            );
-          })() : (
-            <div
-              className="pointer-events-none fixed z-50"
-              style={{
-                left: molotov.landX,
-                top: molotov.landY,
-                transform: "translate(-50%, -50%)",
-              }}
-            >
+          )}
+          {/* Gator hit popup — centered over the grid, gator head on top */}
+          {gatorHitPopup && (
+            <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center">
               <div
-                className="h-16 w-16 rounded-full bg-orange-400/80"
+                className="mx-4 flex flex-col items-center rounded-2xl bg-black/85 px-8 py-5 text-center shadow-2xl backdrop-blur-sm"
                 style={{
-                  animation: `bt-molotov-impact ${BOATY_IMPACT_ANIM_MS / 1000}s ease-out forwards`,
+                  animation: gatorHitFading
+                    ? "bt-gator-popup-out 0.5s ease-in both"
+                    : "bt-gator-popup-in 0.35s ease-out both",
                 }}
-              />
+              >
+                <Image
+                  src="/images/games/boaty/Alligator.png"
+                  alt=""
+                  width={150}
+                  height={150}
+                  className="mb-2 h-36 w-36 shrink-0 object-contain"
+                  draggable={false}
+                />
+                <p className="text-base font-black uppercase tracking-wider text-white/80">
+                  {gatorHitPopup === "attacker" ? "You hit their gator!" : "They hit your gator!"}
+                </p>
+                <p className="mt-1 text-3xl font-black uppercase tracking-wider text-white">
+                  {gatorHitPopup === "attacker" ? "Go again!" : "They go again!"}
+                </p>
+              </div>
             </div>
           )}
         </div>
-      )}
+        <div aria-hidden className="min-h-0 w-full flex-[0.9] basis-0 shrink-0" />
+      </div>
 
-      {/* Gator hit popup */}
-      {gatorHitPopup && (
-        <div className="fixed inset-x-0 top-1/3 z-50 flex justify-center">
-          <div
-            className="mx-4 rounded-2xl px-8 py-5 text-center shadow-2xl"
-            style={{
-              backgroundColor: tertiary,
-              animation: "wk-fade-up 0.3s ease-out both",
-            }}
-          >
-            <p className="flex flex-wrap items-center justify-center gap-2 text-2xl font-black text-white">
-              <Image
-                src="/images/games/boaty/Alligator.png"
-                alt=""
-                width={40}
-                height={40}
-                className="h-10 w-10 shrink-0 object-contain"
-                draggable={false}
-              />
-              YOU HIT THEIR GATOR!
-            </p>
-            <p className="mt-1 text-base font-bold text-white/80">
-              Go again!
-            </p>
+      {/* Molotov throw animation */}
+      {molotov && molotov.phase === "throw" && (() => {
+        const sw = window.innerWidth;
+        // Element center anchors at (startX, startY). Position the center AT the viewport top so the
+        // bottom half of the scaled Lottie is already peeking into view at frame 0 — no waiting.
+        const startX = sw * 0.5;
+        const startY = -1000;
+        const endX = molotov.landX;
+        const endY = molotov.landY;
+        // Flip gif when impact is on the right half of the screen
+        const targetIsRight = endX > sw / 2;
+        // Minimal bezier — slight upward arc via a nudged midpoint
+        const cpX = (startX + endX) / 3;
+        const cpY = (startY + endY) / 3 - 40;
+        return (
+          <div className="pointer-events-none fixed inset-0 z-50">
+            <div
+              className="absolute"
+              style={{
+                width: 0,
+                height: 0,
+                offsetPath: `path("M ${startX} ${startY} Q ${cpX} ${cpY}, ${endX} ${endY}")`,
+                offsetRotate: "0deg",
+                animation: `bt-molotov-throw ${BOATY_THROW_MS / 1000}s linear forwards`,
+                willChange: "transform, offset-distance",
+              }}
+            >
+              <div
+                className={`relative -translate-x-1/2 -translate-y-1/2 ${targetIsRight ? "-scale-x-100" : ""}`}
+                style={{
+                  width: MOLOTOV_BASE_SIZE,
+                  height: MOLOTOV_BASE_SIZE,
+                  isolation: "isolate",
+                  filter: molotovFilterUrl,
+                  WebkitFilter: molotovFilterUrl,
+                }}
+              >
+                {molotovLottieData && (
+                  <Lottie
+                    lottieRef={molotovLottieRef}
+                    animationData={molotovLottieData}
+                    loop
+                    autoplay
+                    className="h-full w-full"
+                    style={{
+                      transform: `scale(${MOLOTOV_OVERRIDE_SCALE})`,
+                    }}
+                    onDOMLoaded={() => molotovLottieRef.current?.setSpeed(7)}
+                  />
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
+
     </div>
   );
 }
@@ -381,15 +551,16 @@ function PlayerBadge({
   side: "left" | "right";
 }) {
   const { primary } = useGameColors();
+  const avatarSize = isActive ? 72 : 48;
   return (
-    <div className={`flex items-center gap-2 ${side === "right" ? "flex-row-reverse" : ""}`}>
+    <div
+      className={`flex flex-col gap-1 transition-opacity duration-300 ${side === "right" ? "items-end" : "items-start"} ${isActive ? "opacity-100" : "opacity-50"}`}
+    >
       <div
-        className={`h-12 w-12 overflow-hidden rounded-full ring-2 transition-all ${
-          isActive ? "" : "ring-white/20 opacity-50"
-        }`}
+        className={`overflow-hidden rounded-full ring-2 transition-all duration-300 ${isActive ? "h-[72px] w-[72px]" : "h-12 w-12 ring-white/20"}`}
         style={isActive ? { ["--tw-ring-color" as string]: primary } : undefined}
       >
-        <JMAvatarView width={48} avatarName={player?.avatarName ?? "default"} />
+        <JMAvatarView width={avatarSize} avatarName={player?.avatarName ?? "default"} />
       </div>
       <span className={`text-sm font-bold ${isActive ? "text-white" : "text-white/40"}`}>
         {player?.gamertag ?? "???"}

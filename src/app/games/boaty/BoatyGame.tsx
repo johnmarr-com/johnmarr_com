@@ -29,7 +29,7 @@ interface BoatyGameProps {
   onGameEnd?: (result: GameEndResult) => void;
 }
 
-export default function BoatyGame({ sessionId, onGameEnd }: BoatyGameProps) {
+export default function BoatyGame({ sessionId, gameData, onGameEnd }: BoatyGameProps) {
   const { user } = useAuth();
   const { primary } = useGameColors();
   const userId = user?.uid ?? "";
@@ -298,6 +298,8 @@ export default function BoatyGame({ sessionId, onGameEnd }: BoatyGameProps) {
             hasSubmitted={hasSubmitted}
             readyCount={readyCount}
             totalPlayers={players.length}
+            splashBgURL={gameData.splashBgURL}
+            splashBgDim={gameData.splashBgDim}
             onDone={handleSetupDone}
           />
         </div>
@@ -305,9 +307,17 @@ export default function BoatyGame({ sessionId, onGameEnd }: BoatyGameProps) {
 
       {btPhase === "play" && btCurrentTurn && myBoard && opponentBoard && (
         <div className="relative z-10 flex min-h-0 flex-1 flex-col">
+          {gameData.splashBgURL && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat brightness-[0.35]"
+              style={{ backgroundImage: `url(${gameData.splashBgURL})` }}
+            />
+          )}
           <PlayScreen
             currentUserId={userId}
             opponentUid={opponentUid}
+            ownerUid={session.ownerId}
             players={players}
             currentTurn={btCurrentTurn}
             myBoard={myBoard}

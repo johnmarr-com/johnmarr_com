@@ -2,9 +2,29 @@
 
 import { useState, useRef, useCallback, useEffect, useId, useLayoutEffect } from "react";
 import Image from "next/image";
-import Lottie from "lottie-react";
+import Lottie, { type LottieRefCurrentProps } from "lottie-react";
 import type { Position, RaftDef, RaftType, Rotation } from "../boatyTypes";
 import { GRID_SIZE, getOccupiedSquares, posKey } from "../boatyLogic";
+
+/**
+ * Ripple Lottie: first play jumps in halfway (frame 45) so the scale-up burst
+ * lands on an already-visible wave; subsequent loops run the full animation.
+ */
+function RippleLottie({ animationData }: { animationData: object }) {
+  const ref = useRef<LottieRefCurrentProps>(null);
+  useEffect(() => {
+    ref.current?.goToAndPlay(45, true);
+  }, []);
+  return (
+    <Lottie
+      lottieRef={ref}
+      animationData={animationData}
+      loop
+      autoplay={false}
+      className="h-full w-full brightness-150 saturate-150"
+    />
+  );
+}
 
 // ─── Lottie loader (loaded once per URL, shared across all cells) ──
 const lottieCache = new Map<string, object>();
@@ -28,12 +48,17 @@ function useLottie(url: string) {
 
 // ─── Swamp art ───────────────────────────────────────────────
 const SWAMP_BG = "/images/games/boaty/Swamp.jpg";
+const ENEMY_SWAMP_BG = "/images/games/boaty/enemy-swamp-bg.jpg";
 /** Single overlay layer: darkens swamp in gaps/margins; cut out via SVG mask (not 25 cell backgrounds). */
 const SWAMP_BG_DARKEN_ALPHA = 0.5;
 const RAFT_SQUARE_BG = "/images/games/boaty/Raft-Square.png";
 const RAFT_SMALL_BG = "/images/games/boaty/Raft-Small.png";
 const RAFT_L_BG = "/images/games/boaty/Raft-L.png";
 const ALLIGATOR_IMG = "/images/games/boaty/Alligator.png";
+/** Matches `.bt-gator-sink` / `.bt-gator-rise` duration in `globals.css`. */
+const GATOR_SINK_RISE_MS = 350;
+/** Extra hold underwater after sink, before rise at the new cell. */
+const GATOR_UNDERWATER_MS = 1000;
 
 // ─── Placeholder Colors ──────────────────────────────────────
 /** Wash under raft art when selected — second `background-image` layer (under URL). */
@@ -44,6 +69,18 @@ const COLOR_TAPPABLE = "rgba(255,255,255,0.06)";
 // Grid layout constants (must match the JSX: p-2 = 8px, gap-1 = 4px)
 const GRID_PADDING = 8;
 const GRID_GAP = 4;
+
+/** Measured grid geometry so SVG mask holes match real cell boxes (Safari subpixels + aspect-ratio rows). */
+interface SwampMaskLayout {
+  bw: number;
+  bh: number;
+  padLeft: number;
+  padTop: number;
+  cw: number;
+  ch: number;
+  gapX: number;
+  gapY: number;
+}
 const RAFT_ART_OUTER_RADIUS = 8;
 
 /**
@@ -118,6 +155,8 @@ interface SwampGridProps {
   onDragDrop?: (touchRow: number, touchCol: number) => void;
   /** Cell currently being attacked — suppress hit/miss rendering until animation completes. */
   pendingCell?: { row: number; col: number } | null;
+  /** When true, use the darker enemy-swamp background to emphasise the flip between attack and defend views. */
+  enemyView?: boolean;
 }
 
 export default function SwampGrid({
@@ -134,35 +173,76 @@ export default function SwampGrid({
   onDragRaftLift,
   onDragDrop,
   pendingCell,
+  enemyView = false,
 }: SwampGridProps) {
+  const bgUrl = enemyView ? ENEMY_SWAMP_BG : SWAMP_BG;
   const fireLottie = useLottie("/lottie/fire.json");
-  const rippleLottie = useLottie("/lottie/ripple.json");
+  const rippleLottie = useLottie("/lottie/green-ripple.json");
   const gridRef = useRef<HTMLDivElement>(null);
   const floatingRef = useRef<HTMLDivElement>(null);
+  const maskLayoutRef = useRef<SwampMaskLayout | null>(null);
   const swampHoleMaskId = useId().replace(/:/g, "");
-  const [swampMaskLayout, setSwampMaskLayout] = useState<{
-    bw: number;
-    bh: number;
-    cw: number;
-    ch: number;
-  } | null>(null);
+  const gatorWaterMaskId = useId().replace(/:/g, "");
+  const gatorWaterBlurId = `${gatorWaterMaskId}-blur`;
+  const [swampMaskLayout, setSwampMaskLayout] = useState<SwampMaskLayout | null>(null);
 
   useLayoutEffect(() => {
     const el = gridRef.current;
     if (!el) return;
-    const update = () => {
-      const bw = el.clientWidth;
-      const bh = el.clientHeight;
-      const innerW = bw - 2 * GRID_PADDING;
-      const innerH = bh - 2 * GRID_PADDING;
-      const cw = (innerW - (GRID_SIZE - 1) * GRID_GAP) / GRID_SIZE;
-      const ch = (innerH - (GRID_SIZE - 1) * GRID_GAP) / GRID_SIZE;
-      if (bw > 0 && bh > 0 && cw > 0 && ch > 0) {
-        setSwampMaskLayout({ bw, bh, cw, ch });
-      }
+
+    const measure = () => {
+      requestAnimationFrame(() => {
+        const gridEl = gridRef.current;
+        if (!gridEl) return;
+        const c00 = gridEl.querySelector('[data-boaty-r="0"][data-boaty-c="0"]') as HTMLElement | null;
+        const c01 = gridEl.querySelector('[data-boaty-r="0"][data-boaty-c="1"]') as HTMLElement | null;
+        const c10 = gridEl.querySelector('[data-boaty-r="1"][data-boaty-c="0"]') as HTMLElement | null;
+
+        if (c00 && c01 && c10) {
+          const gridRect = gridEl.getBoundingClientRect();
+          const bw = gridRect.width;
+          const bh = gridRect.height;
+          if (bw <= 0 || bh <= 0) return;
+          const r00 = c00.getBoundingClientRect();
+          const r01 = c01.getBoundingClientRect();
+          const r10 = c10.getBoundingClientRect();
+          const padLeft = r00.left - gridRect.left;
+          const padTop = r00.top - gridRect.top;
+          const cw = r00.width;
+          const ch = r00.height;
+          const gapX = Math.max(0, r01.left - r00.right);
+          const gapY = Math.max(0, r10.top - r00.bottom);
+          const layout: SwampMaskLayout = { bw, bh, padLeft, padTop, cw, ch, gapX, gapY };
+          maskLayoutRef.current = layout;
+          setSwampMaskLayout(layout);
+          return;
+        }
+
+        const bw = gridEl.clientWidth;
+        const bh = gridEl.clientHeight;
+        const innerW = bw - 2 * GRID_PADDING;
+        const innerH = bh - 2 * GRID_PADDING;
+        const cw = (innerW - (GRID_SIZE - 1) * GRID_GAP) / GRID_SIZE;
+        const ch = (innerH - (GRID_SIZE - 1) * GRID_GAP) / GRID_SIZE;
+        if (cw > 0 && ch > 0) {
+          const layout: SwampMaskLayout = {
+            bw,
+            bh,
+            padLeft: GRID_PADDING,
+            padTop: GRID_PADDING,
+            cw,
+            ch,
+            gapX: GRID_GAP,
+            gapY: GRID_GAP,
+          };
+          maskLayoutRef.current = layout;
+          setSwampMaskLayout(layout);
+        }
+      });
     };
-    update();
-    const ro = new ResizeObserver(update);
+
+    measure();
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -188,6 +268,8 @@ export default function SwampGrid({
   const prevGatorKeyRef = useRef(gator ? posKey(gator) : null);
   const [displayedGator, setDisplayedGator] = useState(gator ?? null);
   const [gatorPhase, setGatorPhase] = useState<"idle" | "sinking" | "rising">("idle");
+  /** Randomized while fully submerged (before rise) so left/right facing changes off-screen. */
+  const [gatorMirrored, setGatorMirrored] = useState(false);
 
   useEffect(() => {
     const newKey = gator ? posKey(gator) : null;
@@ -201,15 +283,16 @@ export default function SwampGrid({
       return;
     }
 
-    // Position changed — sink at old spot, then rise at new spot
+    // Position changed — sink at old spot, hold, then rise at new spot
     setGatorPhase("sinking");
     const t1 = setTimeout(() => {
+      setGatorMirrored(Math.random() < 0.5);
       setDisplayedGator(gator);
       setGatorPhase("rising");
-    }, 350);
+    }, GATOR_SINK_RISE_MS + GATOR_UNDERWATER_MS);
     const t2 = setTimeout(() => {
       setGatorPhase("idle");
-    }, 700);
+    }, GATOR_SINK_RISE_MS + GATOR_UNDERWATER_MS + GATOR_SINK_RISE_MS);
     return () => { clearTimeout(t1); clearTimeout(t2); };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by position, not object identity
   }, [gator ? posKey(gator) : null]);
@@ -219,13 +302,26 @@ export default function SwampGrid({
     const el = gridRef.current;
     if (!el) return null;
     const rect = el.getBoundingClientRect();
-    const x = clientX - rect.left - GRID_PADDING;
-    const y = clientY - rect.top - GRID_PADDING;
-    const cellSize = (rect.width - 2 * GRID_PADDING - (GRID_SIZE - 1) * GRID_GAP) / GRID_SIZE;
-    const step = cellSize + GRID_GAP;
-    const col = Math.floor(x / step);
-    const row = Math.floor(y / step);
+    const L = maskLayoutRef.current;
+    const padL = L?.padLeft ?? GRID_PADDING;
+    const padT = L?.padTop ?? GRID_PADDING;
+    const cw =
+      L?.cw ??
+      (rect.width - 2 * GRID_PADDING - (GRID_SIZE - 1) * GRID_GAP) / GRID_SIZE;
+    const ch = L?.ch ?? cw;
+    const gapX = L?.gapX ?? GRID_GAP;
+    const gapY = L?.gapY ?? GRID_GAP;
+    const x = clientX - rect.left - padL;
+    const y = clientY - rect.top - padT;
+    const stepX = cw + gapX;
+    const stepY = ch + gapY;
+    if (stepX <= 0 || stepY <= 0) return null;
+    const col = Math.floor(x / stepX);
+    const row = Math.floor(y / stepY);
     if (row < 0 || row >= GRID_SIZE || col < 0 || col >= GRID_SIZE) return null;
+    const lx = x - col * stepX;
+    const ly = y - row * stepY;
+    if (lx < 0 || lx > cw || ly < 0 || ly > ch) return null;
     return { row, col };
   }, []);
 
@@ -265,7 +361,9 @@ export default function SwampGrid({
     };
 
     const rect = gridRef.current!.getBoundingClientRect();
-    const cellSize = (rect.width - 2 * GRID_PADDING - (GRID_SIZE - 1) * GRID_GAP) / GRID_SIZE;
+    const L = maskLayoutRef.current;
+    const cellSize =
+      L?.cw ?? (rect.width - 2 * GRID_PADDING - (GRID_SIZE - 1) * GRID_GAP) / GRID_SIZE;
 
     const raftDef = rafts[foundRaft.raftIndex]!;
 
@@ -370,11 +468,19 @@ export default function SwampGrid({
         bg = "rgba(255,255,255,0.15)";
       } else if (isHit) {
         content = fireLottie
-          ? <Lottie animationData={fireLottie} loop autoplay className="h-full w-full" />
+          ? (
+            <div className="h-full w-full origin-bottom animate-[bt-fire-explode_0.35s_ease-out_both]">
+              <Lottie animationData={fireLottie} loop autoplay className="h-full w-full" />
+            </div>
+          )
           : <span className="text-lg">🔥</span>;
       } else if (isMiss) {
         content = rippleLottie
-          ? <Lottie animationData={rippleLottie} loop autoplay className="h-full w-full" />
+          ? (
+            <div className="h-full w-full animate-[bt-ripple-explode_0.35s_ease-out_both]">
+              <RippleLottie animationData={rippleLottie} />
+            </div>
+          )
           : <span className="text-lg">💧</span>;
       } else if (isGator && !tappable) {
         // Show gator only on own board (not attack view)
@@ -383,15 +489,65 @@ export default function SwampGrid({
           gatorPhase === "sinking" ? "bt-gator-sink" :
           gatorPhase === "rising" ? "bt-gator-rise" : "";
         content = (
-          <div className="flex h-full w-full items-center justify-center overflow-hidden">
-            <Image
-              src={ALLIGATOR_IMG}
-              alt=""
-              width={64}
-              height={64}
-              className={`h-[85%] w-[85%] max-h-full object-contain object-center select-none ${animClass}`}
-              draggable={false}
-            />
+          <div className="relative flex h-full w-full items-center justify-center">
+            {/*
+              Curved waterline (deeper in center) + feather via feGaussianBlur on mask geometry.
+              Fragment url(#) from this inline SVG works in Safari; plain CSS gradient mask did not.
+            */}
+            <svg
+              aria-hidden
+              xmlns="http://www.w3.org/2000/svg"
+              className="pointer-events-none absolute left-0 top-0 block"
+              style={{ width: 0, height: 0, overflow: "visible" }}
+            >
+              <defs>
+                <filter
+                  id={gatorWaterBlurId}
+                  x="-35%"
+                  y="-35%"
+                  width="170%"
+                  height="170%"
+                  filterUnits="objectBoundingBox"
+                >
+                  <feGaussianBlur in="SourceGraphic" stdDeviation="0.022" />
+                </filter>
+                <mask
+                  id={gatorWaterMaskId}
+                  maskUnits="objectBoundingBox"
+                  maskContentUnits="objectBoundingBox"
+                  x="0"
+                  y="0"
+                  width="1"
+                  height="1"
+                >
+                  <path
+                    d="M 0,0 L 1,0 L 1,0.62 Q 0.5,0.76 0,0.62 Z"
+                    fill="white"
+                    filter={`url(#${gatorWaterBlurId})`}
+                  />
+                </mask>
+              </defs>
+            </svg>
+            <div
+              className={`flex h-full w-full items-center justify-center${gatorMirrored ? " -scale-x-100" : ""}`}
+              style={{
+                WebkitMaskImage: `url(#${gatorWaterMaskId})`,
+                maskImage: `url(#${gatorWaterMaskId})`,
+                WebkitMaskSize: "100% 100%",
+                maskSize: "100% 100%",
+                WebkitMaskRepeat: "no-repeat",
+                maskRepeat: "no-repeat",
+              }}
+            >
+              <Image
+                src={ALLIGATOR_IMG}
+                alt=""
+                width={64}
+                height={64}
+                className={`h-[85%] w-[85%] max-h-full object-contain object-center select-none ${animClass}`}
+                draggable={false}
+              />
+            </div>
           </div>
         );
       } else if (raftInfo != null && !tappable) {
@@ -445,7 +601,7 @@ export default function SwampGrid({
           data-boaty-r={row}
           data-boaty-c={col}
           onClick={handleTap}
-          className="flex items-center justify-center transition-[background-color,background-image] duration-150"
+          className="flex min-h-0 min-w-0 items-center justify-center transition-[background-color,background-image] duration-150"
           style={{
             // Explicit placement so L-raft span overlays don’t reshuffle auto-placed cells when rafts move.
             gridRow: row + 1,
@@ -454,7 +610,8 @@ export default function SwampGrid({
             backgroundColor: bg,
             ...raftSquareBg,
             ...(isSeamlessRaftTile ? {} : { border, borderRadius: 4 }),
-            aspectRatio: "1",
+            // Square cells come from equal 1fr rows/cols on aspect-square board — not per-item aspect-ratio
+            // (Safari inflates the grid ~10–20px vs Chrome when each button has aspect-ratio:1 + implicit rows).
             cursor,
           }}
         >
@@ -555,15 +712,14 @@ export default function SwampGrid({
       );
     });
 
-  const swampHoleMaskUrl = `url(#${swampHoleMaskId})`;
-
   return (
     <div
       ref={gridRef}
-      className="relative mx-auto grid w-full max-w-[500px] gap-1 rounded-xl p-2 touch-none"
+      className="relative mx-auto grid aspect-square w-full min-w-0 max-w-[500px] gap-1 rounded-xl p-2 touch-none"
       style={{
         gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
-        backgroundImage: `url(${SWAMP_BG})`,
+        gridTemplateRows: `repeat(${GRID_SIZE}, 1fr)`,
+        backgroundImage: `url(${bgUrl})`,
         backgroundSize: "contain",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
@@ -573,53 +729,60 @@ export default function SwampGrid({
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
     >
+      {/*
+        Darken gutters/margins only: Safari does not apply `mask-image: url(#id)` reliably on HTML,
+        but masking an SVG <rect> inside the same <svg> as <defs><mask> works consistently.
+      */}
       {swampMaskLayout != null && (
-        <>
-          <svg
-            aria-hidden
-            className="pointer-events-none absolute h-0 w-0 overflow-hidden"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <defs>
-              <mask
-                id={swampHoleMaskId}
-                maskUnits="userSpaceOnUse"
-                x={0}
-                y={0}
-                width={swampMaskLayout.bw}
-                height={swampMaskLayout.bh}
-              >
-                <rect width={swampMaskLayout.bw} height={swampMaskLayout.bh} fill="white" />
-                {Array.from({ length: GRID_SIZE }, (_, row) =>
-                  Array.from({ length: GRID_SIZE }, (_, col) => {
-                    const x = GRID_PADDING + col * (swampMaskLayout.cw + GRID_GAP);
-                    const y = GRID_PADDING + row * (swampMaskLayout.ch + GRID_GAP);
-                    return (
-                      <rect
-                        key={`${row}-${col}`}
-                        x={x}
-                        y={y}
-                        width={swampMaskLayout.cw}
-                        height={swampMaskLayout.ch}
-                        fill="black"
-                      />
-                    );
-                  }),
-                ).flat()}
-              </mask>
-            </defs>
-          </svg>
-          <div
-            className="pointer-events-none absolute inset-0 z-0 rounded-[inherit]"
-            style={{
-              backgroundColor: `rgba(0,0,0,${SWAMP_BG_DARKEN_ALPHA})`,
-              mask: swampHoleMaskUrl,
-              WebkitMask: swampHoleMaskUrl,
-              maskRepeat: "no-repeat",
-              WebkitMaskRepeat: "no-repeat",
-            }}
+        <svg
+          aria-hidden
+          xmlns="http://www.w3.org/2000/svg"
+          className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[inherit]"
+          width="100%"
+          height="100%"
+          viewBox={`0 0 ${swampMaskLayout.bw} ${swampMaskLayout.bh}`}
+          preserveAspectRatio="none"
+        >
+          <defs>
+            <mask
+              id={swampHoleMaskId}
+              maskUnits="userSpaceOnUse"
+              maskContentUnits="userSpaceOnUse"
+              x={0}
+              y={0}
+              width={swampMaskLayout.bw}
+              height={swampMaskLayout.bh}
+            >
+              <rect width={swampMaskLayout.bw} height={swampMaskLayout.bh} fill="white" />
+              {Array.from({ length: GRID_SIZE }, (_, row) =>
+                Array.from({ length: GRID_SIZE }, (_, col) => {
+                  const x =
+                    swampMaskLayout.padLeft + col * (swampMaskLayout.cw + swampMaskLayout.gapX);
+                  const y =
+                    swampMaskLayout.padTop + row * (swampMaskLayout.ch + swampMaskLayout.gapY);
+                  return (
+                    <rect
+                      key={`mask-${row}-${col}`}
+                      x={x}
+                      y={y}
+                      width={swampMaskLayout.cw}
+                      height={swampMaskLayout.ch}
+                      fill="black"
+                    />
+                  );
+                }),
+              ).flat()}
+            </mask>
+          </defs>
+          <rect
+            x={0}
+            y={0}
+            width={swampMaskLayout.bw}
+            height={swampMaskLayout.bh}
+            fill={`rgba(0,0,0,${SWAMP_BG_DARKEN_ALPHA})`}
+            mask={`url(#${swampHoleMaskId})`}
           />
-        </>
+        </svg>
       )}
       {raftArtOverlays}
       {cells}

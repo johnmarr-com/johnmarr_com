@@ -6,7 +6,7 @@ export const GRID_SIZE = 5;
 export const TOTAL_RAFT_SQUARES = 9; // 4 + 3 + 2
 
 /** Molotov arc — keep in sync with `bt-molotov-throw` duration in globals.css */
-export const BOATY_THROW_MS = 1500;
+export const BOATY_THROW_MS = 1100;
 /** Impact burst — keep in sync with `bt-molotov-impact` duration in globals.css */
 export const BOATY_IMPACT_ANIM_MS = 400;
 /** Full seconds the revealed result stays on screen after impact finishes. */
@@ -63,6 +63,18 @@ export function isRaftInBounds(raft: RaftDef): boolean {
 /** Make a set key from a position for fast lookups. */
 export function posKey(p: Position): string {
   return `${p.row},${p.col}`;
+}
+
+/** Find the raft (if any) that occupies a specific grid cell. */
+export function findRaftAt(rafts: RaftDef[], row: number, col: number): RaftDef | undefined {
+  const key = posKey({ row, col });
+  return rafts.find((r) => getOccupiedSquares(r).some((s) => posKey(s) === key));
+}
+
+/** True when every cell of this raft is already in the hits list. */
+export function isRaftDestroyed(raft: RaftDef, hits: Position[]): boolean {
+  const hitSet = new Set(hits.map(posKey));
+  return getOccupiedSquares(raft).every((s) => hitSet.has(posKey(s)));
 }
 
 /** Check if a raft overlaps with any positions in a set. */

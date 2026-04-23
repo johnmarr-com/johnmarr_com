@@ -68,6 +68,15 @@ export function useGameFlow(config: ComposeGameInput): GameFlowState & GameFlowA
     });
   }, [config.slug]);
 
+  // A sessionId arriving in the URL while the page was already on landing
+  // (e.g. My Games "Rejoin" tapped from the same game's splash) needs to
+  // push phase into "game" — useState's initializer only ran on first mount.
+  useEffect(() => {
+    if (initialSessionId && phase === "landing") {
+      setPhase("game"); // eslint-disable-line react-hooks/set-state-in-effect -- sync phase when a sessionId appears in the URL after initial mount (My Games rejoin while on splash)
+    }
+  }, [initialSessionId, phase]);
+
   // ─── Auto-join from invite link ──────────────────────────
   useEffect(() => {
     if (!initialSessionId || autoJoinRef.current || authLoading || !user || !gamertag) return;

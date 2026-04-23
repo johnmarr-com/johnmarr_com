@@ -231,6 +231,13 @@ export const avatarScaleMap: Record<string, AvatarScaleData> = {
   'H4XI5Z': { scale: 1.15 },
   '67FA4F': { scale: 1.15 },
   '4E8KWO': { scale: 1.4 },
+  'EKJKSH': { scale: 1.3 }, // z-colorful-loading~~|~~EKJKSH
+  'YI9IA7': { scale: 3 }, // z-molotov~~|~~YI9IA7
+  'ZLNWXA': { scale: 1.0 }, // z-molotov~~|~~ZLNWXA
+  'L6SUWG': { scale: 1.0 }, // z-BLUE~~|~~L6SUWG
+  'AW1K9T': { scale: 1.0 }, // z-RED~~|~~AW1K9T
+  'YLPRBT': { scale: 1.0 }, // z-MOL1~~|~~YLPRBT
+  'N2B7MV': { scale: 1.0 }, // z-MOL2~~|~~N2B7MV
 };
 
 // Helper function to extract avatar ID from filename

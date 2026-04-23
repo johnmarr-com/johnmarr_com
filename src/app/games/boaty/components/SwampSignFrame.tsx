@@ -3,8 +3,8 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 
-const SIGN_MY = "/images/games/boaty/Sign-My-Swamp.png";
-const SIGN_THEIR = "/images/games/boaty/Sign-Their-Swamp.png";
+const SIGN_MY = "/images/games/boaty/Sign-My-Swamp-4.png";
+const SIGN_THEIR = "/images/games/boaty/Sign-Their-Swamp-4.png";
 
 interface SwampSignFrameProps {
   variant: "my" | "their";
@@ -19,9 +19,9 @@ export default function SwampSignFrame({ variant, children }: SwampSignFrameProp
       <Image
         src={src}
         alt=""
-        width={200}
+        width={600}
         height={200}
-        className="pointer-events-none absolute bottom-full left-1/2 z-0 w-[32.5%] h-auto max-w-none -translate-x-1/2 select-none object-contain object-bottom"
+        className="pointer-events-none absolute bottom-full left-1/2 z-0 w-[75.5%] h-auto max-w-none -translate-x-1/2 select-none object-contain object-bottom"
         draggable={false}
       />
       <div className="relative z-10 w-full">{children}</div>

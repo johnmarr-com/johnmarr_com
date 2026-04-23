@@ -184,6 +184,10 @@ export default function JMAvatarView({ width, avatarName, responsive = false, fu
               width: `${90 * scaleModifier}%`,
               height: `${90 * scaleModifier}%`,
               transform: scaleModifier !== 1.0 ? `scale(${scaleModifier})` : undefined,
+              // Safari: force a composite layer so CSS `transform: scale()` re-rasterises the SVG crisply
+              // instead of stretching the original bitmap.
+              willChange: scaleModifier !== 1.0 ? 'transform' : undefined,
+              WebkitBackfaceVisibility: scaleModifier !== 1.0 ? 'hidden' : undefined,
               pointerEvents: interactive ? 'auto' : 'none',
             }}
           />

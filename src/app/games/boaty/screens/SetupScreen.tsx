@@ -22,6 +22,10 @@ interface SetupScreenProps {
   hasSubmitted: boolean;
   readyCount: number;
   totalPlayers: number;
+  /** Splash background URL from the game's CMS data — same image used on the landing page. */
+  splashBgURL?: string | undefined;
+  /** Overlay darkness 0–100 from CMS (default 50), matching GameLandingPage / GC4. */
+  splashBgDim?: number | undefined;
   onDone: (rafts: RaftDef[], gator: Position) => void;
 }
 
@@ -29,6 +33,8 @@ export default function SetupScreen({
   hasSubmitted,
   readyCount,
   totalPlayers,
+  splashBgURL,
+  splashBgDim,
   onDone,
 }: SetupScreenProps) {
   const [rafts, setRafts] = useState<RaftDef[]>(() =>
@@ -203,29 +209,35 @@ export default function SetupScreen({
     || rafts[selectedRaft]?.type === "square"
     || !tryRotate(rafts[selectedRaft]!, buildOccupiedSet(rafts, selectedRaft));
 
-  const swampBg = (
+  const dimAlpha = (splashBgDim ?? 50) / 100;
+  const swampBg = splashBgURL ? (
     <div
       className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center"
       style={{
-        backgroundImage: `linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url(/images/games/boaty/Swamp.jpg)`,
+        backgroundImage: `linear-gradient(rgba(0,0,0,${dimAlpha}), rgba(0,0,0,${dimAlpha})), url(${splashBgURL})`,
       }}
     />
-  );
+  ) : null;
+
+  // Keep grid width capped so total (grid + footer + padding) never overflows the viewport.
+  // ~220px accounts for py-6 (48) + button section text + py-4 buttons + gaps on mobile.
+  const gridWrapStyle = { maxWidth: "min(500px, calc(100dvh - 220px))" };
 
   if (hasSubmitted) {
     return (
-      <div className="relative flex min-h-0 flex-1 flex-col items-center gap-4 px-4 py-6">
+      <div
+        className="relative flex min-h-0 flex-1 flex-col items-center px-4 pb-6"
+        style={{ paddingTop: "max(1.5rem, calc(env(safe-area-inset-top) + 0.75rem))" }}
+      >
         {swampBg}
-        <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center overflow-visible">
-          <div aria-hidden className="min-h-0 w-full flex-[1.7] basis-0 shrink-0" />
-          <div className="w-full max-w-[500px] shrink-0">
+        <div className="relative z-10 flex min-h-0 w-full flex-1 items-center justify-center overflow-visible pt-32">
+          <div className="w-full" style={gridWrapStyle}>
             <SwampSignFrame variant="my">
               <SwampGrid rafts={rafts} gator={gator} />
             </SwampSignFrame>
           </div>
-          <div aria-hidden className="min-h-0 w-full flex-[0.3] basis-0 shrink-0" />
         </div>
-        <div className="relative z-10 flex shrink-0 flex-col items-center gap-3 py-4">
+        <div className="relative z-10 mt-4 flex shrink-0 flex-col items-center gap-3 py-4">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
           <p className="text-center text-sm font-bold uppercase tracking-wider text-white">
             Waiting for opponent&hellip; ({readyCount}/{totalPlayers})
@@ -236,11 +248,13 @@ export default function SetupScreen({
   }
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col items-center gap-4 px-4 py-6">
+    <div
+      className="relative flex min-h-0 flex-1 flex-col items-center px-4 pb-6"
+      style={{ paddingTop: "max(1.5rem, calc(env(safe-area-inset-top) + 0.75rem))" }}
+    >
       {swampBg}
-      <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center overflow-visible">
-        <div aria-hidden className="min-h-0 w-full flex-[1.7] basis-0 shrink-0" />
-        <div className="relative flex w-full max-w-[500px] shrink-0 flex-col items-center">
+      <div className="relative z-10 flex min-h-0 w-full flex-1 items-center justify-center overflow-visible pt-32">
+        <div className="relative flex w-full flex-col items-center" style={gridWrapStyle}>
           <SwampSignFrame variant="my">
             <SwampGrid
               rafts={rafts}
@@ -254,31 +268,28 @@ export default function SetupScreen({
             />
           </SwampSignFrame>
         </div>
-        <div aria-hidden className="min-h-0 w-full flex-[0.3] basis-0 shrink-0" />
       </div>
 
-      <div className="relative z-20 flex w-full max-w-[500px] shrink-0 flex-col items-center gap-3">
+      <div className="relative z-20 mt-4 flex w-full max-w-[500px] shrink-0 flex-col items-center gap-3">
         <p className="max-w-[500px] -translate-y-[15px] animate-[wk-fade-up_0.4s_ease-out_both] px-2 text-center text-sm font-bold uppercase tracking-wider text-white/70">
           Drag and rotate your moonshine rafts <br />
           to prep for battle
         </p>
 
         <div className="flex w-full items-center justify-center gap-3">
-          {hasSelection && (
-            <button
-              type="button"
-              onClick={handleRotate}
-              disabled={rotateDisabled}
-              className={`flex shrink-0 items-center justify-center gap-1 rounded-xl px-4 py-3 text-xs font-bold uppercase tracking-wider transition-all sm:gap-2 sm:px-5 sm:text-sm ${
-                rotateDisabled
-                  ? "bg-white/5 text-white/25"
-                  : "bg-white/15 text-white hover:bg-white/25 active:scale-95"
-              }`}
-            >
-              <RotateCw className="size-4 shrink-0 sm:size-[18px]" />
-              <span className="truncate">Rotate</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleRotate}
+            disabled={rotateDisabled}
+            className={`flex shrink-0 items-center justify-center gap-2 rounded-xl px-5 py-4 text-lg font-black uppercase tracking-wider transition-all ${
+              rotateDisabled
+                ? "bg-white/5 text-white/25"
+                : "bg-white/15 text-white hover:bg-white/25 active:scale-95"
+            }`}
+          >
+            <RotateCw className="size-5 shrink-0" />
+            <span className="truncate">Rotate</span>
+          </button>
           <button
             type="button"
             onClick={handleDone}

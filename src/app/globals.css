@@ -373,11 +373,36 @@ select:focus-visible {
 
 /* ─── BOATY McBOATFACE ───────────────────────────────────── */
 
-/* Molotov throw: duration must match BOATY_THROW_MS in boatyLogic.ts */
+/* Gator-hit popup: scale-up fade-in on appear, scale-down fade-out on dismiss */
+@keyframes bt-gator-popup-in {
+  0%   { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes bt-gator-popup-out {
+  0%   { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.85); opacity: 0; }
+}
+
+/* Fire hit: quick burst on appear — small, overshoot, settle to normal */
+@keyframes bt-fire-explode {
+  0%   { transform: scale(0.3); }
+  40%  { transform: scale(2); }
+  100% { transform: scale(1); }
+}
+
+/* Water miss: same burst as fire, but settles to 60% opacity for the loop */
+@keyframes bt-ripple-explode {
+  0%   { transform: scale(0.3); opacity: 1; }
+  40%  { transform: scale(2); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.6; }
+}
+
+/* Molotov throw: duration must match BOATY_THROW_MS in boatyLogic.ts.
+ * Keyframe never scales ABOVE 1 — the Lottie is rendered at its target launch size natively,
+ * and the animation only scales down. Safari pixelates SVGs under CSS transform: scale(>1). */
 @keyframes bt-molotov-throw {
-  0%   { offset-distance: 0%; transform: scale(3) rotate(0deg); opacity: 0; }
-  5%   { opacity: 1; }
-  100% { offset-distance: 100%; transform: scale(0.3) rotate(450deg); opacity: 1; }
+  0%   { offset-distance: 0%; transform: scale(1) rotate(0deg); opacity: 1; }
+  100% { offset-distance: 100%; transform: scale(0.04) rotate(25deg); opacity: 1; }
 }
 /* Impact burst duration must match BOATY_IMPACT_ANIM_MS in boatyLogic.ts */
 @keyframes bt-molotov-impact {
