@@ -17,6 +17,7 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
   const { user } = useAuth();
 
   const [name, setName] = useState("");
+  const [gameLikeLabel, setGameLikeLabel] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [description, setDescription] = useState("");
   const [slug, setSlug] = useState("");
@@ -81,6 +82,7 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
         coverURL: coverURL.trim() || "",
         isPublished,
       };
+      if (gameLikeLabel.trim()) input.gameLikeLabel = gameLikeLabel.trim();
       if (subtitle.trim()) input.subtitle = subtitle.trim();
       if (backdropURL.trim()) input.backdropURL = backdropURL.trim();
       if (splashBgURL.trim()) input.splashBgURL = splashBgURL.trim();
@@ -177,6 +179,30 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Enter game title..."
                 autoFocus
+                className="w-full rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                style={{
+                  backgroundColor: "rgba(0, 0, 0, 0.4)",
+                  borderColor: "rgba(255, 255, 255, 0.2)",
+                  color: theme.text.primary,
+                  // @ts-expect-error CSS custom property
+                  "--tw-ring-color": theme.accents.goldenGlow,
+                }}
+              />
+            </div>
+
+            {/* Game like label (landing top-right) */}
+            <div>
+              <label
+                className="mb-2 block text-sm font-medium"
+                style={{ color: theme.text.secondary }}
+              >
+                Game Like Label
+              </label>
+              <input
+                type="text"
+                value={gameLikeLabel}
+                onChange={(e) => setGameLikeLabel(e.target.value)}
+                placeholder="Game meets Game"
                 className="w-full rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2"
                 style={{
                   backgroundColor: "rgba(0, 0, 0, 0.4)",

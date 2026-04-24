@@ -42,6 +42,7 @@ export function AdminAIPersonasPanel() {
         id: p.id,
         name: p.name,
         playStyle: p.playStyle,
+        skillLevel: p.skillLevel,
         description: p.description,
         avatarName: p.avatarName,
         avatarScale: p.avatarScale,

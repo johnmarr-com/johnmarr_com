@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useId } from "react";
 import Image from "next/image";
-import { JMAppHeader } from "@/JMKit";
+import Link from "next/link";
 import { PointsManager, Activity } from "@/lib/points";
 import type { CreateSessionInput, GameSession } from "@/lib/game-sessions";
 import { GameMultiplayerFlow } from "./GameMultiplayerFlow";
@@ -60,6 +60,20 @@ export interface GameLandingPageProps {
   /** Called when user picks an AI opponent from the solo vs AI picker. */
   onSoloVsAI?: (persona: AIPersona) => void;
   onMultiplayerStart?: (sessionId: string) => void;
+  /** Top-right “likeness” line (e.g. IP tagline). */
+  gameLikeLabel?: string;
+}
+
+/** Top-right, mirrors EXIT: same type scale, right-aligned. Newlines in the string break lines; a literal `\\n` in source becomes a break too. */
+function GameLikeLabel({ text }: { text: string }) {
+  const t = text.replace(/\\n/g, "\n");
+  return (
+    <p
+      className="fixed right-[25px] top-[25px] z-20 max-w-[min(200px,50vw)] whitespace-pre-line px-2 py-2 text-right text-sm font-bold text-white"
+    >
+      {t}
+    </p>
+  );
 }
 
 export function GameLandingPage({
@@ -90,9 +104,14 @@ export function GameLandingPage({
   onSoloPlay,
   onSoloVsAI,
   onMultiplayerStart,
+  gameLikeLabel,
 }: GameLandingPageProps) {
   const [mpOpen, setMpOpen] = useState(false);
   const [aiPickerOpen, setAiPickerOpen] = useState(false);
+  /** New id each mount (each landing navigation) so the GIF is a new network/decoded instance, not a resumed frame. */
+  const jmLogoInstanceId = useId();
+
+  const likeLabelText = gameLikeLabel?.trim() ?? "";
 
   const musicURL = backgroundMusicURL || (gameSlug ? `/music/${gameSlug}.mp3` : null);
   const { ensurePlaying } = useGameMusic({
@@ -103,7 +122,6 @@ export function GameLandingPage({
 
   return (
     <div className="fixed inset-0 flex flex-col bg-black">
-      <div className="relative z-20"><JMAppHeader /></div>
       {/* Background — aspect-fill cover, fades in on load */}
       {splashBgURL && (
         <Image
@@ -119,6 +137,30 @@ export function GameLandingPage({
       )}
       {/* Dim overlay for legibility — driven by splashBgDim (0–100, default 60) */}
       <div className="absolute inset-0 z-1" style={{ backgroundColor: `rgba(0,0,0,${(splashBgDim ?? 60) / 100})` }} />
+
+      {/* John Marr platform mark — on top of dim, under splash art (z-10); short viewports can overlap */}
+      <div
+        className="pointer-events-none absolute left-1/2 z-5 w-[100px] -translate-x-1/2"
+        style={{ top: 60 }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- animated GIF */}
+        <img
+          key={jmLogoInstanceId}
+          src={`/images/logos/JM-LOGO.gif?i=${encodeURIComponent(jmLogoInstanceId)}`}
+          alt=""
+          className="h-auto w-[100px] max-w-none"
+        />
+      </div>
+
+      <Link
+        href="/"
+        className="fixed left-[25px] top-[25px] z-20 flex items-center gap-1.5 px-2 py-2 text-sm font-bold text-white transition-transform active:scale-95"
+      >
+        <span className="text-xs leading-none">&#9664;</span>
+        EXIT
+      </Link>
+
+      {likeLabelText ? <GameLikeLabel text={likeLabelText} /> : null}
 
       {/* Title div — centered, max 600px, 50px side padding */}
       <div
@@ -202,7 +244,7 @@ export function GameLandingPage({
 
       {/* Landing extras (e.g. Create Missions) — top-right corner */}
       {landingExtra && (
-        <div className="absolute right-4 top-28 z-15">
+        <div className="absolute right-4 top-4 z-15">
           {landingExtra}
         </div>
       )}

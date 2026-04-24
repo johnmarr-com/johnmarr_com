@@ -70,10 +70,10 @@ export function PickAIOpponentModal({
         </DialogClose>
         <div className="relative z-10 flex max-h-[85dvh] flex-col gap-4 overflow-y-auto overflow-x-hidden px-5 pt-5 pb-0 sm:px-6 sm:pt-6">
           <DialogHeader>
-            <DialogTitle className="text-center text-xl font-black uppercase tracking-wider text-white">
+            <DialogTitle className="text-center text-2xl font-black uppercase tracking-wider text-white sm:text-xl">
               Choose Your Opponent
             </DialogTitle>
-            <DialogDescription className="text-center text-white/50">
+            <DialogDescription className="text-center text-base text-white/50 sm:text-sm">
               Select an AI rival to battle.
             </DialogDescription>
           </DialogHeader>
@@ -89,7 +89,7 @@ export function PickAIOpponentModal({
               <button
                 type="button"
                 onClick={handleConfirm}
-                className="w-full rounded-xl bg-white py-4 text-lg font-bold uppercase tracking-wider text-black shadow-lg shadow-white/20 transition-all hover:scale-[1.02] active:scale-95"
+                className="w-full min-h-[52px] rounded-xl bg-white py-3.5 text-lg font-bold uppercase tracking-wider text-black shadow-lg shadow-white/20 transition-all hover:scale-[1.02] active:scale-95 sm:min-h-0 sm:py-4 sm:text-base"
               >
                 Fight {selected.name}
               </button>

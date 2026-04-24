@@ -167,6 +167,7 @@ function ComposedGameInner({ config }: { config: ComposeGameInput }) {
       {...(gameData.bgMusicLandingOnly != null ? { bgMusicLandingOnly: gameData.bgMusicLandingOnly } : {})}
       gameSlug={gameData.slug ?? config.slug}
       {...(gameData.subtitle ? { subtitle: gameData.subtitle } : {})}
+      {...(gameData.gameLikeLabel?.trim() ? { gameLikeLabel: gameData.gameLikeLabel.trim() } : {})}
       minPlayers={gameData.minPlayers ?? 1}
       {...(gameData.maxPlayers != null ? { maxPlayers: gameData.maxPlayers } : {})}
       multiplayerFlowMode={config.multiplayerFlowMode ?? "party"}

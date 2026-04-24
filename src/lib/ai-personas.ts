@@ -7,7 +7,7 @@
  */
 
 import type { Timestamp } from "firebase/firestore";
-import type { AIPlayStyle } from "@/app/games/_gamecore/aiPersonas";
+import type { AIPlayStyle, AISkillLevel } from "@/app/games/_gamecore/aiPersonas";
 
 // ─────────────────────────────────────────────────────────────
 // TYPES
@@ -25,6 +25,8 @@ export interface AIPersonaDoc {
   name: string;
   avatarName: string;
   playStyle: AIPlayStyle;
+  /** Difficulty tier. Optional on older docs — readers should default to "pro". */
+  skillLevel?: AISkillLevel;
   description: string;
   prompt: string;
   voice: string;
@@ -40,6 +42,7 @@ export interface AIPersonaInput {
   name: string;
   avatarName: string;
   playStyle: AIPlayStyle;
+  skillLevel?: AISkillLevel;
   description: string;
   prompt: string;
   voice: string;
@@ -109,6 +112,7 @@ export async function createAIPersona(input: AIPersonaInput): Promise<AIPersonaD
     name: input.name,
     avatarName: input.avatarName,
     playStyle: input.playStyle,
+    skillLevel: input.skillLevel ?? 7, // Champion default
     description: input.description,
     prompt: input.prompt,
     voice: input.voice,

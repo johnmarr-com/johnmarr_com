@@ -76,6 +76,7 @@ export default function SweepTheLegPage() {
     ...(gameData?.splashLogoURL ? { splashLogoURL: gameData.splashLogoURL } : {}),
     ...(gameData?.backgroundMusicURL ? { backgroundMusicURL: gameData.backgroundMusicURL } : {}),
     ...(gameData?.backgroundMusicVolume != null ? { backgroundMusicVolume: gameData.backgroundMusicVolume } : {}),
+    ...(gameData?.gameLikeLabel?.trim() ? { gameLikeLabel: gameData.gameLikeLabel.trim() } : {}),
   };
 
   return (

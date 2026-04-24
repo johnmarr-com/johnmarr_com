@@ -101,8 +101,10 @@ export function JMContentScroller({
   const rowHeight = BASE_HEIGHT * rowScale;
   const isGameRow = items.length > 1 && items.every(item => item.contentType === "game");
 
+  const gameRowMinHeight = isGameRow ? rowHeight * 1.22 : undefined;
+
   return (
-    <div className="relative group max-w-[1500px] mx-auto">
+    <div className="relative group mx-auto max-w-[1500px] overflow-x-visible">
       {/* Row title */}
       <h2 
         className="mb-3 sm:mb-4 px-4 sm:px-6 lg:px-8 text-lg sm:text-xl md:text-2xl font-semibold"
@@ -135,13 +137,16 @@ export function JMContentScroller({
         {/* Items row */}
         <div
           ref={scrollRef}
-          className={`flex overflow-x-auto scrollbar-hide ${
-            isGameRow ? "group/gamerow py-3 gap-6 sm:gap-8" : "gap-3 sm:gap-4 pb-2"
+          className={`flex min-h-0 overflow-x-auto overflow-y-visible scrollbar-hide ${
+            isGameRow
+              ? "group/gamerow items-center gap-6 sm:gap-8"
+              : "gap-3 sm:gap-4 pb-2"
           }`}
           style={{
             scrollSnapType: "x mandatory",
             WebkitOverflowScrolling: "touch",
             scrollPaddingInlineStart: 25,
+            minHeight: gameRowMinHeight,
           }}
         >
           <div className="shrink-0 w-[25px]" aria-hidden />
@@ -154,67 +159,78 @@ export function JMContentScroller({
               ? `${rowHeight * 0.2}px`
               : undefined;
 
+            const tile = (
+              <div
+                className={`relative overflow-hidden ${isGame ? "" : "rounded-lg"}`}
+                style={{
+                  height: rowHeight,
+                  width: itemWidth,
+                  backgroundColor: theme.surfaces.elevated2,
+                  boxShadow: isStory
+                    ? "0 2px 16px rgba(0,0,0,0.5)"
+                    : "0 4px 12px rgba(0,0,0,0.3)",
+                  ...(borderRadius ? { borderRadius } : {}),
+                }}
+              >
+                {item.coverURL ? (
+                  <Image
+                    src={item.coverURL}
+                    alt={item.name}
+                    fill
+                    sizes={`${Math.round(itemWidth)}px`}
+                    className={`object-cover ${
+                      isGameRow && isGame
+                        ? ""
+                        : "transition-transform duration-300 group-hover/item:scale-110"
+                    }`}
+                  />
+                ) : (
+                  <div
+                    className={`flex h-full w-full flex-col items-center justify-center ${
+                      isGameRow && isGame
+                        ? ""
+                        : "transition-transform duration-300 group-hover/item:scale-110"
+                    } ${isStory ? "gap-2 px-3" : ""}`}
+                    style={{ color: theme.text.tertiary }}
+                  >
+                    {isStory ? (
+                      <>
+                        <span className="text-3xl font-serif">{item.name.charAt(0)}</span>
+                        <span className="text-xs text-center leading-tight opacity-70">
+                          {item.name}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-2xl font-bold">{item.name.charAt(0)}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+
             return (
               <div
                 key={item.id}
                 onClick={() => onItemClick?.(item)}
                 className={`shrink-0 cursor-pointer group/item ${
                   isGameRow
-                    ? "relative transition-opacity duration-300 group-hover/gamerow:opacity-40 hover:opacity-100! hover:z-10"
+                    ? "relative transition-opacity duration-300 group-hover/gamerow:opacity-40 hover:opacity-100! hover:z-20"
                     : ""
                 }`}
                 style={{ scrollSnapAlign: "start" }}
               >
-                <div
-                  className={`relative overflow-hidden ${isGame ? "" : "rounded-lg"} ${
-                    isGameRow && isGame
-                      ? "transition-transform duration-300 group-hover/item:scale-110"
-                      : ""
-                  }`}
-                  style={{
-                    height: rowHeight,
-                    width: itemWidth,
-                    backgroundColor: theme.surfaces.elevated2,
-                    boxShadow: isStory
-                      ? "0 2px 16px rgba(0,0,0,0.5)"
-                      : "0 4px 12px rgba(0,0,0,0.3)",
-                    ...(borderRadius ? { borderRadius } : {}),
-                  }}
-                >
-                  {item.coverURL ? (
-                    <Image
-                      src={item.coverURL}
-                      alt={item.name}
-                      fill
-                      sizes={`${Math.round(itemWidth)}px`}
-                      className={`object-cover ${
-                        isGameRow && isGame
-                          ? ""
-                          : "transition-transform duration-300 group-hover/item:scale-110"
-                      }`}
-                    />
-                  ) : (
+                {isGameRow && isGame ? (
+                  <div className="flex items-center justify-center will-change-transform">
                     <div
-                      className={`h-full w-full flex flex-col items-center justify-center ${
-                        isGameRow && isGame
-                          ? ""
-                          : "transition-transform duration-300 group-hover/item:scale-110"
-                      } ${isStory ? "gap-2 px-3" : ""}`}
-                      style={{ color: theme.text.tertiary }}
+                      className="origin-center transition-transform duration-300 group-hover/item:scale-110"
+                      style={{ width: itemWidth, height: rowHeight }}
                     >
-                      {isStory ? (
-                        <>
-                          <span className="text-3xl font-serif">{item.name.charAt(0)}</span>
-                          <span className="text-xs text-center leading-tight opacity-70">
-                            {item.name}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="text-2xl font-bold">{item.name.charAt(0)}</span>
-                      )}
+                      {tile}
                     </div>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  tile
+                )}
               </div>
             );
           })}

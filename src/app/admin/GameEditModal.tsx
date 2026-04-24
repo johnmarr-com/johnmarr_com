@@ -17,6 +17,7 @@ interface GameEditModalProps {
 
 interface EditState {
   name: string;
+  gameLikeLabel: string;
   subtitle: string;
   description: string;
   slug: string;
@@ -44,6 +45,7 @@ interface EditState {
 function stateFromGame(game: JMContent): EditState {
   return {
     name: game.name,
+    gameLikeLabel: game.gameLikeLabel ?? "",
     subtitle: game.subtitle ?? "",
     description: game.description,
     slug: game.slug ?? "",
@@ -146,12 +148,18 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
     setIsSaving(true);
     setError(null);
     try {
+      const { deleteField } = await import("firebase/firestore");
       const updates: Parameters<typeof updateContent>[1] = {
         name: editState.name.trim(),
         description: editState.description.trim(),
         coverURL: editState.coverURL.trim(),
         isPublished: editState.isPublished,
       };
+      if (editState.gameLikeLabel.trim()) {
+        updates.gameLikeLabel = editState.gameLikeLabel.trim();
+      } else {
+        (updates as Record<string, unknown>)["gameLikeLabel"] = deleteField();
+      }
       if (editState.subtitle.trim()) updates.subtitle = editState.subtitle.trim();
       if (editState.slug.trim()) updates.slug = editState.slug.trim();
       if (editState.backdropURL.trim()) updates.backdropURL = editState.backdropURL.trim();
@@ -273,6 +281,27 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
                   type="text"
                   value={editState.name}
                   onChange={(e) => update({ name: e.target.value })}
+                  className="w-full rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                  style={{
+                    backgroundColor: "rgba(0, 0, 0, 0.4)",
+                    borderColor: "rgba(255, 255, 255, 0.2)",
+                    color: theme.text.primary,
+                    // @ts-expect-error CSS custom property
+                    "--tw-ring-color": theme.accents.goldenGlow,
+                  }}
+                />
+              </div>
+
+              {/* Game like label (landing top-right) */}
+              <div>
+                <label className="mb-2 block text-sm font-medium" style={{ color: theme.text.secondary }}>
+                  Game Like Label
+                </label>
+                <input
+                  type="text"
+                  value={editState.gameLikeLabel}
+                  onChange={(e) => update({ gameLikeLabel: e.target.value })}
+                  placeholder="Game meets Game"
                   className="w-full rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2"
                   style={{
                     backgroundColor: "rgba(0, 0, 0, 0.4)",

@@ -22,6 +22,7 @@ function GC0SplashCinematic({ gameData, onSoloPlay, onSoloVsAI }: GC0Props) {
       {...(gameData.bgMusicLandingOnly != null ? { bgMusicLandingOnly: gameData.bgMusicLandingOnly } : {})}
       {...(gameData.slug ? { gameSlug: gameData.slug } : {})}
       {...(gameData.subtitle ? { subtitle: gameData.subtitle } : {})}
+      {...(gameData.gameLikeLabel?.trim() ? { gameLikeLabel: gameData.gameLikeLabel.trim() } : {})}
       minPlayers={gameData.minPlayers ?? 1}
       {...(gameData.maxPlayers != null ? { maxPlayers: gameData.maxPlayers } : {})}
       disabled={!gameData.isPublished}

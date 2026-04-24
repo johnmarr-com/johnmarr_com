@@ -153,6 +153,8 @@ export interface JMContent {
   // ─── Basic Metadata ───────────────────────────────────────
   name: string;
   subtitle?: string;              // Optional subtitle (used by games, etc.)
+  /** Landing top-right “like” / IP line (e.g. “Game meets Game”). */
+  gameLikeLabel?: string;
   slug?: string;                  // URL-friendly identifier (used by artists, games)
   description: string;
   creatorId: string;              // User UID of creator
@@ -220,6 +222,7 @@ export interface JMContentInput {
   contentLevel: JMContentLevel;
   name: string;
   subtitle?: string;
+  gameLikeLabel?: string;
   slug?: string;
   description: string;
   coverURL: string;

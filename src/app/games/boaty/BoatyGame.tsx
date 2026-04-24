@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "@/lib/AuthProvider";
-import { GameGamertagBadge, recordGameStats, isAiPlayer, useGameColors } from "@/app/games/_gamecore";
+import { GameGamertagBadge, recordGameStats, isAiPlayer, useGameColors, getPersona } from "@/app/games/_gamecore";
+import { pickTargetForPersona } from "./boatyAI";
 import type { JMContent } from "@/lib/content-types";
 import { PointsManager, Activity } from "@/lib/points";
 import { useBoatySession } from "./useBoatySession";
@@ -14,10 +15,17 @@ import {
   resolveAttack,
   checkWin,
   moveGator,
-  aiPickTarget,
+  findRaftAt,
+  isRaftDestroyed,
   BOATY_ATTACK_ANIM_MS,
   SQUARE_FIXED_ROTATION,
 } from "./boatyLogic";
+
+// Extra hold after a raft-sink so the AI waits through the taunt on the human's client.
+// Mirrors TAUNT_EXTRA_HOLD_MS in PlayScreen.
+const AI_RAFT_SINK_EXTRA_HOLD_MS = 2000;
+// Short pause between AI gator free-turns so the human can see the grid settle.
+const AI_BETWEEN_TURNS_MS = 800;
 import SetupScreen from "./screens/SetupScreen";
 import PlayScreen from "./screens/PlayScreen";
 
@@ -101,6 +109,22 @@ export default function BoatyGame({ sessionId, gameData, onGameEnd }: BoatyGameP
   }, [isHost, btPhase, allReady]);
 
   // ─── Host: AI auto-play turns ──────────────────────────────
+  // Stable key instead of the btLastAttack object: Firestore snapshots can emit a new
+  // object reference for unchanged data, which would re-fire the effect, cancel the
+  // pending 800ms timer, and leave aiPlayingRef stuck at `true`. The key only changes
+  // when a real attack lands, so the effect re-fires exactly when we want it to
+  // (initial turn-to-AI, or gator free-turn after AI's previous attack).
+  const aiLastAttackKey = useMemo(() => {
+    if (!btLastAttack) return null;
+    return `${btLastAttack.attackerUid}-${btLastAttack.row}-${btLastAttack.col}-${btLastAttack.result}`;
+  }, [btLastAttack]);
+
+  // Two refs cooperate here:
+  //   aiTimerRef   — pending 800ms scheduling timer (can be cancelled & re-scheduled)
+  //   aiPlayingRef — AI has committed to a turn (timer fired / executeAiTurn running /
+  //                  animation-wait pending). Blocks spurious re-fires until a full
+  //                  turn completes. Owned by executeAiTurn, NEVER touched by cleanup.
+  const aiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const aiPlayingRef = useRef(false);
   useEffect(() => {
     if (!isHost || btPhase !== "play" || !btCurrentTurn || !aiUid) return;
@@ -108,7 +132,8 @@ export default function BoatyGame({ sessionId, gameData, onGameEnd }: BoatyGameP
       aiPlayingRef.current = false;
       return;
     }
-    if (aiPlayingRef.current) return;
+    // Already scheduled OR a turn is mid-flight → don't stack another attack.
+    if (aiTimerRef.current !== null || aiPlayingRef.current) return;
 
     const humanUid = playerUids.find((uid) => !isAiPlayer(uid)) ?? "";
     const humanBoard = btBoards[humanUid];
@@ -116,14 +141,24 @@ export default function BoatyGame({ sessionId, gameData, onGameEnd }: BoatyGameP
 
     const currentAttacks: AttackRecord = btAttacks[humanUid] ?? EMPTY_ATTACKS;
 
-    aiPlayingRef.current = true;
-    const timer = setTimeout(() => {
+    aiTimerRef.current = setTimeout(() => {
+      aiTimerRef.current = null;
+      aiPlayingRef.current = true;
       void executeAiTurn(aiUid, humanUid, humanBoard, currentAttacks);
     }, 800);
-    return () => clearTimeout(timer);
-    // btLastAttack in deps so AI re-fires after a gator hit (free turn)
+    // Cleanup cancels the PENDING timer only. aiPlayingRef is owned by executeAiTurn
+    // so a resetting it here would cause spurious re-fires (from Firestore echoing
+    // the AI's own write) to schedule back-to-back attacks.
+    return () => {
+      if (aiTimerRef.current !== null) {
+        clearTimeout(aiTimerRef.current);
+        aiTimerRef.current = null;
+      }
+    };
+    // aiLastAttackKey (not btLastAttack) so AI re-fires after a gator hit without
+    // spurious re-fires from Firestore snapshot churn.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHost, btPhase, btCurrentTurn, aiUid, btLastAttack]);
+  }, [isHost, btPhase, btCurrentTurn, aiUid, aiLastAttackKey]);
 
   const executeAiTurn = useCallback(
     async (
@@ -132,7 +167,16 @@ export default function BoatyGame({ sessionId, gameData, onGameEnd }: BoatyGameP
       targetBoard: PlayerBoard,
       currentAttacks: AttackRecord,
     ) => {
-      const target = aiPickTarget(currentAttacks);
+      // Persona's user-level → algorithmic tier (basic / standard / sharp).
+      // Persona's play style biases the pick from that tier's ranked list
+      // (aggressive hunts, cautious picks top, creative widens, chaotic deviates).
+      // Falls back to Champion (L7) + Balanced if the persona has no metadata.
+      const persona = getPersona(aiId);
+      const target = pickTargetForPersona(
+        currentAttacks,
+        persona?.skillLevel,
+        persona?.playStyle ?? "balanced",
+      );
       const result: AttackResult = resolveAttack(target.row, target.col, targetBoard);
 
       const updatedAttacks: AttackRecord = {
@@ -153,7 +197,15 @@ export default function BoatyGame({ sessionId, gameData, onGameEnd }: BoatyGameP
       const newGator = moveGator(targetBoard.gator, targetBoard.rafts);
       const won = result === "hit" && checkWin(updatedAttacks);
 
-      const fields: Record<string, unknown> = {
+      // Match the human attack flow: write attack data immediately so both clients
+      // animate, and DEFER the turn change until after the animation — otherwise the
+      // grid would flip to the human's attack view mid-molotov.
+      const hitRaft =
+        result === "hit" ? findRaftAt(targetBoard.rafts, target.row, target.col) : undefined;
+      const raftDestroyed = !!hitRaft && isRaftDestroyed(hitRaft, updatedAttacks.hits);
+      const holdExtraMs = raftDestroyed && !won ? AI_RAFT_SINK_EXTRA_HOLD_MS : 0;
+
+      await updateFields({
         btLastAttack: {
           attackerUid: aiId,
           targetUid: targetId,
@@ -164,22 +216,25 @@ export default function BoatyGame({ sessionId, gameData, onGameEnd }: BoatyGameP
         },
         [`btBoards.${targetId}.gator`]: newGator,
         [`btAttacks.${targetId}`]: updatedAttacks,
-      };
+      });
 
-      if (!won && result !== "gator") {
-        fields["btCurrentTurn"] = targetId;
-      }
-      // Gator hit: btCurrentTurn stays as AI (free turn)
-      // Win: defer btWinner / finished until after attack animation (same as human attacker).
-
-      aiPlayingRef.current = false;
-      await updateFields(fields);
-
-      if (won) {
-        setTimeout(() => {
+      // After the animation completes: win, turn-handover, or schedule a free gator turn.
+      setTimeout(() => {
+        aiPlayingRef.current = false;
+        if (won) {
           void updateFields({ btWinner: aiId, btPhase: "finished" });
-        }, BOATY_ATTACK_ANIM_MS);
-      }
+        } else if (result === "gator") {
+          // Free turn — queue another AI move using the updated board + attacks.
+          // Small extra delay so the "they hit your gator" popup reads before the next throw.
+          const nextBoard: PlayerBoard = { rafts: targetBoard.rafts, gator: newGator };
+          aiPlayingRef.current = true;
+          setTimeout(() => {
+            void executeAiTurn(aiId, targetId, nextBoard, updatedAttacks);
+          }, AI_BETWEEN_TURNS_MS);
+        } else {
+          void updateFields({ btCurrentTurn: targetId });
+        }
+      }, BOATY_ATTACK_ANIM_MS + holdExtraMs);
     },
     [updateFields],
   );

@@ -6,6 +6,25 @@ export type AIPlayStyle =
   | "chaotic"
   | "balanced";
 
+/**
+ * AI difficulty is the same numeric continuum as the player levels (1–10+).
+ * Personas are assigned to any level; algorithmic strength is dispatched from
+ * level-ranges so adding a new level later doesn't require a new category.
+ */
+export type AISkillLevel = number;
+
+/** Fallback when a persona doc predates the `skillLevel` field. */
+export const DEFAULT_AI_SKILL_LEVEL = 7; // Champion
+
+/** Level → engine tier. Keep in sync with any game-side AI dispatcher. */
+export type AIEngineTier = "basic" | "standard" | "sharp";
+
+export function aiEngineTierForLevel(level: number): AIEngineTier {
+  if (level <= 3) return "basic";
+  if (level <= 7) return "standard";
+  return "sharp";
+}
+
 export interface AIPersonaStats {
   gamesPlayed: number;
   wins: number;
@@ -16,6 +35,8 @@ export interface AIPersona {
   id: string;
   name: string;
   playStyle: AIPlayStyle;
+  /** User-level from /levels (1..10+). Missing = treat as Champion (7). */
+  skillLevel?: number | undefined;
   description: string;
   avatarName?: string | undefined;
   prompt?: string | undefined;
@@ -72,6 +93,7 @@ export async function loadPersonasFromDB(): Promise<AIPersona[]> {
         id: `ai-${d.id}`,
         name: d.name,
         playStyle: d.playStyle,
+        skillLevel: d.skillLevel ?? undefined,
         description: d.description,
         avatarName: d.avatarName || undefined,
         prompt: d.prompt || undefined,
