@@ -17,6 +17,7 @@ import {
 } from "@/lib/ai-personas";
 import { getAllLevels, type UserLevel } from "@/lib/levels";
 import { getAvatarScale } from "@/lib/avatar-scale-map";
+import { useAuth } from "@/lib/AuthProvider";
 
 const PLAY_STYLES: AIPlayStyle[] = [
   "aggressive",
@@ -73,6 +74,7 @@ interface AIPersonaEditModalProps {
 
 export function AIPersonaEditModal({ personaId, onClose, onUpdated }: AIPersonaEditModalProps) {
   const { theme } = useJMStyle();
+  const { user } = useAuth();
   const isCreate = personaId === null;
 
   const [persona, setPersona] = useState<AIPersonaDoc | null>(null);
@@ -122,8 +124,12 @@ export function AIPersonaEditModal({ personaId, onClose, onUpdated }: AIPersonaE
   }, [personaId, isCreate]);
 
   const loadAvatars = useCallback(async () => {
+    if (!user) return;
     try {
-      const res = await fetch("/api/avatars");
+      const idToken = await user.getIdToken();
+      const res = await fetch("/api/avatars?includeCustom=1", {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
       if (!res.ok) return;
       const data = await res.json();
       const items: JMAvatarItem[] = (data as { file: string; name: string }[]).map(
@@ -133,11 +139,18 @@ export function AIPersonaEditModal({ personaId, onClose, onUpdated }: AIPersonaE
           scale: getAvatarScale(a.file),
         }),
       );
+      const isCustomFile = (filename: string) => filename.includes("-custom~~");
+      items.sort((a, b) => {
+        const aC = isCustomFile(a.filename) ? 0 : 1;
+        const bC = isCustomFile(b.filename) ? 0 : 1;
+        if (aC !== bC) return aC - bC;
+        return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+      });
       setAvatars(items);
     } catch {
       /* ignore */
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     loadAvatars();
@@ -212,12 +225,12 @@ export function AIPersonaEditModal({ personaId, onClose, onUpdated }: AIPersonaE
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" aria-hidden />
 
       {/* Avatar picker overlay — above everything */}
       {showAvatarPicker && avatars.length > 0 && (
-        <div className="fixed inset-0 z-60 flex flex-col bg-black/95">
+        <div className="fixed inset-0 z-[110] flex flex-col bg-black/95">
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 sm:px-6 sm:py-4">
             <h3 className="text-xl font-semibold text-white sm:text-lg">Choose Avatar</h3>
             <button
@@ -625,14 +638,6 @@ export function AIPersonaEditModal({ personaId, onClose, onUpdated }: AIPersonaE
               {showSaveToast && (
                 <span className="text-base font-medium text-green-400 sm:text-sm">Saved!</span>
               )}
-              <button
-                type="button"
-                onClick={onClose}
-                className="min-h-[48px] rounded-lg px-4 py-2.5 text-base font-medium transition-colors hover:bg-white/10 sm:min-h-0 sm:py-2 sm:text-sm"
-                style={{ color: theme.text.secondary }}
-              >
-                Cancel
-              </button>
               <button
                 type="button"
                 onClick={handleSave}

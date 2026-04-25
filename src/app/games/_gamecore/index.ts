@@ -11,6 +11,19 @@ export {
   type AICommentResult,
 } from "./AIPlayerManager";
 export { getAIAuthHeaders } from "./getAIAuthHeaders";
+export {
+  generatePostGameComments,
+  generatePostGameCommentsForUid,
+  type PostGameCommentsInput,
+} from "./aiPostGameComments";
+export {
+  aiHistoryTierForLevel,
+  sliceHistoryByTier,
+  sliceHistoryForLevel,
+  pickByRankedRoll,
+  TIER_PROMPT_DIRECTIVE,
+  type AIHistoryTier,
+} from "./aiSkillDice";
 export { SketchCanvas, type SketchCanvasRef } from "./SketchCanvas";
 export {
   GameGamertagBadge,

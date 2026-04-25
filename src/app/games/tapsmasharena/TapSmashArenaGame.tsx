@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useJMStyle } from "@/JMStyle";
 import { JMBannerText, JMChampionPicker, JMCloseCircleButton, JMGameScoreboard, type ChampionOption } from "@/JMKit";
-import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, GameGamertagBadge, type GameMode, type ResolverOutput, type AIPersona } from "../_gamecore";
+import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, GameGamertagBadge, sliceHistoryByTier, aiHistoryTierForLevel, TIER_PROMPT_DIRECTIVE, type GameMode, type ResolverOutput, type AIPersona } from "../_gamecore";
 import { useAuth } from "@/lib/AuthProvider";
 import { startGame, type GameSession } from "@/lib/game-sessions";
 
@@ -116,7 +116,13 @@ function resolveWinner(
   return BEATS[ownerAtk] === opponentAtk ? "owner" : "opponent";
 }
 
-function buildMovePrompt(history: MoveRecord[]): string {
+function buildMovePrompt(
+  history: MoveRecord[],
+  skillLevel: number | undefined,
+): string {
+  const tier = aiHistoryTierForLevel(skillLevel);
+  const sliced = sliceHistoryByTier(history, tier);
+
   const system = `You are playing Rock Paper Scissors against a human.
 
 RULES:
@@ -129,14 +135,25 @@ First to 3 points wins. Study the player's patterns and choose the move most lik
 
 CRITICAL: Your ACTION must match your reasoning. If you want to counter their Rock, play Paper. If you want to counter their Paper, play Scissors. If you want to counter their Scissors, play Rock.
 
+${TIER_PROMPT_DIRECTIVE[tier]}
+
 Format your response EXACTLY as:
 REASONING: <1 brief sentence for the player to read after the game>
 ACTION: <Rock, Paper, or Scissors>`;
 
   const nameMap: Record<string, string> = { R: "Rock", P: "Paper", S: "Scissors" };
-  const lines = history.map((m, i) => {
+
+  if (sliced.length === 0) {
+    const reason = tier === "none" && history.length > 0
+      ? "You don't recall earlier rounds — pick your move on instinct."
+      : "This is the first round — no history yet. Pick your opening move.";
+    return system + `\n\n${reason}`;
+  }
+
+  const lines = sliced.map((m, i) => {
     const result = m.winner === "tie" ? "Tie" : m.winner === "player" ? "Player won" : "You won";
-    return `Round ${i + 1}: Player=${nameMap[m.player]}, You=${nameMap[m.opponent]} → ${result}`;
+    const roundNum = history.length - sliced.length + i + 1;
+    return `Round ${roundNum}: Player=${nameMap[m.player]}, You=${nameMap[m.opponent]} → ${result}`;
   });
   return system + `\n\nMove history:\n${lines.join("\n")}\n\nRound ${history.length + 1} — what do you play?`;
 }
@@ -221,6 +238,7 @@ export default function TapSmashArenaGame({
   const prefetchRef = useRef<Promise<{ attack: Attack; reasoning: string }> | null>(null);
   const personaPrompt = aiPersona?.prompt || undefined;
   const personaVoice = aiPersona?.voice || undefined;
+  const personaSkillLevel = aiPersona?.skillLevel;
   const aiName = aiPersona?.name || "AI";
 
   // ─── Multiplayer resolver ───
@@ -523,7 +541,7 @@ export default function TapSmashArenaGame({
   }, [isFriends, mpSession?.rounds, mpSession?.playerSides, user?.uid, playChapter, setP, markAnimationDone]);
 
   const fetchAiMove = useCallback((): Promise<{ attack: Attack; reasoning: string }> => {
-    const prompt = buildMovePrompt(historyRef.current);
+    const prompt = buildMovePrompt(historyRef.current, personaSkillLevel);
     return simpleMove(prompt, personaPrompt, personaVoice)
       .then(({ action, reason }) => {
         const attack = parseAttackFromAction(action);
@@ -534,7 +552,7 @@ export default function TapSmashArenaGame({
         attack: ATTACKS[Math.floor(Math.random() * ATTACKS.length)]!,
         reasoning: "",
       }));
-  }, [personaPrompt, personaVoice]);
+  }, [personaPrompt, personaVoice, personaSkillLevel]);
 
   const resolveRound = useCallback(
     (playerAttack: Attack, cpuAttack: Attack, aiReason?: string) => {

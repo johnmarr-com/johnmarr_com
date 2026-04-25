@@ -40,7 +40,7 @@ function AdminContent() {
         <div className="absolute inset-0 bg-black/70" />
       </div>
 
-      <main className="relative z-10 mx-auto flex w-[80%] flex-col py-12">
+      <main className="relative mx-auto flex w-[80%] flex-col py-12">
         {/* Admin toolbar */}
         <div 
           className="opacity-0 animate-fade-in-up animation-delay-200 rounded-2xl border backdrop-blur-md"

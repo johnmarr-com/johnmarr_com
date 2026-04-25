@@ -141,7 +141,7 @@ export function GameLandingPage({
       {/* John Marr platform mark — on top of dim, under splash art (z-10); short viewports can overlap */}
       <div
         className="pointer-events-none absolute left-1/2 z-5 w-[100px] -translate-x-1/2"
-        style={{ top: 60 }}
+        style={{ top: 110 }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- animated GIF */}
         <img

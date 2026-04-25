@@ -130,6 +130,9 @@ export interface GC4ResultOptions {
   hideScores?: boolean;
   /** Resume the game's background music on the result screen. */
   playMusic?: boolean;
+  /** Show a "View {AI}'s Post-Game Comments" button if the session has any
+   * AI-authored comments at `session.aiPostGameComments[aiUid]`. */
+  showAIPostGameComments?: boolean;
 }
 
 /** GC4: Result — win/lose screen after gameplay ends. */

@@ -14,25 +14,48 @@
  *   playMusic    — resume background music on this screen
  */
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { X } from "lucide-react";
 import { registerVariant } from "../registry";
 import type { GC4Props } from "../types";
 import { JMAvatarView, JMWinnerLoserCard, JMConfettiOverlay, JMSimpleButton } from "@/JMKit";
 import { GameGamertagBadge } from "../../GameGamertagBadge";
 import { useGameColors } from "../../GameColorsProvider";
 import { bgMusic } from "../../BackgroundMusicPlayer";
+import { getPersona, isAiPlayer } from "../../aiPersonas";
 
 function GC4ResultLeaderboard({
   gameData,
+  session,
   result,
   isHost,
   onPlayAgain,
   resultOptions,
 }: GC4Props) {
   const { winners, winnerPoints, allPlayers, scores } = result;
-  const { logoRight, hideScores, playMusic } = resultOptions ?? {};
+  const { logoRight, hideScores, playMusic, showAIPostGameComments } = resultOptions ?? {};
+
+  // Pull AI Post-Game Comments off the session doc if the game opted in.
+  // `aiPostGameComments` is an optional `Record<aiUid, string>` the game
+  // writes at end-of-game. We only render the button when ≥1 is present.
+  const aiComments =
+    (showAIPostGameComments &&
+      (session as unknown as Record<string, unknown>)?.["aiPostGameComments"]) as
+      | Record<string, string>
+      | undefined;
+  const commentEntries = aiComments
+    ? allPlayers
+        .filter((p) => isAiPlayer(p.uid) && aiComments[p.uid])
+        .map((p) => ({
+          uid: p.uid,
+          name: p.gamertag,
+          avatarName: p.avatarName,
+          comment: aiComments[p.uid]!,
+        }))
+    : [];
+  const [showCommentsModal, setShowCommentsModal] = useState(false);
   const { primary, secondary } = useGameColors();
   const gameLogoURL = gameData.splashLogoURL ?? gameData.coverURL;
   const bgDim = gameData.splashBgDim ?? 50;
@@ -180,7 +203,74 @@ function GC4ResultLeaderboard({
             Play Again
           </button>
         )}
+
+        {/* AI Post-Game Comments — one button per AI with a comment. */}
+        {commentEntries.length > 0 && (
+          <div className="mt-2 flex w-full max-w-xs flex-col gap-2">
+            {commentEntries.map((entry) => (
+              <button
+                key={entry.uid}
+                onClick={() => setShowCommentsModal(true)}
+                className="rounded-full border border-white/30 bg-white/10 px-5 py-2 text-sm font-bold uppercase tracking-wider text-white/80 transition-all hover:scale-[1.02] hover:bg-white/20 active:scale-95"
+              >
+                {entry.name}&rsquo;s Post-Game Comments
+              </button>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Modal: all AI comments stacked */}
+      {showCommentsModal && commentEntries.length > 0 && (
+        <div className="fixed inset-0 z-40 flex flex-col bg-black/95 backdrop-blur-sm">
+          <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+            <span className="text-sm font-black uppercase tracking-widest text-white/70">
+              Post-Game Comments
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowCommentsModal(false)}
+              aria-label="Close"
+              className="rounded-full p-2 text-white/70 transition-colors hover:bg-white/10"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-5 py-4">
+            {commentEntries.map((entry) => {
+              const persona = getPersona(entry.uid);
+              return (
+                <div
+                  key={entry.uid}
+                  className="mb-5 rounded-2xl border border-white/10 bg-white/5 p-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-black/40">
+                      <JMAvatarView width={40} avatarName={entry.avatarName ?? "default"} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className="truncate text-sm font-black uppercase tracking-wider"
+                        style={{ color: secondary }}
+                      >
+                        {entry.name}
+                      </p>
+                      {persona?.description && (
+                        <p className="truncate text-xs text-white/40">
+                          {persona.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <p className="mt-3 whitespace-pre-wrap text-sm italic text-amber-300/90">
+                    &ldquo;{entry.comment}&rdquo;
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

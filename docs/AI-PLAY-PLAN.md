@@ -7,7 +7,7 @@ LLMs appear only where *the act of thinking out loud is itself the content*.
 ## Guiding principles
 
 1. **Classify the game type first.** Three kinds:
-   - **Deterministic strategy** (Boaty, Fyve). The move is a choice among
+   - **Deterministic strategy** (Boaty). The move is a choice among
      defined options on a state. Algorithms dominate. LLM adds flavor only.
    - **LLM-native** (Wordonkulous, SweepTheLeg, TapSmashArena). The LLM's
      output is part of the move itself — a fake definition, a combat
@@ -149,44 +149,54 @@ the module.
 
 ## Implementation status by game
 
-### Deterministic strategy games (four-layer pattern applies)
+Single source of truth for where each game stands against the hybrid plan.
+Update this in place as features ship; overwrite whole rows when the landscape
+shifts.
 
-| Game | L1 tiers | L2 style-bias | L3 transcript | L4 LLM override | Uses current LLM? |
+Legend:
+
+- ✅ shipped
+- ❌ outstanding work — real red-flag TODO
+- 🟡 intentionally n/a for this game (no work planned)
+
+| Game | AI opponents | Engine | Skill tiers | Post-game comments | Self-play verified |
 |---|---|---|---|---|---|
-| **Boaty** | ✅ done, self-play verified | ✅ done, self-play verified | ❌ | ❌ | no |
-| **Fyve** | ❌ | ❌ | ❌ | ❌ | no, yet |
+| **Boaty** | ✅ | ✅ procedural (basic/standard/sharp + style bias) | ✅ L1-3 / L4-7 / L8+ | ✅ shared `generatePostGameComments` helper | ✅ **1000× per pairing** |
+| **Fyve** | 🟡 no AI by design | 🟡 | 🟡 | 🟡 | 🟡 |
+| **BluffBox** | ✅ | ✅ LLM-native (truth/lie share + guess) | ✅ gated history via `aiSkillDice` | 🟡 not needed — the bluff interaction IS the content | 🟡 generative |
+| **MegaSketchy** | 🟡 no AI opponents by design | 🟡 humans draw | 🟡 | ✅ LLM in judge role only (Mad Libs + Scoring commentary) | 🟡 |
+| **SweepTheLeg** | ✅ | ✅ LLM-native (LLM picks + narrates each move) | ✅ gated history via `aiSkillDice` | ✅ inline transcript + post-game line | 🟡 generative |
+| **TapSmashArena** | ✅ | ✅ LLM-native (same pattern as SweepTheLeg) | ✅ gated history via `aiSkillDice` | ✅ inline transcript + post-game line | 🟡 generative |
+| **Wordonkulous** | ✅ | ✅ LLM-native (AI invents definitions) | ❌ prompt tiering TBD | 🟡 not needed — definitions ARE the content | 🟡 generative |
+| **Blarf** | 🟡 no AI by design | 🟡 | 🟡 | 🟡 | 🟡 |
 
-### LLM-native games (text output IS the game)
+### The remaining red X's
 
-| Game | Pattern | Per-turn cost |
-|---|---|---|
-| **Wordonkulous** | Every AI turn is an LLM call producing a full fake definition. The word IS the move; no algorithmic alternative exists. | Full LLM call per AI turn; design requirement. |
-| **SweepTheLeg** | Each AI move currently generates in-character combat/bomb narration that's part of the UX. The text is the transcript, the transcript is the experience. Keep as-is. | Full LLM call per AI turn; design requirement. |
-| **TapSmashArena** | Same pattern — AI moves produce narrated arena action. Keep as-is. | Full LLM call per AI turn; design requirement. |
+1. **Skill-level prompt tiering in Wordonkulous.** It's the last LLM-native
+   game still running tier-blind — definitions all read at the same skill
+   level regardless of `persona.skillLevel`. Phase 3 work: wire it through
+   `aiSkillDice` (gated history of prior rounds + framing directive) so
+   Enthusiast / Champion / Game Master tiers feel genuinely different.
+   **BluffBox, SweepTheLeg, and TapSmashArena are already wired.**
 
-**LLM-native pattern** in brief:
+Everything else is either shipped (green) or intentionally out of scope
+(yellow).
 
-- `AIPersona.skillLevel` maps to prompt sophistication, not to algorithm
-  switches. A Level 10 "Game Master" gets richer instructions (reference
-  obscure patterns, read the opponent's tendencies, use more vivid imagery);
-  a Level 3 "Enthusiast" gets simpler framing (straightforward choices,
-  plainer voice).
-- `AIPersona.playStyle` genuinely colors output the way it can't in a grid
-  game — an "aggressive" Wordonkulous AI writes definitions that dunk on
-  rivals; a "cautious" one writes safe plausible bluffs. An aggressive
-  SweepTheLeg AI narrates its bombs with taunt and tempo; a cautious one
-  makes methodical callouts.
-- Transcript = the game itself. No separate commentary pass needed; the
-  move output already serves that role.
-- Quality gate is human blind-tasting at each skill level, not self-play
-  (no "win rate" to measure for generated content).
+### Why each game is shaped the way it is
 
-### Human-performance games (no AI opponents at all)
-
-| Game | Why no AI |
-|---|---|
-| **Blarf** | Game of spoken performance between humans. AI can't meaningfully produce the game's core output. Exclude from AI plan. |
-| **MegaSketchy** | Visual collaborative drawing. Similar constraint. |
+- **Deterministic strategy** (Boaty) — move space is discrete and
+  evaluable; algorithms beat LLMs at strength. Four-layer hybrid applies.
+- **LLM-native with text output** (BluffBox, SweepTheLeg, TapSmashArena,
+  Wordonkulous) — the AI's text IS part of the move. No procedural
+  alternative exists; skill tier lives in the prompt, not the code.
+- **Human-performance with LLM judge** (MegaSketchy) — sketches are drawn
+  by humans; the game's joy depends on that. The LLM sits on the side as a
+  judge / narrator for Mad Libs generation and post-round scoring
+  commentary. No AI *players*.
+- **Human-performance, no AI** (Blarf, Fyve) — interpersonal team-based
+  games where AI on a human team adds management overhead without enough
+  upside. All-AI teams could be interesting but not interesting enough.
+  Intentionally out of scope.
 
 ## Phased roadmap
 
@@ -214,25 +224,59 @@ Effort: ~1 day.
 Effort: ~0.5 day. Lift the transcript service, UI, and style-bias protocol
 to `_gamecore/` so every future game is a drop-in.
 
-### Phase 3 — LLM-native prompt tiering (Wordonkulous, SweepTheLeg, TapSmashArena)
+### Phase 3 — LLM-native skill tiering via gated history
 
-These three games stay fully LLM-driven by design — the text output IS
-the game. The work here is making skill level and play style actually
-influence prompts.
+BluffBox, SweepTheLeg, TapSmashArena, Wordonkulous all share a pattern:
+the AI's text IS the move. There's no cheaper algorithm to substitute in,
+so skill can't come from engine swaps. Instead:
 
-Deliverable per game: a `{game}AIPrompts.ts` module that returns a prompt
-string given `(persona, round context)`, with meaningful variation by
-`skillLevel` (prompt sophistication, vocabulary budget, allowed creative
-latitude) and `playStyle` (tone, which tactical directions the persona
-leans into).
+**Mechanism: each tier gets a different slice of game history, plus a
+framing directive.** The LLM always tries to play well — lower tiers are
+simply less informed. An Enthusiast who literally wasn't shown the voting
+patterns can't meta-game them. A Game Master who sees every past round
+can.
 
-Quality gate: human blind-tasting outputs at each tier. Compare
-"Level 3 Enthusiast VIZOR" vs "Level 10 Game Master VIZOR" — both should
-read as the same character, one noticeably more polished than the other.
+| Tier | History access | Framing |
+|---|---|---|
+| Enthusiast (L1-3) | none | "Decide from personality + the current problem. You don't remember past rounds." |
+| Champion (L4-7) | this round or last N events (default 5) | "Seasoned observer. React to recent events. Don't lean on long-term patterns." |
+| Game Master (L8+) | full game history | "Elite competitor. Leverage psychology and opponent tendencies. Play to win." |
 
-### Phase 4 — Fyve
+Implementation lives in [`_gamecore/aiSkillDice.ts`](../src/app/games/_gamecore/aiSkillDice.ts):
 
-Fresh deterministic-strategy implementation using the four-layer pattern.
+- `aiHistoryTierForLevel(level)` → `"none" | "recent" | "full"`
+- `sliceHistoryByTier(history, tier, recentN?)` → clipped event log
+- `sliceHistoryForLevel(history, level, recentN?)` → convenience wrapper
+- `TIER_PROMPT_DIRECTIVE[tier]` → framing string to append to persona prompt
+- `pickByRankedRoll(ranked, level)` → optional weighted-pick fallback for
+  games where options come pre-ranked by quality (most don't need it)
+
+Each game maps "history" to its own event type:
+
+- **BluffBox** — running log of `(player, sharedCard, truth|lie, votes)`
+- **Wordonkulous** — prior rounds of `(realWord, realDefinition, winners)`
+- **SweepTheLeg** — prior combat exchanges in the current fight
+- **TapSmashArena** — same shape as SweepTheLeg
+
+Why gated history over a "produce 3 ranked options, dice-roll the pick"
+approach:
+
+- No performative-bad outputs. An LLM told to "write an unskilled move"
+  still knows the optimal move — it ends up performing bad play, which
+  feels theatrical. Gating context creates a genuine skill delta.
+- Simpler prompt contract (one move, one call) and uniform across games.
+- Play style stays in voice only — never leaks into strategy as an
+  exploitable tell (an "aggressive Game Master" can't bias toward lying
+  more, because that would be a known pattern opponents could exploit).
+
+Per-game work: wire the existing AI module to build its prompt via
+`sliceHistoryForLevel(history, persona.skillLevel)` plus
+`TIER_PROMPT_DIRECTIVE[tier]` appended to the persona prompt. Voice prompt
+is unchanged — personality is constant across tiers.
+
+Quality gate: human blind-tasting at each tier per game. Level 3
+Enthusiast VIZOR vs Level 10 Game Master VIZOR should read as the same
+character, one noticeably more strategically sharp than the other.
 
 ## Self-play as a quality gate
 
@@ -303,11 +347,11 @@ Harness pattern: `scripts/{game}SelfPlay.ts`. Boaty's already at
 
 Classify every game before applying this plan:
 
-1. **Deterministic strategy** (Boaty, Fyve, SweepTheLeg, TapSmashArena) →
+1. **Deterministic strategy** (Boaty) →
    four-layer hybrid. Algorithms do the moves. LLM handles flavor. Cheap.
 2. **Generative content** (Wordonkulous) → full LLM each turn, no apology.
    Skill tiers live in the prompt, not in an algorithm. Tokens are the game.
-3. **Human-performance** (Blarf, MegaSketchy) → no AI players. Exclude.
+3. **Human-performance** (Blarf, MegaSketchy, Fyve) → no AI players. Exclude.
 
 Within category 1, the cheapest way to make every AI feel distinct:
 
@@ -319,6 +363,5 @@ Within category 1, the cheapest way to make every AI feel distinct:
 
 Boaty is the pilot (Layers 1 + 2 verified). Lift shared pieces into
 `_gamecore` next (Phase 2). Apply LLM-native prompt tiering to
-Wordonkulous / SweepTheLeg / TapSmashArena (Phase 3). Build Fyve fresh on
-the deterministic pattern (Phase 4). Self-play verifies deterministic
-tiers; blind-tasting verifies LLM-native tiers.
+Wordonkulous / SweepTheLeg / TapSmashArena (Phase 3). Self-play verifies
+deterministic tiers; blind-tasting verifies LLM-native tiers.

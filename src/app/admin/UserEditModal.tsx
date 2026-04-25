@@ -161,7 +161,7 @@ export function UserEditModal({ userId, onClose, onSaved }: UserEditModalProps) 
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-20"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 pt-20"
       onClick={onClose}
     >
       {/* Backdrop */}

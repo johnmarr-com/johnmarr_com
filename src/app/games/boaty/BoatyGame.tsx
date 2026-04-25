@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "@/lib/AuthProvider";
-import { GameGamertagBadge, recordGameStats, isAiPlayer, useGameColors, getPersona } from "@/app/games/_gamecore";
+import {
+  GameGamertagBadge,
+  recordGameStats,
+  isAiPlayer,
+  useGameColors,
+  getPersona,
+  generatePostGameCommentsForUid,
+} from "@/app/games/_gamecore";
 import { pickTargetForPersona } from "./boatyAI";
 import type { JMContent } from "@/lib/content-types";
 import { PointsManager, Activity } from "@/lib/points";
@@ -30,6 +37,42 @@ import SetupScreen from "./screens/SetupScreen";
 import PlayScreen from "./screens/PlayScreen";
 
 const EMPTY_ATTACKS: AttackRecord = { hits: [], misses: [], gatorHits: [] };
+
+function cellLabel(p: { row: number; col: number }): string {
+  // Column A-E (columns), rows 1-5 — same convention humans use.
+  return `${String.fromCharCode(65 + p.col)}${p.row + 1}`;
+}
+
+/** Flatten the per-defender AttackRecord map into a plain-text game recap,
+ *  one line per shot, ordered roughly by the order shots were taken.
+ *  This is the context we hand an AI persona for their Post-Game Comments. */
+function buildBoatyEventLog(
+  btAttacks: Record<string, AttackRecord>,
+  players: Array<{ uid: string; gamertag: string }>,
+): string {
+  const nameFor = (uid: string) =>
+    players.find((p) => p.uid === uid)?.gamertag ?? "Unknown";
+
+  const lines: string[] = [];
+  for (const [defenderUid, rec] of Object.entries(btAttacks)) {
+    // Figure out who the attacker was for this record — the OTHER player.
+    const attackerUid = players.find((p) => p.uid !== defenderUid)?.uid;
+    if (!attackerUid) continue;
+    const attacker = nameFor(attackerUid);
+    const defender = nameFor(defenderUid);
+
+    for (const c of rec.hits) {
+      lines.push(`${attacker} threw at ${cellLabel(c)} — HIT ${defender}'s raft.`);
+    }
+    for (const c of rec.misses) {
+      lines.push(`${attacker} threw at ${cellLabel(c)} — MISS.`);
+    }
+    for (const c of rec.gatorHits) {
+      lines.push(`${attacker} threw at ${cellLabel(c)} — hit the GATOR (free turn).`);
+    }
+  }
+  return lines.join("\n");
+}
 
 interface BoatyGameProps {
   sessionId: string;
@@ -323,10 +366,40 @@ export default function BoatyGame({ sessionId, gameData, onGameEnd }: BoatyGameP
       if (isHost) PointsManager.award(Activity.HOST_GAME);
       if (btWinner === userId) PointsManager.award(Activity.WIN_GAME);
       recordGameStats(playerUids, btWinner ? [btWinner] : [], session?.ownerId ?? "");
+
+      // Host generates Post-Game Comments for each AI player (one LLM call per AI).
+      // Fire-and-forget; stored on the session so the GC4 screen can render them.
+      if (isHost) {
+        const sessionData = session as unknown as Record<string, unknown> | null;
+        const existing =
+          (sessionData?.["aiPostGameComments"] as Record<string, string> | undefined) ?? {};
+        for (const p of players) {
+          if (!isAiPlayer(p.uid)) continue;
+          if (existing[p.uid]) continue; // already generated (reconnect/replay safety)
+          const opponentOfAi = playerUids.find((uid) => uid !== p.uid) ?? "";
+          const aiHits = (btAttacks[opponentOfAi] ?? EMPTY_ATTACKS).hits.length;
+          const humanHits = (btAttacks[p.uid] ?? EMPTY_ATTACKS).hits.length;
+          const outcome: "won" | "lost" | "draw" =
+            btWinner === p.uid ? "won" : "lost";
+          const gameContext = buildBoatyEventLog(btAttacks, players);
+          void generatePostGameCommentsForUid(p.uid, {
+            outcome,
+            score: `${aiHits}–${humanHits}`,
+            gameContext,
+            gameName: "Boaty McBoatface",
+          }).then((comment) => {
+            if (!comment) return;
+            void updateFields({
+              [`aiPostGameComments.${p.uid}`]: comment,
+            });
+          });
+        }
+      }
     }
     if (btPhase !== "finished") {
       gameEndFiredRef.current = false;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires once on transition to finished
   }, [btPhase, btWinner, btAttacks, onGameEnd, players, isHost, userId, playerUids, session?.ownerId]);
 
   // ─── Render ────────────────────────────────────────────────

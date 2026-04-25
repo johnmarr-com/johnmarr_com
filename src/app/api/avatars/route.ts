@@ -1,14 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readdir } from 'fs/promises';
 import { join } from 'path';
+import { verifyIdToken } from '@/lib/firebase-admin';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const includeCustom =
+      searchParams.get('includeCustom') === '1' ||
+      searchParams.get('includeCustom') === 'true';
+
+    if (includeCustom) {
+      const authHeader = request.headers.get('authorization');
+      if (!authHeader?.startsWith('Bearer ')) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      const idToken = authHeader.substring(7);
+      let decodedToken;
+      try {
+        decodedToken = await verifyIdToken(idToken);
+      } catch {
+        return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+      }
+      if (decodedToken['admin'] !== true) {
+        return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+      }
+    }
+
     const publicAvatarsDir = join(process.cwd(), 'public', 'avatars');
     const files = await readdir(publicAvatarsDir);
-    
-    // Filter for JSON files, excluding AI-custom recolors
-    const jsonFiles = files.filter(file => file.endsWith('.json') && !file.includes('-custom~~'));
+
+    // Default: hide -custom~~ recolors from player-facing lists. includeCustom (admin only) returns all JSON.
+    const jsonFiles = includeCustom
+      ? files.filter((file) => file.endsWith('.json'))
+      : files.filter(
+          (file) => file.endsWith('.json') && !file.includes('-custom~~'),
+        );
     
     // Return array of file objects with name and file path
     const avatars = jsonFiles.map(file => ({

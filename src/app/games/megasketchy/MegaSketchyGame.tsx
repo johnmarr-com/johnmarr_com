@@ -12,8 +12,6 @@ import { buildInitialChains, type ChainEntry } from "./chainEngine";
 
 import { getMission, missionToSecretMessage } from "@/lib/megasketchy-missions";
 import type { MegaSketchyMission } from "@/lib/megasketchy-missions";
-import { processAiQueue } from "./aiPlayer";
-import { isAiPlayer } from "./aiConstants";
 import MegaSketchyBriefing from "./MegaSketchyBriefing";
 import MegaSketchyPlayScreen from "./MegaSketchyPlayScreen";
 import MegaSketchyMadLibs from "./MegaSketchyMadLibs";
@@ -81,12 +79,11 @@ export default function MegaSketchyGame({
     setupRef.current = true;
 
     const order = shuffleArray(session.players.map((p) => p.uid));
-    const firstAi = order.find(isAiPlayer) ?? null;
 
     updateSessionFields(sessionId, {
       skPhase: "briefing",
       playOrder: order,
-      aiPlayerId: firstAi,
+      aiPlayerId: null,
       message: null,
       chains: {},
       gameMode: "basic",
@@ -105,26 +102,9 @@ export default function MegaSketchyGame({
     setPhase("madlibs");
   }, [isHost, skState.skPhase, chainsComplete, setPhase]);
 
-  // Host: process AI player queue (all AI players in playOrder)
-  const aiProcessingRef = useRef(false);
-  useEffect(() => {
-    if (!isHost || skState.skPhase !== "active" || !skState.aiPlayerId) return;
-    if (aiProcessingRef.current) return;
-
-    const aiIds = skState.playOrder.filter(isAiPlayer);
-    if (aiIds.length === 0) return;
-
-    aiProcessingRef.current = true;
-    processAiQueue(
-      aiIds,
-      sessionId,
-      skState.chains,
-      skState.playOrder,
-      skState.missionNumber ?? 0,
-    ).finally(() => {
-      aiProcessingRef.current = false;
-    });
-  }, [isHost, skState.skPhase, skState.aiPlayerId, skState.chains, skState.playOrder, skState.missionNumber, sessionId]);
+  // AI players have been removed from MegaSketchy by design — the game's joy
+  // is watching humans try to draw under pressure. The LLM still handles the
+  // judge role (Mad Libs + Scoring commentary). See docs/AI-PLAY-PLAN.md.
 
   // Host-only: reorder players from briefing drag-and-drop
   const handleReorder = useCallback(
@@ -173,18 +153,6 @@ export default function MegaSketchyGame({
     async () => {
       if (!isHost) return;
 
-      // Record AI stats: mission pass = win, fail = loss
-      const aiUids = session?.players.filter((p) => isAiPlayer(p.uid)) ?? [];
-      if (aiUids.length > 0) {
-        const passed = skState.scoringResult?.passed ?? false;
-        import("@/lib/ai-personas").then(({ recordAIGameResult }) => {
-          for (const ap of aiUids) {
-            const personaDocId = ap.uid.replace(/^ai-/, "");
-            recordAIGameResult(personaDocId, passed).catch(() => {});
-          }
-        });
-      }
-
       if (skState.gameMode === "advanced" || skState.gameMode === "expert") {
         await updateSessionFields(sessionId, { skPhase: "voting" });
       } else {
@@ -197,7 +165,7 @@ export default function MegaSketchyGame({
         recordGameStats(allUids, passed ? allUids : [], session?.ownerId ?? "");
       }
     },
-    [isHost, skState.gameMode, skState.scoringResult, sessionId, session?.players, session?.ownerId, session?.playerUids],
+    [isHost, skState.gameMode, skState.scoringResult, sessionId, session?.ownerId, session?.playerUids],
   );
 
   // Player action: cast a vote

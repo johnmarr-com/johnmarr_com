@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { GameSession } from "@/lib/game-sessions";
 import { updateSessionFields } from "@/app/games/_gamecore";
+import type { BluffBoxTurnRecord } from "./aiBluffPlayer";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -41,6 +42,8 @@ export interface BluffBoxState {
   humanShareText: string | null;
   /** Points per player UID. */
   scores: Record<string, number>;
+  /** Completed turns — fed to AI sharers/guessers as history per skill tier. */
+  bbHistory: BluffBoxTurnRecord[];
   /** Winner UID(s) at game end. */
   winners: string[];
   /** The winning point total. */
@@ -106,6 +109,7 @@ export function useBluffBoxSession(sessionId: string, userId: string): {
     aiShareText: (data?.["aiShareText"] as string) ?? null,
     humanShareText: (data?.["humanShareText"] as string) ?? null,
     scores: (data?.["scores"] as Record<string, number>) ?? {},
+    bbHistory: (data?.["bbHistory"] as BluffBoxTurnRecord[]) ?? [],
     winners: (data?.["winners"] as string[]) ?? [],
     winnerPoints: (data?.["winnerPoints"] as number) ?? 0,
     isHost,

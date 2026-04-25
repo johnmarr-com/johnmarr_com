@@ -99,7 +99,6 @@ export default function MegaSketchyPage() {
       multiplayerFlowMode="party"
       multiplayerMinPlayers={4}
       bgMusicLandingOnly={bgMusicLandingOnly}
-      allowAI
       landingExtra={landingExtra}
       {...(multiplayerInput ? { multiplayerInput } : {})}
       onSoloPlay={handleSoloPlay}

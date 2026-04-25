@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/AuthProvider";
 import { useBluffBoxSession } from "./useBluffBoxSession";
 import {
@@ -15,7 +15,7 @@ import {
   determineWinners,
 } from "./tournament";
 import { isAiPlayer, getPersona } from "@/app/games/_gamecore";
-import { aiShare, aiGuess } from "./aiBluffPlayer";
+import { aiShare, aiGuess, type BluffBoxTurnRecord } from "./aiBluffPlayer";
 import { GameGamertagBadge } from "@/app/games/_gamecore";
 import { PointsManager, Activity } from "@/lib/points";
 import { recordGameStats } from "@/app/games/_gamecore";
@@ -74,13 +74,14 @@ export default function BluffBoxGame({
     aiShareText,
     humanShareText,
     scores,
+    bbHistory,
     winners,
     winnerPoints,
     isHost,
   } = state;
 
-  const players = session?.players ?? [];
-  const playerUids = players.map((p) => p.uid);
+  const players = useMemo(() => session?.players ?? [], [session?.players]);
+  const playerUids = useMemo(() => players.map((p) => p.uid), [players]);
 
   // ─── Derived values ────────────────────────────────────────
 
@@ -127,6 +128,7 @@ export default function BluffBoxGame({
         aiShareText: null,
         humanShareText: null,
         scores: initScoresMap,
+        bbHistory: [],
         winners: [],
         winnerPoints: 0,
         bbPhase: "round-intro",
@@ -238,9 +240,15 @@ export default function BluffBoxGame({
     (async () => {
       try {
         const persona = getPersona(currentSharer);
-        const result = await aiShare(cardURL, {
-          prompt: persona?.prompt ?? "",
-          voice: persona?.voice ?? "",
+        const result = await aiShare({
+          cardImageURL: cardURL,
+          persona: {
+            prompt: persona?.prompt ?? "",
+            voice: persona?.voice ?? "",
+            skillLevel: persona?.skillLevel,
+          },
+          history: bbHistory,
+          players,
         });
         await updateFields({
           sharerChoice: result.choice,
@@ -251,7 +259,7 @@ export default function BluffBoxGame({
         aiProcessingRef.current = false;
       }
     })();
-  }, [isHost, bbPhase, cardURL, currentSharer, updateFields]);
+  }, [isHost, bbPhase, cardURL, currentSharer, bbHistory, players, updateFields]);
 
   // ─── Human: Submit share text for AI guessers ─────────────
 
@@ -287,14 +295,24 @@ export default function BluffBoxGame({
     const shareText =
       humanShareText || aiShareText || "something mysterious";
 
+    const sharerName =
+      players.find((p) => p.uid === currentSharer)?.gamertag ?? "Someone";
+
     aiProcessingRef.current = true;
     (async () => {
       try {
         for (const ai of aiGuessers) {
           const persona = getPersona(ai.uid);
-          const guess = await aiGuess(shareText, {
-            prompt: persona?.prompt ?? "",
-            voice: persona?.voice ?? "",
+          const guess = await aiGuess({
+            shareText,
+            sharerName,
+            persona: {
+              prompt: persona?.prompt ?? "",
+              voice: persona?.voice ?? "",
+              skillLevel: persona?.skillLevel,
+            },
+            history: bbHistory,
+            players,
           });
           await updateFields({ [`guesses.${ai.uid}`]: guess });
         }
@@ -303,7 +321,7 @@ export default function BluffBoxGame({
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHost, bbPhase, currentSharer, guesses, players]);
+  }, [isHost, bbPhase, currentSharer, guesses, players, bbHistory]);
 
   // ─── Host: All guesses in → calculate scores + enter result ─
 
@@ -319,8 +337,19 @@ export default function BluffBoxGame({
     );
     const newScores = applyScoreDeltas(scores, deltas);
 
+    const turnRecord: BluffBoxTurnRecord = {
+      round: roundNumber,
+      turn: currentTurnIndex,
+      sharerUid: currentSharer,
+      shareText: humanShareText || aiShareText || "",
+      sharerChoice,
+      guesses,
+      fooledCount,
+    };
+
     void updateFields({
       scores: newScores,
+      bbHistory: [...bbHistory, turnRecord],
       bbPhase: "result",
     });
   }, [
@@ -333,6 +362,12 @@ export default function BluffBoxGame({
     playerUids.length,
     scores,
     updateFields,
+    roundNumber,
+    currentTurnIndex,
+    humanShareText,
+    aiShareText,
+    fooledCount,
+    bbHistory,
   ]);
 
   // ─── Reset resultDismissed when phase changes ─────────────
@@ -437,6 +472,7 @@ export default function BluffBoxGame({
       turnOrder: [],
       currentTurnIndex: 0,
       scores: {},
+      bbHistory: [],
     });
   }, [updateFields]);
 

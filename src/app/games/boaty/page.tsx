@@ -25,6 +25,7 @@ export default composeGame({
     logoRight: "right-3",
     hideScores: true,
     playMusic: true,
+    showAIPostGameComments: true,
   },
   resetFields: () => ({
     btPhase: "setup",
@@ -34,5 +35,6 @@ export default composeGame({
     btAttacks: {},
     btLastAttack: null,
     btWinner: null,
+    aiPostGameComments: null,
   }),
 });
