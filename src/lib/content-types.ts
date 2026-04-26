@@ -287,6 +287,8 @@ export interface JMExperience {
   order: number;                  // Position on homepage (lower = higher)
   rowScaleMobile?: number;        // Height multiplier for mobile (< md): 1, 1.5, or 2
   rowScaleDesktop?: number;       // Height multiplier for desktop (>= md): 1, 1.5, or 2
+  /** When true, home page shows a "Fast Casual" label before the row title. */
+  fastCasual?: boolean;
   isPublished: boolean;           // Draft vs live
 }
 
@@ -303,6 +305,7 @@ export interface JMExperienceInput {
   order?: number;
   rowScaleMobile?: number;
   rowScaleDesktop?: number;
+  fastCasual?: boolean;
   isPublished?: boolean;
 }
 

@@ -301,6 +301,7 @@ export default function Home() {
                 <JMContentScroller
                   key={experience.id}
                   title={experience.title}
+                  fastCasual={experience.fastCasual === true}
                   items={items}
                   rowScaleMobile={experience.rowScaleMobile}
                   rowScaleDesktop={experience.rowScaleDesktop}

@@ -15,6 +15,8 @@ export interface ContentItem {
 
 interface JMContentScrollerProps {
   title: string;
+  /** When true, prepends "Fast Casual" before the title in lighter mid-gray. */
+  fastCasual?: boolean;
   items: ContentItem[];
   rowScaleMobile?: number | undefined;
   rowScaleDesktop?: number | undefined;
@@ -50,6 +52,7 @@ function useIsDesktop() {
 
 export function JMContentScroller({ 
   title, 
+  fastCasual = false,
   items,
   rowScaleMobile = 1,
   rowScaleDesktop = 1,
@@ -110,6 +113,11 @@ export function JMContentScroller({
         className="mb-3 sm:mb-4 px-4 sm:px-6 lg:px-8 text-lg sm:text-xl md:text-2xl font-semibold"
         style={{ color: theme.text.primary }}
       >
+        {fastCasual && (
+          <span className="font-normal" style={{ color: theme.text.disabled }}>
+            Fast Casual{" "}
+          </span>
+        )}
         {title}
       </h2>
 

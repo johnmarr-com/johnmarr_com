@@ -15,6 +15,7 @@ import {
   Zap,
   List,
   Image as ImageIcon,
+  Gauge,
 } from "lucide-react";
 import {
   DndContext,
@@ -190,6 +191,18 @@ function SortableRowItem({ row, onEdit, onTogglePublish, onDelete }: SortableRow
               Curated
             </span>
           )}
+          {row.fastCasual && (
+            <span
+              className="text-xs px-2 py-0.5 rounded-full flex items-center gap-1"
+              style={{
+                backgroundColor: `${theme.text.tertiary}25`,
+                color: theme.text.secondary,
+              }}
+            >
+              <Gauge size={10} />
+              Fast Casual
+            </span>
+          )}
           {!row.isPublished && (
             <span
               className="text-xs px-2 py-0.5 rounded-full"
@@ -264,6 +277,7 @@ export function AdminHomeRowsPanel() {
   const [formContentIds, setFormContentIds] = useState<string[]>([]);
   const [formRowScaleMobile, setFormRowScaleMobile] = useState<number>(1);
   const [formRowScaleDesktop, setFormRowScaleDesktop] = useState<number>(1);
+  const [formFastCasual, setFormFastCasual] = useState(false);
 
   // Content picker state
   const [availableContent, setAvailableContent] = useState<JMContent[]>([]);
@@ -367,6 +381,7 @@ export function AdminHomeRowsPanel() {
     setFormContentIds([]);
     setFormRowScaleMobile(1);
     setFormRowScaleDesktop(1);
+    setFormFastCasual(false);
     setAvailableContent([]);
     setAvailableAuctions([]);
     setShowModal(true);
@@ -382,6 +397,7 @@ export function AdminHomeRowsPanel() {
     setFormContentIds(row.contentIds || []);
     setFormRowScaleMobile(row.rowScaleMobile || 1);
     setFormRowScaleDesktop(row.rowScaleDesktop || 1);
+    setFormFastCasual(row.fastCasual === true);
     if (isFeature) {
       loadAvailableAuctions();
     } else if (!row.autoPopulate) {
@@ -456,6 +472,7 @@ export function AdminHomeRowsPanel() {
         contentIds: formRowKind === "feature" ? formContentIds : (formAutoPopulate ? [] : formContentIds),
         rowScaleMobile: formRowScaleMobile,
         rowScaleDesktop: formRowScaleDesktop,
+        fastCasual: formFastCasual,
       };
       if (formContentType) baseUpdate["contentType"] = formContentType;
       if (editingRow) {
@@ -680,6 +697,26 @@ export function AdminHomeRowsPanel() {
                     border: `1px solid ${theme.surfaces.elevated2}`,
                   }}
                 />
+              </div>
+
+              {/* Fast Casual (home page label) */}
+              <div>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formFastCasual}
+                    onChange={(e) => setFormFastCasual(e.target.checked)}
+                    className="w-5 h-5 rounded"
+                  />
+                  <div>
+                    <span className="font-medium" style={{ color: theme.text.primary }}>
+                      Fast Casual
+                    </span>
+                    <p className="text-sm" style={{ color: theme.text.tertiary }}>
+                      On the home page, show &quot;Fast Casual&quot; before this row&apos;s title
+                    </p>
+                  </div>
+                </label>
               </div>
 
               {/* Row Height */}
