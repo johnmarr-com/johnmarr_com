@@ -20,6 +20,7 @@ import { AdminLevelsPanel } from "./AdminLevelsPanel";
 import { AdminPointsPanel } from "./AdminPointsPanel";
 import { AdminAIPersonasPanel } from "./AdminAIPersonasPanel";
 import { AdminDataCleanupPanel } from "./AdminDataCleanupPanel";
+import { AdminAgentsPanel } from "./AdminAgentsPanel";
 
 function AdminContent() {
   const { theme } = useJMStyle();
@@ -88,6 +89,7 @@ function AdminContent() {
         {focus === "points" && <AdminPointsPanel />}
         {focus === "aipersonas" && <AdminAIPersonasPanel />}
         {focus === "cleanup" && <AdminDataCleanupPanel />}
+        {focus === "agents" && <AdminAgentsPanel />}
       </main>
     </div>
   );

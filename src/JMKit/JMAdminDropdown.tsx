@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
 import { useJMStyle } from "@/JMStyle";
 
-export type AdminFocus = "users" | "avatars" | "featured" | "alert" | "brands" | "homerows" | "show" | "story" | "card" | "game" | "artist" | "auction" | "levels" | "points" | "aipersonas" | "cleanup" | null;
+export type AdminFocus = "users" | "avatars" | "featured" | "alert" | "brands" | "homerows" | "show" | "story" | "card" | "game" | "artist" | "auction" | "levels" | "points" | "aipersonas" | "cleanup" | "agents" | null;
 
 interface JMAdminDropdownProps {
   value: AdminFocus;
@@ -18,6 +18,7 @@ interface JMAdminDropdownProps {
  * Col 2 (top→bottom): Games, Home Rows, Levels, Points, Shows, Stories, Users
  */
 const SORTED: { value: AdminFocus; label: string }[] = [
+  { value: "agents", label: "AI Agents" },
   { value: "artist", label: "AI Artists" },
   { value: "aipersonas", label: "AI Personas" },
   { value: "alert", label: "Alert" },

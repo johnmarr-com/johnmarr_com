@@ -569,12 +569,39 @@ service cloud.firestore {
     match /signup_funnel/{funnelId} {
       // Anyone can create a funnel entry (tracks page visits)
       allow create: if true;
-      
+
       // Anyone can update their funnel entry (tracks signup attempts/completion)
       allow update: if true;
-      
+
       // Only admins can read or delete funnel data
       allow read, delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // TRIVIA RESEARCH COLLECTIONS (Inventing Room → AI Agents)
+    // All writes go through the Admin SDK in /api/admin/trivia-research,
+    // so client writes are denied. Admin clients can read for the
+    // dashboard, tags panel, and content browser.
+    // ─────────────────────────────────────────────────────────────
+
+    match /trivia-content/{subjectId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false; // Admin SDK only
+    }
+
+    match /trivia-tags/{tagId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false; // Admin SDK only
+    }
+
+    match /trivia-agent-state/{stateKey} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false; // Admin SDK only
+    }
+
+    match /trivia-source-cache/{cacheKey} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false; // Admin SDK only
     }
   }
 }
