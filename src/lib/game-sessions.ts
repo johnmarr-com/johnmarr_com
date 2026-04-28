@@ -68,6 +68,8 @@ export interface GameSession {
   gameId: string;
   gameName: string;
   gameSlug: string;
+  /** When set, rejoin URL is `/games/{engineSlug}?game={gameSlug}&sessionId=…` */
+  engineSlug?: string;
   gameLogoURL: string;
   inviteCode: string;
   maxPlayers: number;
@@ -97,6 +99,7 @@ export interface InviteCodeEntry {
   ownerGamertag: string;
   gameName: string;
   gameSlug: string;
+  engineSlug?: string;
   gameLogoURL: string;
   createdAt: Timestamp;
 }
@@ -173,6 +176,7 @@ export interface CreateSessionInput {
   gameLogoURL: string;
   maxPlayers: number;
   retentionDays?: number;
+  engineSlug?: string;
 }
 
 /**
@@ -207,6 +211,9 @@ export async function createGameSession(
     gameId: input.gameId,
     gameName: input.gameName,
     gameSlug: input.gameSlug,
+    ...(input.engineSlug != null && input.engineSlug !== ""
+      ? { engineSlug: input.engineSlug }
+      : {}),
     gameLogoURL: input.gameLogoURL,
     inviteCode,
     maxPlayers: input.maxPlayers,
@@ -224,6 +231,9 @@ export async function createGameSession(
     ownerGamertag: gamertag,
     gameName: input.gameName,
     gameSlug: input.gameSlug,
+    ...(input.engineSlug != null && input.engineSlug !== ""
+      ? { engineSlug: input.engineSlug }
+      : {}),
     gameLogoURL: input.gameLogoURL,
     createdAt: serverTimestamp(),
   };

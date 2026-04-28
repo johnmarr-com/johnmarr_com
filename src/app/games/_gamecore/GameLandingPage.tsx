@@ -8,6 +8,7 @@ import type { CreateSessionInput, GameSession } from "@/lib/game-sessions";
 import { GameMultiplayerFlow } from "./GameMultiplayerFlow";
 import { PickAIOpponentModal } from "./PickAIOpponentModal";
 import { useGameMusic } from "./useGameMusic";
+import { useAuth } from "@/lib/AuthProvider";
 import type { AIPersona } from "./aiPersonas";
 
 export type GameMode = "solo" | "ai" | "friends";
@@ -64,12 +65,16 @@ export interface GameLandingPageProps {
   gameLikeLabel?: string;
 }
 
-/** Top-right, mirrors EXIT: same type scale, right-aligned. Newlines in the string break lines; a literal `\\n` in source becomes a break too. */
-function GameLikeLabel({ text }: { text: string }) {
+/** Top-right, right-aligned. With pro `landingExtra`, use same inset as that control (`right-4`) and sit below it. */
+function GameLikeLabel({ text, offsetTopExtra }: { text: string; offsetTopExtra: boolean }) {
   const t = text.replace(/\\n/g, "\n");
   return (
     <p
-      className="fixed right-[25px] top-[25px] z-20 max-w-[min(200px,50vw)] whitespace-pre-line px-2 py-2 text-right text-sm font-bold text-white"
+      className={`fixed z-20 max-w-[min(200px,50vw)] whitespace-pre-line px-2 py-2 text-right text-sm font-bold text-white ${
+        offsetTopExtra
+          ? "right-4 top-[50px]"
+          : "right-[25px] top-[25px]"
+      }`}
     >
       {t}
     </p>
@@ -111,7 +116,11 @@ export function GameLandingPage({
   /** New id each mount (each landing navigation) so the GIF is a new network/decoded instance, not a resumed frame. */
   const jmLogoInstanceId = useId();
 
+  const { isAdmin, effectiveTier } = useAuth();
   const likeLabelText = gameLikeLabel?.trim() ?? "";
+  /** Extra 25px top offset only when a pro create-style control is shown (`landingExtra`). */
+  const gameLikeLabelOffset =
+    !!landingExtra && (isAdmin || effectiveTier === "pro");
 
   const musicURL = backgroundMusicURL || (gameSlug ? `/music/${gameSlug}.mp3` : null);
   const { ensurePlaying } = useGameMusic({
@@ -138,10 +147,11 @@ export function GameLandingPage({
       {/* Dim overlay for legibility — driven by splashBgDim (0–100, default 60) */}
       <div className="absolute inset-0 z-1" style={{ backgroundColor: `rgba(0,0,0,${(splashBgDim ?? 60) / 100})` }} />
 
-      {/* John Marr platform mark — on top of dim, under splash art (z-10); short viewports can overlap */}
-      <div
-        className="pointer-events-none absolute left-1/2 z-5 w-[100px] -translate-x-1/2"
-        style={{ top: 110 }}
+      {/* John Marr platform mark — upper left; tap = home (same as back button) */}
+      <Link
+        href="/"
+        className="fixed left-[25px] top-[25px] z-20 block w-[100px] transition-transform active:scale-95"
+        aria-label="Home"
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- animated GIF */}
         <img
@@ -150,17 +160,11 @@ export function GameLandingPage({
           alt=""
           className="h-auto w-[100px] max-w-none"
         />
-      </div>
-
-      <Link
-        href="/"
-        className="fixed left-[25px] top-[25px] z-20 flex items-center gap-1.5 px-2 py-2 text-sm font-bold text-white transition-transform active:scale-95"
-      >
-        <span className="text-xs leading-none">&#9664;</span>
-        EXIT
       </Link>
 
-      {likeLabelText ? <GameLikeLabel text={likeLabelText} /> : null}
+      {likeLabelText ? (
+        <GameLikeLabel text={likeLabelText} offsetTopExtra={gameLikeLabelOffset} />
+      ) : null}
 
       {/* Title div — centered, max 600px, 50px side padding */}
       <div
@@ -218,9 +222,12 @@ export function GameLandingPage({
           </p>
         )}
 
-        {/* Play button */}
-        <div className="mt-2 flex w-full animate-landing-fade-in flex-col gap-3" style={{ padding: "0 25px", animationDelay: "650ms" }}>
+        <div
+          className="mt-2 flex w-full animate-landing-fade-in flex-col gap-3"
+          style={{ padding: "0 25px", animationDelay: "650ms" }}
+        >
           <button
+            type="button"
             onClick={() => {
               ensurePlaying();
               if (!disabled) setMpOpen(true);
@@ -234,7 +241,7 @@ export function GameLandingPage({
             {disabled ? "Coming Soon" : "Play"}
           </button>
           {maxPlayers != null && (
-            <p className="mt-1 text-center text-sm font-medium tracking-wide text-white/50">
+            <p className="text-center text-sm font-medium tracking-wide text-white/50">
               For {minPlayers} to {maxPlayers} players
             </p>
           )}

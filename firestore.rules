@@ -578,7 +578,7 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // TRIVIA RESEARCH COLLECTIONS (Inventing Room → AI Agents)
+    // TRIVIA RESEARCH COLLECTIONS (Inventing.Studio → AI Agents)
     // All writes go through the Admin SDK in /api/admin/trivia-research,
     // so client writes are denied. Admin clients can read for the
     // dashboard, tags panel, and content browser.

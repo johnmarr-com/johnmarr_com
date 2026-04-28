@@ -74,6 +74,7 @@ export {
   type GC3Props,
   type ComposeGameInput,
   type GameFlowPhase,
+  type EngineSkinLoadError,
   GC_SLOT_LABELS,
   getAllVariants,
   getVariantsForSlot,

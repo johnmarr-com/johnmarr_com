@@ -16,11 +16,18 @@ import type { JMContent } from "@/lib/content-types";
 import { joinGameSessionById, subscribeToSession } from "@/lib/game-sessions";
 import type { GameSession } from "@/lib/game-sessions";
 import { updateSessionFields } from "../_gamecore/sessionHelpers";
-import type { GameFlowPhase, GameEndResult, ComposeGameInput } from "./registry/types";
+import type {
+  GameFlowPhase,
+  GameEndResult,
+  ComposeGameInput,
+  EngineSkinLoadError,
+} from "./registry/types";
 
 export interface GameFlowState {
   phase: GameFlowPhase;
   gameData: JMContent | null;
+  /** Set when `contentSlugFromQueryParam` is used and the skin could not be resolved. */
+  skinLoadError: EngineSkinLoadError | null;
   activeSessionId: string | null;
   session: GameSession | null;
   isHost: boolean;
@@ -43,16 +50,19 @@ export function useGameFlow(config: ComposeGameInput): GameFlowState & GameFlowA
   const searchParams = useSearchParams();
   const { user, gamertag, avatarName, isLoading: authLoading } = useAuth();
   const initialSessionId = searchParams.get("sessionId");
+  const qParam = config.contentSlugFromQueryParam;
+  const skinSlug = qParam ? (searchParams.get(qParam)?.trim() ?? "") : null;
 
   // ─── Core state ──────────────────────────────────────────
   const [phase, setPhase] = useState<GameFlowPhase>(
     initialSessionId ? "game" : "landing",
   );
-  const [gameData, setGameData] = useState<JMContent | null>(null);
+  const [loadedGameData, setLoadedGameData] = useState<JMContent | null>(null);
+  const [fetchSkinError, setFetchSkinError] = useState<EngineSkinLoadError | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(initialSessionId);
   const [session, setSession] = useState<GameSession | null>(null);
   const [gameResult, setGameResult] = useState<GameEndResult | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [contentLoading, setContentLoading] = useState(true);
 
   const autoJoinRef = useRef(false);
   const lastReplayCountRef = useRef<number>(0);
@@ -60,13 +70,41 @@ export function useGameFlow(config: ComposeGameInput): GameFlowState & GameFlowA
   // Prefer URL sessionId (handles client-side nav from My Games)
   const activeSessionId = initialSessionId ?? sessionId;
 
-  // ─── Fetch game data ─────────────────────────────────────
+  /** Engine skin routes require ?param=slug; derive error without syncing state in an effect. */
+  const missingSkinParam = !!(qParam && !skinSlug);
+  const gameData = missingSkinParam ? null : loadedGameData;
+  const skinLoadError = missingSkinParam ? "missing_game_param" : fetchSkinError;
+  const isLoading = missingSkinParam ? false : contentLoading;
+
+  // ─── Fetch game data (fixed slug or ?queryParam= for engine skins) ───
   useEffect(() => {
+    if (qParam) {
+      if (!skinSlug) {
+        return;
+      }
+      setContentLoading(true); // eslint-disable-line react-hooks/set-state-in-effect -- reset loading before async skin fetch when query param resolves
+      setFetchSkinError(null);
+      getContentBySlug("game", skinSlug).then((data) => {
+        if (!data) {
+          setLoadedGameData(null);
+          setFetchSkinError("game_not_found");
+        } else if (data.engineSlug !== config.slug) {
+          setLoadedGameData(null);
+          setFetchSkinError("game_wrong_engine");
+        } else {
+          setLoadedGameData(data);
+          setFetchSkinError(null);
+        }
+        setContentLoading(false);
+      });
+      return;
+    }
+    setFetchSkinError(null);
     getContentBySlug("game", config.slug).then((data) => {
-      setGameData(data);
-      setIsLoading(false);
+      setLoadedGameData(data);
+      setContentLoading(false);
     });
-  }, [config.slug]);
+  }, [config.slug, qParam, skinSlug]);
 
   // A sessionId arriving in the URL while the page was already on landing
   // (e.g. My Games "Rejoin" tapped from the same game's splash) needs to
@@ -150,6 +188,7 @@ export function useGameFlow(config: ComposeGameInput): GameFlowState & GameFlowA
   return {
     phase,
     gameData,
+    skinLoadError,
     activeSessionId,
     session,
     isHost,

@@ -14,6 +14,7 @@ export interface GameInvite {
   id: string;
   sessionId: string;
   gameSlug: string;
+  engineSlug?: string;
   gameName: string;
   gameLogoURL: string;
   fromUid: string;
@@ -41,7 +42,7 @@ async function getDb() {
  */
 export async function sendGameInvite(
   sessionId: string,
-  gameInfo: { gameSlug: string; gameName: string; gameLogoURL: string },
+  gameInfo: { gameSlug: string; gameName: string; gameLogoURL: string; engineSlug?: string },
   fromUid: string,
   fromGamertag: string,
   toUid: string,
@@ -53,6 +54,9 @@ export async function sendGameInvite(
   const inviteData = {
     sessionId,
     gameSlug: gameInfo.gameSlug,
+    ...(gameInfo.engineSlug != null && gameInfo.engineSlug !== ""
+      ? { engineSlug: gameInfo.engineSlug }
+      : {}),
     gameName: gameInfo.gameName,
     gameLogoURL: gameInfo.gameLogoURL,
     fromUid,

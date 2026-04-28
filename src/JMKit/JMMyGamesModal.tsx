@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useJMStyle } from "@/JMStyle";
 import { useAuth } from "@/lib/AuthProvider";
 import { getActiveSessionsForUser } from "@/lib/game-sessions";
+import { getGamePlayHrefWithSession } from "@/lib/composite-game-slug";
 import type { GameSession } from "@/lib/game-sessions";
 
 interface JMMyGamesModalProps {
@@ -29,7 +30,9 @@ export function JMMyGamesModal({ onClose }: JMMyGamesModalProps) {
 
   const handleRejoin = (session: GameSession) => {
     onClose();
-    router.push(`/games/${session.gameSlug}?sessionId=${session.id}`);
+    router.push(
+      getGamePlayHrefWithSession(session.gameSlug, session.id, session.engineSlug),
+    );
   };
 
   return (

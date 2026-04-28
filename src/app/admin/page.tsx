@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Lollipop } from "lucide-react";
+import { useAuth } from "@/lib/AuthProvider";
 import { AdminGate } from "@/lib/AdminGate";
-import { useJMStyle } from "@/JMStyle";
 import { JMAppHeader, JMAdminDropdown, type AdminFocus } from "@/JMKit";
 import { AdminUsersPanel } from "./AdminUsersPanel";
 import { AdminAvatarsPanel } from "./AdminAvatarsPanel";
@@ -21,15 +20,31 @@ import { AdminPointsPanel } from "./AdminPointsPanel";
 import { AdminAIPersonasPanel } from "./AdminAIPersonasPanel";
 import { AdminDataCleanupPanel } from "./AdminDataCleanupPanel";
 import { AdminAgentsPanel } from "./AdminAgentsPanel";
+import { AdminTriviaReviewPanel } from "./AdminTriviaReviewPanel";
 
 function AdminContent() {
-  const { theme } = useJMStyle();
+  const { isAdmin } = useAuth();
   const [focus, setFocus] = useState<AdminFocus>(null);
 
   return (
     <div className="relative min-h-screen overflow-hidden">
       {/* Header */}
       <JMAppHeader />
+
+      <div className="relative z-10 flex w-full min-h-[112.5px] items-center justify-center bg-black/40 px-[clamp(12px,5vw,50px)]">
+        {/* eslint-disable-next-line @next/next/no-img-element -- intrinsic height; local asset */}
+        <img
+          src="/images/banners/Inventing-Studio-5.png"
+          alt="Inventing.Studio"
+          className="h-auto w-full max-w-[300px] object-contain"
+        />
+      </div>
+
+      {isAdmin && (
+        <div className="relative z-10 flex w-full justify-center px-[clamp(12px,5vw,50px)] pt-1 pb-4">
+          <JMAdminDropdown value={focus} onChange={setFocus} />
+        </div>
+      )}
 
       {/* Background */}
       <div 
@@ -42,37 +57,6 @@ function AdminContent() {
       </div>
 
       <main className="relative mx-auto flex w-[80%] flex-col py-12">
-        {/* Admin toolbar */}
-        <div 
-          className="opacity-0 animate-fade-in-up animation-delay-200 rounded-2xl border backdrop-blur-md"
-          style={{ 
-            backgroundColor: `${theme.surfaces.base}ee`,
-            borderColor: theme.surfaces.elevated2,
-          }}
-        >
-          <div 
-            className="px-8 py-6 flex items-center justify-between"
-          >
-            {/* Left: Title with icon */}
-            <div className="flex items-center gap-3">
-              <Lollipop
-                size={28}
-                color={theme.accents.goldenGlow}
-                strokeWidth={2}
-              />
-              <h1
-                className="text-xl font-semibold"
-                style={{ color: theme.text.primary }}
-              >
-                Inventing Room
-              </h1>
-            </div>
-
-            {/* Right: Focus dropdown */}
-            <JMAdminDropdown value={focus} onChange={setFocus} />
-          </div>
-        </div>
-
         {/* Content panels based on focus */}
         {focus === "featured" && <AdminFeaturedPanel />}
         {focus === "homerows" && <AdminHomeRowsPanel />}
@@ -90,6 +74,7 @@ function AdminContent() {
         {focus === "aipersonas" && <AdminAIPersonasPanel />}
         {focus === "cleanup" && <AdminDataCleanupPanel />}
         {focus === "agents" && <AdminAgentsPanel />}
+        {focus === "trivia_review" && <AdminTriviaReviewPanel />}
       </main>
     </div>
   );

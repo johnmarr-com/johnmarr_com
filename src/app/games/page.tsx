@@ -10,6 +10,7 @@ import {
   getInviteCodeEntry,
   joinGameSession,
 } from "@/lib/game-sessions";
+import { getGamePlayHrefWithSession } from "@/lib/composite-game-slug";
 
 export default function GamesPage() {
   const searchParams = useSearchParams();
@@ -59,7 +60,11 @@ export default function GamesPage() {
 
         if (result.ok) {
           router.replace(
-            `/games/${entry.gameSlug}?sessionId=${result.session.id}`,
+            getGamePlayHrefWithSession(
+              entry.gameSlug,
+              result.session.id,
+              entry.engineSlug,
+            ),
           );
         } else {
           const msgs: Record<string, string> = {

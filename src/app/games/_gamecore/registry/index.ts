@@ -21,6 +21,7 @@ export type {
   GC5Props,
   ComposeGameInput,
   GameFlowPhase,
+  EngineSkinLoadError,
 } from "./types";
 
 export { GC_SLOT_LABELS } from "./types";

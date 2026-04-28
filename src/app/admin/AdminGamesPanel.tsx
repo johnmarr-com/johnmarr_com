@@ -23,6 +23,7 @@ import { useJMStyle } from "@/JMStyle";
 import { useAuth } from "@/lib/AuthProvider";
 import { getTopLevelContent, getContentCounts, updateContent } from "@/lib/content";
 import type { JMContent } from "@/lib/content-types";
+import { getGamePlayHref } from "@/lib/composite-game-slug";
 import { GameCreateModal } from "./GameCreateModal";
 import { GameEditModal } from "./GameEditModal";
 
@@ -106,7 +107,9 @@ function SortableGameItem({ game, onClick }: SortableGameItemProps) {
             className="mt-0.5 truncate text-sm"
             style={{ color: theme.text.tertiary }}
           >
-            {game.slug ? `/games/${game.slug}` : "No URL set"}
+            {game.slug
+              ? getGamePlayHref(game.slug, game.engineSlug)
+              : "No URL set"}
           </div>
         </div>
 

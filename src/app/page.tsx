@@ -12,6 +12,7 @@ import { getFeaturedContent, subscribeToPublishedAlert, getExperiencesWithConten
 import type { JMAlert, JMExperienceWithContent } from "@/lib/content-types";
 import { subscribeToMyInvites, removeInvite, type GameInvite } from "@/lib/game-invites";
 import { bgMusic } from "@/lib/BackgroundMusicPlayer";
+import { getGamePlayHref, getGamePlayHrefWithSession } from "@/lib/composite-game-slug";
 
 export default function Home() {
   const { user, isLoading } = useAuth();
@@ -151,13 +152,15 @@ export default function Home() {
 
   const handlePlayInvite = useCallback((invite: GameInvite) => {
     setInviteModalOpen(false);
-    router.push(`/games/${invite.gameSlug}?sessionId=${invite.sessionId}`);
+    router.push(
+      getGamePlayHrefWithSession(invite.gameSlug, invite.sessionId, invite.engineSlug),
+    );
   }, [router]);
 
   const handleFeaturedClick = (item: FeaturedItem) => {
     if (item.contentType === "game" && item.slug) {
       bgMusic.play(`/music/${item.slug}.mp3`);
-      router.push(`/games/${item.slug}`);
+      router.push(getGamePlayHref(item.slug, item.engineSlug));
     } else if (item.contentType === "artist" && item.slug) {
       router.push(`/artist/${item.slug}`);
     } else if (item.contentType === "auction" && item.slug) {
@@ -172,7 +175,7 @@ export default function Home() {
   const handleContentClick = (item: ContentItem) => {
     if (item.contentType === "game" && item.slug) {
       bgMusic.play(`/music/${item.slug}.mp3`);
-      router.push(`/games/${item.slug}`);
+      router.push(getGamePlayHref(item.slug, item.engineSlug));
     } else if (item.contentType === "artist" && item.slug) {
       router.push(`/artist/${item.slug}`);
     } else if (item.contentType === "story" && item.slug) {
@@ -277,7 +280,12 @@ export default function Home() {
                       rowScaleDesktop={experience.rowScaleDesktop}
                       onClick={() => {
                         if (experience.featureItem?.contentType === "game" && experience.featureItem?.slug) {
-                          router.push(`/games/${experience.featureItem.slug}`);
+                          router.push(
+                            getGamePlayHref(
+                              experience.featureItem.slug,
+                              experience.featureItem.engineSlug,
+                            ),
+                          );
                         } else if (experience.featureItem?.contentType === "auction" && experience.featureItem?.slug) {
                           router.push(`/auction/${experience.featureItem.slug}`);
                         }
@@ -289,12 +297,13 @@ export default function Home() {
 
               if (experience.content.length === 0) return null;
               
-              const items: ContentItem[] = experience.content.map(c => ({
+              const items: ContentItem[] = experience.content.map((c) => ({
                 id: c.id,
                 name: c.name,
                 coverURL: c.coverURL,
                 contentType: c.contentType,
-                slug: c.slug, // For artists
+                ...(c.slug ? { slug: c.slug } : {}),
+                ...(c.engineSlug ? { engineSlug: c.engineSlug } : {}),
               }));
               
               return (

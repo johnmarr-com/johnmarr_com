@@ -156,6 +156,11 @@ export interface JMContent {
   /** Landing top-right “like” / IP line (e.g. “Game meets Game”). */
   gameLikeLabel?: string;
   slug?: string;                  // URL-friendly identifier (used by artists, games)
+  /**
+   * When set, this game is played inside that engine’s route:
+   * `/games/{engineSlug}?game={slug}`. Must match a folder under `src/app/games/`.
+   */
+  engineSlug?: string;
   description: string;
   creatorId: string;              // User UID of creator
   brandId?: string;               // Optional: associate with a brand
@@ -224,6 +229,7 @@ export interface JMContentInput {
   subtitle?: string;
   gameLikeLabel?: string;
   slug?: string;
+  engineSlug?: string;
   description: string;
   coverURL: string;
   backdropURL?: string;
@@ -331,6 +337,7 @@ export interface JMFeatureRowItem {
   id: string;
   name: string;
   slug?: string;
+  engineSlug?: string;
   rowBannerURL: string;
   contentType: "auction" | "game";
 }

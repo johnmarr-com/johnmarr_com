@@ -11,6 +11,7 @@ export interface ContentItem {
   coverURL: string;
   contentType: "show" | "story" | "card" | "game" | "artist";
   slug?: string | undefined;
+  engineSlug?: string | undefined;
 }
 
 interface JMContentScrollerProps {

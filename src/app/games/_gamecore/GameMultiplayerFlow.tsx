@@ -804,6 +804,9 @@ export function GameMultiplayerFlow({
           onOpenChange={setInviteModalOpen}
           sessionId={session.id}
           gameSlug={session.gameSlug}
+          {...(session.engineSlug != null && session.engineSlug !== ""
+            ? { engineSlug: session.engineSlug }
+            : {})}
           gameName={session.gameName}
           gameLogoURL={session.gameLogoURL}
           hostUid={user.uid}

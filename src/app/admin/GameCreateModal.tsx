@@ -6,6 +6,11 @@ import { useJMStyle } from "@/JMStyle";
 import { JMImageUpload, JMAudioUpload } from "@/JMKit";
 import { useAuth } from "@/lib/AuthProvider";
 import { createContent, uploadContentImage, uploadGameBackgroundMusic } from "@/lib/content";
+import {
+  getGamePlayHref,
+  sanitizeGameSlugInput,
+  sanitizeEngineSlugInput,
+} from "@/lib/composite-game-slug";
 
 interface GameCreateModalProps {
   onClose: () => void;
@@ -21,6 +26,7 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
   const [subtitle, setSubtitle] = useState("");
   const [description, setDescription] = useState("");
   const [slug, setSlug] = useState("");
+  const [engineSlug, setEngineSlug] = useState("");
   const [coverURL, setCoverURL] = useState("");
   const [backdropURL, setBackdropURL] = useState("");
   const [splashBgURL, setSplashBgURL] = useState("");
@@ -79,6 +85,7 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
         name: name.trim(),
         slug: slug.trim(),
         description: description.trim(),
+        ...(engineSlug.trim() ? { engineSlug: engineSlug.trim() } : {}),
         coverURL: coverURL.trim() || "",
         isPublished,
       };
@@ -114,7 +121,7 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
   const canCreate = name.trim().length > 0 && slug.trim().length > 0;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
 
       <div
@@ -262,32 +269,59 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
               />
             </div>
 
-            {/* Game Path (slug) */}
-            <div>
-              <label
-                className="mb-2 block text-sm font-medium"
-                style={{ color: theme.text.secondary }}
-              >
-                Game Path <span style={{ color: theme.semantic.error }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={slug}
-                onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                placeholder="sweeptheleg"
-                className="w-full rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2"
-                style={{
-                  backgroundColor: "rgba(0, 0, 0, 0.4)",
-                  borderColor: "rgba(255, 255, 255, 0.2)",
-                  color: theme.text.primary,
-                  // @ts-expect-error CSS custom property
-                  "--tw-ring-color": theme.accents.goldenGlow,
-                }}
-              />
-              <p className="mt-1 text-xs" style={{ color: theme.text.tertiary }}>
-                URL: /games/{slug || "..."}
-              </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label
+                  className="mb-2 block text-sm font-medium"
+                  style={{ color: theme.text.secondary }}
+                >
+                  Game slug <span style={{ color: theme.semantic.error }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={slug}
+                  onChange={(e) => setSlug(sanitizeGameSlugInput(e.target.value))}
+                  placeholder="sweeptheleg, popwow"
+                  className="w-full rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                  style={{
+                    backgroundColor: "rgba(0, 0, 0, 0.4)",
+                    borderColor: "rgba(255, 255, 255, 0.2)",
+                    color: theme.text.primary,
+                    // @ts-expect-error CSS custom property
+                    "--tw-ring-color": theme.accents.goldenGlow,
+                  }}
+                />
+              </div>
+              <div>
+                <label
+                  className="mb-2 block text-sm font-medium"
+                  style={{ color: theme.text.secondary }}
+                >
+                  Engine <span className="font-normal opacity-80">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={engineSlug}
+                  onChange={(e) => setEngineSlug(sanitizeEngineSlugInput(e.target.value))}
+                  placeholder="fast_casual_trivia"
+                  className="w-full rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                  style={{
+                    backgroundColor: "rgba(0, 0, 0, 0.4)",
+                    borderColor: "rgba(255, 255, 255, 0.2)",
+                    color: theme.text.primary,
+                    // @ts-expect-error CSS custom property
+                    "--tw-ring-color": theme.accents.goldenGlow,
+                  }}
+                />
+                <p className="mt-1 text-xs" style={{ color: theme.text.tertiary }}>
+                  <code className="text-[11px]">src/app/games/</code> folder when this title uses a
+                  shared engine.
+                </p>
+              </div>
             </div>
+            <p className="text-xs" style={{ color: theme.text.tertiary }}>
+              Open: {slug ? getGamePlayHref(slug, engineSlug || undefined) : "—"}
+            </p>
 
             {/* Cover & Banner Images */}
             <div className="flex flex-col gap-4">

@@ -1115,6 +1115,7 @@ interface FeaturedContentResult {
   contentId: string;
   contentType: JMFeaturedContentType;
   slug?: string; // For artists, auctions - used for navigation
+  engineSlug?: string;
 }
 
 /**
@@ -1137,7 +1138,7 @@ export async function getFeaturedContent(): Promise<FeaturedContentResult[]> {
   
   const snapshot = await getDocs(q);
   
-  return snapshot.docs.map(doc => {
+  const rows: FeaturedContentResult[] = snapshot.docs.map((doc) => {
     const data = doc.data() as JMFeaturedItem;
     const result: FeaturedContentResult = {
       id: doc.id,
@@ -1151,6 +1152,17 @@ export async function getFeaturedContent(): Promise<FeaturedContentResult[]> {
     if (data.slug) result.slug = data.slug;
     return result;
   });
+
+  await Promise.all(
+    rows.map(async (row) => {
+      if (row.contentType !== "game" || !row.contentId) return;
+      const c = await getContent(row.contentId);
+      if (c?.slug) row.slug = c.slug;
+      if (c?.engineSlug) row.engineSlug = c.engineSlug;
+    }),
+  );
+
+  return rows;
 }
 
 /**

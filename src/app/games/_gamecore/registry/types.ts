@@ -160,10 +160,26 @@ export interface GC5Props {
 // COMPOSE GAME INPUT
 // ─────────────────────────────────────────────────────────────
 
+/** How engine routes resolve the skin (JMContent) document. */
+export type EngineSkinLoadError =
+  | "missing_game_param"
+  | "game_not_found"
+  | "game_wrong_engine";
+
 /** Config passed to `composeGame()` to assemble a game page. */
 export interface ComposeGameInput {
-  /** Game slug matching the JMContent document. */
+  /**
+   * Default / engine route slug. Used to load CMS when `contentSlugFromQueryParam`
+   * is not set. When using a query param skin, this is a fallback for labels only;
+   * session metadata uses the loaded game’s `slug` / `id`.
+   */
   slug: string;
+  /**
+   * When set, game content is loaded with `getContentBySlug("game", searchParams.get(name))`
+   * instead of `slug`. The query value must match the **published** game document’s
+   * `slug` in Firestore (not necessarily the same as the document id).
+   */
+  contentSlugFromQueryParam?: string;
   /** The custom GC3 game component. */
   GameComponent: ComponentType<GC3Props>;
   /** Extra UI injected into the host lobby (pack picker, game length, etc.). */

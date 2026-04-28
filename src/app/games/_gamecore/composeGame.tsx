@@ -17,15 +17,79 @@
 
 import { useMemo, Suspense } from "react";
 import type { ComponentType } from "react";
+import Link from "next/link";
 import type { CreateSessionInput } from "@/lib/game-sessions";
 import { resolveVariant } from "./registry/registry";
-import type { ComposeGameInput, GC3Props, GC4Props, GameAssembly } from "./registry/types";
+import type {
+  ComposeGameInput,
+  GC3Props,
+  GC4Props,
+  GameAssembly,
+  EngineSkinLoadError,
+} from "./registry/types";
 import { useGameFlow } from "./useGameFlow";
 import { GameLandingPage } from "./GameLandingPage";
 import { GameColorsProvider } from "./GameColorsProvider";
 
 // Import the registry index to auto-register all built-in variants
 import "./registry";
+
+function EngineSkinErrorMessage({
+  error,
+  engineSlug,
+  paramName,
+}: {
+  error: EngineSkinLoadError;
+  engineSlug: string;
+  paramName: string | undefined;
+}) {
+  const q = paramName ?? "game";
+  const example = `/games/${engineSlug}?${q}=your_skin`;
+  if (error === "missing_game_param") {
+    return (
+      <div className="fixed inset-0 z-10 flex flex-col items-center justify-center bg-black p-6 text-center text-white">
+        <p className="mb-2 max-w-md text-lg font-bold">Missing game</p>
+        <p className="mb-4 max-w-md text-sm text-white/70">
+          Set <code className="rounded bg-white/10 px-1.5 py-0.5">{q}</code> to this game’s
+          normal <strong>slug</strong> in the CMS (same as a standalone game, e.g.{" "}
+          <code className="rounded bg-white/10 px-1">popwow</code>).
+        </p>
+        <p className="mb-1 font-mono text-xs text-amber-200/90">{example}</p>
+        <Link href="/" className="mt-6 text-sm font-bold text-amber-400 underline">
+          Home
+        </Link>
+      </div>
+    );
+  }
+  if (error === "game_wrong_engine") {
+    return (
+      <div className="fixed inset-0 z-10 flex flex-col items-center justify-center bg-black p-6 text-center text-white">
+        <p className="mb-2 max-w-md text-lg font-bold">Wrong game page</p>
+        <p className="mb-4 max-w-md text-sm text-white/70">
+          This game’s <code className="rounded bg-white/10 px-1">engineSlug</code> in the CMS
+          does not match <code className="rounded bg-white/10 px-1">/games/{engineSlug}</code>.
+        </p>
+        <Link href="/" className="text-sm font-bold text-amber-400 underline">
+          Home
+        </Link>
+      </div>
+    );
+  }
+  return (
+    <div className="fixed inset-0 z-10 flex flex-col items-center justify-center bg-black p-6 text-center text-white">
+      <p className="mb-2 max-w-md text-lg font-bold">Game not found</p>
+      <p className="mb-4 max-w-md text-sm text-white/70">
+        No published game with that slug, or the game is still a draft. For engine games,
+        <code className="mx-1 rounded bg-white/10 px-1.5 py-0.5">{q}</code> is the
+        content <code className="rounded bg-white/10 px-1">slug</code> (e.g.{" "}
+        <code className="rounded bg-white/10 px-1">popwow</code>).
+      </p>
+      <Link href="/" className="text-sm font-bold text-amber-400 underline">
+        Home
+      </Link>
+    </div>
+  );
+}
 
 /** Default assembly — used when a game has no assembly config in Firestore. */
 const DEFAULT_ASSEMBLY: GameAssembly = {
@@ -90,6 +154,7 @@ function ComposedGameInner({ config }: { config: ComposeGameInput }) {
   const {
     phase,
     gameData,
+    skinLoadError,
     activeSessionId,
     session,
     isHost,
@@ -115,11 +180,18 @@ function ComposedGameInner({ config }: { config: ComposeGameInput }) {
       gameLogoURL: gameData.splashLogoURL ?? gameData.coverURL,
       maxPlayers: gameData.maxPlayers ?? 30,
       ...(gameData.retentionDays != null ? { retentionDays: gameData.retentionDays } : {}),
+      ...(gameData.engineSlug != null && gameData.engineSlug !== ""
+        ? { engineSlug: gameData.engineSlug }
+        : {}),
     };
   }, [gameData, config.slug]);
 
-  // ─── Loading ─────────────────────────────────────────────
-  if (isLoading || !gameData) return null;
+  // ─── Loading & engine skin resolution ────────────────────
+  if (isLoading) return null;
+  if (skinLoadError) {
+    return <EngineSkinErrorMessage error={skinLoadError} engineSlug={config.slug} paramName={config.contentSlugFromQueryParam} />;
+  }
+  if (!gameData) return null;
 
   // ─── GC3: Game ───────────────────────────────────────────
   if (phase === "game" && activeSessionId) {

@@ -67,7 +67,7 @@ export function JMBasicMenu({
     { label: "My Games", onClick: () => setShowMyGames(true) },
     { label: "Profile", href: "/profile" },
     ...(isAdmin ? [{
-      label: "Inventing Room",
+      label: "Inventing.Studio",
       href: "/admin",
       hoverColor: theme.accents.goldenGlow,
     }] : []),

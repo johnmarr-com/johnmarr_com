@@ -22,6 +22,7 @@ export interface FeaturedItem {
   contentId: string;  // Links to actual content
   contentType: "show" | "story" | "card" | "game" | "artist" | "auction";
   slug?: string;  // For artists, auctions - used for navigation
+  engineSlug?: string;
 }
 
 interface JMFeaturedCarouselProps {

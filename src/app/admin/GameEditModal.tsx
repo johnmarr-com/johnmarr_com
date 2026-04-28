@@ -7,6 +7,11 @@ import { JMImageUpload, JMAudioUpload } from "@/JMKit";
 import { getContent, updateContent, deleteContent, uploadContentImage, uploadGameBackgroundMusic } from "@/lib/content";
 import type { JMContent } from "@/lib/content-types";
 import type { GameAssembly } from "@/app/games/_gamecore/registry/types";
+import {
+  getGamePlayHref,
+  sanitizeGameSlugInput,
+  sanitizeEngineSlugInput,
+} from "@/lib/composite-game-slug";
 import { GameAssemblyEditor } from "./GameAssemblyEditor";
 
 interface GameEditModalProps {
@@ -21,6 +26,7 @@ interface EditState {
   subtitle: string;
   description: string;
   slug: string;
+  engineSlug: string;
   coverURL: string;
   backdropURL: string;
   splashBgURL: string;
@@ -49,6 +55,7 @@ function stateFromGame(game: JMContent): EditState {
     subtitle: game.subtitle ?? "",
     description: game.description,
     slug: game.slug ?? "",
+    engineSlug: game.engineSlug ?? "",
     coverURL: game.coverURL,
     backdropURL: game.backdropURL ?? "",
     splashBgURL: game.splashBgURL ?? "",
@@ -162,6 +169,11 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
       }
       if (editState.subtitle.trim()) updates.subtitle = editState.subtitle.trim();
       if (editState.slug.trim()) updates.slug = editState.slug.trim();
+      if (editState.engineSlug.trim()) {
+        updates.engineSlug = editState.engineSlug.trim();
+      } else {
+        (updates as Record<string, unknown>)["engineSlug"] = deleteField();
+      }
       if (editState.backdropURL.trim()) updates.backdropURL = editState.backdropURL.trim();
       if (editState.splashBgURL.trim()) updates.splashBgURL = editState.splashBgURL.trim();
       updates.splashBgDim = editState.splashBgDim;
@@ -214,7 +226,7 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
 
       <div
@@ -354,31 +366,62 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
                 />
               </div>
 
-              {/* Game Path */}
-              <div>
-                <label className="mb-2 block text-sm font-medium" style={{ color: theme.text.secondary }}>
-                  Game Path
-                </label>
-                <input
-                  type="text"
-                  value={editState.slug}
-                  onChange={(e) =>
-                    update({ slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })
-                  }
-                  placeholder="sweeptheleg"
-                  className="w-full rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2"
-                  style={{
-                    backgroundColor: "rgba(0, 0, 0, 0.4)",
-                    borderColor: "rgba(255, 255, 255, 0.2)",
-                    color: theme.text.primary,
-                    // @ts-expect-error CSS custom property
-                    "--tw-ring-color": theme.accents.goldenGlow,
-                  }}
-                />
-                <p className="mt-1 text-xs" style={{ color: theme.text.tertiary }}>
-                  URL: /games/{editState.slug || "..."}
-                </p>
+              {/* Game Path + optional engine (same row on wide screens) */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-medium" style={{ color: theme.text.secondary }}>
+                    Game slug
+                  </label>
+                  <input
+                    type="text"
+                    value={editState.slug}
+                    onChange={(e) => update({ slug: sanitizeGameSlugInput(e.target.value) })}
+                    placeholder="sweeptheleg, popwow"
+                    className="w-full rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                    style={{
+                      backgroundColor: "rgba(0, 0, 0, 0.4)",
+                      borderColor: "rgba(255, 255, 255, 0.2)",
+                      color: theme.text.primary,
+                      // @ts-expect-error CSS custom property
+                      "--tw-ring-color": theme.accents.goldenGlow,
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium" style={{ color: theme.text.secondary }}>
+                    Engine <span className="font-normal opacity-80">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editState.engineSlug}
+                    onChange={(e) =>
+                      update({ engineSlug: sanitizeEngineSlugInput(e.target.value) })
+                    }
+                    placeholder="fast_casual_trivia"
+                    className="w-full rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                    style={{
+                      backgroundColor: "rgba(0, 0, 0, 0.4)",
+                      borderColor: "rgba(255, 255, 255, 0.2)",
+                      color: theme.text.primary,
+                      // @ts-expect-error CSS custom property
+                      "--tw-ring-color": theme.accents.goldenGlow,
+                    }}
+                  />
+                  <p className="mt-1 text-xs" style={{ color: theme.text.tertiary }}>
+                    Folder under <code className="text-[11px]">src/app/games/</code> when this game
+                    is played inside a shared engine.
+                  </p>
+                </div>
               </div>
+              <p className="text-xs" style={{ color: theme.text.tertiary }}>
+                Open:{" "}
+                {editState.slug
+                  ? getGamePlayHref(
+                      editState.slug,
+                      editState.engineSlug || undefined,
+                    )
+                  : "—"}
+              </p>
 
               {/* Cover & Banner */}
               <div className="flex flex-col gap-4">

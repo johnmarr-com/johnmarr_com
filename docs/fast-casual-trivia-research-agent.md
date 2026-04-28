@@ -8,7 +8,7 @@
 
 This document specifies the first buildable element of John Marr's Fast
 Casual Trivia platform: the **Content Research Agent.** This agent lives
-inside the Inventing Room on JohnMarr.com and is responsible for
+inside the Inventing.Studio on JohnMarr.com and is responsible for
 populating the trivia content database with prioritized, tagged, cited
 subjects across all twelve trivia verticals.
 
@@ -25,7 +25,7 @@ subjects and generate T/PT/F question pairs, writing them to Neon.
 
 ### Where This Lives
 
-The Inventing Room is an existing dropdown/panel on JohnMarr.com.
+The Inventing.Studio is an existing dropdown/panel on JohnMarr.com.
 Inside it, add a new page: **AI Agents.**
 
 The AI Agents page is **tabbed.** The first (and currently only) tab
@@ -1085,7 +1085,7 @@ interface LogEntry {
 
 ### What gets built
 
-1. AI Agents page in the Inventing Room
+1. AI Agents page in the Inventing.Studio
 2. Trivia tab with three sections:
    - Dashboard Grid (12 games, live counts)
    - Tags Panel (collapsible, live tag generation tracking)

@@ -15,6 +15,7 @@ interface InviteKnownPlayersModalProps {
   onOpenChange: (open: boolean) => void;
   sessionId: string;
   gameSlug: string;
+  engineSlug?: string;
   gameName: string;
   gameLogoURL: string;
   hostUid: string;
@@ -30,6 +31,7 @@ export function InviteKnownPlayersModal({
   onOpenChange,
   sessionId,
   gameSlug,
+  engineSlug,
   gameName,
   gameLogoURL,
   hostUid,
@@ -91,7 +93,12 @@ export function InviteKnownPlayersModal({
     if (selected.size === 0) return;
     setSending(true);
 
-    const gameInfo = { gameSlug, gameName, gameLogoURL };
+    const gameInfo = {
+      gameSlug,
+      gameName,
+      gameLogoURL,
+      ...(engineSlug != null && engineSlug !== "" ? { engineSlug } : {}),
+    };
     const promises = Array.from(selected).map((uid) =>
       sendGameInvite(sessionId, gameInfo, hostUid, hostGamertag, uid),
     );
@@ -100,7 +107,7 @@ export function InviteKnownPlayersModal({
     setSending(false);
     setSent(true);
     setTimeout(() => handleOpenChange(false), 800);
-  }, [selected, sessionId, gameSlug, gameName, gameLogoURL, hostUid, hostGamertag, handleOpenChange]);
+  }, [selected, sessionId, gameSlug, engineSlug, gameName, gameLogoURL, hostUid, hostGamertag, handleOpenChange]);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>

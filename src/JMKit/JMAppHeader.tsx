@@ -117,7 +117,7 @@ export function JMAppHeader({
             </div>
           )}
 
-          {/* Inventing Room — admin portal */}
+          {/* Inventing.Studio — admin portal */}
           {isAdmin && (
             <Link
               href="/admin"
