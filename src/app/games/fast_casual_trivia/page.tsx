@@ -1,24 +1,24 @@
 "use client";
 
 import { composeGame } from "../_gamecore";
-import type { GC3Props } from "../_gamecore/registry/types";
-import { FastCasualTriviaStubGame } from "./FastCasualTriviaStubGame";
+import { FastCasualTriviaGame } from "./FastCasualTriviaGame";
 
 const ENGINE_SLUG = "fast_casual_trivia";
-
-function FastCasualTriviaAdapter({ sessionId, gameData, onGameEnd }: GC3Props) {
-  return (
-    <FastCasualTriviaStubGame sessionId={sessionId} gameData={gameData} onGameEnd={onGameEnd} />
-  );
-}
 
 export default composeGame({
   slug: ENGINE_SLUG,
   contentSlugFromQueryParam: "game",
-  GameComponent: FastCasualTriviaAdapter,
-  /** Host cannot start a round until the trivia engine is implemented. */
-  lobbyCanStart: () => false,
-  resetFields: () => ({}),
+  GameComponent: FastCasualTriviaGame,
+  /** Phase 1 shell is live. Phase 2 will gate this on per-game readiness. */
+  lobbyCanStart: () => true,
+  resetFields: () => ({
+    fctPhase: null,
+    fctMode: null,
+    fctTeamCount: null,
+    fctTeams: null,
+    fctActiveTags: null,
+    fctScores: null,
+  }),
   multiplayerFlowMode: "party",
   allowAI: true,
 });

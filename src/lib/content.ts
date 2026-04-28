@@ -774,6 +774,82 @@ export async function uploadGameBackgroundMusic(
 }
 
 /**
+ * Upload shared engine theme music (one URL per engine slug in `gameEngines`).
+ * Storage: engine-theme-audio/{engineSlug}/theme.{ext}
+ */
+export async function uploadEngineThemeMusic(
+  file: File,
+  engineSlug: string
+): Promise<string> {
+  const slug = engineSlug.trim();
+  if (!slug) throw new Error("Engine slug is required");
+
+  const { initializeFirebase } = await import("./firebase");
+  const { getStorage, ref, uploadBytes } = await import("firebase/storage");
+
+  const { app } = await initializeFirebase();
+  const storage = getStorage(app);
+
+  const ext = file.name.split(".").pop() || "mp3";
+  const storagePath = `engine-theme-audio/${slug}/theme.${ext}`;
+  const storageRef = ref(storage, storagePath);
+
+  await uploadBytes(storageRef, file, {
+    contentType: file.type,
+    cacheControl: "public, max-age=31536000",
+  });
+
+  const bucket = storage.app.options.storageBucket;
+  if (!bucket) throw new Error("Storage bucket not configured");
+
+  const baseUrl = getPublicStorageUrl(bucket, storagePath);
+  return `${baseUrl}&t=${Date.now()}`;
+}
+
+/** Shared looping track for all game instances using this engine (`gameEngines` collection). */
+export async function getGameEngineTheme(engineSlug: string): Promise<string | undefined> {
+  const slug = engineSlug.trim();
+  if (!slug) return undefined;
+
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, getDoc } = await import("firebase/firestore");
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  const snap = await getDoc(doc(db, "gameEngines", slug));
+  if (!snap.exists()) return undefined;
+  const raw = snap.data()?.["themeMusicURL"];
+  return typeof raw === "string" && raw.trim() ? raw.trim() : undefined;
+}
+
+export async function setGameEngineTheme(
+  engineSlug: string,
+  themeMusicURL: string | null
+): Promise<void> {
+  const slug = engineSlug.trim();
+  if (!slug) return;
+
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, setDoc, Timestamp, deleteField } = await import("firebase/firestore");
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+  const ref = doc(db, "gameEngines", slug);
+  const trimmed = themeMusicURL?.trim();
+  if (trimmed) {
+    await setDoc(
+      ref,
+      { themeMusicURL: trimmed, updatedAt: Timestamp.now() },
+      { merge: true },
+    );
+  } else {
+    await setDoc(
+      ref,
+      { themeMusicURL: deleteField(), updatedAt: Timestamp.now() },
+      { merge: true },
+    );
+  }
+}
+
+/**
  * Delete a content image from Firebase Storage
  */
 export async function deleteContentImage(

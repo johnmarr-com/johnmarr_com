@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import type { FyveBoardCard, CardType, FyveTeam, FyveClue, FyveHeist, FyvePendingTap } from "../fyveTypes";
 import { getAIAuthHeaders } from "@/app/games/_gamecore";
 import { JMCloseCircleButton } from "@/JMKit/JMCloseCircleButton";
+import { JMNumberPickerPopup } from "@/JMKit";
 import { FYVE_COLORS } from "../FyveGame";
 import FyveGrid from "./FyveGrid";
 import HeistProgressBars from "./HeistProgressBars";
@@ -226,34 +227,17 @@ export default function BossScreen({
       )}
 
       {/* Number picker popup */}
-      {numberPickerOpen && createPortal(
-        <div className="fixed inset-0 z-60 flex items-center justify-center px-4">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/70 backdrop-blur-md"
-            onClick={() => setNumberPickerOpen(false)}
-            aria-label="Close"
-          />
-          <div className="relative z-10 flex gap-4">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => { setClueNumber(n); setNumberPickerOpen(false); }}
-                className={`flex h-16 w-16 items-center justify-center rounded-full text-2xl font-black transition-all active:scale-90 ${
-                  n === clueNumber
-                    ? "border-2 text-white"
-                    : "border border-white/20 bg-white/5 text-white/70"
-                }`}
-                style={n === clueNumber ? { borderColor: teamAccent, backgroundColor: `${teamAccent}30` } : undefined}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-        </div>,
-        document.body,
-      )}
+      <JMNumberPickerPopup
+        open={numberPickerOpen}
+        value={clueNumber}
+        options={[1, 2, 3, 4, 5]}
+        accentColor={teamAccent}
+        onSelect={(n) => {
+          setClueNumber(n);
+          setNumberPickerOpen(false);
+        }}
+        onClose={() => setNumberPickerOpen(false)}
+      />
 
       {/* Clue active — brief status for active team boss only */}
       {currentClue && isMyTeamActive && (

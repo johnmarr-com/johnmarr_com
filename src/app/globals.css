@@ -123,6 +123,38 @@ select:focus-visible {
   animation-delay: 600ms;
 }
 
+/* ─── Logo slide for FCT entrance + hot-swap (Step 4 / Step 8) ─── */
+
+@keyframes logoSlideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(40px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes logoSlideOutToRight {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(40px) scale(0.92);
+  }
+}
+
+.animate-logo-slide-in {
+  animation: logoSlideInFromRight 300ms ease-out forwards;
+}
+
+.animate-logo-slide-out {
+  animation: logoSlideOutToRight 300ms ease-in forwards;
+}
+
 /* ─── JMPageTransition module (src/JMKit/JMPageTransition.tsx) ─── */
 /* Diagonal glow wipe, blur pulse, and outgoing-page fade.        */
 /* Keep these in sync with the component's default 450ms duration. */

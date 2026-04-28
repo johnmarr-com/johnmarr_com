@@ -90,6 +90,12 @@ service cloud.firestore {
       // Only admins can delete content
       allow delete: if isAdmin();
     }
+
+    // Shared metadata per game engine route (e.g. engine theme music URL for all skins)
+    match /gameEngines/{engineSlug} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
     
     // ─────────────────────────────────────────────────────────────
     // EXPERIENCES COLLECTION (Home page rows)

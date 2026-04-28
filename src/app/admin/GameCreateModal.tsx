@@ -5,7 +5,7 @@ import { X, Check, Loader2, Eye, EyeOff } from "lucide-react";
 import { useJMStyle } from "@/JMStyle";
 import { JMImageUpload, JMAudioUpload } from "@/JMKit";
 import { useAuth } from "@/lib/AuthProvider";
-import { createContent, uploadContentImage, uploadGameBackgroundMusic } from "@/lib/content";
+import { createContent, uploadContentImage, uploadGameBackgroundMusic, uploadEngineThemeMusic, setGameEngineTheme } from "@/lib/content";
 import {
   getGamePlayHref,
   sanitizeGameSlugInput,
@@ -33,6 +33,7 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
   const [splashIconURL, setSplashIconURL] = useState("");
   const [splashLogoURL, setSplashLogoURL] = useState("");
   const [backgroundMusicURL, setBackgroundMusicURL] = useState("");
+  const [engineThemeMusicURL, setEngineThemeMusicURL] = useState("");
   const [backgroundMusicVolume, setBackgroundMusicVolume] = useState(0.3);
   const [bgMusicLandingOnly, setBgMusicLandingOnly] = useState(false);
   const [minPlayers, setMinPlayers] = useState(1);
@@ -72,6 +73,12 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
     return uploadGameBackgroundMusic(file, tempIdRef.current);
   }, []);
 
+  const handleEngineThemeUpload = useCallback(async (file: File) => {
+    const eng = engineSlug.trim();
+    if (!eng) throw new Error("Enter an engine slug above first.");
+    return uploadEngineThemeMusic(file, eng);
+  }, [engineSlug]);
+
   const handleCreate = async () => {
     if (!user || !name.trim() || !slug.trim()) return;
 
@@ -109,6 +116,10 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
       if (dangerColor.trim()) input.dangerColor = dangerColor.trim();
 
       await createContent(input, user.uid);
+      const eng = engineSlug.trim();
+      if (eng && engineThemeMusicURL.trim()) {
+        await setGameEngineTheme(eng, engineThemeMusicURL.trim());
+      }
       onCreated();
     } catch (err) {
       console.error("Failed to create game:", err);
@@ -385,7 +396,8 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
                 Background Music
               </p>
               <p className="mb-3 text-xs" style={{ color: theme.text.tertiary }}>
-                Loops during gameplay. Falls back to <code>/music/{slug || "..."}.mp3</code> if not set.
+                Per-game track loops during gameplay and overrides the shared engine theme below when set.
+                Otherwise falls back to <code>/music/{slug || "..."}.mp3</code> if neither is set.
               </p>
               <JMAudioUpload
                 label="Music Track"
@@ -443,10 +455,29 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
                 <p className="mt-1 ml-1 text-xs" style={{ color: theme.text.tertiary }}>
                   When on, music stops when the game starts.
                 </p>
+                </div>
               </div>
-            </div>
 
-            {/* Min / Max Players */}
+              {engineSlug.trim() ? (
+                <div className="mt-5 rounded-lg border p-4" style={{ borderColor: "rgba(255, 255, 255, 0.12)" }}>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider" style={{ color: theme.text.tertiary }}>
+                    Engine theme <span className="font-normal normal-case opacity-90">(shared)</span>
+                  </p>
+                  <p className="mb-3 text-xs" style={{ color: theme.text.tertiary }}>
+                    One soundtrack for engine <code className="text-[11px]">{engineSlug.trim()}</code>. Applies to every
+                    game instance using this engine unless this title sets its own music track above.
+                  </p>
+                  <JMAudioUpload
+                    label="Engine theme track"
+                    {...(engineThemeMusicURL ? { value: engineThemeMusicURL } : {})}
+                    onChange={(url) => setEngineThemeMusicURL(url || "")}
+                    onUpload={handleEngineThemeUpload}
+                    maxSizeMB={30}
+                  />
+                </div>
+              ) : null}
+
+              {/* Min / Max Players */}
             <div className="flex gap-6">
               <div>
                 <label

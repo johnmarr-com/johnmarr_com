@@ -18,6 +18,7 @@
 import { useMemo, Suspense } from "react";
 import type { ComponentType } from "react";
 import Link from "next/link";
+import { resolveBackgroundMusicURL } from "@/lib/game-engine-audio";
 import type { CreateSessionInput } from "@/lib/game-sessions";
 import { resolveVariant } from "./registry/registry";
 import type {
@@ -154,6 +155,7 @@ function ComposedGameInner({ config }: { config: ComposeGameInput }) {
   const {
     phase,
     gameData,
+    engineThemeMusicURL,
     skinLoadError,
     activeSessionId,
     session,
@@ -165,6 +167,15 @@ function ComposedGameInner({ config }: { config: ComposeGameInput }) {
     handlePlayAgain,
     handleExit,
   } = flow;
+
+  const playbackGameData = useMemo(() => {
+    if (!gameData) return null;
+    const resolved = resolveBackgroundMusicURL(gameData, engineThemeMusicURL);
+    if (!resolved || resolved === gameData.backgroundMusicURL?.trim()) {
+      return gameData;
+    }
+    return { ...gameData, backgroundMusicURL: resolved };
+  }, [gameData, engineThemeMusicURL]);
 
   // Resolve the assembly config from the game's CMS data
   const rawAssembly = gameData ? (gameData as unknown as Record<string, unknown>)["assembly"] : undefined;
@@ -191,16 +202,16 @@ function ComposedGameInner({ config }: { config: ComposeGameInput }) {
   if (skinLoadError) {
     return <EngineSkinErrorMessage error={skinLoadError} engineSlug={config.slug} paramName={config.contentSlugFromQueryParam} />;
   }
-  if (!gameData) return null;
+  if (!gameData || !playbackGameData) return null;
 
   // ─── GC3: Game ───────────────────────────────────────────
   if (phase === "game" && activeSessionId) {
     const GameComponent = config.GameComponent as ComponentType<GC3Props>;
     return (
-      <GameColorsProvider gameData={gameData}>
+      <GameColorsProvider gameData={playbackGameData}>
         <GameComponent
           sessionId={activeSessionId}
-          gameData={gameData}
+          gameData={playbackGameData}
           onGameEnd={handleGameEnd}
         />
       </GameColorsProvider>
@@ -210,10 +221,10 @@ function ComposedGameInner({ config }: { config: ComposeGameInput }) {
   // ─── GC4: Result ─────────────────────────────────────────
   if (phase === "result" && gameResult && session) {
     return (
-      <GameColorsProvider gameData={gameData}>
+      <GameColorsProvider gameData={playbackGameData}>
         <GC4ResultRenderer
           variantId={assembly.gc4.variantId}
-          gameData={gameData}
+          gameData={playbackGameData}
           session={session}
           result={gameResult}
           isHost={isHost}
@@ -230,22 +241,22 @@ function ComposedGameInner({ config }: { config: ComposeGameInput }) {
   // (GC0) plus the dialog flow (GC1 gate + GC2 lobby) via GameMultiplayerFlow.
   return (
     <GameLandingPage
-      {...(gameData.splashBgURL ? { splashBgURL: gameData.splashBgURL } : {})}
-      {...(gameData.splashBgDim != null ? { splashBgDim: gameData.splashBgDim } : {})}
-      {...(gameData.splashIconURL ? { splashIconURL: gameData.splashIconURL } : {})}
-      {...(gameData.splashLogoURL ? { splashLogoURL: gameData.splashLogoURL } : {})}
-      {...(gameData.backgroundMusicURL ? { backgroundMusicURL: gameData.backgroundMusicURL } : {})}
-      {...(gameData.backgroundMusicVolume != null ? { backgroundMusicVolume: gameData.backgroundMusicVolume } : {})}
-      {...(gameData.bgMusicLandingOnly != null ? { bgMusicLandingOnly: gameData.bgMusicLandingOnly } : {})}
-      gameSlug={gameData.slug ?? config.slug}
-      {...(gameData.subtitle ? { subtitle: gameData.subtitle } : {})}
-      {...(gameData.gameLikeLabel?.trim() ? { gameLikeLabel: gameData.gameLikeLabel.trim() } : {})}
-      minPlayers={gameData.minPlayers ?? 1}
-      {...(gameData.maxPlayers != null ? { maxPlayers: gameData.maxPlayers } : {})}
+      {...(playbackGameData.splashBgURL ? { splashBgURL: playbackGameData.splashBgURL } : {})}
+      {...(playbackGameData.splashBgDim != null ? { splashBgDim: playbackGameData.splashBgDim } : {})}
+      {...(playbackGameData.splashIconURL ? { splashIconURL: playbackGameData.splashIconURL } : {})}
+      {...(playbackGameData.splashLogoURL ? { splashLogoURL: playbackGameData.splashLogoURL } : {})}
+      {...(playbackGameData.backgroundMusicURL ? { backgroundMusicURL: playbackGameData.backgroundMusicURL } : {})}
+      {...(playbackGameData.backgroundMusicVolume != null ? { backgroundMusicVolume: playbackGameData.backgroundMusicVolume } : {})}
+      {...(playbackGameData.bgMusicLandingOnly != null ? { bgMusicLandingOnly: playbackGameData.bgMusicLandingOnly } : {})}
+      gameSlug={playbackGameData.slug ?? config.slug}
+      {...(playbackGameData.subtitle ? { subtitle: playbackGameData.subtitle } : {})}
+      {...(playbackGameData.gameLikeLabel?.trim() ? { gameLikeLabel: playbackGameData.gameLikeLabel.trim() } : {})}
+      minPlayers={playbackGameData.minPlayers ?? 1}
+      {...(playbackGameData.maxPlayers != null ? { maxPlayers: playbackGameData.maxPlayers } : {})}
       multiplayerFlowMode={config.multiplayerFlowMode ?? "party"}
-      {...(gameData.minPlayers != null ? { multiplayerMinPlayers: gameData.minPlayers } : {})}
+      {...(playbackGameData.minPlayers != null ? { multiplayerMinPlayers: playbackGameData.minPlayers } : {})}
       {...(config.allowAI != null ? { allowAI: config.allowAI } : {})}
-      disabled={!gameData.isPublished}
+      disabled={!playbackGameData.isPublished}
       {...(multiplayerInput ? { multiplayerInput } : {})}
       {...(config.lobbyExtra != null ? { lobbyExtra: config.lobbyExtra } : {})}
       {...(config.lobbyCanStart ? { lobbyCanStart: config.lobbyCanStart } : {})}

@@ -81,6 +81,23 @@ export {
 export { JMCloseCircleButton, type JMCloseCircleButtonProps } from "./JMCloseCircleButton";
 export { JMCard, type JMCardProps } from "./JMCard";
 export { JMCardFlip, type JMCardFlipProps } from "./JMCardFlip";
+export { JMTextCard, type JMTextCardProps, type JMTextCardSize } from "./JMTextCard";
+export { JMPlayerLeaderboard, type JMPlayerLeaderboardProps } from "./JMPlayerLeaderboard";
+export {
+  JMTeamLeaderboard,
+  type JMTeamLeaderboardProps,
+  type JMTeamLeaderboardEntry,
+} from "./JMTeamLeaderboard";
+export {
+  JMNumberPickerPopup,
+  type JMNumberPickerPopupProps,
+} from "./JMNumberPickerPopup";
+export {
+  JMColorPickerPopup,
+  type JMColorPickerPopupProps,
+  type JMColorOption,
+} from "./JMColorPickerPopup";
+export { JMGameLogo, type JMGameLogoProps } from "./JMGameLogo";
 export { BluffPackCover } from "./BluffPackCover";
 export { BluffCard } from "./BluffCard";
 export {

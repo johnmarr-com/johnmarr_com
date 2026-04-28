@@ -177,7 +177,7 @@ export interface JMContent {
   splashBgDim?: number;           // 0–100 overlay darkness on splash bg (0 = none, 50 = half). Default 50.
   splashIconURL?: string;         // 4:3 game icon for landing page
   splashLogoURL?: string;         // 2:1 game title logo for landing page
-  backgroundMusicURL?: string;    // Looping background music for gameplay (falls back to /music/{slug}.mp3)
+  backgroundMusicURL?: string;    // Looping gameplay music (overrides shared engine theme when set; see gameEngines + resolveBackgroundMusicURL)
   backgroundMusicVolume?: number; // 0–1 volume level (default 0.3)
   bgMusicLandingOnly?: boolean;   // If true, stop background music when the game starts (only plays on landing/lobby)
   minPlayers?: number;            // Min players required (default 1; >1 means no solo/AI mode)

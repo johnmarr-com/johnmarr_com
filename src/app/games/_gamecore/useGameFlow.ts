@@ -11,7 +11,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/AuthProvider";
-import { getContentBySlug } from "@/lib/content";
+import { getContentBySlug, getGameEngineTheme } from "@/lib/content";
 import type { JMContent } from "@/lib/content-types";
 import { joinGameSessionById, subscribeToSession } from "@/lib/game-sessions";
 import type { GameSession } from "@/lib/game-sessions";
@@ -26,6 +26,8 @@ import type {
 export interface GameFlowState {
   phase: GameFlowPhase;
   gameData: JMContent | null;
+  /** Optional URL from `gameEngines/{engineSlug}` when the skin has no per-game music. */
+  engineThemeMusicURL?: string | undefined;
   /** Set when `contentSlugFromQueryParam` is used and the skin could not be resolved. */
   skinLoadError: EngineSkinLoadError | null;
   activeSessionId: string | null;
@@ -63,6 +65,8 @@ export function useGameFlow(config: ComposeGameInput): GameFlowState & GameFlowA
   const [session, setSession] = useState<GameSession | null>(null);
   const [gameResult, setGameResult] = useState<GameEndResult | null>(null);
   const [contentLoading, setContentLoading] = useState(true);
+  /** Raw fetch result; combine with `loadedGameData.engineSlug` when exposing from the hook. */
+  const [fetchedEngineThemeURL, setFetchedEngineThemeURL] = useState<string | undefined>(undefined);
 
   const autoJoinRef = useRef(false);
   const lastReplayCountRef = useRef<number>(0);
@@ -105,6 +109,22 @@ export function useGameFlow(config: ComposeGameInput): GameFlowState & GameFlowA
       setContentLoading(false);
     });
   }, [config.slug, qParam, skinSlug]);
+
+  // Shared engine theme — fetch only when this skin references an engineSlug
+  useEffect(() => {
+    const eng = loadedGameData?.engineSlug?.trim();
+    if (!eng) return;
+    let cancelled = false;
+    getGameEngineTheme(eng).then((url) => {
+      if (!cancelled) setFetchedEngineThemeURL(url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [loadedGameData?.id, loadedGameData?.engineSlug]);
+
+  const engineSlugEffective = loadedGameData?.engineSlug?.trim();
+  const engineThemeMusicURL = engineSlugEffective ? fetchedEngineThemeURL : undefined;
 
   // A sessionId arriving in the URL while the page was already on landing
   // (e.g. My Games "Rejoin" tapped from the same game's splash) needs to
@@ -188,6 +208,7 @@ export function useGameFlow(config: ComposeGameInput): GameFlowState & GameFlowA
   return {
     phase,
     gameData,
+    engineThemeMusicURL,
     skinLoadError,
     activeSessionId,
     session,

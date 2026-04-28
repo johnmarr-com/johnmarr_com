@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { X, Save, Trash2, Loader2, Eye, EyeOff } from "lucide-react";
 import { useJMStyle } from "@/JMStyle";
 import { JMImageUpload, JMAudioUpload } from "@/JMKit";
-import { getContent, updateContent, deleteContent, uploadContentImage, uploadGameBackgroundMusic } from "@/lib/content";
+import { getContent, updateContent, deleteContent, uploadContentImage, uploadGameBackgroundMusic, uploadEngineThemeMusic, setGameEngineTheme, getGameEngineTheme } from "@/lib/content";
 import type { JMContent } from "@/lib/content-types";
 import type { GameAssembly } from "@/app/games/_gamecore/registry/types";
 import {
@@ -93,6 +93,10 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  /** Shared engine soundtrack (`gameEngines/{slug}`), editable from any title using this engine. */
+  const [engineThemeMusicURL, setEngineThemeMusicURL] = useState("");
+  const [originalEngineThemeMusicURL, setOriginalEngineThemeMusicURL] = useState("");
+
   const handleCoverUpload = useCallback(
     async (file: File) => uploadContentImage(file, gameId, "cover"),
     [gameId],
@@ -123,6 +127,15 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
     [gameId],
   );
 
+  const handleEngineThemeUpload = useCallback(
+    async (file: File) => {
+      const eng = editState?.engineSlug?.trim();
+      if (!eng) throw new Error("Enter an engine slug first.");
+      return uploadEngineThemeMusic(file, eng);
+    },
+    [editState?.engineSlug],
+  );
+
   useEffect(() => {
     const load = async () => {
       setIsLoading(true);
@@ -146,8 +159,31 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
     load();
   }, [gameId]);
 
+  useEffect(() => {
+    const slug = editState?.engineSlug?.trim();
+    if (!slug) {
+      setEngineThemeMusicURL("");
+      setOriginalEngineThemeMusicURL("");
+      return;
+    }
+    let cancelled = false;
+    getGameEngineTheme(slug).then((url) => {
+      if (cancelled) return;
+      const v = url ?? "";
+      setEngineThemeMusicURL(v);
+      setOriginalEngineThemeMusicURL(v);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [editState?.engineSlug]);
+
   const hasChanges =
-    editState && originalState && JSON.stringify(editState) !== JSON.stringify(originalState);
+    !!editState &&
+    !!originalState &&
+    (JSON.stringify(editState) !== JSON.stringify(originalState) ||
+      (!!editState.engineSlug.trim() &&
+        engineThemeMusicURL.trim() !== originalEngineThemeMusicURL.trim()));
 
   const handleSave = async () => {
     if (!editState || !hasChanges) return;
@@ -195,6 +231,12 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
       if (editState.assembly) updates.assembly = editState.assembly;
 
       await updateContent(gameId, updates);
+
+      const eng = editState.engineSlug.trim();
+      if (eng) {
+        await setGameEngineTheme(eng, engineThemeMusicURL.trim() || null);
+        setOriginalEngineThemeMusicURL(engineThemeMusicURL.trim());
+      }
 
       setOriginalState({ ...editState });
       setShowSaveToast(true);
@@ -504,7 +546,8 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
                   Background Music
                 </p>
                 <p className="mb-3 text-xs" style={{ color: theme.text.tertiary }}>
-                  Loops during gameplay. Falls back to <code>/music/{editState.slug || "..."}.mp3</code> if not set.
+                  Per-game track loops during gameplay and overrides the shared engine theme below when set.
+                  Otherwise falls back to <code>/music/{editState.slug || "..."}.mp3</code> if neither is set.
                 </p>
                 <JMAudioUpload
                   label="Music Track"
@@ -564,6 +607,25 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
                   </p>
                 </div>
               </div>
+
+              {editState.engineSlug.trim() ? (
+                <div className="mt-5 rounded-lg border p-4" style={{ borderColor: "rgba(255, 255, 255, 0.12)" }}>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider" style={{ color: theme.text.tertiary }}>
+                    Engine theme <span className="font-normal normal-case opacity-90">(shared)</span>
+                  </p>
+                  <p className="mb-3 text-xs" style={{ color: theme.text.tertiary }}>
+                    One soundtrack for engine <code className="text-[11px]">{editState.engineSlug.trim()}</code>.
+                    Stored once for all titles using this engine; override with this title&apos;s music track above if needed.
+                  </p>
+                  <JMAudioUpload
+                    label="Engine theme track"
+                    {...(engineThemeMusicURL ? { value: engineThemeMusicURL } : {})}
+                    onChange={(url) => setEngineThemeMusicURL(url || "")}
+                    onUpload={handleEngineThemeUpload}
+                    maxSizeMB={30}
+                  />
+                </div>
+              ) : null}
 
               {/* Min / Max Players */}
               <div className="flex gap-6">
