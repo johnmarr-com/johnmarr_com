@@ -332,6 +332,8 @@ service cloud.firestore {
             'activeTeam', 'svPhase', 'updatedAt',
             'playerUids', 'players', 'playerCount',
             'pendingInviteUids',
+            // Sweep the Leg / Tap Smash Arena — simultaneous-move submissions
+            'pendingMoves',
             // Boaty McBoatface — both players write boards, attacks, turns
             'btBoards', 'btReady', 'btAttacks', 'btLastAttack',
             'btCurrentTurn', 'btWinner', 'btPhase'

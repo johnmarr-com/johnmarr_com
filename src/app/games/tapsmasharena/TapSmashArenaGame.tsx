@@ -224,6 +224,7 @@ export default function TapSmashArenaGame({
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [showTranscript, setShowTranscript] = useState(false);
   const [aiPostGame, setAiPostGame] = useState("");
+  const [joinerAccepted, setJoinerAccepted] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const chapterRef = useRef<ChapterName>("Ready");
@@ -471,9 +472,15 @@ export default function TapSmashArenaGame({
     }
 
     if (mpStartedRef.current) return;
+
+    // Joiner must tap the "Join Match" button once to satisfy iOS autoplay
+    // gesture requirements before the video starts. Host has a fresh gesture
+    // from "Start Game", so they auto-enter.
+    if (!mpIsHost && !joinerAccepted) return;
+
     mpStartedRef.current = true;
     requestAnimationFrame(() => handleStart(mpSide));
-  }, [isFriends, mpSession, mpSide, handleStart]);
+  }, [isFriends, mpSession, mpSide, mpIsHost, joinerAccepted, handleStart]);
 
   // ─── Multiplayer round results: play video chapter and update scores ───
   useEffect(() => {
@@ -716,9 +723,26 @@ export default function TapSmashArenaGame({
               {/* Idle overlay — friends mode waiting for session */}
               {phase === "idle" && isFriends && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60">
-                  <p className="text-sm font-medium uppercase tracking-widest text-white/50 animate-pulse">
-                    Loading match…
-                  </p>
+                  {!mpSession || mpSession.status !== "playing" || !mpSide ? (
+                    <p className="text-sm font-medium uppercase tracking-widest text-white/50 animate-pulse">
+                      Waiting for host to start match…
+                    </p>
+                  ) : !mpIsHost && !joinerAccepted ? (
+                    <button
+                      onClick={() => {
+                        ensurePlaying();
+                        setJoinerAccepted(true);
+                      }}
+                      className="rounded-full px-10 py-4 text-lg font-black uppercase tracking-wider text-black transition-transform hover:scale-105 active:scale-95"
+                      style={{ backgroundColor: theme.accents.goldenGlow }}
+                    >
+                      Join Match
+                    </button>
+                  ) : (
+                    <p className="text-sm font-medium uppercase tracking-widest text-white/50 animate-pulse">
+                      Loading match…
+                    </p>
+                  )}
                 </div>
               )}
 

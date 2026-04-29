@@ -77,16 +77,34 @@ function wrapWithPersona(gamePrompt: string, personaPrompt?: string, personaVoic
  */
 export async function simpleMove(prompt: string, personaPrompt?: string, personaVoice?: string): Promise<AIMoveResult> {
   try {
-    const { text } = await fetchAI({ prompt: wrapWithPersona(prompt, personaPrompt, personaVoice), type: "move" });
+    // Re-emphasize the REASONING/ACTION format AFTER the persona voice so it's
+    // the last instruction the model sees — voice directives appended last were
+    // pulling models away from the format and dropping the reasoning line.
+    const wrapped = wrapWithPersona(prompt, personaPrompt, personaVoice)
+      + (personaVoice
+        ? `\n\nFormat your response with both labels exactly as instructed above: a REASONING: line followed by an ACTION: line. Do not omit either label.`
+        : "");
+
+    const { text } = await fetchAI({ prompt: wrapped, type: "move" });
     if (!text) return { action: "", reason: "" };
 
-    const reasonMatch = text.match(/REASONING:\s*([\s\S]+?)(?=\nACTION:)/i);
-    const reason = reasonMatch ? reasonMatch[1]!.trim() : "";
+    // Tolerant parser: split around the ACTION: marker rather than relying on
+    // a strict newline boundary. Captures reasoning even when the model puts
+    // ACTION: on the same line, indents it, or adds an extra blank line.
+    const actionIdx = text.search(/\bACTION:/i);
 
-    const actionMatch = text.match(/ACTION:\s*(.+)/i);
-    const action = actionMatch ? actionMatch[1]!.trim() : "";
+    if (actionIdx >= 0) {
+      const afterAction = text.substring(actionIdx).replace(/^ACTION:\s*/i, "");
+      const action = afterAction.split(/\n/)[0]!.trim();
+      const beforeAction = text.substring(0, actionIdx).trim();
+      const reason = beforeAction.replace(/^REASONING:\s*/i, "").trim();
+      return { action, reason };
+    }
 
-    return { action, reason };
+    // No ACTION: marker — salvage the reasoning if present so it still surfaces.
+    const reasonOnlyMatch = text.match(/REASONING:\s*([\s\S]+)/i);
+    const reason = reasonOnlyMatch ? reasonOnlyMatch[1]!.trim() : "";
+    return { action: "", reason };
   } catch {
     return { action: "", reason: "" };
   }
