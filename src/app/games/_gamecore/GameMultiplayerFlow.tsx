@@ -21,6 +21,7 @@ import { JMInviteCodeInput } from "@/JMKit/JMInviteCodeInput";
 import { InviteKnownPlayersModal } from "./InviteKnownPlayersModal";
 import { InviteAIModal } from "./InviteAIModal";
 import { isAiPlayer, getPersona } from "./aiPersonas";
+import { useTrackKnownPlayers } from "./useTrackKnownPlayers";
 import type { AIPersona } from "./aiPersonas";
 import { useAuth } from "@/lib/AuthProvider";
 import {
@@ -149,13 +150,16 @@ export function GameMultiplayerFlow({
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [pendingPlayerDetails, setPendingPlayerDetails] = useState<KnownPlayer[]>([]);
   const unsubRef = useRef<(() => void) | null>(null);
-  const trackedPlayersRef = useRef<Set<string>>(new Set());
   const onOpenChangeRef = useRef(onOpenChange);
   onOpenChangeRef.current = onOpenChange;
   const routerRef = useRef(router);
   routerRef.current = router;
 
   const is1v1 = gameInput.maxPlayers === 2;
+
+  // Reciprocal known-players: each subscribed player records the others on
+  // their own user doc so future invite pickers show the relationship.
+  useTrackKnownPlayers(session?.players, user?.uid);
 
   // Clean up listener on close
   useEffect(() => {
@@ -187,26 +191,6 @@ export function GameMultiplayerFlow({
             onOpenChangeRef.current(false);
             routerRef.current.push("/");
           }, 2500);
-        }
-
-        // All players: add other human players to own knownPlayerUids
-        if (user?.uid) {
-          const newUids = updated.players
-            .map((p) => p.uid)
-            .filter((uid) => uid !== user.uid && !isAiPlayer(uid) && !trackedPlayersRef.current.has(uid));
-
-          if (newUids.length > 0) {
-            newUids.forEach((uid) => trackedPlayersRef.current.add(uid));
-            import("firebase/firestore").then(async ({ doc, updateDoc, arrayUnion }) => {
-              const { initializeFirebase } = await import("@/lib/firebase");
-              const { getFirestore } = await import("firebase/firestore");
-              const { app } = await initializeFirebase();
-              const db = getFirestore(app);
-              await updateDoc(doc(db, "users", user.uid), {
-                knownPlayerUids: arrayUnion(...newUids),
-              }).catch(() => {});
-            });
-          }
         }
       }
     }).then((unsub) => {

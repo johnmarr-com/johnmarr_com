@@ -10,6 +10,7 @@ import {
   type WriteRoundInput,
 } from "@/lib/game-sessions";
 import { isAiPlayer } from "./aiPersonas";
+import { useTrackKnownPlayers } from "./useTrackKnownPlayers";
 
 export type MpPhase = "waiting" | "submitted" | "resolving" | "animating";
 
@@ -88,6 +89,10 @@ export function useMultiplayerRound({
       unsub?.();
     };
   }, [sessionId]);
+
+  // Reciprocal known-players: each subscribed player records the others on
+  // their own user doc so future invite pickers show the relationship.
+  useTrackKnownPlayers(session?.players, userId || undefined);
 
   const isHost = !!session && session.ownerId === userId;
 

@@ -16,6 +16,7 @@ import type { JMContent } from "@/lib/content-types";
 import { joinGameSessionById, subscribeToSession } from "@/lib/game-sessions";
 import type { GameSession } from "@/lib/game-sessions";
 import { updateSessionFields } from "../_gamecore/sessionHelpers";
+import { useTrackKnownPlayers } from "./useTrackKnownPlayers";
 import type {
   GameFlowPhase,
   GameEndResult,
@@ -171,6 +172,10 @@ export function useGameFlow(config: ComposeGameInput): GameFlowState & GameFlowA
       unsub?.();
     };
   }, [activeSessionId, user]);
+
+  // Reciprocal known-players: each subscribed player records the others on
+  // their own user doc so future invite pickers show the relationship.
+  useTrackKnownPlayers(session?.players, user?.uid);
 
   // ─── Derive isHost ───────────────────────────────────────
   const isHost = !!(session && user && session.ownerId === user.uid);
