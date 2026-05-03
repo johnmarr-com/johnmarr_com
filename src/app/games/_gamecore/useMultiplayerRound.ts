@@ -90,9 +90,10 @@ export function useMultiplayerRound({
     };
   }, [sessionId]);
 
-  // Reciprocal known-players: each subscribed player records the others on
-  // their own user doc so future invite pickers show the relationship.
-  useTrackKnownPlayers(session?.players, userId || undefined);
+  // Reciprocal known-players: each subscribed client asks the server to
+  // cross-write the relationship (Admin SDK, immune to iOS Safari client-
+  // side write failures).
+  useTrackKnownPlayers(session, userId || undefined);
 
   const isHost = !!session && session.ownerId === userId;
 

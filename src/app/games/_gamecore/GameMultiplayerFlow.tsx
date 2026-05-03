@@ -157,9 +157,10 @@ export function GameMultiplayerFlow({
 
   const is1v1 = gameInput.maxPlayers === 2;
 
-  // Reciprocal known-players: each subscribed player records the others on
-  // their own user doc so future invite pickers show the relationship.
-  useTrackKnownPlayers(session?.players, user?.uid);
+  // Reciprocal known-players: each subscribed client asks the server to
+  // cross-write the relationship (Admin SDK, immune to iOS Safari client-
+  // side write failures).
+  useTrackKnownPlayers(session, user?.uid);
 
   // Clean up listener on close
   useEffect(() => {

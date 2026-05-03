@@ -173,9 +173,10 @@ export function useGameFlow(config: ComposeGameInput): GameFlowState & GameFlowA
     };
   }, [activeSessionId, user]);
 
-  // Reciprocal known-players: each subscribed player records the others on
-  // their own user doc so future invite pickers show the relationship.
-  useTrackKnownPlayers(session?.players, user?.uid);
+  // Reciprocal known-players: each subscribed client asks the server to
+  // cross-write the relationship (Admin SDK, immune to iOS Safari client-
+  // side write failures).
+  useTrackKnownPlayers(session, user?.uid);
 
   // ─── Derive isHost ───────────────────────────────────────
   const isHost = !!(session && user && session.ownerId === user.uid);
