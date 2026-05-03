@@ -763,7 +763,7 @@ export default function SweepTheLegGame({
                       alt="Sweep the Leg"
                       width={280}
                       height={140}
-                      className="w-full max-w-[280px] object-contain"
+                      className={`w-full max-w-[280px] object-contain${isFriends && (!mpSession || mpSession.status !== "playing" || !mpSide) ? " animate-gentle-float" : ""}`}
                       draggable={false}
                       priority
                     />
@@ -776,8 +776,10 @@ export default function SweepTheLegGame({
                   )}
                   {isFriends ? (
                     !mpSession || mpSession.status !== "playing" || !mpSide ? (
-                      <p className="text-sm font-medium uppercase tracking-widest text-white/50 animate-pulse">
-                        Waiting for host to start match…
+                      <p className="text-center text-sm font-medium uppercase tracking-widest text-white animate-pulse">
+                        Waiting for host
+                        <br />
+                        to start match…
                       </p>
                     ) : !mpIsHost && !joinerAccepted ? (
                       <button
@@ -932,56 +934,35 @@ export default function SweepTheLegGame({
           </div>
         </div>
 
-        {/* Player label + Attack buttons */}
-        {/* Invisible spacer to keep video centered when attack buttons are hidden */}
-        {phase !== "ready" && phase !== "animating" && phase !== "idle" && (
-          <div className="shrink-0 py-3" aria-hidden>
-            <p className="invisible mb-2 text-sm">placeholder</p>
-            <div className="flex gap-3">
-              <div className="flex-1 rounded-xl py-3"><span className="invisible block text-xl">X</span><span className="invisible mt-0.5 block text-[10px]">x</span></div>
-            </div>
-          </div>
-        )}
+        {/* Player label + Attack buttons — always mounted to prevent layout jumps */}
+        <div className="shrink-0 py-3">
+          <p
+            className={`mb-2 text-center text-sm font-bold uppercase tracking-widest text-white/40 transition-opacity ${
+              phase === "ready" || phase === "animating" ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            Choose your attack
+          </p>
 
-        {(phase === "ready" || phase === "animating") && (
-          <div className="shrink-0 py-3">
-            <p className="mb-2 text-center text-sm font-bold uppercase tracking-widest text-white/40">
-              {isFriends && opponentGamertag ? (
-                <>
-                  Choose your attack, player{" "}
-                  {playerSide === "red" ? (
-                    <span className="text-red-500">RED</span>
-                  ) : (
-                    <span className="text-white">WHITE</span>
-                  )}
-                  {" "}vs {opponentGamertag}
-                </>
-              ) : (
-                <>
-                  Choose your attack, player{" "}
-                  {playerSide === "red" ? (
-                    <span className="text-red-500">RED</span>
-                  ) : (
-                    <span className="text-white">WHITE</span>
-                  )}
-                </>
-              )}
+          {isFriends && mpPhase === "submitted" ? (
+            <p className="py-4 text-center text-sm font-bold uppercase tracking-widest text-white/40 animate-pulse">
+              Waiting for opponent…
             </p>
-
-            {isFriends && mpPhase === "submitted" ? (
-              <p className="py-4 text-center text-sm font-bold uppercase tracking-widest text-white/40 animate-pulse">
-                Waiting for opponent…
-              </p>
-            ) : (
-              <div className="flex gap-3">
-                {ATTACKS.map((a) => (
+          ) : (
+            <div className="flex gap-3">
+              {ATTACKS.map((a) => {
+                const isActive = phase === "ready" || phase === "animating";
+                return (
                   <button
                     key={a}
                     onClick={() => handleAttack(a)}
                     disabled={phase !== "ready"}
+                    aria-hidden={!isActive}
+                    tabIndex={isActive ? 0 : -1}
                     className={`
                       flex-1 rounded-xl border-2 py-3 text-base font-bold uppercase tracking-wider
                       transition-all
+                      ${!isActive ? "pointer-events-none opacity-0" : ""}
                       ${
                         phase === "ready" && playerSide === "red"
                           ? "border-red-500/30 bg-red-500/6 text-red-400 hover:scale-105 hover:border-red-500/60 hover:bg-red-500/12 active:scale-95"
@@ -993,7 +974,7 @@ export default function SweepTheLegGame({
                       }
                     `}
                     style={
-                      phase !== "ready" && selectedAttack
+                      isActive && phase !== "ready" && selectedAttack
                         ? { opacity: a === selectedAttack ? 1 : 0.3 }
                         : undefined
                     }
@@ -1005,11 +986,11 @@ export default function SweepTheLegGame({
                       {ATTACK_BEATS[a]}
                     </span>
                   </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );
