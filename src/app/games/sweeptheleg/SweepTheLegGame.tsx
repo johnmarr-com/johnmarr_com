@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useJMStyle } from "@/JMStyle";
 import { JMBannerText, JMGameScoreboard, JMCloseCircleButton, JMSimpleButton } from "@/JMKit";
-import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, GameGamertagBadge, type GameMode, type ResolverOutput, type AIPersona } from "../_gamecore";
+import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, type GameMode, type ResolverOutput, type AIPersona } from "../_gamecore";
 import { useAuth } from "@/lib/AuthProvider";
 import { startGame, type GameSession } from "@/lib/game-sessions";
 
@@ -702,7 +702,6 @@ export default function SweepTheLegGame({
 
   return (
     <div className="relative flex h-dvh flex-col bg-black">
-      <GameGamertagBadge />
       {phase === "finished" && (
         <Link href="/" className="absolute left-4 top-24 z-20">
           <JMSimpleButton
