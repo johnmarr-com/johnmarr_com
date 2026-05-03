@@ -944,52 +944,64 @@ export default function SweepTheLegGame({
             Choose your attack
           </p>
 
-          {isFriends && mpPhase === "submitted" ? (
-            <p className="py-4 text-center text-sm font-bold uppercase tracking-widest text-white/40 animate-pulse">
-              Waiting for opponent…
-            </p>
-          ) : (
-            <div className="flex gap-3">
-              {ATTACKS.map((a) => {
-                const isActive = phase === "ready" || phase === "animating";
-                return (
-                  <button
-                    key={a}
-                    onClick={() => handleAttack(a)}
-                    disabled={phase !== "ready"}
-                    aria-hidden={!isActive}
-                    tabIndex={isActive ? 0 : -1}
-                    className={`
-                      flex-1 rounded-xl border-2 py-3 text-base font-bold uppercase tracking-wider
-                      transition-all
-                      ${!isActive ? "pointer-events-none opacity-0" : ""}
-                      ${
-                        phase === "ready" && playerSide === "red"
-                          ? "border-red-500/30 bg-red-500/6 text-red-400 hover:scale-105 hover:border-red-500/60 hover:bg-red-500/12 active:scale-95"
-                          : phase === "ready"
-                            ? "border-white/30 bg-white/6 text-white hover:scale-105 hover:border-white/60 hover:bg-white/12 active:scale-95"
-                            : playerSide === "red"
-                              ? "cursor-not-allowed border-red-500/10 bg-red-500/2 text-red-400/25"
-                              : "cursor-not-allowed border-white/10 bg-white/2 text-white/25"
+          {(() => {
+            const isActive = phase === "ready" || phase === "animating";
+            const isWaiting = isFriends && mpPhase === "submitted";
+            const buttonsVisible = isActive && !isWaiting;
+            return (
+              <div className="relative">
+                <div className="flex gap-3">
+                  {ATTACKS.map((a) => (
+                    <button
+                      key={a}
+                      onClick={() => handleAttack(a)}
+                      disabled={phase !== "ready"}
+                      aria-hidden={!buttonsVisible}
+                      tabIndex={buttonsVisible ? 0 : -1}
+                      className={`
+                        flex-1 rounded-xl border-2 py-3 text-base font-bold uppercase tracking-wider
+                        transition-opacity
+                        ${!buttonsVisible ? "pointer-events-none opacity-0" : ""}
+                        ${
+                          phase === "ready" && playerSide === "red"
+                            ? "border-red-500/30 bg-red-500/6 text-red-400 hover:scale-105 hover:border-red-500/60 hover:bg-red-500/12 active:scale-95"
+                            : phase === "ready"
+                              ? "border-white/30 bg-white/6 text-white hover:scale-105 hover:border-white/60 hover:bg-white/12 active:scale-95"
+                              : playerSide === "red"
+                                ? "cursor-not-allowed border-red-500/10 bg-red-500/2 text-red-400/25"
+                                : "cursor-not-allowed border-white/10 bg-white/2 text-white/25"
+                        }
+                      `}
+                      style={
+                        buttonsVisible && phase !== "ready" && selectedAttack
+                          ? { opacity: a === selectedAttack ? 1 : 0.3 }
+                          : undefined
                       }
-                    `}
-                    style={
-                      isActive && phase !== "ready" && selectedAttack
-                        ? { opacity: a === selectedAttack ? 1 : 0.3 }
-                        : undefined
-                    }
-                  >
-                    <span className="block text-xl font-black sm:text-2xl">
-                      {ATTACK_LABEL[a]}
-                    </span>
-                    <span className="mt-0.5 block text-[10px] font-medium normal-case tracking-wide text-white/40">
-                      {ATTACK_BEATS[a]}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+                    >
+                      <span className="block text-xl font-black sm:text-2xl">
+                        {ATTACK_LABEL[a]}
+                      </span>
+                      <span className="mt-0.5 block text-[10px] font-medium normal-case tracking-wide text-white/40">
+                        {ATTACK_BEATS[a]}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Waiting overlay — same footprint as the buttons, no layout shift */}
+                <div
+                  aria-hidden={!isWaiting}
+                  className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity ${
+                    isWaiting ? "opacity-100" : "opacity-0"
+                  }`}
+                >
+                  <p className="text-center text-sm font-bold uppercase tracking-widest text-white animate-pulse">
+                    Waiting for opponent…
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </main>
     </div>
