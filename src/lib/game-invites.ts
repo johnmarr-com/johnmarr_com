@@ -143,41 +143,36 @@ export async function subscribeToMyInvites(
 }
 
 /**
- * Fetch user profiles for a list of UIDs (for displaying known players).
- * Handles Firestore's `in` query limit of 30 by batching.
+ * Fetch public profiles (gamertag + avatarName) for a list of UIDs.
+ *
+ * Goes through /api/games/profiles (Admin SDK) because the user-doc read
+ * rule restricts direct Firestore reads to the owner. This route exposes
+ * only the public fields needed for invite UI.
  */
 export async function fetchKnownPlayers(
   uids: string[],
 ): Promise<KnownPlayer[]> {
   if (uids.length === 0) return [];
 
-  const { collection, query, where, getDocs, documentId } =
-    await import("firebase/firestore");
-  const db = await getDb();
-
-  const results: KnownPlayer[] = [];
-  const batches: string[][] = [];
-  for (let i = 0; i < uids.length; i += 30) {
-    batches.push(uids.slice(i, i + 30));
-  }
-
-  for (const batch of batches) {
-    const q = query(
-      collection(db, "users"),
-      where(documentId(), "in", batch),
+  try {
+    const { getAIAuthHeaders } = await import(
+      "@/app/games/_gamecore/getAIAuthHeaders"
     );
-    const snap = await getDocs(q);
-    for (const d of snap.docs) {
-      const data = d.data();
-      results.push({
-        uid: d.id,
-        gamertag: (data["gamertag"] as string) ?? "Unknown",
-        avatarName: (data["avatarName"] as string) ?? null,
-      });
-    }
-  }
+    const headers = await getAIAuthHeaders();
+    if (!("Authorization" in headers)) return [];
 
-  return results;
+    const res = await fetch("/api/games/profiles", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ uids }),
+    });
+    if (!res.ok) return [];
+
+    const data = (await res.json()) as { profiles?: KnownPlayer[] };
+    return data.profiles ?? [];
+  } catch {
+    return [];
+  }
 }
 
 /**
