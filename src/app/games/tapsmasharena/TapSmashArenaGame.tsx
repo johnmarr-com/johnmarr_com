@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useJMStyle } from "@/JMStyle";
-import { JMBannerText, JMChampionPicker, JMCloseCircleButton, JMGameScoreboard, type ChampionOption } from "@/JMKit";
+import { JMBannerText, JMChampionPicker, JMCloseCircleButton, JMGameScoreboard, JMWaiting, type ChampionOption } from "@/JMKit";
 import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, GameGamertagBadge, sliceHistoryByTier, aiHistoryTierForLevel, TIER_PROMPT_DIRECTIVE, type GameMode, type ResolverOutput, type AIPersona } from "../_gamecore";
 import { useAuth } from "@/lib/AuthProvider";
 import { startGame, type GameSession } from "@/lib/game-sessions";
@@ -769,9 +769,7 @@ export default function TapSmashArenaGame({
               {/* Waiting for opponent after selection */}
               {(waitingForBattle || (isFriends && mpPhase === "submitted")) && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50">
-                  <p className="text-sm font-bold uppercase tracking-widest text-white/60 animate-pulse">
-                    Waiting for opponent…
-                  </p>
+                  <JMWaiting alt="Waiting for opponent…" />
                 </div>
               )}
 

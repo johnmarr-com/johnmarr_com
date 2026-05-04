@@ -16,6 +16,7 @@ export { JMBasicMenu, type JMMenuOption } from "./JMBasicMenu";
 export { JMAdminDropdown, type AdminFocus } from "./JMAdminDropdown";
 export { JMLottieAvatar, type JMLottieAvatarProps } from "./JMLottieAvatar";
 export { JMLiquidLoader, type JMLiquidLoaderProps } from "./JMLiquidLoader";
+export { JMWaiting, type JMWaitingProps } from "./JMWaiting";
 export {
   Dialog,
   DialogPortal,
