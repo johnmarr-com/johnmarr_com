@@ -17,6 +17,7 @@ import { verifyIdToken, getAdminFirestore } from "@/lib/firebase-admin";
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
+    console.warn("[KnownPlayers] Missing Authorization header");
     return NextResponse.json(
       { error: "Missing or invalid authorization header" },
       { status: 401 },
@@ -27,7 +28,8 @@ export async function POST(request: NextRequest) {
   try {
     const decoded = await verifyIdToken(authHeader.substring(7));
     callerUid = decoded.uid;
-  } catch {
+  } catch (err) {
+    console.warn("[KnownPlayers] Invalid auth token:", err);
     return NextResponse.json({ error: "Invalid auth token" }, { status: 401 });
   }
 
@@ -46,6 +48,7 @@ export async function POST(request: NextRequest) {
   const sessionRef = db.collection("gameSessions").doc(sessionId);
   const sessionSnap = await sessionRef.get();
   if (!sessionSnap.exists) {
+    console.warn(`[KnownPlayers] Session ${sessionId} not found`);
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
 
@@ -55,6 +58,9 @@ export async function POST(request: NextRequest) {
 
   // Caller must actually be a participant in the session.
   if (!allUids.includes(callerUid)) {
+    console.warn(
+      `[KnownPlayers] Caller ${callerUid} not in session ${sessionId} (players: ${allUids.join(",")})`,
+    );
     return NextResponse.json({ error: "Not a participant" }, { status: 403 });
   }
 
@@ -63,18 +69,41 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, written: 0 });
   }
 
-  // For each human player, append the *other* humans to their knownPlayerUids.
-  const batch = db.batch();
+  // For each human player, append the *other* humans to their
+  // knownPlayerUids. update() is the canonical path for FieldValue
+  // sentinels; we fall back to set({ merge: true }) per-doc if a
+  // particular user doc doesn't exist yet (rare but possible).
+  let written = 0;
   for (const playerUid of humanUids) {
     const others = humanUids.filter((u) => u !== playerUid);
     if (others.length === 0) continue;
-    batch.set(
-      db.collection("users").doc(playerUid),
-      { knownPlayerUids: FieldValue.arrayUnion(...others) },
-      { merge: true },
-    );
+    const userRef = db.collection("users").doc(playerUid);
+    try {
+      await userRef.update({
+        knownPlayerUids: FieldValue.arrayUnion(...others),
+      });
+      written += 1;
+    } catch (err) {
+      // NOT_FOUND → create the doc with the field; anything else propagates.
+      const code = (err as { code?: number | string }).code;
+      if (code === 5 || code === "not-found") {
+        await userRef.set(
+          { knownPlayerUids: FieldValue.arrayUnion(...others) },
+          { merge: true },
+        );
+        written += 1;
+      } else {
+        console.error(
+          `[KnownPlayers] Failed to update users/${playerUid}:`,
+          err,
+        );
+        throw err;
+      }
+    }
   }
-  await batch.commit();
 
-  return NextResponse.json({ ok: true, written: humanUids.length });
+  console.log(
+    `[KnownPlayers] session=${sessionId} caller=${callerUid} humans=${humanUids.length} written=${written}`,
+  );
+  return NextResponse.json({ ok: true, written });
 }

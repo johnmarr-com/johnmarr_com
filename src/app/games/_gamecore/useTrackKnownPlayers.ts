@@ -38,16 +38,33 @@ export function useTrackKnownPlayers(
     void (async () => {
       try {
         const headers = await getAIAuthHeaders();
+        if (!("Authorization" in headers)) {
+          console.warn("[KnownPlayers] No auth token yet; will retry");
+          lastSyncedKeyRef.current = "";
+          return;
+        }
+        console.log(
+          `[KnownPlayers] sync session=${session.id} humans=${humanUids.length}`,
+        );
         const res = await fetch("/api/games/known-players", {
           method: "POST",
           headers,
           body: JSON.stringify({ sessionId: session.id }),
         });
         if (!res.ok) {
-          // Allow retry on next session change.
+          const text = await res.text().catch(() => "");
+          console.warn(
+            `[KnownPlayers] sync failed status=${res.status} body=${text}`,
+          );
           lastSyncedKeyRef.current = "";
+        } else {
+          const json = (await res.json().catch(() => ({}))) as {
+            written?: number;
+          };
+          console.log(`[KnownPlayers] sync ok written=${json.written ?? "?"}`);
         }
-      } catch {
+      } catch (err) {
+        console.warn("[KnownPlayers] sync threw:", err);
         lastSyncedKeyRef.current = "";
       }
     })();
