@@ -9,7 +9,7 @@ export interface JMWaitingProps {
   src?: string;
   /** Accessible label describing what we're waiting for. */
   alt?: string;
-  /** Override the responsive size formula. Defaults to min(50vw, 50vh, 400px). */
+  /** Override the responsive size formula. Defaults to min(65vw, 65vh, 400px). */
   size?: string;
   /** Extra classes for the outer wrapper (e.g. positioning). */
   className?: string;
@@ -18,14 +18,14 @@ export interface JMWaitingProps {
 /**
  * Square 1:1 "waiting" graphic that pulses in scale.
  *
- * Sizes itself to the smaller of 50% of the viewport's width or height,
+ * Sizes itself to the smaller of 65% of the viewport's width or height,
  * capped at 400px. Drop it inside any container — it handles its own
  * layout and animation.
  */
 export function JMWaiting({
   src = DEFAULT_SRC,
   alt = "Waiting…",
-  size = "min(50vw, 50vh, 400px)",
+  size = "min(65vw, 65vh, 400px)",
   className,
 }: JMWaitingProps) {
   return (

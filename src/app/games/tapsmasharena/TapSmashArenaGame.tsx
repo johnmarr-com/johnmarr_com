@@ -520,8 +520,11 @@ export default function TapSmashArenaGame({
         },
       ]);
 
+      // Fade the waiting overlay out *before* the round chapter starts so
+      // the transition reads as: graphic fades → animation begins. Matches
+      // the 300ms transition-opacity duration on the overlay.
       setWaitingForBattle(false);
-      playChapter(chapter, {
+      setTimeout(() => playChapter(chapter, {
         onEnd: () => {
           p1Ref.current = res.p1Score;
           p2Ref.current = res.p2Score;
@@ -543,7 +546,7 @@ export default function TapSmashArenaGame({
             markAnimationDone();
           }
         },
-      });
+      }), 300);
     });
   }, [isFriends, mpSession?.rounds, mpSession?.playerSides, user?.uid, playChapter, setP, markAnimationDone]);
 
@@ -618,8 +621,10 @@ export default function TapSmashArenaGame({
         }
       }
 
+      // See multiplayer counterpart: hold 300ms so the waiting overlay
+      // finishes its fade-out before the round chapter starts.
       setWaitingForBattle(false);
-      playChapter(chapter, {
+      setTimeout(() => playChapter(chapter, {
         onEnd: () => {
           p1Ref.current = nextP1;
           p2Ref.current = nextP2;
@@ -645,7 +650,7 @@ export default function TapSmashArenaGame({
             }
           }
         },
-      });
+      }), 300);
     },
     [playChapter, setP, mode, fetchAiMove, personaPrompt, personaVoice, aiPersona],
   );
@@ -766,12 +771,19 @@ export default function TapSmashArenaGame({
                 onSelect={handleAttack}
               />
 
-              {/* Waiting for opponent after selection */}
-              {(waitingForBattle || (isFriends && mpPhase === "submitted")) && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50">
-                  <JMWaiting alt="Waiting for opponent…" />
-                </div>
-              )}
+              {/* Waiting for opponent after selection — always mounted, fades
+                  in after the picker dismisses and out before the round chapter
+                  plays so neither side pops. */}
+              <div
+                aria-hidden={!(waitingForBattle || (isFriends && mpPhase === "submitted"))}
+                className={`absolute inset-0 z-10 flex items-center justify-center bg-black/50 transition-opacity duration-300 ${
+                  waitingForBattle || (isFriends && mpPhase === "submitted")
+                    ? "opacity-100"
+                    : "pointer-events-none opacity-0"
+                }`}
+              >
+                <JMWaiting alt="Waiting for opponent…" />
+              </div>
 
               {/* Finished overlay */}
               {phase === "finished" && !showTranscript && (
