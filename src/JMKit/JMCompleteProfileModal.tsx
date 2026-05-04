@@ -135,6 +135,10 @@ export function JMCompleteProfileModal({ isOpen, onComplete }: JMCompleteProfile
                 placeholder="e.g. ShadowKnight"
                 maxLength={20}
                 autoFocus
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                autoComplete="off"
                 className="w-full rounded-xl border border-gray-600 bg-gray-800 px-4 py-3 pr-10 text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleSubmit();

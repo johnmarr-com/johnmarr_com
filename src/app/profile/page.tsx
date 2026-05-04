@@ -433,6 +433,7 @@ export default function ProfilePage() {
               }
               maxLength={20}
               valueColor={gamertag ? theme.text.primary : theme.text.tertiary}
+              disableAutoFormat
             />
 
             {/* Name */}
@@ -470,6 +471,7 @@ export default function ProfilePage() {
               placeholder="you@example.com"
               theme={theme}
               inputType="email"
+              disableAutoFormat
             />
 
             {/* Role (non-admin only — admins see badge in header) */}
@@ -577,6 +579,8 @@ interface EditableFieldProps {
   statusColor?: string | undefined;
   maxLength?: number;
   valueColor?: string | undefined;
+  /** Disable iOS auto-capitalization / autocorrect for fields like gamertag/email. */
+  disableAutoFormat?: boolean;
 }
 
 function EditableField({
@@ -600,6 +604,7 @@ function EditableField({
   statusColor,
   maxLength,
   valueColor,
+  disableAutoFormat,
 }: EditableFieldProps) {
   const t = theme;
 
@@ -619,6 +624,14 @@ function EditableField({
               placeholder={placeholder}
               maxLength={maxLength}
               autoFocus
+              {...(disableAutoFormat
+                ? {
+                    autoCapitalize: "off",
+                    autoCorrect: "off",
+                    spellCheck: false,
+                    autoComplete: "off",
+                  }
+                : {})}
               className="w-full rounded-xl border px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-1"
               style={{
                 borderColor: t.surfaces.elevated2,

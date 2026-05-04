@@ -326,6 +326,9 @@ export function JMAuthModal({ onAuthenticated }: JMAuthModalProps) {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="you@example.com"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
                 className="w-full rounded-xl border px-4 py-3 transition-all focus:outline-none focus-visible:outline-none focus:ring-1"
                 style={{ 
                   borderColor: theme.surfaces.elevated2,
