@@ -42,28 +42,51 @@ export function InviteAIModal({
     [onOpenChange],
   );
 
-  const aiInLobby = useMemo(() => new Set(currentAIIds), [currentAIIds]);
-  const lobbyFull = availableSlots <= 0 && aiInLobby.size === 0;
+  // Optimistic selection: tap → highlight flips immediately. Real source of
+  // truth is `currentAIIds` (driven by the Firestore session subscription);
+  // we re-sync whenever the *contents* of that array change, not just its
+  // reference, so unrelated session updates don't reset the user's pending
+  // tap before the server confirms it.
+  const currentKey = useMemo(
+    () => [...currentAIIds].sort().join("|"),
+    [currentAIIds],
+  );
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(
+    () => new Set(currentAIIds),
+  );
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reconcile optimistic selection with server truth when contents (encoded by currentKey) actually change
+    setSelectedIds(new Set(currentAIIds));
+  }, [currentKey]); // eslint-disable-line react-hooks/exhaustive-deps -- currentKey is a content-derived key for currentAIIds; depending on the array directly would re-fire on every parent render
+
+  const lobbyFull = availableSlots <= 0 && selectedIds.size === 0;
 
   const disabledIds = useMemo(() => {
     if (availableSlots > 0) return new Set<string>();
     const disabled = new Set<string>();
     personas?.forEach((p) => {
-      if (!aiInLobby.has(p.id)) disabled.add(p.id);
+      if (!selectedIds.has(p.id)) disabled.add(p.id);
     });
     return disabled;
-  }, [personas, availableSlots, aiInLobby]);
+  }, [personas, availableSlots, selectedIds]);
 
   const handleToggle = useCallback(
     (persona: { id: string }) => {
-      if (aiInLobby.has(persona.id)) {
+      const wasSelected = selectedIds.has(persona.id);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (wasSelected) next.delete(persona.id);
+        else next.add(persona.id);
+        return next;
+      });
+      if (wasSelected) {
         onRemoveAI(persona.id);
       } else {
         const full = personas?.find((p) => p.id === persona.id);
         if (full) onAddAI(full);
       }
     },
-    [aiInLobby, personas, onAddAI, onRemoveAI],
+    [selectedIds, personas, onAddAI, onRemoveAI],
   );
 
   return (
@@ -100,7 +123,7 @@ export function InviteAIModal({
 
           <AIPersonaGrid
             personas={personas}
-            selectedIds={aiInLobby}
+            selectedIds={selectedIds}
             onToggle={handleToggle}
             disabledIds={disabledIds}
             emptyMessage="No AI personas available. Create some in the admin panel."
