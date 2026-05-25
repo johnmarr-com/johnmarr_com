@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useJMStyle } from "@/JMStyle";
 import { JMBannerText, JMChampionPicker, JMCloseCircleButton, JMGameScoreboard, JMWaiting, type ChampionOption } from "@/JMKit";
-import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, GameGamertagBadge, sliceHistoryByTier, aiHistoryTierForLevel, TIER_PROMPT_DIRECTIVE, type GameMode, type ResolverOutput, type AIPersona } from "../_gamecore";
+import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, sliceHistoryByTier, aiHistoryTierForLevel, TIER_PROMPT_DIRECTIVE, type GameMode, type ResolverOutput, type AIPersona } from "../_gamecore";
 import { useAuth } from "@/lib/AuthProvider";
 import { startGame, type GameSession } from "@/lib/game-sessions";
 
@@ -704,7 +704,6 @@ export default function TapSmashArenaGame({
 
   return (
     <div className="relative flex h-dvh flex-col bg-black">
-      <GameGamertagBadge />
       {splashBgURL && (
         <div
           className="absolute inset-0 z-0 bg-cover bg-center opacity-30"

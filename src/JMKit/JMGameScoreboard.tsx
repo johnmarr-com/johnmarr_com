@@ -62,13 +62,22 @@ export function JMGameScoreboard({
   const top = 16;
   const side = 20;
 
+  // Each score column stacks label (text-sm ~20px) above score (text-6xl 60px),
+  // total 80px. The score number's vertical center sits at 20 + 30 = 50px from
+  // the top of the column. Anchor the banner there so it visually aligns with
+  // the digits rather than the column midline.
+  const scoreCenter = 50;
+
   if (overlay) {
     return (
       <>
         <div className="absolute z-20" style={{ left: side, top }}>
           <ScoreColumn label={leftLabel} score={leftScore} colorClass={leftColorClass} align="start" />
         </div>
-        <div className="absolute left-1/2 z-20 -translate-x-1/2 -translate-y-1/2" style={{ top: top + 40 }}>
+        <div
+          className="absolute left-1/2 z-20 -translate-x-1/2 -translate-y-1/2"
+          style={{ top: top + scoreCenter }}
+        >
           <CenterBanner pointsToWin={pointsToWin} />
         </div>
         <div className="absolute z-20" style={{ right: side, top }}>
@@ -77,12 +86,6 @@ export function JMGameScoreboard({
       </>
     );
   }
-
-  // Each score column stacks label (text-sm ~20px) above score (text-6xl 60px),
-  // total 80px. The score number's vertical center sits at 20 + 30 = 50px from
-  // the top of the column. Anchor the banner there so it visually aligns with
-  // the digits rather than the column midline.
-  const scoreCenter = 50;
 
   return (
     <div className="relative mb-2 shrink-0" style={{ height: 80, marginTop: top }}>
