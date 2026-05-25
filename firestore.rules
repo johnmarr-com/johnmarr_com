@@ -334,6 +334,13 @@ service cloud.firestore {
             'pendingInviteUids',
             // Sweep the Leg / Tap Smash Arena — simultaneous-move submissions
             'pendingMoves',
+            // Bluff Box — the current "sharer" rotates each round and is
+            // often not the host. They write the revealed card + remaining
+            // pool, their share text, their truth/lie pick, and advance the
+            // phase. Every other player writes their own vote nested under
+            // guesses.{uid}.
+            'sharerChoice', 'guesses', 'bbPhase',
+            'cardURL', 'cardPool', 'humanShareText',
             // Boaty McBoatface — both players write boards, attacks, turns
             'btBoards', 'btReady', 'btAttacks', 'btLastAttack',
             'btCurrentTurn', 'btWinner', 'btPhase'
