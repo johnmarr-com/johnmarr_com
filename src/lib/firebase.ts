@@ -33,15 +33,29 @@ export async function initializeFirebase(): Promise<{
   // Start initialization
   initPromise = (async () => {
     // Dynamic imports - these chunks only load when this function is called
-    const [{ initializeApp }, { getAnalytics, isSupported }, { firebaseConfig }] =
-      await Promise.all([
-        import("firebase/app"),
-        import("firebase/analytics"),
-        import("./firebase-config"),
-      ]);
+    const [
+      { initializeApp },
+      { getAnalytics, isSupported },
+      { initializeFirestore },
+      { firebaseConfig },
+    ] = await Promise.all([
+      import("firebase/app"),
+      import("firebase/analytics"),
+      import("firebase/firestore"),
+      import("./firebase-config"),
+    ]);
 
     // Initialize the Firebase app
     firebaseApp = initializeApp(firebaseConfig);
+
+    // Configure Firestore once, before any consumer calls getFirestore(app).
+    // experimentalAutoDetectLongPolling fixes flaky real-time listeners on
+    // iOS Safari (and corporate proxies) that throttle or break WebSockets:
+    // the SDK detects an unhealthy WebSocket and transparently switches to
+    // long-polling. Chrome / desktop browsers keep the fast WebSocket path.
+    initializeFirestore(firebaseApp, {
+      experimentalAutoDetectLongPolling: true,
+    });
 
     // Initialize Analytics only if supported (not in SSR, not blocked by browser)
     try {
