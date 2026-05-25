@@ -288,7 +288,7 @@ export default function ArtistPage() {
       className="min-h-screen"
       style={{ backgroundColor: theme.surfaces.base }}
     >
-      <JMAppHeader />
+      <JMAppHeader variant={headerVariant} />
 
       {/* Hidden audio element */}
       <audio ref={audioRef} preload="metadata" />
