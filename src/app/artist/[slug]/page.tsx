@@ -119,9 +119,21 @@ export default function ArtistPage() {
     window.location.href = `/auth?${params.toString()}`;
   }, [artist, user, authLoading, isLoading]);
 
+  // Open-access artists get the minimal J-only header for *everyone* —
+  // signed in or not — so audonna.com / similar public-facing pages read
+  // as a single consistent experience instead of switching chrome based
+  // on who's looking.
+  // Header rules for /artist/*:
+  // - Anon visitor: ALWAYS minimal — even during the initial load or in
+  //   an error state. They can't use the menu, and shouldn't be tempted
+  //   to tap "Log out" when they're not signed in (which throws their
+  //   session into a broken state on retry).
+  // - Signed-in user on an open-access artist: minimal — keeps the
+  //   public-facing page consistent for everyone.
+  // - Signed-in user on a gated artist: default header.
   const isOpenAccess = artist?.openAccess === true;
   const headerVariant: "default" | "minimal" =
-    isOpenAccess && !user ? "minimal" : "default";
+    !user || isOpenAccess ? "minimal" : "default";
 
   // Play a specific song
   const playSong = useCallback((index: number) => {
