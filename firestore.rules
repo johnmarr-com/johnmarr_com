@@ -341,6 +341,9 @@ service cloud.firestore {
             // guesses.{uid}.
             'sharerChoice', 'guesses', 'bbPhase',
             'cardURL', 'cardPool', 'humanShareText',
+            // Mega Sketchy — any player can cast a vote nested under
+            // votes.{uid}.
+            'votes',
             // Boaty McBoatface — both players write boards, attacks, turns
             'btBoards', 'btReady', 'btAttacks', 'btLastAttack',
             'btCurrentTurn', 'btWinner', 'btPhase'
