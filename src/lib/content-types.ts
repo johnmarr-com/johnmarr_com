@@ -508,6 +508,7 @@ export interface JMArtist {
   createdAt: Timestamp;
   updatedAt: Timestamp;
   isPublished: boolean;           // Draft vs live
+  openAccess?: boolean;           // If true, anon visitors can view (no auth gate)
 }
 
 /**
@@ -524,6 +525,7 @@ export interface JMArtistInput {
   loginBgURL?: string;            // Optional custom background for auth page
   order?: number;
   isPublished?: boolean;
+  openAccess?: boolean;
 }
 
 /**

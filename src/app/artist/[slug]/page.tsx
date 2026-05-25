@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Image from "next/image";
 import { JMAppHeader, JMVimeoPlayer, getVimeoThumbnail } from "@/JMKit";
 import { useJMStyle } from "@/JMStyle";
+import { useAuth } from "@/lib/AuthProvider";
 import {
   getArtistBySlug,
   getAlbumsByArtist,
@@ -26,6 +27,7 @@ interface AlbumWithSongs extends JMAlbum {
 export default function ArtistPage() {
   const params = useParams();
   const { theme } = useJMStyle();
+  const { user, isLoading: authLoading } = useAuth();
   const slug = params["slug"] as string;
 
   // Data state
@@ -99,6 +101,27 @@ export default function ArtistPage() {
 
     loadArtist();
   }, [slug]);
+
+  // Auth gate: when the artist is NOT open-access and there's no user, send
+  // them to /auth (same query params AuthGate used to set before the artist
+  // route was opened up). Open-access artists stay on the page for everyone.
+  useEffect(() => {
+    if (authLoading || isLoading) return;
+    if (!artist) return;
+    if (user) return;
+    if (artist.openAccess) return;
+
+    const params = new URLSearchParams({
+      redirect: `/artist/${artist.slug}`,
+      contentType: "artist",
+      contentSlug: artist.slug,
+    });
+    window.location.href = `/auth?${params.toString()}`;
+  }, [artist, user, authLoading, isLoading]);
+
+  const isOpenAccess = artist?.openAccess === true;
+  const headerVariant: "default" | "minimal" =
+    isOpenAccess && !user ? "minimal" : "default";
 
   // Play a specific song
   const playSong = useCallback((index: number) => {
@@ -233,7 +256,7 @@ export default function ArtistPage() {
         className="min-h-screen"
         style={{ backgroundColor: theme.surfaces.base }}
       >
-        <JMAppHeader />
+        <JMAppHeader variant={headerVariant} />
         <div className="flex flex-col items-center justify-center pt-32">
           <h1
             className="text-2xl font-bold mb-4"

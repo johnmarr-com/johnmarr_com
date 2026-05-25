@@ -11,11 +11,17 @@ import { JMBasicMenu } from "./JMBasicMenu";
 interface JMAppHeaderProps {
   /** Override header height in pixels (default: 75) */
   height?: number;
+  /**
+   * "minimal" renders only the J logo — no admin controls, no user menu.
+   * Used on open-access pages (e.g. audonna.com → /artist/audonna) where
+   * visitors may not be signed in and shouldn't see auth-gated chrome.
+   */
+  variant?: "default" | "minimal";
 }
 
 /**
  * JMAppHeader - Main application header with logo and user menu
- * 
+ *
  * Features:
  * - Sticky positioning at top
  * - Theme-aware logo and background
@@ -24,15 +30,17 @@ interface JMAppHeaderProps {
  */
 export function JMAppHeader({
   height = 75,
+  variant = "default",
 }: JMAppHeaderProps) {
   const { theme } = useJMStyle();
   const { user, isAdmin, gamertag, adminViewAs, setAdminViewAs } = useAuth();
   const [viewAsOpen, setViewAsOpen] = useState(false);
-  
+
   // Calculate logo height (85% of available space)
   const logoHeight = Math.round(height * 0.85);
-  
+
   const displayName = gamertag || user?.displayName?.split(" ")[0] || "Menu";
+  const isMinimal = variant === "minimal";
 
   return (
     <header
@@ -63,7 +71,7 @@ export function JMAppHeader({
         {/* User section - right side */}
         <div className="flex items-center gap-3">
           {/* Admin: View-as eye icon */}
-          {isAdmin && (
+          {!isMinimal && isAdmin && (
             <div className="relative">
               <button
                 onClick={() => setViewAsOpen(!viewAsOpen)}
@@ -118,7 +126,7 @@ export function JMAppHeader({
           )}
 
           {/* Inventing.Studio — admin portal */}
-          {isAdmin && (
+          {!isMinimal && isAdmin && (
             <Link
               href="/admin"
               className="transition-opacity hover:opacity-80"
@@ -130,20 +138,22 @@ export function JMAppHeader({
               />
             </Link>
           )}
-          
+
           {/* User button with dropdown menu */}
-          <JMBasicMenu headerHeight={height}>
-            <JMSimpleButton
-              title={displayName}
-              gradient={{
-                from: theme.gradient.start,
-                to: theme.gradient.middle,
-                angle: theme.gradient.angle,
-              }}
-              backgroundOpacity={0.33}
-              titleColor={theme.accents.neonPink}
-            />
-          </JMBasicMenu>
+          {!isMinimal && (
+            <JMBasicMenu headerHeight={height}>
+              <JMSimpleButton
+                title={displayName}
+                gradient={{
+                  from: theme.gradient.start,
+                  to: theme.gradient.middle,
+                  angle: theme.gradient.angle,
+                }}
+                backgroundOpacity={0.33}
+                titleColor={theme.accents.neonPink}
+              />
+            </JMBasicMenu>
+          )}
         </div>
       </div>
     </header>

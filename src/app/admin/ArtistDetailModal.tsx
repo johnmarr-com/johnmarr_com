@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { 
-  X, Save, Trash2, Plus, ChevronRight, ChevronDown, 
+import {
+  X, Save, Trash2, Plus, ChevronRight, ChevronDown,
   Music, Video, Check, Loader2, ArrowLeft,
-  Disc, Eye, EyeOff, Pencil, Play, GripVertical
+  Disc, Eye, EyeOff, Pencil, Play, GripVertical,
+  Globe, Lock,
 } from "lucide-react";
 import {
   DndContext,
@@ -253,6 +254,7 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
   const [bannerURL, setBannerURL] = useState("");
   const [loginBgURL, setLoginBgURL] = useState("");
   const [isPublished, setIsPublished] = useState(false);
+  const [openAccess, setOpenAccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   
@@ -304,6 +306,7 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
         setBannerURL(data.bannerURL || "");
         setLoginBgURL(data.loginBgURL || "");
         setIsPublished(data.isPublished);
+        setOpenAccess(data.openAccess ?? false);
         
         // Fetch albums with songs
         const fetchedAlbums = await getAlbumsByArtist(artistId, false);
@@ -338,7 +341,7 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
       return;
     }
     
-    const changed = 
+    const changed =
       name !== artist.name ||
       slug !== artist.slug ||
       description !== artist.description ||
@@ -347,9 +350,10 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
       coverURL !== (artist.coverURL || "") ||
       bannerURL !== (artist.bannerURL || "") ||
       loginBgURL !== (artist.loginBgURL || "") ||
-      isPublished !== artist.isPublished;
+      isPublished !== artist.isPublished ||
+      openAccess !== (artist.openAccess ?? false);
     setHasChanges(changed);
-  }, [artist, name, slug, description, fullDescription, avatarURL, coverURL, bannerURL, loginBgURL, isPublished]);
+  }, [artist, name, slug, description, fullDescription, avatarURL, coverURL, bannerURL, loginBgURL, isPublished, openAccess]);
 
   // Generate slug from name
   const generateSlug = (inputName: string) => {
@@ -408,12 +412,13 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
           description: description.trim(),
           coverURL: coverURL.trim(),
           isPublished,
+          openAccess,
         };
         if (fullDescription.trim()) input.fullDescription = fullDescription.trim();
         if (avatarURL) input.avatarURL = avatarURL;
         if (bannerURL) input.bannerURL = bannerURL;
         if (loginBgURL) input.loginBgURL = loginBgURL;
-        
+
         await createArtist(input, user.uid);
         
         onCreated?.();
@@ -425,6 +430,7 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
           description: description.trim(),
           coverURL: coverURL.trim(),
           isPublished,
+          openAccess,
         };
         if (fullDescription.trim()) updates.fullDescription = fullDescription.trim();
         if (avatarURL) updates.avatarURL = avatarURL;
@@ -977,22 +983,42 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
               {/* Artist Details Section */}
               <Section title="Artist Details" theme={theme}>
                 <div className="space-y-4">
-                  {/* Published toggle */}
-                  <button
-                    onClick={() => setIsPublished(!isPublished)}
-                    className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-full transition-colors"
-                    style={{ 
-                      backgroundColor: isPublished 
-                        ? `${theme.semantic.success}20` 
-                        : theme.surfaces.elevated2,
-                      color: isPublished 
-                        ? theme.semantic.success 
-                        : theme.text.tertiary,
-                    }}
-                  >
-                    {isPublished ? <Eye size={12} /> : <EyeOff size={12} />}
-                    {isPublished ? "Published" : "Draft"}
-                  </button>
+                  {/* Published + Open Access toggles */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      onClick={() => setIsPublished(!isPublished)}
+                      className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-full transition-colors"
+                      style={{
+                        backgroundColor: isPublished
+                          ? `${theme.semantic.success}20`
+                          : theme.surfaces.elevated2,
+                        color: isPublished
+                          ? theme.semantic.success
+                          : theme.text.tertiary,
+                      }}
+                    >
+                      {isPublished ? <Eye size={12} /> : <EyeOff size={12} />}
+                      {isPublished ? "Published" : "Draft"}
+                    </button>
+                    <button
+                      onClick={() => setOpenAccess(!openAccess)}
+                      title={openAccess
+                        ? "Anyone can view this artist page without signing in"
+                        : "Visitors must sign in to view this artist page"}
+                      className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-full transition-colors"
+                      style={{
+                        backgroundColor: openAccess
+                          ? `${theme.accents.neonPink}20`
+                          : theme.surfaces.elevated2,
+                        color: openAccess
+                          ? theme.accents.neonPink
+                          : theme.text.tertiary,
+                      }}
+                    >
+                      {openAccess ? <Globe size={12} /> : <Lock size={12} />}
+                      {openAccess ? "Open access" : "Auth required"}
+                    </button>
+                  </div>
 
                   {/* Name */}
                   <Field

@@ -11,12 +11,18 @@ interface AuthGateProps {
 
 /**
  * Global auth gate that protects all routes.
- * 
+ *
  * Route types:
  * - Public routes (/auth, /landing, /landing-2): No auth required
- * - Home (/): Redirects to /landing if not authenticated (A/B logic preserved but bypassed to /landing)
- * - Content routes (/artist/*, /show/*, /auction/*): Redirect to /auth with custom bg, then back after login
- * - Protected routes (everything else): Redirects to /auth if not authenticated
+ * - Home (/): Redirects to /landing if not authenticated
+ * - Artist routes (/artist/*): Always render — the page itself decides
+ *   whether to show content (if the artist has openAccess) or a sign-in
+ *   gate. This is what makes audonna.com → /artist/audonna work for
+ *   anonymous visitors.
+ * - Other content routes (/show/*, /auction/*): Redirect to /auth with
+ *   custom bg, then back after login
+ * - Protected routes (everything else): Redirects to /auth if not
+ *   authenticated
  *
  * Also enforces gamertag setup: authenticated users without a gamertag
  * see a mandatory modal before they can use the app.
@@ -33,14 +39,14 @@ export function AuthGate({ children }: AuthGateProps) {
     document.body.style.removeProperty("overflow");
   }, [pathname]);
 
+  const isArtistRoute = pathname.startsWith("/artist");
   const isContentRoute =
-    pathname.startsWith("/artist") ||
-    pathname.startsWith("/show") ||
-    pathname.startsWith("/auction");
-  
+    pathname.startsWith("/show") || pathname.startsWith("/auction");
+
   useEffect(() => {
     if (isLoading) return;
     if (isPublicRoute) return;
+    if (isArtistRoute) return; // page decides — see openAccess on the artist doc
     if (user) return;
 
     if (isContentRoute) {
@@ -63,7 +69,7 @@ export function AuthGate({ children }: AuthGateProps) {
 
     const params = new URLSearchParams({ redirect: pathname });
     window.location.href = `/auth?${params.toString()}`;
-  }, [user, isLoading, isPublicRoute, isContentRoute, pathname]);
+  }, [user, isLoading, isPublicRoute, isArtistRoute, isContentRoute, pathname]);
 
   if (isLoading) {
     return (
@@ -74,6 +80,12 @@ export function AuthGate({ children }: AuthGateProps) {
   }
 
   if (isPublicRoute) {
+    return <>{children}</>;
+  }
+
+  // Artist pages render for anyone — the page itself handles the
+  // openAccess vs sign-in-required decision.
+  if (isArtistRoute) {
     return <>{children}</>;
   }
 
