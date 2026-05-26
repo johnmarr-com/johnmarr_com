@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthProvider";
 import { AdminGate } from "@/lib/AdminGate";
 import { JMAppHeader, JMAdminDropdown, type AdminFocus } from "@/JMKit";
@@ -24,7 +25,16 @@ import { AdminTriviaReviewPanel } from "./AdminTriviaReviewPanel";
 
 function AdminContent() {
   const { isAdmin } = useAuth();
+  const router = useRouter();
   const [focus, setFocus] = useState<AdminFocus>(null);
+
+  const handleFocusChange = (next: AdminFocus) => {
+    if (next === "scrollyfox") {
+      router.push("/scrollyfox");
+      return;
+    }
+    setFocus(next);
+  };
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -42,7 +52,7 @@ function AdminContent() {
 
       {isAdmin && (
         <div className="relative z-10 flex w-full justify-center px-[clamp(12px,5vw,50px)] pt-1 pb-4">
-          <JMAdminDropdown value={focus} onChange={setFocus} />
+          <JMAdminDropdown value={focus} onChange={handleFocusChange} />
         </div>
       )}
 
