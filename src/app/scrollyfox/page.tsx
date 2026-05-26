@@ -1,12 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import { Plus } from "lucide-react";
 import { JMAppHeader } from "@/JMKit";
 import { useJMStyle } from "@/JMStyle";
 import { AdminGate } from "@/lib/AdminGate";
+import { HeroEditorModal } from "./HeroEditorModal";
 
 function ScrollyFoxHomeContent() {
   const { theme } = useJMStyle();
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
 
   return (
     <div
@@ -42,6 +45,7 @@ function ScrollyFoxHomeContent() {
           </p>
           <button
             type="button"
+            onClick={() => setIsEditorOpen(true)}
             className="flex items-center gap-3 rounded-2xl border-2 px-6 py-4 transition-all duration-150"
             style={{
               borderColor: theme.accents.neonPink,
@@ -64,6 +68,11 @@ function ScrollyFoxHomeContent() {
           </button>
         </div>
       </main>
+
+      <HeroEditorModal
+        isOpen={isEditorOpen}
+        onClose={() => setIsEditorOpen(false)}
+      />
     </div>
   );
 }

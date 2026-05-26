@@ -140,7 +140,7 @@ Embedded components are responsible for their own internal responsive behavior b
 
 A **Segment** is a content category with characteristic behavior. The system ships with 10 Segments. Each Segment offers **1–N Layout Options** — pre-fab visual arrangements with motion behavior baked in. Authors pick a Segment, then a Layout Option, then drop in content. The reader handles all responsive behavior automatically per §2.
 
-**Composition.** Segment + Layout Option (content + motion) is orthogonal to Theme (color/typography). Any Layout Option can be dressed in any Theme.
+**Composition.** Segment + Layout Option (content + motion) is orthogonal to **Brand** (color tokens + fonts — see §14 Brand Object). Any Layout Option can be dressed in any Brand.
 
 **Automagic responsive behavior.** Every Layout Option ships with defined behavior for Desktop / Tablet / Mobile. Authors do not pick layouts per breakpoint — the system collapses, swaps, and reflows according to per-layout rules. Image modes (§5) and column rules (§4) apply automatically inside each Layout Option. Heavy motion (pinned media, scroll-driven horizontal pans, scrubbed sequences) gracefully degrades — typically to Fade Stack — when the reader detects Mobile width or `prefers-reduced-motion`.
 
@@ -156,6 +156,15 @@ Opening anchor block. Typically one per page; can repeat as chapter openings in 
 | Full-bleed background        | Image or video background; content centered or bottom-anchored.             |
 | Type-on intro                | Minimal background; headline types on, CTA fades in.                        |
 | Layered parallax             | Multi-layer hero with depth on scroll.                                      |
+
+**Phase 1 scope.** Ship **Split, image left** and **Split, image right** first. The remaining three layouts come after the editor + Save-to-Templates flow is proven on the split pair.
+
+**Split layout rendering rules** (apply to both Split, image left and Split, image right):
+
+- **Desktop / Tablet:** two columns side-by-side. Text column carries the title + subtitle + CTA(s), vertically centered. Block height is **auto**, driven by the text column's natural content height.
+- **Mobile:** stacked, **text-first** order — title → subtitle → CTAs → image at the bottom.
+- **Image sizing:** *aspect-fit favoring height*. Image fills the column height with **15px insets** on all sides; width is auto from its aspect ratio. If the resulting width exceeds the column's available width, the width caps and the image is **vertically centered** within the column with the leftover space split top/bottom.
+- **Brand** (§14) drives all colors and fonts.
 
 ### 9.2 Showcase
 Single feature explained with imagery + text.
@@ -435,7 +444,43 @@ No good OSS substitute exists for these — they are ScrollyFox-specific and mus
 
 ---
 
-## 14. Open questions / TBD
+## 14. Brand Object
+
+A **Brand Object** is the cross-app source of visual identity — colors and fonts — applied to ScrollyFox content. It is **separate from JMStyle**, which dresses the johnmarr.com app chrome (J anchor, header, page frame). JMStyle stays consistent across the umbrella; Brand changes per ScrollyFox.
+
+### 14.1 Shape
+
+```ts
+interface BrandObject {
+  colors: {
+    primary: string;     // Headlines, primary CTA, key accents
+    secondary: string;   // Supporting accents, secondary CTA
+    tertiary: string;    // Sparing accent, highlights
+    bgPrimary: string;   // Most segment backgrounds
+    bgSecondary: string; // Alternating sections, cards on primary bg
+  };
+  fonts: {
+    title: string;  // Headings, short emphasis
+    body:  string;  // Subtitles, paragraphs, button labels
+  };
+}
+```
+
+### 14.2 Cross-app ownership: Brandaur
+The Brand Object is owned by a sibling app, **Brandaur**, which provides the authoring UI for creating, editing, and managing brands across the JohnMarr universe. ScrollyFox **consumes** Brand Objects; it does not own them.
+
+Brandaur lives under the same Inventing.Studio umbrella as ScrollyFox and ships later. Until it does:
+
+- ScrollyFox includes a hardcoded **default Brand** approximated from the johnmarr.com palette (`src/lib/brand`).
+- Segments accept a `brand: BrandObject` prop; the default is supplied at the document/page level and inherited downward.
+- When Brandaur ships, the default falls back to "the first Brand the user authored," and the editor adds a Brand picker per ScrollyFox.
+
+### 14.3 Mapping to segments
+Segment Layout Options consume Brand tokens in defined slots — for example, Hero's Split layouts use `colors.primary` for the title and primary CTA border, `colors.secondary` for the subtitle, `colors.tertiary` for additional CTAs, `colors.bgPrimary` for the text column, `colors.bgSecondary` for the image column, `fonts.title` on the headline, `fonts.body` everywhere else. Each Layout Option's spec declares its slot mapping explicitly; authors do not pick which token goes where.
+
+---
+
+## 15. Open questions / TBD
 
 - Final column max (4 vs. higher).
 - 3-column tablet collapse order.
