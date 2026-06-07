@@ -236,7 +236,7 @@ export function TeamSelectorScreen({
     teamCount === 3 ? "grid-cols-3" : "grid-cols-2";
 
   return (
-    <div className="fixed inset-0 z-10 overflow-y-auto bg-black">
+    <div className="fixed inset-0 z-10 bg-black">
       <GameBgUnderlay url={bgURL} />
       <div
         className="absolute inset-0"
@@ -258,7 +258,8 @@ export function TeamSelectorScreen({
         Back
       </button>
 
-      <div className="relative z-10 mx-auto flex min-h-full w-full max-w-lg flex-col px-4 py-8 text-white">
+      <div className="absolute inset-0 z-10 overflow-y-auto">
+      <div className="relative mx-auto flex min-h-full w-full max-w-lg flex-col px-4 py-8 text-white">
         <header className="text-center">
           <h1 className="text-2xl font-extrabold">Form Teams</h1>
           <p className="mt-1 text-sm text-white/70">
@@ -369,6 +370,7 @@ export function TeamSelectorScreen({
             )}
           </GamePrimaryButton>
         </div>
+      </div>
       </div>
 
       {/* Team logo picker modal */}

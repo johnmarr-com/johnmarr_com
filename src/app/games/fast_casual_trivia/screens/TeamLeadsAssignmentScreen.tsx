@@ -113,7 +113,7 @@ export function TeamLeadsAssignmentScreen({
   // ─── Host interactive view ────────────────────────────────
 
   return (
-    <div className="fixed inset-0 z-10 overflow-y-auto bg-black">
+    <div className="fixed inset-0 z-10 bg-black">
       <GameBgUnderlay url={bgURL} />
       <div className="absolute inset-0" style={{ backgroundColor: `rgba(0,0,0,${bgDim / 100})` }} />
 
@@ -132,7 +132,8 @@ export function TeamLeadsAssignmentScreen({
         Back
       </button>
 
-      <div className="relative z-10 mx-auto flex min-h-full w-full max-w-md flex-col px-4 py-8 text-white">
+      <div className="absolute inset-0 z-10 overflow-y-auto">
+      <div className="relative mx-auto flex min-h-full w-full max-w-md flex-col px-4 py-8 text-white">
         <header className="text-center">
           <h1 className="text-2xl font-extrabold">Team Leads</h1>
           <p className="mt-1 text-sm text-white/70">
@@ -206,6 +207,7 @@ export function TeamLeadsAssignmentScreen({
             )}
           </GamePrimaryButton>
         </div>
+      </div>
       </div>
 
       {/* Color picker popup */}

@@ -82,11 +82,12 @@ export function GameModeScreen({
   const fullTeamSelected = selectedMode === "full_team";
 
   return (
-    <div className="fixed inset-0 z-10 overflow-y-auto bg-black">
+    <div className="fixed inset-0 z-10 bg-black">
       <GameBgUnderlay url={bgURL} />
       <div className="absolute inset-0" style={{ backgroundColor: `rgba(0,0,0,${bgDim / 100})` }} />
 
-      <div className="relative z-10 mx-auto flex min-h-full w-full max-w-md flex-col gap-4 px-5 py-8 text-white">
+      <div className="absolute inset-0 z-10 overflow-y-auto">
+      <div className="relative mx-auto flex min-h-full w-full max-w-md flex-col gap-4 px-5 py-8 text-white">
         <header className="text-center">
           <h1 className="text-2xl font-extrabold">Choose a mode</h1>
           <p className="mt-1 text-sm text-white/70">How do you want this room to play?</p>
@@ -165,6 +166,7 @@ export function GameModeScreen({
             onTap={handleTeamLeads}
           />
         </ModeSection>
+      </div>
       </div>
 
       <JMNumberPickerPopup
