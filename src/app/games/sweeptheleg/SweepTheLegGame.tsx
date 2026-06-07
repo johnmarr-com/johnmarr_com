@@ -42,6 +42,10 @@ const CHAPTERS: Record<ChapterName, { start: number; end: number }> = {
 
 const FRAME = 1 / 24;
 const POINTS_TO_WIN = 5;
+// After a move, stay optimistic this long (chosen attack highlighted, staging
+// video looping) before fading in "Waiting for opponent…". Long enough that a
+// normal resolve never shows it; only a genuinely slow opponent / AI does.
+const WAITING_LABEL_DELAY_MS = 1500;
 const ATTACKS: Attack[] = ["L", "M", "H"];
 const ATTACK_LABEL: Record<Attack, string> = { H: "HIGH", M: "MID", L: "LOW" };
 const ATTACK_BEATS: Record<Attack, string> = { H: "beats Low", M: "beats High", L: "beats Mid" };
@@ -230,6 +234,7 @@ export default function SweepTheLegGame({
   const [endMessage, setEndMessage] = useState("");
   const [roundAttacks, setRoundAttacks] = useState<{ red: Attack; white: Attack } | null>(null);
   const [selectedAttack, setSelectedAttack] = useState<Attack | null>(null);
+  const [showWaiting, setShowWaiting] = useState(false);
   const [joinerAccepted, setJoinerAccepted] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -466,6 +471,19 @@ export default function SweepTheLegGame({
     });
   }, [mpSession, vsAI, playChapter, setP, markAnimationDone]);
 
+  // Stay optimistic right after a move: keep the chosen attack highlighted and
+  // only declare "waiting for opponent" if the resolve genuinely takes a beat
+  // (slow opponent / AI still thinking). Avoids a flicker on normal fast
+  // resolves now that resolution round-trips the server.
+  useEffect(() => {
+    if (mpPhase === "submitted") {
+      const t = setTimeout(() => setShowWaiting(true), WAITING_LABEL_DELAY_MS);
+      return () => clearTimeout(t);
+    }
+    const r = requestAnimationFrame(() => setShowWaiting(false));
+    return () => cancelAnimationFrame(r);
+  }, [mpPhase]);
+
   const fetchAiMove = useCallback((): Promise<{ attack: Attack; reasoning: string }> => {
     const side = aiSide === "red" || aiSide === "white" ? aiSide : "white";
     const prompt = buildMovePrompt(side, aiHistory);
@@ -699,7 +717,7 @@ export default function SweepTheLegGame({
 
           {(() => {
             const isActive = phase === "ready" || phase === "animating";
-            const isWaiting = mpPhase === "submitted";
+            const isWaiting = showWaiting;
             const buttonsVisible = isActive && !isWaiting;
             return (
               <div className="relative">
