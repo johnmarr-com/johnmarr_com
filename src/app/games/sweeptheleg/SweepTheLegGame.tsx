@@ -559,29 +559,30 @@ export default function SweepTheLegGame({
   }, [aiSide, aiHistory, personaPrompt, personaVoice]);
 
   // ─── Host drives the AI opponent's move when a round opens ───
+  // The in-flight request is intentionally NOT cancelled on re-render: a
+  // snapshot or phase change (e.g. the human submitting their move flips the
+  // phase to "animating") must not abort the AI's pending request, or the AI
+  // would never submit and the round stalls on "waiting for opponent" forever.
+  // The round guard prevents duplicate requests; a failed submit resets it so a
+  // later snapshot retries.
   const aiMoveRoundRef = useRef(-1);
   useEffect(() => {
     if (!mpIsHost || !aiUid || !mpSession || mpSession.status !== "playing") return;
     if (phase !== "ready") return;
     const round = mpSession.currentRound ?? 0;
-    if (aiMoveRoundRef.current >= round) return;
-    if (mpSession.pendingMoves?.[aiUid]) {
-      aiMoveRoundRef.current = round;
-      return;
-    }
+    if (mpSession.pendingMoves?.[aiUid] != null) return; // AI already moved this round
+    if (aiMoveRoundRef.current >= round) return; // already generating for this round
     aiMoveRoundRef.current = round;
 
-    let cancelled = false;
     void fetchAiMove().then(({ attack, reasoning }) => {
-      if (cancelled) return;
-      void submitMove(sessionId, aiUid, attack).catch(() => {});
+      void submitMove(sessionId, aiUid, attack).catch(() => {
+        // Submit failed — allow a later snapshot to retry this round.
+        if (aiMoveRoundRef.current === round) aiMoveRoundRef.current = round - 1;
+      });
       if (reasoning) {
         void updateSessionFields(sessionId, { [`stlAiReason.${round}`]: reasoning }).catch(() => {});
       }
     });
-    return () => {
-      cancelled = true;
-    };
   }, [mpIsHost, aiUid, mpSession, phase, sessionId, fetchAiMove]);
 
   // ─── On match end: host generates the AI post-game comment + records W/L ───
