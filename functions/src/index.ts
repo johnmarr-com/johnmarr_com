@@ -5,7 +5,14 @@ import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import { logger } from "firebase-functions";
 
+// Server-authoritative round resolution: register game resolvers (side-effect
+// imports) and re-export the generic Firestore-triggered resolver.
+import "./roundEngine/hml.spec";
+import "./roundEngine/rps.spec";
+
 initializeApp();
+
+export { resolveRound } from "./roundEngine/resolveRound.fn";
 
 const LEGACY_RETENTION_MS = 24 * 60 * 60 * 1000;
 

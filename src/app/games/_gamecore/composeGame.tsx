@@ -194,8 +194,9 @@ function ComposedGameInner({ config }: { config: ComposeGameInput }) {
       ...(gameData.engineSlug != null && gameData.engineSlug !== ""
         ? { engineSlug: gameData.engineSlug }
         : {}),
+      ...(config.round?.resolverKey ? { resolverKey: config.round.resolverKey } : {}),
     };
-  }, [gameData, config.slug]);
+  }, [gameData, config.slug, config.round]);
 
   // ─── Loading & engine skin resolution ────────────────────
   if (isLoading) return null;

@@ -88,6 +88,10 @@ export interface GameSession {
   transcript?: string[];
   playerSides?: Record<string, string>;
   winner?: string | null;
+  /** When set, rounds are resolved server-side by a Cloud Function keyed by this value. */
+  resolverKey?: string;
+  /** Monotonic sync counter; incremented by the server on each round resolution. */
+  seq?: number;
 
   replayCount?: number;
   retentionDays?: number;
@@ -177,6 +181,8 @@ export interface CreateSessionInput {
   maxPlayers: number;
   retentionDays?: number;
   engineSlug?: string;
+  /** Opt in to server-authoritative round resolution; selects the server resolver. */
+  resolverKey?: string;
 }
 
 /**
@@ -214,6 +220,7 @@ export async function createGameSession(
     ...(input.engineSlug != null && input.engineSlug !== ""
       ? { engineSlug: input.engineSlug }
       : {}),
+    ...(input.resolverKey ? { resolverKey: input.resolverKey } : {}),
     gameLogoURL: input.gameLogoURL,
     inviteCode,
     maxPlayers: input.maxPlayers,
@@ -504,6 +511,7 @@ export async function startGame(
     playerSides,
     pendingInviteUids: [],
     winner: null,
+    seq: 0,
     updatedAt: serverTimestamp(),
   });
 

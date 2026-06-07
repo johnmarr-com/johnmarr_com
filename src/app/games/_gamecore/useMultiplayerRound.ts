@@ -30,7 +30,8 @@ export type RoundResolver = (
 interface UseMultiplayerRoundOptions {
   sessionId: string | null;
   userId: string;
-  resolver: RoundResolver;
+  /** Omit for server-authoritative games (resolution done by a Cloud Function). */
+  resolver?: RoundResolver;
   onRoundResolved?: (result: RoundResult) => void;
 }
 
@@ -101,6 +102,11 @@ export function useMultiplayerRound({
   useEffect(() => {
     if (!session || session.status !== "playing" || !session.pendingMoves) return;
     if (!isHost) return;
+    // Server-authoritative games resolve via the resolveRound Cloud Function —
+    // the client never computes/writes a round. Also skip if no resolver given.
+    if (session.resolverKey) return;
+    const resolver = resolverRef.current;
+    if (!resolver) return;
 
     const playerCount = session.players.length;
     const moveCount = Object.keys(session.pendingMoves).length;
@@ -110,7 +116,7 @@ export function useMultiplayerRound({
     if (allIn && resolvedRoundRef.current < currentRound) {
       resolvedRoundRef.current = currentRound;
 
-      const output = resolverRef.current(session.pendingMoves, session);
+      const output = resolver(session.pendingMoves, session);
       const input: WriteRoundInput = {
         roundEntry: output.roundEntry,
         transcriptLines: output.transcriptLines,

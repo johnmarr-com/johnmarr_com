@@ -205,6 +205,13 @@ export interface ComposeGameInput {
   sideLabels?: [string, string];
   /** Per-game overrides for the GC4 result screen. */
   resultOptions?: GC4ResultOptions;
+  /**
+   * When set, rounds are resolved server-side by the generic `resolveRound`
+   * Cloud Function, keyed by `resolverKey` (e.g. "hml", "rps"). The session is
+   * stamped with this key at creation; `useMultiplayerRound` then skips host
+   * resolution. Omit for client-resolved (legacy) games.
+   */
+  round?: { resolverKey: string };
 }
 
 // ─────────────────────────────────────────────────────────────

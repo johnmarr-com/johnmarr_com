@@ -4,9 +4,9 @@ import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { useJMStyle } from "@/JMStyle";
 import { JMBannerText, JMGameScoreboard } from "@/JMKit";
-import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, isAiPlayer, getPersona, updateSessionFields, type ResolverOutput } from "../_gamecore";
+import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, isAiPlayer, getPersona, updateSessionFields } from "../_gamecore";
 import { useAuth } from "@/lib/AuthProvider";
-import { submitMove, type GameSession } from "@/lib/game-sessions";
+import { submitMove } from "@/lib/game-sessions";
 import type { JMContent } from "@/lib/content-types";
 import type { GameEndResult } from "../_gamecore/registry/types";
 
@@ -25,8 +25,6 @@ type ChapterName =
   | "W-W" | "R-W";
 type GamePhase = "idle" | "ready" | "animating" | "finished";
 
-const ATTACK_FULL: Record<Attack, string> = { H: "High", M: "Mid", L: "Low" };
-
 const CHAPTERS: Record<ChapterName, { start: number; end: number }> = {
   Ready: { start: 0.0,     end: 1.5  },
   "H-L": { start: 1.667,   end: 5.083  },
@@ -42,7 +40,6 @@ const CHAPTERS: Record<ChapterName, { start: number; end: number }> = {
   "R-W": { start: 45.542,  end: 48.292 },
 };
 
-const BEATS: Record<Attack, Attack> = { H: "L", M: "H", L: "M" };
 const FRAME = 1 / 24;
 const POINTS_TO_WIN = 5;
 const ATTACKS: Attack[] = ["L", "M", "H"];
@@ -204,11 +201,6 @@ function pickRandom(arr: string[]): string {
   return arr[Math.floor(Math.random() * arr.length)]!;
 }
 
-function roundWinner(left: Attack, right: Attack): "red" | "white" | null {
-  if (left === right) return null;
-  return BEATS[left] === right ? "red" : "white";
-}
-
 export default function SweepTheLegGame({
   sessionId,
   gameData,
@@ -252,76 +244,8 @@ export default function SweepTheLegGame({
   const sideRef = useRef<PlayerSide>("red");
   const goToResultsRef = useRef<() => void>(() => {});
 
-  // Multiplayer resolver: maps pending moves to Sweep the Leg outcome
-  const stlResolver = useCallback(
-    (moves: Record<string, string>, sess: GameSession): ResolverOutput => {
-      const sides = sess.playerSides ?? {};
-      let redUid = "";
-      let whiteUid = "";
-      for (const [uid, side] of Object.entries(sides)) {
-        if (side === "red") redUid = uid;
-        else if (side === "white") whiteUid = uid;
-      }
-
-      const redAttack = (moves[redUid] ?? "H") as Attack;
-      const whiteAttack = (moves[whiteUid] ?? "H") as Attack;
-      const chapter = `${redAttack}-${whiteAttack}` as ChapterName;
-      const rw = roundWinner(redAttack, whiteAttack);
-
-      const currentRound = sess.currentRound ?? 0;
-      const prevRounds = sess.rounds ?? [];
-      let rScore = 0;
-      let wScore = 0;
-      for (const r of prevRounds) {
-        const res = r.result as { redDelta?: number; whiteDelta?: number };
-        rScore += res.redDelta ?? 0;
-        wScore += res.whiteDelta ?? 0;
-      }
-
-      let redDelta = 0;
-      let whiteDelta = 0;
-      if (rw === "red") redDelta = chapter === "L-M" ? 2 : 1;
-      else if (rw === "white") whiteDelta = chapter === "L-H" ? 2 : 1;
-
-      rScore += redDelta;
-      wScore += whiteDelta;
-      const gameOver = rScore >= POINTS_TO_WIN || wScore >= POINTS_TO_WIN;
-      const winner = gameOver
-        ? rScore >= POINTS_TO_WIN ? redUid : whiteUid
-        : null;
-
-      const redTag = sess.players.find((p) => p.uid === redUid)?.gamertag ?? "Red";
-      const whiteTag = sess.players.find((p) => p.uid === whiteUid)?.gamertag ?? "White";
-
-      const lines: string[] = [
-        `Round ${currentRound + 1} — Red (${redTag}): ${ATTACK_FULL[redAttack]}, White (${whiteTag}): ${ATTACK_FULL[whiteAttack]}`,
-      ];
-      if (rw) {
-        const delta = rw === "red" ? redDelta : whiteDelta;
-        lines.push(
-          `${rw === "red" ? "Red" : "White"} wins — ${delta} point${delta > 1 ? "s" : ""} (${rScore}-${wScore})`,
-        );
-      } else {
-        lines.push(`Tie (${rScore}-${wScore})`);
-      }
-      if (gameOver) {
-        lines.push(`Game over — ${rw === "red" ? `Red (${redTag})` : `White (${whiteTag})`} wins!`);
-      }
-
-      return {
-        roundEntry: {
-          round: currentRound,
-          moves: { [redUid]: redAttack, [whiteUid]: whiteAttack },
-          result: { chapter, winner: rw, redDelta, whiteDelta, redScore: rScore, whiteScore: wScore },
-        },
-        transcriptLines: lines,
-        gameOver,
-        winner,
-      };
-    },
-    [],
-  );
-
+  // Rounds are resolved server-side (resolverKey "hml"); this hook just
+  // subscribes, submits moves, and surfaces the server-written rounds.
   const {
     session: mpSession,
     phase: mpPhase,
@@ -331,7 +255,6 @@ export default function SweepTheLegGame({
   } = useMultiplayerRound({
     sessionId,
     userId,
-    resolver: stlResolver,
   });
 
   // Derive the player's assigned side from the multiplayer session
@@ -574,14 +497,11 @@ export default function SweepTheLegGame({
     if (aiMoveRoundRef.current >= round) return; // already generating for this round
     aiMoveRoundRef.current = round;
 
-    void fetchAiMove().then(({ attack, reasoning }) => {
+    void fetchAiMove().then(({ attack }) => {
       void submitMove(sessionId, aiUid, attack).catch(() => {
         // Submit failed — allow a later snapshot to retry this round.
         if (aiMoveRoundRef.current === round) aiMoveRoundRef.current = round - 1;
       });
-      if (reasoning) {
-        void updateSessionFields(sessionId, { [`stlAiReason.${round}`]: reasoning }).catch(() => {});
-      }
     });
   }, [mpIsHost, aiUid, mpSession, phase, sessionId, fetchAiMove]);
 

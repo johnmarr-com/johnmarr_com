@@ -21,6 +21,8 @@ export default composeGame({
   sideLabels: ["red", "white"],
   allowAI: true,
   rockIcon: true,
+  // Server-authoritative round resolution (generic resolveRound Cloud Function).
+  round: { resolverKey: "hml" },
   resultOptions: {
     hideScores: true,
     playMusic: true,
@@ -36,7 +38,7 @@ export default composeGame({
     rounds: [],
     transcript: [],
     winner: null,
-    stlAiReason: {},
+    seq: 0,
     aiPostGameComments: null,
   }),
 });
