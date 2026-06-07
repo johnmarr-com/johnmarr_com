@@ -5,6 +5,9 @@ runConfig:
   cpu: 1
   memoryMiB: 512
   concurrency: 80
+  # Keep one instance always warm to avoid Cloud Run cold starts ("spin up").
+  # Idle is billed memory-only (~$3/month) under request-based CPU billing.
+  minInstances: 1
 
 env:
   # Non-secret environment variables
