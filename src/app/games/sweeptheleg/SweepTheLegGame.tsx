@@ -2,12 +2,13 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { useJMStyle } from "@/JMStyle";
-import { JMBannerText, JMGameScoreboard, JMCloseCircleButton, JMSimpleButton } from "@/JMKit";
-import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, type GameMode, type ResolverOutput, type AIPersona } from "../_gamecore";
+import { JMBannerText, JMGameScoreboard } from "@/JMKit";
+import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, isAiPlayer, getPersona, updateSessionFields, type ResolverOutput } from "../_gamecore";
 import { useAuth } from "@/lib/AuthProvider";
-import { startGame, type GameSession } from "@/lib/game-sessions";
+import { submitMove, type GameSession } from "@/lib/game-sessions";
+import type { JMContent } from "@/lib/content-types";
+import type { GameEndResult } from "../_gamecore/registry/types";
 
 type Attack = "H" | "M" | "L";
 
@@ -23,16 +24,6 @@ type ChapterName =
   | "L-M" | "L-H" | "L-L"
   | "W-W" | "R-W";
 type GamePhase = "idle" | "ready" | "animating" | "finished";
-
-interface TranscriptEntry {
-  round: number;
-  redAttack: Attack;
-  whiteAttack: Attack;
-  winner: "red" | "white" | null;
-  points: number;
-  aiAttack?: Attack;
-  aiReason?: string;
-}
 
 const ATTACK_FULL: Record<Attack, string> = { H: "High", M: "Mid", L: "Low" };
 
@@ -219,26 +210,23 @@ function roundWinner(left: Attack, right: Attack): "red" | "white" | null {
 }
 
 export default function SweepTheLegGame({
-  splashLogoURL,
-  splashBgURL,
-  mode = "solo",
-  gameSlug,
-  backgroundMusicURL,
-  backgroundMusicVolume,
-  sessionId: sessionIdProp,
-  aiPersona,
+  sessionId,
+  gameData,
+  onGameEnd,
 }: {
-  splashLogoURL?: string;
-  splashBgURL?: string;
-  mode?: GameMode;
-  gameSlug?: string;
-  backgroundMusicURL?: string;
-  backgroundMusicVolume?: number;
-  sessionId?: string;
-  aiPersona?: AIPersona;
+  sessionId: string;
+  gameData: JMContent;
+  onGameEnd: (result: GameEndResult) => void;
 }) {
   const { theme } = useJMStyle();
   const { user, gamertag: myTag } = useAuth();
+  const userId = user?.uid ?? "";
+
+  const splashLogoURL = gameData.splashLogoURL ?? gameData.coverURL;
+  const splashBgURL = gameData.splashBgURL;
+  const gameSlug = gameData.slug ?? "sweeptheleg";
+  const backgroundMusicURL = gameData.backgroundMusicURL;
+  const backgroundMusicVolume = gameData.backgroundMusicVolume;
 
   const musicURL = backgroundMusicURL || (gameSlug ? `/music/${gameSlug}.mp3` : null);
   const { ensurePlaying, connectVideo } = useGameMusic({ url: musicURL, volume: backgroundMusicVolume ?? 0.3 });
@@ -250,9 +238,6 @@ export default function SweepTheLegGame({
   const [endMessage, setEndMessage] = useState("");
   const [roundAttacks, setRoundAttacks] = useState<{ red: Attack; white: Attack } | null>(null);
   const [selectedAttack, setSelectedAttack] = useState<Attack | null>(null);
-  const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
-  const [showTranscript, setShowTranscript] = useState(false);
-  const [aiPostGame, setAiPostGame] = useState("");
   const [joinerAccepted, setJoinerAccepted] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -265,11 +250,7 @@ export default function SweepTheLegGame({
   const redRef = useRef(0);
   const whiteRef = useRef(0);
   const sideRef = useRef<PlayerSide>("red");
-  const historyRef = useRef<MoveRecord[]>([]);
-  const prefetchRef = useRef<Promise<{ attack: Attack; reasoning: string }> | null>(null);
-  const personaPrompt = aiPersona?.prompt || undefined;
-  const personaVoice = aiPersona?.voice || undefined;
-  const aiName = aiPersona?.name || "AI";
+  const goToResultsRef = useRef<() => void>(() => {});
 
   // Multiplayer resolver: maps pending moves to Sweep the Leg outcome
   const stlResolver = useCallback(
@@ -341,8 +322,6 @@ export default function SweepTheLegGame({
     [],
   );
 
-  const isFriends = mode === "friends" && !!sessionIdProp;
-
   const {
     session: mpSession,
     phase: mpPhase,
@@ -350,17 +329,46 @@ export default function SweepTheLegGame({
     submitMove: mpSubmitMove,
     markAnimationDone,
   } = useMultiplayerRound({
-    sessionId: isFriends ? sessionIdProp! : null,
-    userId: user?.uid ?? "",
+    sessionId,
+    userId,
     resolver: stlResolver,
   });
 
   // Derive the player's assigned side from the multiplayer session
   const mpSide: PlayerSide | null = useMemo(() => {
-    if (!isFriends || !mpSession?.playerSides || !user?.uid) return null;
-    const s = mpSession.playerSides[user.uid];
+    if (!mpSession?.playerSides || !userId) return null;
+    const s = mpSession.playerSides[userId];
     return s === "red" || s === "white" ? s : null;
-  }, [isFriends, mpSession?.playerSides, user?.uid]);
+  }, [mpSession?.playerSides, userId]);
+
+  // ─── AI opponent (a session player; the host drives its moves) ───
+  const aiUid = useMemo(
+    () => mpSession?.players.find((p) => isAiPlayer(p.uid))?.uid ?? null,
+    [mpSession?.players],
+  );
+  const aiSide = useMemo(
+    () => (aiUid ? mpSession?.playerSides?.[aiUid] : undefined),
+    [aiUid, mpSession?.playerSides],
+  );
+  const aiPersona = useMemo(() => (aiUid ? getPersona(aiUid) : undefined), [aiUid]);
+  const personaPrompt = aiPersona?.prompt || undefined;
+  const personaVoice = aiPersona?.voice || undefined;
+  const aiName = aiPersona?.name || "AI";
+  const vsAI = !!aiUid;
+
+  // Reconstruct the AI's move history (from its perspective) for prompt context.
+  const aiHistory = useMemo<MoveRecord[]>(() => {
+    if (!aiUid || !aiSide || !mpSession?.rounds) return [];
+    const humanUid = mpSession.players.find((p) => p.uid !== aiUid)?.uid ?? "";
+    return mpSession.rounds.map((r) => {
+      const res = r.result as { winner: "red" | "white" | null };
+      const aiAttack = (r.moves[aiUid] ?? "H") as Attack;
+      const humanAttack = (r.moves[humanUid] ?? "H") as Attack;
+      const winner: MoveRecord["winner"] =
+        res.winner === null ? "tie" : res.winner === aiSide ? "opponent" : "player";
+      return { player: humanAttack, opponent: aiAttack, winner };
+    });
+  }, [aiUid, aiSide, mpSession?.rounds, mpSession?.players]);
 
   const opponentGamertag = useMemo(() => {
     if (!mpSession || !user?.uid) return null;
@@ -447,11 +455,6 @@ export default function SweepTheLegGame({
       setPlayerSide(side);
       redRef.current = 0;
       whiteRef.current = 0;
-      historyRef.current = [];
-      prefetchRef.current = null;
-      setTranscript([]);
-      setShowTranscript(false);
-      setAiPostGame("");
       setSelectedAttack(null);
       setRedScore(0);
       setWhiteScore(0);
@@ -461,41 +464,28 @@ export default function SweepTheLegGame({
     [playChapter, setP, ensurePlaying],
   );
 
-  // Track multiplayer restarts via a generation counter
   const mpStartedRef = useRef(false);
   const mpRoundsLenRef = useRef(0);
-  const mpPrevStatusRef = useRef<string | null>(null);
 
-  // Multiplayer auto-start (and restart): detect fresh "playing" state
+  // Auto-start the match once the session is playing and our side is known.
+  // (The factory re-mounts this component for a rematch, so no restart
+  // detection is needed here.)
   useEffect(() => {
-    if (!isFriends || !mpSession || !mpSide) return;
-
-    const prevStatus = mpPrevStatusRef.current;
-    mpPrevStatusRef.current = mpSession.status;
-
-    if (mpSession.status !== "playing") return;
-
-    // Detect restart: transition from finished → playing, or first start
-    const isRestart = prevStatus === "finished" && mpSession.currentRound === 0;
-    if (isRestart) {
-      mpStartedRef.current = false;
-      mpRoundsLenRef.current = 0;
-    }
-
     if (mpStartedRef.current) return;
+    if (!mpSession || mpSession.status !== "playing" || !mpSide) return;
 
     // Joiner must tap the "Join Match" button once to satisfy iOS autoplay
-    // gesture requirements before the video starts. Host has a fresh gesture
-    // from "Start Game", so they auto-enter.
+    // gesture requirements before the video starts. The host has a fresh
+    // gesture from "Start Game", so they auto-enter.
     if (!mpIsHost && !joinerAccepted) return;
 
     mpStartedRef.current = true;
     requestAnimationFrame(() => handleStart(mpSide));
-  }, [isFriends, mpSession, mpSide, mpIsHost, joinerAccepted, handleStart]);
+  }, [mpSession, mpSide, mpIsHost, joinerAccepted, handleStart]);
 
-  // Multiplayer round results: play the video chapter and update scores
+  // Round results: play the video chapter, update scores, log the transcript.
   useEffect(() => {
-    if (!isFriends || !mpSession?.rounds?.length) return;
+    if (!mpSession?.rounds?.length) return;
     const rounds = mpSession.rounds;
     if (rounds.length <= mpRoundsLenRef.current) return;
     mpRoundsLenRef.current = rounds.length;
@@ -516,18 +506,14 @@ export default function SweepTheLegGame({
 
     // Defer state updates to next frame to avoid synchronous setState-in-effect
     requestAnimationFrame(() => {
-      setTranscript((prev) => [
-        ...prev,
-        {
-          round: latest.round + 1,
-          redAttack,
-          whiteAttack,
-          winner: res.winner,
-          points: res.winner === "red" ? res.redDelta : res.winner === "white" ? res.whiteDelta : 0,
-        },
-      ]);
-
       setRoundAttacks({ red: redAttack, white: whiteAttack });
+
+      const finishMessage = (playerWon: boolean) =>
+        vsAI
+          ? pickRandom(playerWon ? AI_WIN_PHRASES : AI_LOSE_PHRASES)
+          : playerWon
+            ? pickRandom(WIN_PHRASES)
+            : "You Lose!";
 
       playChapter(res.chapter, {
         onEnd: () => {
@@ -537,16 +523,16 @@ export default function SweepTheLegGame({
           setRedScore(res.redScore);
           setWhiteScore(res.whiteScore);
 
+          // Game over: play the winner animation, then auto-advance to the
+          // result screen (GC4) when it finishes — no button.
           if (res.redScore >= POINTS_TO_WIN) {
-            const playerWon = sideRef.current === "red";
-            setEndMessage(playerWon ? pickRandom(WIN_PHRASES) : "You Lose!");
+            setEndMessage(finishMessage(sideRef.current === "red"));
             setP("finished");
-            playChapter("R-W", { freeze: true });
+            playChapter("R-W", { onEnd: () => goToResultsRef.current() });
           } else if (res.whiteScore >= POINTS_TO_WIN) {
-            const playerWon = sideRef.current === "white";
-            setEndMessage(playerWon ? pickRandom(WIN_PHRASES) : "You Lose!");
+            setEndMessage(finishMessage(sideRef.current === "white"));
             setP("finished");
-            playChapter("W-W", { freeze: true });
+            playChapter("W-W", { onEnd: () => goToResultsRef.current() });
           } else {
             setP("ready");
             playChapter("Ready", { loop: true });
@@ -555,11 +541,11 @@ export default function SweepTheLegGame({
         },
       });
     });
-  }, [isFriends, mpSession?.rounds, mpSession?.playerSides, mpSession?.currentRound, playChapter, setP, markAnimationDone]);
+  }, [mpSession, vsAI, playChapter, setP, markAnimationDone]);
 
   const fetchAiMove = useCallback((): Promise<{ attack: Attack; reasoning: string }> => {
-    const aiSide = sideRef.current === "red" ? "white" : "red";
-    const prompt = buildMovePrompt(aiSide, historyRef.current);
+    const side = aiSide === "red" || aiSide === "white" ? aiSide : "white";
+    const prompt = buildMovePrompt(side, aiHistory);
     return simpleMove(prompt, personaPrompt, personaVoice)
       .then(({ action, reason }) => {
         const attack = parseAttackFromAction(action);
@@ -570,151 +556,106 @@ export default function SweepTheLegGame({
         attack: ATTACKS[Math.floor(Math.random() * ATTACKS.length)]!,
         reasoning: "",
       }));
-  }, [personaPrompt, personaVoice]);
+  }, [aiSide, aiHistory, personaPrompt, personaVoice]);
 
-  const resolveRound = useCallback(
-    (attack: Attack, cpu: Attack, aiReason?: string) => {
-      const isRed = sideRef.current === "red";
-      const left = isRed ? attack : cpu;
-      const right = isRed ? cpu : attack;
-      const chapter = `${left}-${right}` as ChapterName;
-      const rw = roundWinner(left, right);
+  // ─── Host drives the AI opponent's move when a round opens ───
+  const aiMoveRoundRef = useRef(-1);
+  useEffect(() => {
+    if (!mpIsHost || !aiUid || !mpSession || mpSession.status !== "playing") return;
+    if (phase !== "ready") return;
+    const round = mpSession.currentRound ?? 0;
+    if (aiMoveRoundRef.current >= round) return;
+    if (mpSession.pendingMoves?.[aiUid]) {
+      aiMoveRoundRef.current = round;
+      return;
+    }
+    aiMoveRoundRef.current = round;
 
-      const winner: MoveRecord["winner"] =
-        rw === null ? "tie" : (isRed ? rw === "red" : rw === "white") ? "player" : "opponent";
-      historyRef.current.push({ player: attack, opponent: cpu, winner });
-
-      setRoundAttacks({ red: left, white: right });
-
-      let nextRed = redRef.current;
-      let nextWhite = whiteRef.current;
-      if (rw === "red") nextRed += chapter === "L-M" ? 2 : 1;
-      else if (rw === "white") nextWhite += chapter === "L-H" ? 2 : 1;
-      const pts = rw === "red" ? nextRed - redRef.current : rw === "white" ? nextWhite - whiteRef.current : 0;
-      const gameOver = nextRed >= POINTS_TO_WIN || nextWhite >= POINTS_TO_WIN;
-
-      if (mode === "ai") {
-        const entry: TranscriptEntry = {
-          round: historyRef.current.length,
-          redAttack: left,
-          whiteAttack: right,
-          winner: rw,
-          points: pts,
-          aiAttack: cpu,
-        };
-        const reason = aiReason || (historyRef.current.length === 1 ? "First round — random." : "");
-        if (reason) entry.aiReason = reason;
-        setTranscript((prev) => [...prev, entry]);
+    let cancelled = false;
+    void fetchAiMove().then(({ attack, reasoning }) => {
+      if (cancelled) return;
+      void submitMove(sessionId, aiUid, attack).catch(() => {});
+      if (reasoning) {
+        void updateSessionFields(sessionId, { [`stlAiReason.${round}`]: reasoning }).catch(() => {});
       }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [mpIsHost, aiUid, mpSession, phase, sessionId, fetchAiMove]);
 
-      if (mode === "ai" && !gameOver) {
-        prefetchRef.current = fetchAiMove();
-      }
+  // ─── On match end: host generates the AI post-game comment + records W/L ───
+  const finishedFiredRef = useRef(false);
+  useEffect(() => {
+    if (phase !== "finished" || !mpSession || finishedFiredRef.current) return;
+    finishedFiredRef.current = true;
+    if (!mpIsHost || !aiUid || !aiSide) return;
 
-      if (mode === "ai" && gameOver) {
-        const aiSide = sideRef.current === "red" ? "white" : "red";
-        const aiWon = (aiSide === "red" && nextRed >= POINTS_TO_WIN) || (aiSide === "white" && nextWhite >= POINTS_TO_WIN);
-        const prompt = buildPostGamePrompt(aiSide, historyRef.current, aiWon);
-        postGameComment(prompt, personaPrompt, personaVoice)
-          .then(({ comment }) => { if (comment) setAiPostGame(comment); })
-          .catch(() => {});
+    const sides = mpSession.playerSides ?? {};
+    const redUid = Object.entries(sides).find(([, s]) => s === "red")?.[0] ?? "";
+    const whiteUid = Object.entries(sides).find(([, s]) => s === "white")?.[0] ?? "";
+    const winnerUid = redRef.current >= POINTS_TO_WIN ? redUid : whiteUid;
+    const aiWon = winnerUid === aiUid;
 
-        if (aiPersona) {
-          const docId = aiPersona.id.replace(/^ai-/, "");
-          import("@/lib/ai-personas").then(({ recordAIGameResult }) => {
-            recordAIGameResult(docId, aiWon).catch(() => {});
-          });
+    const prompt = buildPostGamePrompt(aiSide === "red" ? "red" : "white", aiHistory, aiWon);
+    postGameComment(prompt, personaPrompt, personaVoice)
+      .then(({ comment }) => {
+        if (comment) {
+          void updateSessionFields(sessionId, { [`aiPostGameComments.${aiUid}`]: comment });
         }
-      }
+      })
+      .catch(() => {});
 
-      playChapter(chapter, {
-        onEnd: () => {
-          setRoundAttacks(null);
+    const docId = aiUid.replace(/^ai-/, "");
+    import("@/lib/ai-personas").then(({ recordAIGameResult }) => {
+      recordAIGameResult(docId, aiWon).catch(() => {});
+    });
+  }, [phase, mpSession, mpIsHost, aiUid, aiSide, aiHistory, personaPrompt, personaVoice, sessionId]);
 
-          redRef.current = nextRed;
-          whiteRef.current = nextWhite;
-          setRedScore(nextRed);
-          setWhiteScore(nextWhite);
+  // ─── Hand the finished match off to the factory result screen (GC4) ───
+  const goToResults = useCallback(() => {
+    if (!mpSession) return;
+    const players = mpSession.players;
+    const sides = mpSession.playerSides ?? {};
+    const redUid = Object.entries(sides).find(([, s]) => s === "red")?.[0] ?? "";
+    const whiteUid = Object.entries(sides).find(([, s]) => s === "white")?.[0] ?? "";
+    const finalRed = redRef.current;
+    const finalWhite = whiteRef.current;
+    const winnerUid = finalRed >= POINTS_TO_WIN ? redUid : whiteUid;
+    const winner = players.find((p) => p.uid === winnerUid);
 
-          if (nextRed >= POINTS_TO_WIN) {
-            const playerWon = sideRef.current === "red";
-            setEndMessage(
-              mode === "ai"
-                ? pickRandom(playerWon ? AI_WIN_PHRASES : AI_LOSE_PHRASES)
-                : playerWon
-                  ? pickRandom(WIN_PHRASES)
-                  : "You Lose!",
-            );
-            setP("finished");
-            playChapter("R-W", { freeze: true });
-          } else if (nextWhite >= POINTS_TO_WIN) {
-            const playerWon = sideRef.current === "white";
-            setEndMessage(
-              mode === "ai"
-                ? pickRandom(playerWon ? AI_WIN_PHRASES : AI_LOSE_PHRASES)
-                : playerWon
-                  ? pickRandom(WIN_PHRASES)
-                  : "You Lose!",
-            );
-            setP("finished");
-            playChapter("W-W", { freeze: true });
-          } else {
-            setP("ready");
-            playChapter("Ready", { loop: true });
-          }
-        },
-      });
-    },
-    [playChapter, setP, mode, fetchAiMove, personaPrompt, personaVoice, aiPersona],
-  );
+    const scores: Record<string, number> = {};
+    if (redUid) scores[redUid] = finalRed;
+    if (whiteUid) scores[whiteUid] = finalWhite;
+
+    videoRef.current?.pause();
+    onGameEnd({
+      winners: winner ? [winner] : [],
+      winnerPoints: Math.max(finalRed, finalWhite),
+      allPlayers: players,
+      scores,
+    });
+  }, [mpSession, onGameEnd]);
+
+  // Keep the ref pointed at the latest goToResults so the winner-animation
+  // onEnd callback (registered earlier) always calls the current closure.
+  useEffect(() => {
+    goToResultsRef.current = goToResults;
+  }, [goToResults]);
 
   const handleAttack = useCallback(
     (attack: Attack) => {
       if (phaseRef.current !== "ready") return;
       ensurePlaying();
       setSelectedAttack(attack);
-
-      if (isFriends) {
-        setP("animating");
-        mpSubmitMove(attack);
-        return;
-      }
-
       setP("animating");
-
-      if (mode === "ai") {
-        const pending = prefetchRef.current;
-        prefetchRef.current = null;
-
-        if (pending) {
-          pending.then(({ attack: cpu, reasoning }) => resolveRound(attack, cpu, reasoning));
-        } else {
-          const cpu = ATTACKS[Math.floor(Math.random() * ATTACKS.length)]!;
-          resolveRound(attack, cpu);
-        }
-      } else {
-        const cpu = ATTACKS[Math.floor(Math.random() * ATTACKS.length)]!;
-        resolveRound(attack, cpu);
-      }
+      mpSubmitMove(attack);
     },
-    [mode, isFriends, setP, resolveRound, mpSubmitMove, ensurePlaying],
+    [setP, mpSubmitMove, ensurePlaying],
   );
 
   return (
     <div className="relative flex h-dvh flex-col bg-black">
-      {phase === "finished" && (
-        <Link href="/" className="absolute left-4 top-24 z-20">
-          <JMSimpleButton
-            title="EXIT"
-            size="sm"
-            variant="ghost"
-            titleColor="#ffffff"
-            className="gap-1.5 rounded-lg bg-black/50 backdrop-blur-sm"
-          >
-            <span className="text-sm leading-none">&#9664;</span> EXIT
-          </JMSimpleButton>
-        </Link>
-      )}
       {splashBgURL && (
         <div
           className="absolute inset-0 z-0 bg-cover bg-center opacity-50"
@@ -726,8 +667,9 @@ export default function SweepTheLegGame({
         {phase !== "idle" && (() => {
           const playerIsRed = playerSide === "red";
           const playerTag = myTag || "YOU";
-          const leftLabel = playerIsRed ? playerTag : (isFriends && opponentGamertag ? opponentGamertag : mode === "ai" ? aiName : "Red");
-          const rightLabel = !playerIsRed ? playerTag : (isFriends && opponentGamertag ? opponentGamertag : mode === "ai" ? aiName : "White");
+          const oppLabel = opponentGamertag ?? (vsAI ? aiName : playerIsRed ? "White" : "Red");
+          const leftLabel = playerIsRed ? playerTag : oppLabel;
+          const rightLabel = !playerIsRed ? playerTag : oppLabel;
           return (
             <JMGameScoreboard
               leftLabel={leftLabel}
@@ -762,7 +704,7 @@ export default function SweepTheLegGame({
                       alt="Sweep the Leg"
                       width={280}
                       height={140}
-                      className={`w-full max-w-[280px] object-contain${isFriends && (!mpSession || mpSession.status !== "playing" || !mpSide) ? " animate-gentle-float" : ""}`}
+                      className={`w-full max-w-[280px] object-contain${!mpSession || mpSession.status !== "playing" || !mpSide ? " animate-gentle-float" : ""}`}
                       draggable={false}
                       priority
                     />
@@ -773,57 +715,33 @@ export default function SweepTheLegGame({
                       the Leg
                     </h1>
                   )}
-                  {isFriends ? (
-                    !mpSession || mpSession.status !== "playing" || !mpSide ? (
-                      <p className="text-center text-sm font-medium uppercase tracking-widest text-white animate-pulse">
-                        Waiting for host
-                        <br />
-                        to start match…
-                      </p>
-                    ) : !mpIsHost && !joinerAccepted ? (
-                      <button
-                        onClick={() => {
-                          ensurePlaying();
-                          setJoinerAccepted(true);
-                        }}
-                        className="rounded-full px-10 py-4 text-lg font-black uppercase tracking-wider text-black transition-transform hover:scale-105 active:scale-95"
-                        style={{ backgroundColor: theme.accents.goldenGlow }}
-                      >
-                        Join Match
-                      </button>
-                    ) : (
-                      <p className="text-sm font-medium uppercase tracking-widest text-white/50 animate-pulse">
-                        Loading match…
-                      </p>
-                    )
+                  {!mpSession || mpSession.status !== "playing" || !mpSide ? (
+                    <p className="text-center text-sm font-medium uppercase tracking-widest text-white animate-pulse">
+                      Waiting for host
+                      <br />
+                      to start match…
+                    </p>
+                  ) : !mpIsHost && !joinerAccepted ? (
+                    <button
+                      onClick={() => {
+                        ensurePlaying();
+                        setJoinerAccepted(true);
+                      }}
+                      className="rounded-full px-10 py-4 text-lg font-black uppercase tracking-wider text-black transition-transform hover:scale-105 active:scale-95"
+                      style={{ backgroundColor: theme.accents.goldenGlow }}
+                    >
+                      Join Match
+                    </button>
                   ) : (
-                    <>
-                      <JMBannerText borderColor="#ffffff" borderWidth={1}>
-                        <span className="text-sm font-medium uppercase tracking-widest text-white/70">
-                          Choose your fighter
-                        </span>
-                      </JMBannerText>
-                      <div className="flex gap-4">
-                        <button
-                          onClick={() => handleStart("red")}
-                          className="animate-fighter-pulse rounded-full border-2 border-red-500 bg-red-900/70 px-8 py-3 text-lg font-bold uppercase tracking-wider text-red-400 hover:bg-red-500/30 active:scale-95"
-                        >
-                          Red
-                        </button>
-                        <button
-                          onClick={() => handleStart("white")}
-                          className="animate-fighter-pulse-alt rounded-full border-2 border-white/60 bg-white/20 px-8 py-3 text-lg font-bold uppercase tracking-wider text-white hover:bg-white/20 active:scale-95"
-                        >
-                          White
-                        </button>
-                      </div>
-                    </>
+                    <p className="text-sm font-medium uppercase tracking-widest text-white/50 animate-pulse">
+                      Loading match…
+                    </p>
                   )}
                 </div>
               )}
 
-              {phase === "finished" && !showTranscript && (
-                <div className="absolute inset-0 flex flex-col items-center justify-end gap-3 bg-linear-to-t from-black/80 via-transparent to-transparent pb-8">
+              {phase === "finished" && (
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-end gap-3 bg-linear-to-t from-black/80 via-transparent to-transparent pb-8">
                   <JMBannerText paddingX={32} paddingY={10}>
                     <h2
                       className="text-center text-3xl font-black uppercase tracking-tight sm:text-4xl"
@@ -835,91 +753,6 @@ export default function SweepTheLegGame({
                   <p className="text-lg font-bold text-white/60">
                     {redScore} &ndash; {whiteScore}
                   </p>
-                  {isFriends ? (
-                    mpIsHost ? (
-                      <button
-                        onClick={async () => {
-                          if (!mpSession?.playerSides) return;
-                          ensurePlaying();
-                          videoRef.current?.pause();
-                          await startGame(mpSession.id, mpSession.playerSides);
-                        }}
-                        className="mt-1 rounded-full px-8 py-3 text-sm font-bold uppercase tracking-wider text-black transition-transform hover:scale-105 active:scale-95"
-                        style={{ backgroundColor: theme.accents.goldenGlow }}
-                      >
-                        Play Again
-                      </button>
-                    ) : (
-                      <p className="mt-1 text-sm font-bold uppercase tracking-widest text-white/40 animate-pulse">
-                        Waiting for rematch…
-                      </p>
-                    )
-                  ) : (
-                    <button
-                      onClick={() => {
-                        ensurePlaying();
-                        videoRef.current?.pause();
-                        setP("idle");
-                      }}
-                      className="mt-1 rounded-full px-8 py-3 text-sm font-bold uppercase tracking-wider text-black transition-transform hover:scale-105 active:scale-95"
-                      style={{ backgroundColor: theme.accents.goldenGlow }}
-                    >
-                      Play Again
-                    </button>
-                  )}
-                  {(mode === "ai" || isFriends) && transcript.length > 0 && (
-                    <button
-                      onClick={() => setShowTranscript(true)}
-                      className="mt-2 rounded-full border border-white/30 bg-white/10 px-6 py-2 text-sm font-bold uppercase tracking-wider text-white/80 transition-all hover:scale-105 hover:bg-white/20 active:scale-95"
-                    >
-                      {isFriends ? "View Transcript" : "View AI Transcript"}
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {phase === "finished" && showTranscript && (
-                <div className="absolute inset-0 z-30 flex flex-col bg-black/95">
-                  <div className="flex items-center justify-between px-5 py-4">
-                    <span className="text-sm font-bold uppercase tracking-widest text-white/70">
-                      {isFriends ? "Match Transcript" : "AI Transcript"}
-                    </span>
-                    <JMCloseCircleButton onClick={() => setShowTranscript(false)} />
-                  </div>
-                  <div className="flex-1 overflow-y-auto px-5 pb-5">
-                    {aiPostGame && (
-                      <div className="mb-4 pb-4 border-b border-white/15">
-                        <p className="text-xs font-bold uppercase tracking-widest text-white/40">
-                          Post-Game Thoughts
-                        </p>
-                        <p className="mt-2 text-sm italic text-amber-300/80">
-                          &ldquo;{aiPostGame}&rdquo;
-                        </p>
-                      </div>
-                    )}
-                    {transcript.map((entry) => (
-                      <div key={entry.round} className="mb-4 border-t border-white/15 pt-4 first:border-0 first:pt-0">
-                        <p className="text-xs font-bold uppercase tracking-widest text-white/40">
-                          Round {entry.round}
-                        </p>
-                        <p className="mt-1.5 text-sm">
-                          <span className="font-semibold text-red-400">Red: {ATTACK_FULL[entry.redAttack]}</span>
-                          <span className="mx-2 text-white/30">|</span>
-                          <span className="font-semibold text-white">White: {ATTACK_FULL[entry.whiteAttack]}</span>
-                        </p>
-                        <p className="text-sm text-white/60">
-                          {entry.winner
-                            ? `${entry.winner === "red" ? "Red" : "White"} wins — ${entry.points} Point${entry.points > 1 ? "s" : ""}`
-                            : "Tie — 0 Points"}
-                        </p>
-                        {entry.aiReason && (
-                          <p className="mt-1.5 text-sm italic text-amber-300/80">
-                            &ldquo;{entry.aiReason}&rdquo;
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
                 </div>
               )}
             </div>
@@ -945,7 +778,7 @@ export default function SweepTheLegGame({
 
           {(() => {
             const isActive = phase === "ready" || phase === "animating";
-            const isWaiting = isFriends && mpPhase === "submitted";
+            const isWaiting = mpPhase === "submitted";
             const buttonsVisible = isActive && !isWaiting;
             return (
               <div className="relative">
