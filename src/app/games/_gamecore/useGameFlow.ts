@@ -15,6 +15,7 @@ import { getContentBySlug, getGameEngineTheme } from "@/lib/content";
 import type { JMContent } from "@/lib/content-types";
 import { joinGameSessionById, subscribeToSession } from "@/lib/game-sessions";
 import type { GameSession } from "@/lib/game-sessions";
+import { preloadAvatars } from "@/lib/avatar-cache";
 import { updateSessionFields } from "../_gamecore/sessionHelpers";
 import { useTrackKnownPlayers } from "./useTrackKnownPlayers";
 import type {
@@ -177,6 +178,16 @@ export function useGameFlow(config: ComposeGameInput): GameFlowState & GameFlowA
   // cross-write the relationship (Admin SDK, immune to iOS Safari client-
   // side write failures).
   useTrackKnownPlayers(session, user?.uid);
+
+  // Preload player avatars (Lottie) so the result screen (GC4) renders them
+  // instantly. Video-based games (Sweep the Leg, Tap Smash Arena) never show
+  // avatars during play, so otherwise they only fetch on the win screen and
+  // pop in late. Keyed by the avatar-name set so it runs once, not per snapshot.
+  const playerAvatarKey = session?.players.map((p) => p.avatarName ?? "default").join(",");
+  useEffect(() => {
+    if (!playerAvatarKey) return;
+    preloadAvatars(playerAvatarKey.split(","));
+  }, [playerAvatarKey]);
 
   // ─── Derive isHost ───────────────────────────────────────
   const isHost = !!(session && user && session.ownerId === user.uid);

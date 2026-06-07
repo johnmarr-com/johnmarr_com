@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Lottie, { LottieRefCurrentProps } from 'lottie-react';
-import { devError } from '@/lib/logger';
 import { extractAvatarId, getAvatarScale } from '@/lib';
+import { getCachedAvatar, loadAvatar } from '@/lib/avatar-cache';
 import { JMLiquidLoader } from './JMLiquidLoader';
 
 interface JMAvatarViewProps {
@@ -16,12 +16,14 @@ interface JMAvatarViewProps {
 }
 
 export default function JMAvatarView({ width, avatarName, responsive = false, fullFilename, interactive = false, scaleOverride }: JMAvatarViewProps) {
-  const [animationData, setAnimationData] = useState<object | null>(null);
+  // If the avatar was preloaded (e.g. during gameplay), render it instantly.
+  const cachedInit = getCachedAvatar(fullFilename || avatarName) ?? null;
+  const [animationData, setAnimationData] = useState<object | null>(cachedInit);
   const [isLoading, setIsLoading] = useState(false); // Start as false for lazy loading
   const [hasError, setHasError] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [shouldLoadAnimation, setShouldLoadAnimation] = useState(false);
-  const [isAvatarLoaded, setIsAvatarLoaded] = useState(false);
+  const [isAvatarLoaded, setIsAvatarLoaded] = useState<boolean>(!!cachedInit);
   const [showLoader, setShowLoader] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
@@ -36,7 +38,8 @@ export default function JMAvatarView({ width, avatarName, responsive = false, fu
   // Intersection Observer for visibility detection
   useEffect(() => {
     if (typeof window === 'undefined' || !window.IntersectionObserver) {
-      // Fallback for SSR or browsers without IntersectionObserver
+      // Fallback for SSR or browsers without IntersectionObserver: load now.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- no observer to drive visibility; enable loading + visibility on mount
       setShouldLoadAnimation(true);
       setIsVisible(true);
       return;
@@ -81,53 +84,57 @@ export default function JMAvatarView({ width, avatarName, responsive = false, fu
     };
   }, [shouldLoadAnimation]);
 
-  // Lazy load animation data only when needed
+  // Lazy load animation data only when needed (shared cache → loads once,
+  // and renders instantly if it was preloaded during gameplay).
   useEffect(() => {
     if (!shouldLoadAnimation) return;
+    const fileToLoad = fullFilename || avatarName;
+    if (!fileToLoad) return;
+
+    let cancelled = false;
 
     const loadAnimation = async () => {
+      // Cache hit (e.g. preloaded during gameplay) → render now, no loader.
+      const cached = getCachedAvatar(fileToLoad);
+      if (cached) {
+        setAnimationData(cached);
+        setIsAvatarLoaded(true);
+        setShowLoader(false);
+        setHasError(false);
+        return;
+      }
+
       setIsLoading(true);
       setShowLoader(true);
       setHasError(false);
       setIsAvatarLoaded(false);
-      
-      try {
-        // Use fullFilename if provided, otherwise use avatarName
-        const fileToLoad = fullFilename || avatarName;
-        const url = fileToLoad.endsWith('.json') 
-          ? `/avatars/${fileToLoad}`
-          : `/avatars/${fileToLoad}.json`;
-          
-        const response = await window.fetch(url);
-        
-        if (response.ok) {
-          const data = await response.json();
-          setAnimationData(data);
-          
-          // Small delay before starting fade-in
+
+      const data = await loadAvatar(fileToLoad);
+      if (cancelled) return;
+
+      if (data) {
+        setAnimationData(data);
+        // Small delay before starting fade-in
+        setTimeout(() => {
+          if (cancelled) return;
+          setIsAvatarLoaded(true);
+          // Hide loader after fade-in completes
           setTimeout(() => {
-            setIsAvatarLoaded(true);
-            // Hide loader after fade-in completes
-            setTimeout(() => {
-              setShowLoader(false);
-            }, 300); // Match fade-in duration
-          }, 100);
-        } else {
-          setHasError(true);
-          setShowLoader(false);
-        }
-      } catch (error) {
-        devError('Failed to load avatar animation:', fullFilename || avatarName, error);
+            if (!cancelled) setShowLoader(false);
+          }, 300); // Match fade-in duration
+        }, 100);
+      } else {
         setHasError(true);
         setShowLoader(false);
-      } finally {
-        setIsLoading(false);
       }
+      setIsLoading(false);
     };
 
-    if (avatarName) {
-      loadAnimation();
-    }
+    void loadAnimation();
+
+    return () => {
+      cancelled = true;
+    };
   }, [avatarName, fullFilename, shouldLoadAnimation]);
 
   return (
