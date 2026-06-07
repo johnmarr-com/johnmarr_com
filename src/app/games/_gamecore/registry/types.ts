@@ -133,6 +133,11 @@ export interface GC4ResultOptions {
   /** Show a "View {AI}'s Post-Game Comments" button if the session has any
    * AI-authored comments at `session.aiPostGameComments[aiUid]`. */
   showAIPostGameComments?: boolean;
+  /** Map a player's side (from `session.playerSides`) to a winner-card accent
+   * color, e.g. `{ red: "#ef4444", white: "#ffffff" }`. When set, the WINNER
+   * title and name are colored by the winning side instead of the CMS brand
+   * colors. Other side keys / games fall back to primary/secondary. */
+  sideColors?: Record<string, string>;
 }
 
 /** GC4: Result — win/lose screen after gameplay ends. */

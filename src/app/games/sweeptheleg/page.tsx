@@ -25,6 +25,8 @@ export default composeGame({
     hideScores: true,
     playMusic: true,
     showAIPostGameComments: true,
+    // Color the WINNER title + name by the winning side (not CMS brand colors).
+    sideColors: { red: "#ef4444", white: "#ffffff" },
   },
   // Play Again (GC5) resets the round state for a fresh match; sides persist.
   resetFields: () => ({

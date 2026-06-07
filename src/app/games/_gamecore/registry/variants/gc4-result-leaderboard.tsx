@@ -35,7 +35,7 @@ function GC4ResultLeaderboard({
   resultOptions,
 }: GC4Props) {
   const { winners, winnerPoints, allPlayers, scores } = result;
-  const { logoRight, hideScores, playMusic, showAIPostGameComments } = resultOptions ?? {};
+  const { logoRight, hideScores, playMusic, showAIPostGameComments, sideColors } = resultOptions ?? {};
 
   // Pull AI Post-Game Comments off the session doc if the game opted in.
   // `aiPostGameComments` is an optional `Record<aiUid, string>` the game
@@ -59,6 +59,15 @@ function GC4ResultLeaderboard({
   const { primary, secondary } = useGameColors();
   const gameLogoURL = gameData.splashLogoURL ?? gameData.coverURL;
   const bgDim = gameData.splashBgDim ?? 50;
+
+  // Winner-card accent: color by the winning player's side when the game
+  // provides a side→color map (e.g. Sweep the Leg red/white); else brand colors.
+  const playerSides = (session.playerSides ?? {}) as Record<string, string>;
+  const winnerColor = (uid: string): { title: string; name: string } => {
+    const side = playerSides[uid];
+    const c = side && sideColors ? sideColors[side] : undefined;
+    return c ? { title: c, name: c } : { title: primary, name: secondary };
+  };
 
   const winnerUids = new Set(winners.map((w) => w.uid));
   const others = allPlayers
@@ -135,8 +144,8 @@ function GC4ResultLeaderboard({
             variant="winner"
             avatarName={winners[0]!.avatarName ?? "default"}
             name={winners[0]!.gamertag}
-            titleColor={primary}
-            nameColor={secondary}
+            titleColor={winnerColor(winners[0]!.uid).title}
+            nameColor={winnerColor(winners[0]!.uid).name}
             {...(hideScores ? {} : { subtitle: `${winnerPoints} ${winnerPoints === 1 ? "point" : "points"}!` })}
           />
         )}
@@ -149,8 +158,8 @@ function GC4ResultLeaderboard({
                 variant="winner"
                 avatarName={w.avatarName ?? "default"}
                 name={w.gamertag}
-                titleColor={primary}
-                nameColor={secondary}
+                titleColor={winnerColor(w.uid).title}
+                nameColor={winnerColor(w.uid).name}
                 {...(hideScores ? {} : { subtitle: `${winnerPoints} ${winnerPoints === 1 ? "point" : "points"}!` })}
               />
             ))}
