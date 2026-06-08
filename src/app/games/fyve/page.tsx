@@ -27,8 +27,11 @@ export default composeGame({
   slug: "fyve",
   GameComponent: FyveAdapter,
   multiplayerFlowMode: "party",
+  // FYVE's brand orange. HeistLobbySelector falls back to the game's CMS
+  // primary when no override is passed, but FYVE's CMS colors aren't set yet,
+  // so pin the brand color (drop this prop once FYVE's primaryColor is set).
   lobbyExtra: ({ session }: { session: GameSession }) => (
-    <HeistLobbySelector sessionId={session.id} />
+    <HeistLobbySelector sessionId={session.id} accentColor="#E84C1E" />
   ),
   lobbyCanStart: ({ session }: { session: GameSession }) =>
     !!(session as unknown as Record<string, unknown>)["fyveLobbyHeistId"],
