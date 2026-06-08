@@ -189,6 +189,10 @@ export interface ComposeGameInput {
   GameComponent: ComponentType<GC3Props>;
   /** Extra UI injected into the host lobby (pack picker, game length, etc.). */
   lobbyExtra?: GC2Props["lobbyExtra"];
+  /** Extra UI injected on the landing/splash screen (e.g. a "Create Packs" button).
+   * Pass a self-contained component instance — it renders inside the React tree,
+   * so it may use its own hooks (auth, router) for conditional display. */
+  landingExtra?: ReactNode;
   /** Additional condition for enabling the "Start Game" button. */
   lobbyCanStart?: (ctx: { session: GameSession }) => boolean;
   /** Firestore fields to reset when the host clicks "Play Again". */

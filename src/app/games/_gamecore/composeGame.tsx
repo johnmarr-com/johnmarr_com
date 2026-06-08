@@ -260,6 +260,7 @@ function ComposedGameInner({ config }: { config: ComposeGameInput }) {
       disabled={!playbackGameData.isPublished}
       {...(multiplayerInput ? { multiplayerInput } : {})}
       {...(config.lobbyExtra != null ? { lobbyExtra: config.lobbyExtra } : {})}
+      {...(config.landingExtra != null ? { landingExtra: config.landingExtra } : {})}
       {...(config.lobbyCanStart ? { lobbyCanStart: config.lobbyCanStart } : {})}
       {...(config.pulseIcon != null ? { pulseIcon: config.pulseIcon } : {})}
       {...(config.rockIcon != null ? { rockIcon: config.rockIcon } : {})}

@@ -32,6 +32,8 @@ import BluffPackPicker from "./BluffPackPicker";
 import BluffPackGridPicker from "./BluffPackGridPicker";
 import type { BluffBoxPack } from "@/lib/bluffbox-packs";
 import { JMConfettiOverlay } from "@/JMKit";
+import type { JMContent } from "@/lib/content-types";
+import type { GameEndResult } from "@/app/games/_gamecore/registry/types";
 
 /** Host auto-advance from `result` phase (ms). 2× the original 4s; host tap runs `advanceFromResult` for everyone. */
 const RESULT_PHASE_AUTO_ADVANCE_MS = 8000;
@@ -41,12 +43,17 @@ interface BluffBoxGameProps {
   splashBgURL?: string;
   /** Shown above the left player on the matchup / VS screen */
   gameLogoURL?: string;
+  /** Present when assembled by composeGame (unused directly; adapter derives splash/logo). */
+  gameData?: JMContent;
+  /** When provided (via composeGame), the game calls this instead of rendering its own WinnerScreen. */
+  onGameEnd?: (result: GameEndResult) => void;
 }
 
 export default function BluffBoxGame({
   sessionId,
   splashBgURL,
   gameLogoURL,
+  onGameEnd,
 }: BluffBoxGameProps) {
   const { user, isAdmin } = useAuth();
   const userId = user?.uid ?? "";
@@ -447,6 +454,24 @@ export default function BluffBoxGame({
     updateFields,
   ]);
 
+  // ─── Hand the finished match off to the factory result screen (GC4) ───
+  // When composeGame supplies onGameEnd, call it instead of rendering the
+  // in-game WinnerScreen. Points + stats are already awarded in
+  // advanceFromResult (host-only); this is purely the GC3 → GC4 transition.
+  const gameEndFiredRef = useRef(false);
+  useEffect(() => {
+    if (bbPhase === "game-over" && winners.length > 0 && onGameEnd && !gameEndFiredRef.current) {
+      gameEndFiredRef.current = true;
+      onGameEnd({
+        winners: players.filter((p) => winners.includes(p.uid)),
+        winnerPoints,
+        allPlayers: players,
+        scores,
+      });
+    }
+    if (bbPhase !== "game-over") gameEndFiredRef.current = false;
+  }, [bbPhase, winners, winnerPoints, players, scores, onGameEnd]);
+
   // ─── Host: Auto-advance from result after delay ───────────
 
   useEffect(() => {
@@ -765,8 +790,9 @@ export default function BluffBoxGame({
           </>
         )}
 
-        {/* ── Game Over — confetti portals to `document.body` at z-index 99999 (above z-50 modals) */}
-        {bbPhase === "game-over" && winners.length > 0 && (
+        {/* ── Game Over — confetti portals to `document.body` at z-index 99999 (above z-50 modals).
+            Skipped when composeGame handles the result via onGameEnd (GC4). */}
+        {bbPhase === "game-over" && winners.length > 0 && !onGameEnd && (
           <>
             <JMConfettiOverlay loop />
             <WinnerScreen
