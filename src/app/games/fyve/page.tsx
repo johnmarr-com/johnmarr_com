@@ -45,7 +45,6 @@ export default composeGame({
     currentClue: null,
     guessesRemaining: 0,
     guessesUsedThisTurn: 0,
-    bonusGuessAvailable: false,
     pendingTap: null,
     winningTeam: null,
     loseByBomb: false,

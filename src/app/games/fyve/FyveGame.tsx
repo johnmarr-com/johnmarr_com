@@ -120,7 +120,6 @@ export default function FyveGame({
     activeTeam,
     currentClue,
     guessesRemaining,
-    bonusGuessAvailable,
     keyDocId,
     winningTeam,
     t1Score,
@@ -286,7 +285,6 @@ export default function FyveGame({
         t2RevealedAssets: [],
         guessesRemaining: 0,
         guessesUsedThisTurn: 0,
-        bonusGuessAvailable: false,
         currentClue: null,
         pendingTap: null,
         winningTeam: null,
@@ -325,7 +323,6 @@ export default function FyveGame({
         currentClue: { word, number, givenBy: userId },
         guessesRemaining: number,
         guessesUsedThisTurn: 0,
-        bonusGuessAvailable: false,
         svPhase: "operative-guess",
       });
     },
@@ -433,23 +430,17 @@ export default function FyveGame({
           (currentActiveTeam === "syndicate2" && result.cardType === "T2");
 
         if (isOwnAsset) {
-          // Correct guess — decrement guesses remaining
+          // Correct guess — decrement. When it reaches 0 the team has used its
+          // whole clue and handleRevealDismissed swaps to the other team.
           const newRemaining = svState.guessesRemaining - 1;
           const newUsed = svState.guessesUsedThisTurn + 1;
           updates["guessesRemaining"] = newRemaining;
           updates["guessesUsedThisTurn"] = newUsed;
-
-          if (newRemaining <= 0 && !svState.bonusGuessAvailable) {
-            // All clue-number guesses used correctly — grant bonus guess
-            updates["bonusGuessAvailable"] = true;
-            updates["guessesRemaining"] = 1;
-          }
           // Stay in operative-guess phase (after reveal animation)
         } else {
           // Wrong: opponent asset or neutral → switch teams
           updates["guessesRemaining"] = 0;
           updates["guessesUsedThisTurn"] = 0;
-          updates["bonusGuessAvailable"] = false;
         }
       }
 
@@ -539,7 +530,6 @@ export default function FyveGame({
         currentClue: null,
         guessesRemaining: 0,
         guessesUsedThisTurn: 0,
-        bonusGuessAvailable: false,
         svPhase: "boss-clue",
       });
     }
@@ -581,7 +571,6 @@ export default function FyveGame({
       currentClue: null,
       guessesRemaining: 0,
       guessesUsedThisTurn: 0,
-      bonusGuessAvailable: false,
       pendingTap: null,
       svPhase: "boss-clue",
     });
@@ -600,7 +589,6 @@ export default function FyveGame({
       currentClue: null,
       guessesRemaining: 0,
       guessesUsedThisTurn: 0,
-      bonusGuessAvailable: false,
       pendingTap: null,
       winningTeam: null,
       loseByBomb: false,
@@ -724,7 +712,7 @@ export default function FyveGame({
                       {teamName} Clue:
                     </span>
                     <span className="text-xl font-black text-white">
-                      {currentClue.word} : {bonusGuessAvailable ? "BONUS" : guessesRemaining}
+                      {currentClue.word} : {guessesRemaining}
                     </span>
                   </>
                 ) : isActiveBoss ? (

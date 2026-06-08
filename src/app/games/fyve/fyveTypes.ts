@@ -196,8 +196,6 @@ export interface FyveSessionState {
   currentClue: FyveClue | null;
   guessesRemaining: number;
   guessesUsedThisTurn: number;
-  /** Bonus guess available (after using all clue-number guesses correctly) */
-  bonusGuessAvailable: boolean;
 
   // Tap / cancel
   pendingTap: FyvePendingTap | null;

@@ -79,7 +79,6 @@ export function useFyveSession({ sessionId, userId }: UseFyveSessionOptions) {
       currentClue: (s["currentClue"] as FyveClue) ?? null,
       guessesRemaining: (s["guessesRemaining"] as number) ?? 0,
       guessesUsedThisTurn: (s["guessesUsedThisTurn"] as number) ?? 0,
-      bonusGuessAvailable: (s["bonusGuessAvailable"] as boolean) ?? false,
 
       pendingTap: (s["pendingTap"] as FyvePendingTap) ?? null,
 
@@ -177,7 +176,6 @@ const defaultState: FyveSessionState = {
   currentClue: null,
   guessesRemaining: 0,
   guessesUsedThisTurn: 0,
-  bonusGuessAvailable: false,
 
   pendingTap: null,
 
