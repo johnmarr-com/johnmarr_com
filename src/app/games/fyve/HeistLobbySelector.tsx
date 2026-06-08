@@ -5,6 +5,7 @@ import { Loader2, ChevronRight } from "lucide-react";
 import { getOfficialHeists } from "@/lib/fyve-heists";
 import type { FyveHeist } from "./fyveTypes";
 import HeistPickerModal from "./HeistPickerModal";
+import { useGameColors } from "@/app/games/_gamecore";
 
 /** Pick a sensible default from official heists. */
 function pickDefaultHeist(heists: FyveHeist[]): FyveHeist | null {
@@ -41,8 +42,11 @@ interface HeistLobbySelectorProps {
  */
 export default function HeistLobbySelector({
   sessionId,
-  accentColor = "#E84C1E",
+  accentColor: accentColorProp,
 }: HeistLobbySelectorProps) {
+  // Use the game's CMS primary color; the prop is an optional override.
+  const { primary } = useGameColors();
+  const accentColor = accentColorProp ?? primary;
   const [selected, setSelected] = useState<FyveHeist | null>(null);
   const [loading, setLoading] = useState(true);
   const [pickerOpen, setPickerOpen] = useState(false);

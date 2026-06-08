@@ -28,7 +28,7 @@ export default composeGame({
   GameComponent: FyveAdapter,
   multiplayerFlowMode: "party",
   lobbyExtra: ({ session }: { session: GameSession }) => (
-    <HeistLobbySelector sessionId={session.id} accentColor="#E84C1E" />
+    <HeistLobbySelector sessionId={session.id} />
   ),
   lobbyCanStart: ({ session }: { session: GameSession }) =>
     !!(session as unknown as Record<string, unknown>)["fyveLobbyHeistId"],

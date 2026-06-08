@@ -6,6 +6,7 @@ import { useJMStyle } from "@/JMStyle";
 import { JMImageUpload, JMAudioUpload } from "@/JMKit";
 import { useAuth } from "@/lib/AuthProvider";
 import { createContent, uploadContentImage, uploadGameBackgroundMusic, uploadEngineThemeMusic, setGameEngineTheme } from "@/lib/content";
+import { ColorSwatchInput } from "./ColorSwatchInput";
 import {
   getGamePlayHref,
   sanitizeGameSlugInput,
@@ -571,11 +572,10 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
                     Primary
                   </label>
                   <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={primaryColor || "#ffffff"}
-                      onChange={(e) => setPrimaryColor(e.target.value)}
-                      className="h-9 w-9 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                    <ColorSwatchInput
+                      value={primaryColor}
+                      onChange={setPrimaryColor}
+                      ariaLabel="Primary color"
                     />
                     <input
                       type="text"
@@ -596,11 +596,10 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
                     Secondary
                   </label>
                   <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={secondaryColor || "#ffffff"}
-                      onChange={(e) => setSecondaryColor(e.target.value)}
-                      className="h-9 w-9 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                    <ColorSwatchInput
+                      value={secondaryColor}
+                      onChange={setSecondaryColor}
+                      ariaLabel="Secondary color"
                     />
                     <input
                       type="text"
@@ -623,11 +622,10 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
                     Tertiary
                   </label>
                   <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={tertiaryColor || "#ffffff"}
-                      onChange={(e) => setTertiaryColor(e.target.value)}
-                      className="h-9 w-9 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                    <ColorSwatchInput
+                      value={tertiaryColor}
+                      onChange={setTertiaryColor}
+                      ariaLabel="Tertiary color"
                     />
                     <input
                       type="text"
@@ -648,11 +646,10 @@ export function GameCreateModal({ onClose, onCreated }: GameCreateModalProps) {
                     Danger
                   </label>
                   <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={dangerColor || "#ffffff"}
-                      onChange={(e) => setDangerColor(e.target.value)}
-                      className="h-9 w-9 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                    <ColorSwatchInput
+                      value={dangerColor}
+                      onChange={setDangerColor}
+                      ariaLabel="Danger color"
                     />
                     <input
                       type="text"

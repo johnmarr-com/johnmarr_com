@@ -5,6 +5,7 @@ import { X, Save, Trash2, Loader2, Eye, EyeOff } from "lucide-react";
 import { useJMStyle } from "@/JMStyle";
 import { JMImageUpload, JMAudioUpload } from "@/JMKit";
 import { getContent, updateContent, deleteContent, uploadContentImage, uploadGameBackgroundMusic, uploadEngineThemeMusic, setGameEngineTheme, getGameEngineTheme } from "@/lib/content";
+import { ColorSwatchInput } from "./ColorSwatchInput";
 import type { JMContent } from "@/lib/content-types";
 import type { GameAssembly } from "@/app/games/_gamecore/registry/types";
 import {
@@ -752,11 +753,10 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
                       Primary
                     </label>
                     <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={editState.primaryColor || "#ffffff"}
-                        onChange={(e) => setEditState({ ...editState, primaryColor: e.target.value })}
-                        className="h-9 w-9 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                      <ColorSwatchInput
+                        value={editState.primaryColor}
+                        onChange={(v) => setEditState({ ...editState, primaryColor: v })}
+                        ariaLabel="Primary color"
                       />
                       <input
                         type="text"
@@ -777,11 +777,10 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
                       Secondary
                     </label>
                     <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={editState.secondaryColor || "#ffffff"}
-                        onChange={(e) => setEditState({ ...editState, secondaryColor: e.target.value })}
-                        className="h-9 w-9 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                      <ColorSwatchInput
+                        value={editState.secondaryColor}
+                        onChange={(v) => setEditState({ ...editState, secondaryColor: v })}
+                        ariaLabel="Secondary color"
                       />
                       <input
                         type="text"
@@ -804,11 +803,10 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
                       Tertiary
                     </label>
                     <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={editState.tertiaryColor || "#ffffff"}
-                        onChange={(e) => setEditState({ ...editState, tertiaryColor: e.target.value })}
-                        className="h-9 w-9 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                      <ColorSwatchInput
+                        value={editState.tertiaryColor}
+                        onChange={(v) => setEditState({ ...editState, tertiaryColor: v })}
+                        ariaLabel="Tertiary color"
                       />
                       <input
                         type="text"
@@ -829,11 +827,10 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
                       Danger
                     </label>
                     <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={editState.dangerColor || "#ffffff"}
-                        onChange={(e) => setEditState({ ...editState, dangerColor: e.target.value })}
-                        className="h-9 w-9 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                      <ColorSwatchInput
+                        value={editState.dangerColor}
+                        onChange={(v) => setEditState({ ...editState, dangerColor: v })}
+                        ariaLabel="Danger color"
                       />
                       <input
                         type="text"

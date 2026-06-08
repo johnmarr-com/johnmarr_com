@@ -241,6 +241,7 @@ function ComposedGameInner({ config }: { config: ComposeGameInput }) {
   // For V1, GameLandingPage handles all three phases: the splash screen
   // (GC0) plus the dialog flow (GC1 gate + GC2 lobby) via GameMultiplayerFlow.
   return (
+    <GameColorsProvider gameData={playbackGameData}>
     <GameLandingPage
       {...(playbackGameData.splashBgURL ? { splashBgURL: playbackGameData.splashBgURL } : {})}
       {...(playbackGameData.splashBgDim != null ? { splashBgDim: playbackGameData.splashBgDim } : {})}
@@ -267,5 +268,6 @@ function ComposedGameInner({ config }: { config: ComposeGameInput }) {
       {...(config.sideLabels ? { sideLabels: config.sideLabels } : {})}
       onMultiplayerStart={handleMultiplayerStart}
     />
+    </GameColorsProvider>
   );
 }
