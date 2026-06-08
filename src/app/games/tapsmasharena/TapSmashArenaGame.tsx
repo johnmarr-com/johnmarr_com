@@ -2,10 +2,12 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useJMStyle } from "@/JMStyle";
-import { JMBannerText, JMChampionPicker, JMCloseCircleButton, JMGameScoreboard, JMWaiting, type ChampionOption } from "@/JMKit";
-import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, sliceHistoryByTier, aiHistoryTierForLevel, TIER_PROMPT_DIRECTIVE, type GameMode, type ResolverOutput, type AIPersona } from "../_gamecore";
+import { JMBannerText, JMChampionPicker, JMGameScoreboard, JMWaiting, type ChampionOption } from "@/JMKit";
+import { simpleMove, postGameComment, useMultiplayerRound, useGameMusic, sliceHistoryByTier, aiHistoryTierForLevel, TIER_PROMPT_DIRECTIVE, isAiPlayer, getPersona, updateSessionFields } from "../_gamecore";
 import { useAuth } from "@/lib/AuthProvider";
-import { startGame, type GameSession } from "@/lib/game-sessions";
+import { submitMove } from "@/lib/game-sessions";
+import type { JMContent } from "@/lib/content-types";
+import type { GameEndResult } from "../_gamecore/registry/types";
 
 type Attack = "R" | "P" | "S";
 
@@ -26,17 +28,6 @@ type BattleChapter =
 
 type ChapterName = "Ready" | BattleChapter | "WIN" | "LOSE";
 type GamePhase = "idle" | "ready" | "animating" | "finished";
-
-interface TranscriptEntry {
-  round: number;
-  p1Attack: Attack;
-  p2Attack: Attack;
-  winner: "p1" | "p2" | null;
-  aiAttack?: Attack;
-  aiReason?: string;
-}
-
-const ATTACK_FULL: Record<Attack, string> = { R: "Rock", P: "Paper", S: "Scissors" };
 
 const CHAPTERS: Record<ChapterName, { start: number; end: number }> = {
   Ready:   { start: 0.000,   end: 1.833   },
@@ -65,7 +56,6 @@ const CHAPTERS: Record<ChapterName, { start: number; end: number }> = {
   LOSE:    { start: 186.625, end: 193.875 },
 };
 
-const BEATS: Record<Attack, Attack> = { R: "S", S: "P", P: "R" };
 const FRAME = 1 / 24;
 const POINTS_TO_WIN = 3;
 const ATTACKS: Attack[] = ["R", "P", "S"];
@@ -106,14 +96,6 @@ function buildChapterName(
 ): BattleChapter {
   if (ownerAtk === opponentAtk) return TIE_CHAPTERS[ownerAtk];
   return `${ownerAtk}-${opponentAtk}-${variant}` as BattleChapter;
-}
-
-function resolveWinner(
-  ownerAtk: Attack,
-  opponentAtk: Attack,
-): "owner" | "opponent" | null {
-  if (ownerAtk === opponentAtk) return null;
-  return BEATS[ownerAtk] === opponentAtk ? "owner" : "opponent";
 }
 
 function buildMovePrompt(
@@ -191,39 +173,32 @@ function pickRandom(arr: string[]): string {
 }
 
 export default function TapSmashArenaGame({
-  splashBgURL,
-  mode = "solo",
-  gameSlug,
-  backgroundMusicURL,
-  backgroundMusicVolume,
-  sessionId: sessionIdProp,
-  aiPersona,
+  sessionId,
+  gameData,
+  onGameEnd,
 }: {
-  splashBgURL?: string;
-  mode?: GameMode;
-  gameSlug?: string;
-  backgroundMusicURL?: string;
-  backgroundMusicVolume?: number;
-  sessionId?: string;
-  aiPersona?: AIPersona;
+  sessionId: string;
+  gameData: JMContent;
+  onGameEnd: (result: GameEndResult) => void;
 }) {
   const { theme } = useJMStyle();
   const { user, gamertag: myTag } = useAuth();
+  const userId = user?.uid ?? "";
+
+  const splashBgURL = gameData.splashBgURL;
+  const gameSlug = gameData.slug ?? "tapsmasharena";
+  const backgroundMusicURL = gameData.backgroundMusicURL;
+  const backgroundMusicVolume = gameData.backgroundMusicVolume;
 
   const musicURL = backgroundMusicURL || (gameSlug ? `/music/${gameSlug}.mp3` : null);
   const { ensurePlaying, connectVideo } = useGameMusic({ url: musicURL, volume: backgroundMusicVolume ?? 0.3 });
 
-  const isFriends = mode === "friends" && !!sessionIdProp;
-
-  const [phase, setPhase] = useState<GamePhase>(isFriends ? "idle" : "ready");
+  const [phase, setPhase] = useState<GamePhase>("idle");
   const [p1Score, setP1Score] = useState(0);
   const [p2Score, setP2Score] = useState(0);
   const [playerSide, setPlayerSide] = useState<PlayerSide>("p1");
   const [endMessage, setEndMessage] = useState("");
   const [waitingForBattle, setWaitingForBattle] = useState(false);
-  const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
-  const [showTranscript, setShowTranscript] = useState(false);
-  const [aiPostGame, setAiPostGame] = useState("");
   const [joinerAccepted, setJoinerAccepted] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -235,91 +210,10 @@ export default function TapSmashArenaGame({
   const p1Ref = useRef(0);
   const p2Ref = useRef(0);
   const sideRef = useRef<PlayerSide>("p1");
-  const historyRef = useRef<MoveRecord[]>([]);
-  const prefetchRef = useRef<Promise<{ attack: Attack; reasoning: string }> | null>(null);
-  const personaPrompt = aiPersona?.prompt || undefined;
-  const personaVoice = aiPersona?.voice || undefined;
-  const personaSkillLevel = aiPersona?.skillLevel;
-  const aiName = aiPersona?.name || "AI";
+  const goToResultsRef = useRef<() => void>(() => {});
 
-  // ─── Multiplayer resolver ───
-  const tsaResolver = useCallback(
-    (moves: Record<string, string>, sess: GameSession): ResolverOutput => {
-      const sides = sess.playerSides ?? {};
-      let p1Uid = "";
-      let p2Uid = "";
-      for (const [uid, side] of Object.entries(sides)) {
-        if (side === "p1") p1Uid = uid;
-        else if (side === "p2") p2Uid = uid;
-      }
-
-      const p1Attack = (moves[p1Uid] ?? "R") as Attack;
-      const p2Attack = (moves[p2Uid] ?? "R") as Attack;
-
-      const winner = resolveWinner(p1Attack, p2Attack);
-      const variant = p1Attack === p2Attack ? 0 : Math.floor(Math.random() * 3) + 1;
-
-      const currentRound = sess.currentRound ?? 0;
-      const prevRounds = sess.rounds ?? [];
-      let s1 = 0;
-      let s2 = 0;
-      for (const r of prevRounds) {
-        const res = r.result as { p1Delta?: number; p2Delta?: number };
-        s1 += res.p1Delta ?? 0;
-        s2 += res.p2Delta ?? 0;
-      }
-
-      let p1Delta = 0;
-      let p2Delta = 0;
-      if (winner === "owner") p1Delta = 1;
-      else if (winner === "opponent") p2Delta = 1;
-
-      s1 += p1Delta;
-      s2 += p2Delta;
-      const gameOver = s1 >= POINTS_TO_WIN || s2 >= POINTS_TO_WIN;
-      const winnerUid = gameOver
-        ? s1 >= POINTS_TO_WIN ? p1Uid : p2Uid
-        : null;
-
-      const p1Tag = sess.players.find((p) => p.uid === p1Uid)?.gamertag ?? "P1";
-      const p2Tag = sess.players.find((p) => p.uid === p2Uid)?.gamertag ?? "P2";
-
-      const lines: string[] = [
-        `Round ${currentRound + 1} — ${p1Tag}: ${ATTACK_FULL[p1Attack]}, ${p2Tag}: ${ATTACK_FULL[p2Attack]}`,
-      ];
-      if (winner) {
-        const tag = winner === "owner" ? p1Tag : p2Tag;
-        lines.push(`${tag} wins — 1 point (${s1}-${s2})`);
-      } else {
-        lines.push(`Tie (${s1}-${s2})`);
-      }
-      if (gameOver) {
-        lines.push(`Game over — ${s1 >= POINTS_TO_WIN ? p1Tag : p2Tag} wins!`);
-      }
-
-      return {
-        roundEntry: {
-          round: currentRound,
-          moves: { [p1Uid]: p1Attack, [p2Uid]: p2Attack },
-          result: {
-            p1Attack,
-            p2Attack,
-            winner: winner === "owner" ? "p1" : winner === "opponent" ? "p2" : null,
-            variant,
-            p1Delta,
-            p2Delta,
-            p1Score: s1,
-            p2Score: s2,
-          },
-        },
-        transcriptLines: lines,
-        gameOver,
-        winner: winnerUid,
-      };
-    },
-    [],
-  );
-
+  // Rounds are resolved server-side (resolverKey "rps"); this hook just
+  // subscribes, submits moves, and surfaces the server-written rounds.
   const {
     session: mpSession,
     phase: mpPhase,
@@ -327,23 +221,52 @@ export default function TapSmashArenaGame({
     submitMove: mpSubmitMove,
     markAnimationDone,
   } = useMultiplayerRound({
-    sessionId: isFriends ? sessionIdProp! : null,
-    userId: user?.uid ?? "",
-    resolver: tsaResolver,
+    sessionId,
+    userId,
   });
 
   // Derive this player's side from Firestore playerSides
   const mpSide: PlayerSide | null = useMemo(() => {
-    if (!isFriends || !mpSession?.playerSides || !user?.uid) return null;
-    const s = mpSession.playerSides[user.uid];
+    if (!mpSession?.playerSides || !userId) return null;
+    const s = mpSession.playerSides[userId];
     return s === "p1" || s === "p2" ? (s as PlayerSide) : null;
-  }, [isFriends, mpSession?.playerSides, user?.uid]);
+  }, [mpSession?.playerSides, userId]);
+
+  // ─── AI opponent (a session player; the host drives its moves) ───
+  const aiUid = useMemo(
+    () => mpSession?.players.find((p) => isAiPlayer(p.uid))?.uid ?? null,
+    [mpSession?.players],
+  );
+  const aiSide = useMemo(
+    () => (aiUid ? mpSession?.playerSides?.[aiUid] : undefined),
+    [aiUid, mpSession?.playerSides],
+  );
+  const aiPersona = useMemo(() => (aiUid ? getPersona(aiUid) : undefined), [aiUid]);
+  const personaPrompt = aiPersona?.prompt || undefined;
+  const personaVoice = aiPersona?.voice || undefined;
+  const personaSkillLevel = aiPersona?.skillLevel;
+  const aiName = aiPersona?.name || "AI";
+  const vsAI = !!aiUid;
+
+  // Reconstruct the AI's move history (from its perspective) for prompt context.
+  const aiHistory = useMemo<MoveRecord[]>(() => {
+    if (!aiUid || !aiSide || !mpSession?.rounds) return [];
+    const humanUid = mpSession.players.find((p) => p.uid !== aiUid)?.uid ?? "";
+    return mpSession.rounds.map((r) => {
+      const res = r.result as { winner: "p1" | "p2" | null };
+      const aiAttack = (r.moves[aiUid] ?? "R") as Attack;
+      const humanAttack = (r.moves[humanUid] ?? "R") as Attack;
+      const winner: MoveRecord["winner"] =
+        res.winner === null ? "tie" : res.winner === aiSide ? "opponent" : "player";
+      return { player: humanAttack, opponent: aiAttack, winner };
+    });
+  }, [aiUid, aiSide, mpSession?.rounds, mpSession?.players]);
 
   const opponentGamertag = useMemo(() => {
-    if (!mpSession || !user?.uid) return null;
-    const opp = mpSession.players.find((p) => p.uid !== user.uid);
+    if (!mpSession || !userId) return null;
+    const opp = mpSession.players.find((p) => p.uid !== userId);
     return opp?.gamertag ?? null;
-  }, [mpSession, user]);
+  }, [mpSession, userId]);
 
   const setP = useCallback((p: GamePhase) => {
     phaseRef.current = p;
@@ -422,11 +345,6 @@ export default function TapSmashArenaGame({
       setPlayerSide(side);
       p1Ref.current = 0;
       p2Ref.current = 0;
-      historyRef.current = [];
-      prefetchRef.current = null;
-      setTranscript([]);
-      setShowTranscript(false);
-      setAiPostGame("");
       setP1Score(0);
       setP2Score(0);
       setWaitingForBattle(false);
@@ -443,48 +361,28 @@ export default function TapSmashArenaGame({
     [setP, ensurePlaying, connectVideo],
   );
 
-  // ─── Auto-start: AI mode starts immediately, friends waits for session ───
-  const mountedRef = useRef(false);
-  useEffect(() => {
-    if (isFriends) return;
-    if (mountedRef.current) return;
-    mountedRef.current = true;
-    queueMicrotask(() => handleStart("p1"));
-  }, [handleStart, isFriends]);
-
-  // ─── Multiplayer auto-start and restart detection ───
+  // ─── Auto-start the match once the session is playing and our side is known.
+  // (The factory re-mounts this component for a rematch, so no restart
+  // detection is needed.) ───
   const mpStartedRef = useRef(false);
   const mpRoundsLenRef = useRef(0);
-  const mpPrevStatusRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!isFriends || !mpSession || !mpSide) return;
-
-    const prevStatus = mpPrevStatusRef.current;
-    mpPrevStatusRef.current = mpSession.status;
-
-    if (mpSession.status !== "playing") return;
-
-    const isRestart = prevStatus === "finished" && mpSession.currentRound === 0;
-    if (isRestart) {
-      mpStartedRef.current = false;
-      mpRoundsLenRef.current = 0;
-    }
-
     if (mpStartedRef.current) return;
+    if (!mpSession || mpSession.status !== "playing" || !mpSide) return;
 
     // Joiner must tap the "Join Match" button once to satisfy iOS autoplay
-    // gesture requirements before the video starts. Host has a fresh gesture
-    // from "Start Game", so they auto-enter.
+    // gesture requirements before the video starts. The host has a fresh
+    // gesture from "Start Game", so they auto-enter.
     if (!mpIsHost && !joinerAccepted) return;
 
     mpStartedRef.current = true;
     requestAnimationFrame(() => handleStart(mpSide));
-  }, [isFriends, mpSession, mpSide, mpIsHost, joinerAccepted, handleStart]);
+  }, [mpSession, mpSide, mpIsHost, joinerAccepted, handleStart]);
 
-  // ─── Multiplayer round results: play video chapter and update scores ───
+  // ─── Round results: play the video chapter and update scores ───
   useEffect(() => {
-    if (!isFriends || !mpSession?.rounds?.length || !user?.uid) return;
+    if (!mpSession?.rounds?.length || !userId) return;
     const rounds = mpSession.rounds;
     if (rounds.length <= mpRoundsLenRef.current) return;
     mpRoundsLenRef.current = rounds.length;
@@ -500,7 +398,7 @@ export default function TapSmashArenaGame({
     };
 
     const playerSidesMap = mpSession.playerSides ?? {};
-    const mySide = playerSidesMap[user.uid] as PlayerSide | undefined;
+    const mySide = playerSidesMap[userId] as PlayerSide | undefined;
     const myAttack = mySide === "p1" ? res.p1Attack : res.p2Attack;
     const theirAttack = mySide === "p1" ? res.p2Attack : res.p1Attack;
     const chapter = buildChapterName(myAttack, theirAttack, res.variant);
@@ -510,16 +408,6 @@ export default function TapSmashArenaGame({
     const iWon = winnerSide === mySide;
 
     requestAnimationFrame(() => {
-      setTranscript((prev) => [
-        ...prev,
-        {
-          round: latest.round + 1,
-          p1Attack: res.p1Attack,
-          p2Attack: res.p2Attack,
-          winner: res.winner,
-        },
-      ]);
-
       // Fade the waiting overlay out *before* the round chapter starts so
       // the transition reads as: graphic fades → animation begins. Matches
       // the 300ms transition-opacity duration on the overlay.
@@ -531,10 +419,16 @@ export default function TapSmashArenaGame({
           setP1Score(res.p1Score);
           setP2Score(res.p2Score);
 
+          // Game over: play the winner animation, then auto-advance to the
+          // result screen (GC4) when it finishes — no button.
           if (gameOver) {
-            setEndMessage(iWon ? pickRandom(WIN_PHRASES) : "You Lose!");
+            setEndMessage(
+              vsAI
+                ? pickRandom(iWon ? AI_WIN_PHRASES : AI_LOSE_PHRASES)
+                : iWon ? pickRandom(WIN_PHRASES) : "You Lose!",
+            );
             setP("finished");
-            playChapter(iWon ? "WIN" : "LOSE", { freeze: true });
+            playChapter(iWon ? "WIN" : "LOSE", { onEnd: () => goToResultsRef.current() });
           } else {
             setP("ready");
             const v = videoRef.current;
@@ -548,10 +442,10 @@ export default function TapSmashArenaGame({
         },
       }), 300);
     });
-  }, [isFriends, mpSession?.rounds, mpSession?.playerSides, user?.uid, playChapter, setP, markAnimationDone]);
+  }, [mpSession, vsAI, userId, playChapter, setP, markAnimationDone]);
 
   const fetchAiMove = useCallback((): Promise<{ attack: Attack; reasoning: string }> => {
-    const prompt = buildMovePrompt(historyRef.current, personaSkillLevel);
+    const prompt = buildMovePrompt(aiHistory, personaSkillLevel);
     return simpleMove(prompt, personaPrompt, personaVoice)
       .then(({ action, reason }) => {
         const attack = parseAttackFromAction(action);
@@ -562,144 +456,98 @@ export default function TapSmashArenaGame({
         attack: ATTACKS[Math.floor(Math.random() * ATTACKS.length)]!,
         reasoning: "",
       }));
-  }, [personaPrompt, personaVoice, personaSkillLevel]);
+  }, [aiHistory, personaPrompt, personaVoice, personaSkillLevel]);
 
-  const resolveRound = useCallback(
-    (playerAttack: Attack, cpuAttack: Attack, aiReason?: string) => {
-      const isP1 = sideRef.current === "p1";
-      const p1Atk = isP1 ? playerAttack : cpuAttack;
-      const p2Atk = isP1 ? cpuAttack : playerAttack;
+  // ─── Host drives the AI opponent's move when a round opens ───
+  // The in-flight request is intentionally NOT cancelled on re-render; the round
+  // guard prevents duplicates and a failed submit resets it so a later snapshot
+  // retries. (A cancelled request would strand the AI and stall the round.)
+  const aiMoveRoundRef = useRef(-1);
+  useEffect(() => {
+    if (!mpIsHost || !aiUid || !mpSession || mpSession.status !== "playing") return;
+    if (phase !== "ready") return;
+    const round = mpSession.currentRound ?? 0;
+    if (mpSession.pendingMoves?.[aiUid] != null) return; // AI already moved this round
+    if (aiMoveRoundRef.current >= round) return; // already generating for this round
+    aiMoveRoundRef.current = round;
 
-      const rw = resolveWinner(playerAttack, cpuAttack);
-      const variant = playerAttack === cpuAttack ? 0 : Math.floor(Math.random() * 3) + 1;
-      const chapter = buildChapterName(playerAttack, cpuAttack, variant);
+    void fetchAiMove().then(({ attack }) => {
+      void submitMove(sessionId, aiUid, attack).catch(() => {
+        if (aiMoveRoundRef.current === round) aiMoveRoundRef.current = round - 1;
+      });
+    });
+  }, [mpIsHost, aiUid, mpSession, phase, sessionId, fetchAiMove]);
 
-      const moveWinner: MoveRecord["winner"] =
-        rw === null ? "tie" : rw === "owner" ? "player" : "opponent";
-      historyRef.current.push({ player: playerAttack, opponent: cpuAttack, winner: moveWinner });
+  // ─── On match end: host generates the AI post-game comment + records W/L ───
+  const finishedFiredRef = useRef(false);
+  useEffect(() => {
+    if (phase !== "finished" || !mpSession || finishedFiredRef.current) return;
+    finishedFiredRef.current = true;
+    if (!mpIsHost || !aiUid || !aiSide) return;
 
-      let nextP1 = p1Ref.current;
-      let nextP2 = p2Ref.current;
-      if (rw === "owner") {
-        if (isP1) nextP1 += 1; else nextP2 += 1;
-      } else if (rw === "opponent") {
-        if (isP1) nextP2 += 1; else nextP1 += 1;
-      }
-      const gameOver = nextP1 >= POINTS_TO_WIN || nextP2 >= POINTS_TO_WIN;
+    const winnerSide = p1Ref.current >= POINTS_TO_WIN ? "p1" : "p2";
+    const aiWon = winnerSide === aiSide;
 
-      if (mode === "ai") {
-        const transcriptWinner = rw === null ? null : (rw === "owner" ? (isP1 ? "p1" : "p2") : (isP1 ? "p2" : "p1")) as "p1" | "p2";
-        const entry: TranscriptEntry = {
-          round: historyRef.current.length,
-          p1Attack: p1Atk,
-          p2Attack: p2Atk,
-          winner: transcriptWinner,
-          aiAttack: cpuAttack,
-        };
-        const reason = aiReason || (historyRef.current.length === 1 ? "First round — random." : "");
-        if (reason) entry.aiReason = reason;
-        setTranscript((prev) => [...prev, entry]);
-      }
-
-      if (mode === "ai" && !gameOver) {
-        prefetchRef.current = fetchAiMove();
-      }
-
-      if (mode === "ai" && gameOver) {
-        const playerWon = rw === "owner";
-        const aiWon = !playerWon;
-        const prompt = buildPostGamePrompt(historyRef.current, aiWon);
-        postGameComment(prompt, personaPrompt, personaVoice)
-          .then(({ comment }) => { if (comment) setAiPostGame(comment); })
-          .catch(() => {});
-
-        if (aiPersona) {
-          const docId = aiPersona.id.replace(/^ai-/, "");
-          import("@/lib/ai-personas").then(({ recordAIGameResult }) => {
-            recordAIGameResult(docId, aiWon).catch(() => {});
-          });
+    const prompt = buildPostGamePrompt(aiHistory, aiWon);
+    postGameComment(prompt, personaPrompt, personaVoice)
+      .then(({ comment }) => {
+        if (comment) {
+          void updateSessionFields(sessionId, { [`aiPostGameComments.${aiUid}`]: comment });
         }
-      }
+      })
+      .catch(() => {});
 
-      // See multiplayer counterpart: hold 300ms so the waiting overlay
-      // finishes its fade-out before the round chapter starts.
-      setWaitingForBattle(false);
-      setTimeout(() => playChapter(chapter, {
-        onEnd: () => {
-          p1Ref.current = nextP1;
-          p2Ref.current = nextP2;
-          setP1Score(nextP1);
-          setP2Score(nextP2);
+    const docId = aiUid.replace(/^ai-/, "");
+    import("@/lib/ai-personas").then(({ recordAIGameResult }) => {
+      recordAIGameResult(docId, aiWon).catch(() => {});
+    });
+  }, [phase, mpSession, mpIsHost, aiUid, aiSide, aiHistory, personaPrompt, personaVoice, sessionId]);
 
-          if (gameOver) {
-            const playerWon = (isP1 && nextP1 >= POINTS_TO_WIN) || (!isP1 && nextP2 >= POINTS_TO_WIN);
-            setEndMessage(
-              mode === "ai"
-                ? pickRandom(playerWon ? AI_WIN_PHRASES : AI_LOSE_PHRASES)
-                : playerWon ? pickRandom(WIN_PHRASES) : "You Lose!",
-            );
-            setP("finished");
-            playChapter(playerWon ? "WIN" : "LOSE", { freeze: true });
-          } else {
-            setP("ready");
-            const v = videoRef.current;
-            if (v) {
-              chapterRef.current = "Ready";
-              v.currentTime = CHAPTERS.Ready.start;
-              v.pause();
-            }
-          }
-        },
-      }), 300);
-    },
-    [playChapter, setP, mode, fetchAiMove, personaPrompt, personaVoice, aiPersona],
-  );
+  // ─── Hand the finished match off to the factory result screen (GC4) ───
+  const goToResults = useCallback(() => {
+    if (!mpSession) return;
+    const players = mpSession.players;
+    const sides = mpSession.playerSides ?? {};
+    const p1Uid = Object.entries(sides).find(([, s]) => s === "p1")?.[0] ?? "";
+    const p2Uid = Object.entries(sides).find(([, s]) => s === "p2")?.[0] ?? "";
+    const finalP1 = p1Ref.current;
+    const finalP2 = p2Ref.current;
+    const winnerUid = finalP1 >= POINTS_TO_WIN ? p1Uid : p2Uid;
+    const winner = players.find((p) => p.uid === winnerUid);
+
+    const scores: Record<string, number> = {};
+    if (p1Uid) scores[p1Uid] = finalP1;
+    if (p2Uid) scores[p2Uid] = finalP2;
+
+    videoRef.current?.pause();
+    onGameEnd({
+      winners: winner ? [winner] : [],
+      winnerPoints: Math.max(finalP1, finalP2),
+      allPlayers: players,
+      scores,
+    });
+  }, [mpSession, onGameEnd]);
+
+  useEffect(() => {
+    goToResultsRef.current = goToResults;
+  }, [goToResults]);
 
   const handleAttack = useCallback(
     (attack: Attack) => {
       if (phaseRef.current !== "ready") return;
       ensurePlaying();
-
-      if (isFriends) {
-        setWaitingForBattle(true);
-        setP("animating");
-        mpSubmitMove(attack);
-        return;
-      }
-
       setWaitingForBattle(true);
       setP("animating");
-
-      if (mode === "ai") {
-        const pending = prefetchRef.current;
-        prefetchRef.current = null;
-
-        if (pending) {
-          pending.then(({ attack: cpu, reasoning }) => resolveRound(attack, cpu, reasoning));
-        } else {
-          const cpu = ATTACKS[Math.floor(Math.random() * ATTACKS.length)]!;
-          resolveRound(attack, cpu);
-        }
-      } else {
-        const cpu = ATTACKS[Math.floor(Math.random() * ATTACKS.length)]!;
-        resolveRound(attack, cpu);
-      }
+      mpSubmitMove(attack);
     },
-    [mode, isFriends, setP, resolveRound, mpSubmitMove, ensurePlaying],
+    [setP, mpSubmitMove, ensurePlaying],
   );
 
   const youIsP1 = playerSide === "p1";
   const playerTag = myTag || "YOU";
-  const leftLabel = youIsP1
-    ? playerTag
-    : isFriends && opponentGamertag
-      ? opponentGamertag
-      : mode === "ai" ? aiName : "P1";
-  const rightLabel = !youIsP1
-    ? playerTag
-    : isFriends && opponentGamertag
-      ? opponentGamertag
-      : mode === "ai" ? aiName : "P2";
+  const oppTag = opponentGamertag ?? (vsAI ? aiName : youIsP1 ? "P2" : "P1");
+  const leftLabel = youIsP1 ? playerTag : oppTag;
+  const rightLabel = !youIsP1 ? playerTag : oppTag;
   const sideColor = youIsP1 ? "#3b82f6" : "#f97316";
 
   return (
@@ -724,8 +572,8 @@ export default function TapSmashArenaGame({
                 onLoadedData={(e) => { (e.target as HTMLVideoElement).classList.remove("opacity-0"); }}
               />
 
-              {/* Idle overlay — friends mode waiting for session */}
-              {phase === "idle" && isFriends && (
+              {/* Idle overlay — waiting for the host to start the match */}
+              {phase === "idle" && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60">
                   {!mpSession || mpSession.status !== "playing" || !mpSide ? (
                     <p className="text-sm font-medium uppercase tracking-widest text-white/50 animate-pulse">
@@ -774,9 +622,9 @@ export default function TapSmashArenaGame({
                   in after the picker dismisses and out before the round chapter
                   plays so neither side pops. */}
               <div
-                aria-hidden={!(waitingForBattle || (isFriends && mpPhase === "submitted"))}
+                aria-hidden={!(waitingForBattle || mpPhase === "submitted")}
                 className={`absolute inset-0 z-10 flex items-center justify-center bg-black/50 transition-opacity duration-300 ${
-                  waitingForBattle || (isFriends && mpPhase === "submitted")
+                  waitingForBattle || mpPhase === "submitted"
                     ? "opacity-100"
                     : "pointer-events-none opacity-0"
                 }`}
@@ -784,9 +632,9 @@ export default function TapSmashArenaGame({
                 <JMWaiting alt="Waiting for opponent…" />
               </div>
 
-              {/* Finished overlay */}
-              {phase === "finished" && !showTranscript && (
-                <div className="absolute inset-0 z-10 flex flex-col items-center justify-end gap-3 bg-linear-to-t from-black/80 via-transparent to-transparent pb-8">
+              {/* Finished overlay — the WIN/LOSE chapter auto-advances to GC4 */}
+              {phase === "finished" && (
+                <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-end gap-3 bg-linear-to-t from-black/80 via-transparent to-transparent pb-8">
                   <JMBannerText paddingX={32} paddingY={10}>
                     <h2
                       className="text-center text-3xl font-black uppercase tracking-tight sm:text-4xl"
@@ -798,88 +646,6 @@ export default function TapSmashArenaGame({
                   <p className="text-lg font-bold text-white/60">
                     {p1Score} &ndash; {p2Score}
                   </p>
-                  {isFriends ? (
-                    mpIsHost ? (
-                      <button
-                        onClick={async () => {
-                          if (!mpSession?.playerSides) return;
-                          ensurePlaying();
-                          videoRef.current?.pause();
-                          await startGame(mpSession.id, mpSession.playerSides);
-                        }}
-                        className="mt-1 rounded-full px-8 py-3 text-sm font-bold uppercase tracking-wider text-black transition-transform hover:scale-105 active:scale-95"
-                        style={{ backgroundColor: theme.accents.goldenGlow }}
-                      >
-                        Play Again
-                      </button>
-                    ) : (
-                      <p className="mt-1 text-sm font-bold uppercase tracking-widest text-white/40 animate-pulse">
-                        Waiting for rematch…
-                      </p>
-                    )
-                  ) : (
-                    <button
-                      onClick={() => handleStart("p1")}
-                      className="mt-1 rounded-full px-8 py-3 text-sm font-bold uppercase tracking-wider text-black transition-transform hover:scale-105 active:scale-95"
-                      style={{ backgroundColor: theme.accents.goldenGlow }}
-                    >
-                      Play Again
-                    </button>
-                  )}
-                  {(mode === "ai" || isFriends) && transcript.length > 0 && (
-                    <button
-                      onClick={() => setShowTranscript(true)}
-                      className="mt-2 rounded-full border border-white/30 bg-white/10 px-6 py-2 text-sm font-bold uppercase tracking-wider text-white/80 transition-all hover:scale-105 hover:bg-white/20 active:scale-95"
-                    >
-                      {isFriends ? "View Transcript" : "View AI Transcript"}
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Transcript overlay */}
-              {phase === "finished" && showTranscript && (
-                <div className="absolute inset-0 z-30 flex flex-col bg-black/95">
-                  <div className="flex items-center justify-between px-5 py-4">
-                    <span className="text-sm font-bold uppercase tracking-widest text-white/70">
-                      {isFriends ? "Match Transcript" : "AI Transcript"}
-                    </span>
-                    <JMCloseCircleButton onClick={() => setShowTranscript(false)} />
-                  </div>
-                  <div className="flex-1 overflow-y-auto px-5 pb-5">
-                    {aiPostGame && (
-                      <div className="mb-4 pb-4 border-b border-white/15">
-                        <p className="text-xs font-bold uppercase tracking-widest text-white/40">
-                          Post-Game Thoughts
-                        </p>
-                        <p className="mt-2 text-sm italic text-amber-300/80">
-                          &ldquo;{aiPostGame}&rdquo;
-                        </p>
-                      </div>
-                    )}
-                    {transcript.map((entry) => (
-                      <div key={entry.round} className="mb-4 border-t border-white/15 pt-4 first:border-0 first:pt-0">
-                        <p className="text-xs font-bold uppercase tracking-widest text-white/40">
-                          Round {entry.round}
-                        </p>
-                        <p className="mt-1.5 text-sm">
-                          <span className="font-semibold text-blue-400">P1: {ATTACK_FULL[entry.p1Attack]}</span>
-                          <span className="mx-2 text-white/30">|</span>
-                          <span className="font-semibold text-orange-400">P2: {ATTACK_FULL[entry.p2Attack]}</span>
-                        </p>
-                        <p className="text-sm text-white/60">
-                          {entry.winner
-                            ? `${entry.winner === "p1" ? "P1" : "P2"} wins — 1 Point`
-                            : "Tie — 0 Points"}
-                        </p>
-                        {entry.aiReason && (
-                          <p className="mt-1.5 text-sm italic text-amber-300/80">
-                            &ldquo;{entry.aiReason}&rdquo;
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
                 </div>
               )}
         </div>
