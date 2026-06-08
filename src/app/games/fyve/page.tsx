@@ -1,114 +1,59 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { GameLandingPage } from "../_gamecore";
-import { useAuth } from "@/lib/AuthProvider";
-import { getContentBySlug } from "@/lib/content";
-import type { JMContent } from "@/lib/content-types";
-import type { CreateSessionInput } from "@/lib/game-sessions";
-import { joinGameSessionById } from "@/lib/game-sessions";
-import { JMProButton } from "@/JMKit";
+import { composeGame } from "../_gamecore";
 import type { GameSession } from "@/lib/game-sessions";
 import FyveGame from "./FyveGame";
 import HeistLobbySelector from "./HeistLobbySelector";
+import FyveBuildHeistsButton from "./FyveBuildHeistsButton";
+import type { GC3Props } from "../_gamecore/registry/types";
 
-export default function FyvePage() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const { user, gamertag, avatarName, isLoading: authLoading, isAdmin, userTier } = useAuth();
-  const initialSessionId = searchParams.get("sessionId");
-  const [sessionId, setSessionId] = useState<string | null>(initialSessionId);
-  const [gameData, setGameData] = useState<JMContent | null>(null);
-  const autoJoinRef = useRef(false);
-
-  const canCreate = isAdmin || userTier === "pro";
-
-  useEffect(() => {
-    getContentBySlug("game", "fyve").then(setGameData);
-  }, []);
-
-  // Auto-join via invite link
-  useEffect(() => {
-    if (!initialSessionId || autoJoinRef.current || authLoading || !user || !gamertag) return;
-    autoJoinRef.current = true;
-    joinGameSessionById(initialSessionId, user.uid, gamertag, avatarName ?? undefined).catch(() => {});
-  }, [initialSessionId, authLoading, user, gamertag, avatarName]);
-
-  const multiplayerInput: CreateSessionInput | undefined = useMemo(() => {
-    if (!gameData) return undefined;
-    return {
-      gameId: gameData.id,
-      gameName: gameData.name,
-      gameSlug: gameData.slug ?? "fyve",
-      gameLogoURL: gameData.splashLogoURL ?? gameData.coverURL,
-      maxPlayers: gameData.maxPlayers ?? 30,
-      ...(gameData.retentionDays != null ? { retentionDays: gameData.retentionDays } : {}),
-    };
-  }, [gameData]);
-
-  const bgMusicLandingOnly = gameData?.bgMusicLandingOnly ?? false;
-
-  // Prefer URL sessionId (handles client-side nav from My Games while already on this page)
-  const activeSessionId = initialSessionId ?? sessionId;
-
-  // In-game view
-  if (activeSessionId) {
-    return (
-      <FyveGame
-        sessionId={activeSessionId}
-        {...(gameData?.splashBgURL ? { splashBgURL: gameData.splashBgURL } : {})}
-        {...(gameData?.splashLogoURL || gameData?.coverURL
-          ? { gameLogoURL: gameData.splashLogoURL ?? gameData.coverURL }
-          : {})}
-        {...(gameData?.backgroundMusicURL ? { musicUrl: gameData.backgroundMusicURL } : {})}
-      />
-    );
-  }
-
-  if (!gameData) return null;
-
-  const splashProps = {
-    ...(gameData.splashBgURL ? { splashBgURL: gameData.splashBgURL } : {}),
-    ...(gameData.splashIconURL ? { splashIconURL: gameData.splashIconURL } : {}),
-    ...(gameData.splashLogoURL ? { splashLogoURL: gameData.splashLogoURL } : {}),
-    ...(gameData.backgroundMusicURL ? { backgroundMusicURL: gameData.backgroundMusicURL } : {}),
-    ...(gameData.backgroundMusicVolume != null ? { backgroundMusicVolume: gameData.backgroundMusicVolume } : {}),
-    ...(gameData.gameLikeLabel?.trim() ? { gameLikeLabel: gameData.gameLikeLabel.trim() } : {}),
-  };
-
-  const landingExtra = canCreate ? (
-    <JMProButton
-      title="Build Heists"
-      onClick={() => router.push("/games/fyve/heists")}
-    />
-  ) : null;
-
-  // FYVE is 4+ players (2 teams of 2+ each)
-  const minPlayers = gameData.minPlayers ?? 4;
-  const accentColor = gameData.primaryColor ?? "#E84C1E";
-
+// FYVE is a TEAM game with its own multi-stage win/loss cinematic and its own
+// Play Again, so it does NOT use the factory result screen (GC4) — the adapter
+// omits onGameEnd, FyveGame stays mounted in GC3 and owns the endgame. The
+// factory just provides the shared splash / host-join / lobby.
+function FyveAdapter({ sessionId, gameData }: GC3Props) {
   return (
-    <GameLandingPage
-      {...splashProps}
-      gameSlug="fyve"
-      subtitle={gameData.subtitle}
-      minPlayers={minPlayers}
-      multiplayerMinPlayers={minPlayers}
-      maxPlayers={gameData.maxPlayers ?? 30}
-      multiplayerFlowMode="party"
-      bgMusicLandingOnly={bgMusicLandingOnly}
-      {...(multiplayerInput ? { multiplayerInput } : {})}
-      landingExtra={landingExtra}
-      lobbyExtra={({ session }: { session: GameSession }) => (
-        <HeistLobbySelector sessionId={session.id} accentColor={accentColor} />
-      )}
-      lobbyCanStart={({ session }: { session: GameSession }) =>
-        !!(session as unknown as Record<string, unknown>)["fyveLobbyHeistId"]
-      }
-      onMultiplayerStart={(sid) => {
-        setSessionId(sid);
-      }}
+    <FyveGame
+      sessionId={sessionId}
+      {...(gameData.splashLogoURL || gameData.coverURL
+        ? { gameLogoURL: gameData.splashLogoURL ?? gameData.coverURL }
+        : {})}
+      {...(gameData.backgroundMusicURL ? { musicUrl: gameData.backgroundMusicURL } : {})}
     />
   );
 }
+
+export default composeGame({
+  slug: "fyve",
+  GameComponent: FyveAdapter,
+  multiplayerFlowMode: "party",
+  lobbyExtra: ({ session }: { session: GameSession }) => (
+    <HeistLobbySelector sessionId={session.id} accentColor="#E84C1E" />
+  ),
+  lobbyCanStart: ({ session }: { session: GameSession }) =>
+    !!(session as unknown as Record<string, unknown>)["fyveLobbyHeistId"],
+  landingExtra: <FyveBuildHeistsButton />,
+  // Required by composeGame; FYVE handles its own rematch (handlePlayAgain) so
+  // GC5 is never reached. Mirrors handlePlayAgain for correctness if it ever is.
+  resetFields: () => ({
+    board: null,
+    keyDocId: null,
+    activeTeam: null,
+    currentClue: null,
+    guessesRemaining: 0,
+    guessesUsedThisTurn: 0,
+    bonusGuessAvailable: false,
+    pendingTap: null,
+    winningTeam: null,
+    loseByBomb: false,
+    bombRevealedBy: null,
+    t1Score: 0,
+    t2Score: 0,
+    t1RevealCount: 0,
+    t2RevealCount: 0,
+    t1RevealedAssets: [],
+    t2RevealedAssets: [],
+    status: "playing",
+    svPhase: "boss-select",
+  }),
+});
