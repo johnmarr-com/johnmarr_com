@@ -350,9 +350,11 @@ service cloud.firestore {
               // guesses.{uid}.
               'sharerChoice', 'guesses', 'bbPhase',
               'cardURL', 'cardPool', 'humanShareText',
-              // Mega Sketchy — any player can cast a vote nested under
-              // votes.{uid}.
-              'votes',
+              // Mega Sketchy — the player whose turn it is appends their
+              // drawing/guess to chains.{elementIndex}; any player casts a
+              // vote nested under votes.{uid}. (Phase advance, play order,
+              // element-match + scoring judgements are all host-only writes.)
+              'chains', 'votes',
               // Boaty McBoatface — both players write boards, attacks, turns
               'btBoards', 'btReady', 'btAttacks', 'btLastAttack',
               'btCurrentTurn', 'btWinner', 'btPhase'
