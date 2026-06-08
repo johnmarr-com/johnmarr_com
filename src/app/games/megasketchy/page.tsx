@@ -1,111 +1,62 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { GameLandingPage } from "../_gamecore";
-import { JMProButton } from "@/JMKit";
-import { useAuth } from "@/lib/AuthProvider";
-import { getContentBySlug } from "@/lib/content";
-import type { JMContent } from "@/lib/content-types";
-import type { CreateSessionInput } from "@/lib/game-sessions";
-import { joinGameSessionById, createGameSession, startGame } from "@/lib/game-sessions";
+import { composeGame } from "../_gamecore";
+import type { GC3Props } from "../_gamecore/registry/types";
+import type { GameSession } from "@/lib/game-sessions";
 import MegaSketchyGame from "./MegaSketchyGame";
+import MegaSketchyCreateMissionButton from "./MegaSketchyCreateMissionButton";
 
-export default function MegaSketchyPage() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const { user, gamertag, avatarName, userTier, isAdmin, isLoading: authLoading } = useAuth();
-  const initialSessionId = searchParams.get("sessionId");
-  const [sessionId, setSessionId] = useState<string | null>(initialSessionId);
-  const [gameData, setGameData] = useState<JMContent | null>(null);
-  const autoJoinRef = useRef(false);
+/** MegaSketchy needs at least 4 players for the drawing chains to work. The
+ * pre-factory page hard-coded this floor (multiplayerMinPlayers={4}); enforce
+ * it here so it holds even if the CMS minPlayers field is unset. */
+const MIN_PLAYERS = 4;
 
-  const canCreateMissions = isAdmin || userTier === "pro";
-
-  useEffect(() => {
-    getContentBySlug("game", "megasketchy").then(setGameData);
-  }, []);
-
-  // Auto-join session when arriving via invite link
-  useEffect(() => {
-    if (!initialSessionId || autoJoinRef.current || authLoading || !user || !gamertag) return;
-    autoJoinRef.current = true;
-    joinGameSessionById(initialSessionId, user.uid, gamertag, avatarName ?? undefined).catch(() => {});
-  }, [initialSessionId, authLoading, user, gamertag, avatarName]);
-
-  const multiplayerInput: CreateSessionInput | undefined = useMemo(() => {
-    if (!gameData) return undefined;
-    return {
-      gameId: gameData.id,
-      gameName: gameData.name,
-      gameSlug: gameData.slug ?? "megasketchy",
-      gameLogoURL: gameData.splashLogoURL ?? gameData.coverURL,
-      maxPlayers: gameData.maxPlayers ?? 15,
-      ...(gameData.retentionDays != null ? { retentionDays: gameData.retentionDays } : {}),
-    };
-  }, [gameData]);
-
-  const bgMusicLandingOnly = gameData?.bgMusicLandingOnly ?? false;
-
-  // Prefer URL sessionId (handles client-side nav from My Games while already on this page)
-  const activeSessionId = initialSessionId ?? sessionId;
-
-  if (activeSessionId) {
-    return (
-      <MegaSketchyGame
-        sessionId={activeSessionId}
-        gameSlug="megasketchy"
-        bgMusicLandingOnly={bgMusicLandingOnly}
-        {...(gameData?.splashBgURL ? { splashBgURL: gameData.splashBgURL } : {})}
-        {...(gameData?.splashLogoURL ? { splashLogoURL: gameData.splashLogoURL } : {})}
-        {...(gameData?.backgroundMusicURL ? { backgroundMusicURL: gameData.backgroundMusicURL } : {})}
-        {...(gameData?.backgroundMusicVolume != null ? { backgroundMusicVolume: gameData.backgroundMusicVolume } : {})}
-      />
-    );
-  }
-
-  const splashProps = {
-    ...(gameData?.splashBgURL ? { splashBgURL: gameData.splashBgURL } : {}),
-    ...(gameData?.splashIconURL ? { splashIconURL: gameData.splashIconURL } : {}),
-    ...(gameData?.splashLogoURL ? { splashLogoURL: gameData.splashLogoURL } : {}),
-    ...(gameData?.backgroundMusicURL ? { backgroundMusicURL: gameData.backgroundMusicURL } : {}),
-    ...(gameData?.backgroundMusicVolume != null ? { backgroundMusicVolume: gameData.backgroundMusicVolume } : {}),
-    ...(gameData?.gameLikeLabel?.trim() ? { gameLikeLabel: gameData.gameLikeLabel.trim() } : {}),
-  };
-
-  const landingExtra = canCreateMissions ? (
-    <JMProButton
-      title="Create Mission"
-      onClick={() => router.push("/games/megasketchy/missions")}
-    />
-  ) : null;
-
-  const handleSoloPlay = async () => {
-    if (!user || !gamertag || !multiplayerInput) return;
-    const sess = await createGameSession(multiplayerInput, user.uid, gamertag, avatarName ?? undefined);
-    const sides: Record<string, string> = { [user.uid]: "player-1" };
-    await startGame(sess.id, sides);
-    setSessionId(sess.id);
-    router.replace(`/games/megasketchy?sessionId=${sess.id}`);
-  };
-
+// MegaSketchy is a custom-flow PARTY game (drawing chains → mad libs → reveal →
+// scoring → voting → done → share) with its own multi-phase endgame and its own
+// Play Again, so it does NOT use the factory result screen (GC4) — the adapter
+// omits onGameEnd, MegaSketchyGame stays mounted in GC3 and owns the endgame.
+// The factory provides the shared splash / host-join / lobby. No AI: AI players
+// were removed by design (the LLM only judges Mad Libs + scoring).
+function MegaSketchyAdapter({ sessionId, gameData }: GC3Props) {
   return (
-    <GameLandingPage
-      {...splashProps}
+    <MegaSketchyGame
+      sessionId={sessionId}
       gameSlug="megasketchy"
-      minPlayers={gameData?.minPlayers ?? 4}
-      maxPlayers={gameData?.maxPlayers ?? 14}
-      subtitle={gameData?.subtitle}
-      multiplayerFlowMode="party"
-      multiplayerMinPlayers={4}
-      bgMusicLandingOnly={bgMusicLandingOnly}
-      landingExtra={landingExtra}
-      {...(multiplayerInput ? { multiplayerInput } : {})}
-      onSoloPlay={handleSoloPlay}
-      onMultiplayerStart={(sid) => {
-        setSessionId(sid);
-        router.replace(`/games/megasketchy?sessionId=${sid}`);
-      }}
+      {...(gameData.splashBgURL ? { splashBgURL: gameData.splashBgURL } : {})}
+      {...(gameData.splashLogoURL ? { splashLogoURL: gameData.splashLogoURL } : {})}
+      {...(gameData.backgroundMusicURL ? { backgroundMusicURL: gameData.backgroundMusicURL } : {})}
+      {...(gameData.backgroundMusicVolume != null
+        ? { backgroundMusicVolume: gameData.backgroundMusicVolume }
+        : {})}
+      {...(gameData.bgMusicLandingOnly != null
+        ? { bgMusicLandingOnly: gameData.bgMusicLandingOnly }
+        : {})}
     />
   );
 }
+
+export default composeGame({
+  slug: "megasketchy",
+  GameComponent: MegaSketchyAdapter,
+  multiplayerFlowMode: "party",
+  landingExtra: <MegaSketchyCreateMissionButton />,
+  lobbyCanStart: ({ session }: { session: GameSession }) =>
+    (session.players?.length ?? 0) >= MIN_PLAYERS,
+  // MegaSketchyGame owns its own Play Again (handlePlayAgain resets to the lobby
+  // skPhase and the host re-shuffles play order), so GC5 is never reached. This
+  // mirrors that reset for correctness if it ever is.
+  resetFields: () => ({
+    skPhase: "lobby",
+    playOrder: [],
+    aiPlayerId: null,
+    message: null,
+    chains: {},
+    gameMode: "basic",
+    moleId: null,
+    eliminatedPlayers: [],
+    missionNumber: 0,
+    votes: {},
+    elementMatches: null,
+    scoringResult: null,
+  }),
+});
