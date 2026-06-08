@@ -80,21 +80,35 @@ For each element, respond with ONLY a comma-separated list of "Y" or "N" (Y = cl
 
 Response:`;
 
-    try {
-      const { comment } = await postGameComment(prompt);
-      const tokens = comment.trim().split(/[,\s]+/);
-      const matches = message.elements.map((_, i) => {
-        const token = tokens[i]?.trim().toUpperCase();
-        return token === "Y";
-      });
-      await updateSessionFields(sessionId, { elementMatches: matches });
-    } catch {
-      const matches = message.elements.map((orig, i) => {
+    // Deterministic fallback: an element "matches" if any word of the original
+    // survives in the received text. Used whenever the AI judge gives nothing
+    // usable (e.g. an outage / lapsed credits) so we never score a clean relay
+    // as all-MISS just because the judge was silent.
+    const heuristicMatches = () =>
+      message.elements.map((orig, i) => {
         const received = (finalElements[i] ?? "").toLowerCase();
         const origWords = orig.toLowerCase().split(/\s+/);
         return origWords.some((w) => received.includes(w));
       });
+
+    try {
+      const { comment } = await postGameComment(prompt);
+      const tokens = comment
+        .trim()
+        .split(/[,\s]+/)
+        .map((t) => t.trim().toUpperCase())
+        .filter(Boolean);
+      // Only trust the AI when it actually returned a Y/N token per element;
+      // an empty or garbled response falls back to the heuristic.
+      const usable =
+        tokens.length >= message.elements.length &&
+        tokens.slice(0, message.elements.length).every((t) => t === "Y" || t === "N");
+      const matches = usable
+        ? message.elements.map((_, i) => tokens[i] === "Y")
+        : heuristicMatches();
       await updateSessionFields(sessionId, { elementMatches: matches });
+    } catch {
+      await updateSessionFields(sessionId, { elementMatches: heuristicMatches() });
     }
   }, [message.elements, finalElements, sessionId]);
 
