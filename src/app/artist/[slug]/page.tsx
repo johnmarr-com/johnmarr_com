@@ -397,7 +397,7 @@ export default function ArtistPage() {
                   aria-disabled={teased}
                   className={`flex items-center gap-4 px-4 py-3 transition-colors ${
                     teased
-                      ? "opacity-50 cursor-not-allowed"
+                      ? "cursor-not-allowed"
                       : `cursor-pointer ${
                           currentSongIndex === index ? "bg-white/10" : "hover:bg-white/5"
                         }`
@@ -434,7 +434,7 @@ export default function ArtistPage() {
                   {/* Song info */}
                   <div className="flex-1 min-w-0">
                     <p
-                      className="font-medium truncate"
+                      className={`font-medium truncate ${teased ? "opacity-50" : ""}`}
                       style={{
                         color: currentSongIndex === index
                           ? theme.accents.goldenGlow
@@ -504,7 +504,7 @@ export default function ArtistPage() {
                     key={video.id}
                     aria-disabled={teased}
                     className={`rounded-xl overflow-hidden transition-transform ${
-                      teased ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:scale-[1.02]"
+                      teased ? "cursor-not-allowed" : "cursor-pointer hover:scale-[1.02]"
                     }`}
                     style={{ backgroundColor: theme.surfaces.elevated1 }}
                     onClick={teased ? undefined : () => setPlayingVideo(video)}
@@ -517,7 +517,7 @@ export default function ArtistPage() {
                           alt={video.title}
                           fill
                           sizes="(max-width: 640px) 40vw, 180px"
-                          className="object-cover"
+                          className={`object-cover ${teased ? "grayscale opacity-50" : ""}`}
                         />
                       )}
                       {/* Overlay: play affordance, or a "Soon" badge for teased videos */}
