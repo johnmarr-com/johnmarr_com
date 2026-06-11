@@ -139,7 +139,7 @@ export default function ArtistPage() {
   const playSong = useCallback((index: number) => {
     if (!currentAlbum || !audioRef.current) return;
     const song = currentAlbum.songs[index];
-    if (!song) return;
+    if (!song || song.tease) return; // teased songs are greyed out & unplayable
 
     setCurrentSongIndex(index);
     audioRef.current.src = song.audioURL;
@@ -156,8 +156,10 @@ export default function ArtistPage() {
     const handleLoadedMetadata = () => setDuration(audio.duration);
     const handleEnded = () => {
       if (currentSongIndex !== null && currentAlbum) {
-        const nextIndex = currentSongIndex + 1;
-        if (nextIndex < currentAlbum.songs.length) {
+        // Advance to the next available (non-teased) song; stop if none remain.
+        const cur = currentSongIndex;
+        const nextIndex = currentAlbum.songs.findIndex((s, i) => i > cur && !s.tease);
+        if (nextIndex !== -1) {
           playSong(nextIndex);
         } else {
           setIsPlaying(false);
@@ -190,25 +192,28 @@ export default function ArtistPage() {
       audioRef.current.pause();
     } else {
       if (currentSongIndex === null && currentAlbum?.songs.length) {
-        playSong(0);
+        const first = currentAlbum.songs.findIndex((s) => !s.tease);
+        if (first !== -1) playSong(first);
       } else {
         audioRef.current.play();
       }
     }
   };
 
-  // Play all songs
+  // Play all songs (starting from the first available, non-teased track)
   const playAll = () => {
     if (currentAlbum?.songs.length) {
-      playSong(0);
+      const first = currentAlbum.songs.findIndex((s) => !s.tease);
+      if (first !== -1) playSong(first);
     }
   };
 
   // Skip to next/previous
   const skipNext = () => {
     if (currentSongIndex !== null && currentAlbum) {
-      const nextIndex = currentSongIndex + 1;
-      if (nextIndex < currentAlbum.songs.length) {
+      const cur = currentSongIndex;
+      const nextIndex = currentAlbum.songs.findIndex((s, i) => i > cur && !s.tease);
+      if (nextIndex !== -1) {
         playSong(nextIndex);
       }
     }
@@ -220,7 +225,11 @@ export default function ArtistPage() {
       if (audioRef.current && audioRef.current.currentTime > 3) {
         audioRef.current.currentTime = 0;
       } else {
-        const prevIndex = currentSongIndex - 1;
+        // Step back to the previous available (non-teased) song.
+        let prevIndex = -1;
+        for (let i = currentSongIndex - 1; i >= 0; i--) {
+          if (!currentAlbum.songs[i]?.tease) { prevIndex = i; break; }
+        }
         if (prevIndex >= 0) {
           playSong(prevIndex);
         }
@@ -380,13 +389,20 @@ export default function ArtistPage() {
               className="rounded-xl overflow-hidden"
               style={{ backgroundColor: theme.surfaces.elevated1 }}
             >
-              {currentAlbum.songs.map((song, index) => (
+              {currentAlbum.songs.map((song, index) => {
+                const teased = !!song.tease;
+                return (
                 <div
                   key={song.id}
-                  className={`flex items-center gap-4 px-4 py-3 transition-colors cursor-pointer ${
-                    currentSongIndex === index ? "bg-white/10" : "hover:bg-white/5"
+                  aria-disabled={teased}
+                  className={`flex items-center gap-4 px-4 py-3 transition-colors ${
+                    teased
+                      ? "opacity-50 cursor-not-allowed"
+                      : `cursor-pointer ${
+                          currentSongIndex === index ? "bg-white/10" : "hover:bg-white/5"
+                        }`
                   }`}
-                  onClick={() => playSong(index)}
+                  onClick={teased ? undefined : () => playSong(index)}
                 >
                   {/* Track number or play indicator */}
                   <div className="w-8 text-center">
@@ -429,16 +445,25 @@ export default function ArtistPage() {
                     </p>
                   </div>
 
-                  {/* Duration */}
-                  <span
-                    className="text-sm"
-                    style={{ color: theme.text.tertiary }}
-                  >
-                    {formatTime(song.duration)}
-                  </span>
+                  {/* Duration, or a "Soon" badge for teased tracks */}
+                  {teased ? (
+                    <span
+                      className="text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full"
+                      style={{ backgroundColor: theme.surfaces.elevated2, color: theme.text.tertiary }}
+                    >
+                      Soon
+                    </span>
+                  ) : (
+                    <span
+                      className="text-sm"
+                      style={{ color: theme.text.tertiary }}
+                    >
+                      {formatTime(song.duration)}
+                    </span>
+                  )}
 
-                  {/* Lyrics button */}
-                  {song.lyrics && (
+                  {/* Lyrics button (hidden for teased tracks) */}
+                  {song.lyrics && !teased && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -452,7 +477,8 @@ export default function ArtistPage() {
                     </button>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -471,13 +497,17 @@ export default function ArtistPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
               {musicVideos.map((video) => {
                 const thumbnailURL = video.thumbnailURL || getVimeoThumbnail(video.vimeoURL) || "";
+                const teased = !!video.tease;
 
                 return (
                   <div
                     key={video.id}
-                    className="rounded-xl overflow-hidden cursor-pointer transition-transform hover:scale-[1.02]"
+                    aria-disabled={teased}
+                    className={`rounded-xl overflow-hidden transition-transform ${
+                      teased ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:scale-[1.02]"
+                    }`}
                     style={{ backgroundColor: theme.surfaces.elevated1 }}
-                    onClick={() => setPlayingVideo(video)}
+                    onClick={teased ? undefined : () => setPlayingVideo(video)}
                   >
                     {/* Thumbnail */}
                     <div className="relative aspect-9/16">
@@ -490,14 +520,23 @@ export default function ArtistPage() {
                           className="object-cover"
                         />
                       )}
-                      {/* Play overlay */}
+                      {/* Overlay: play affordance, or a "Soon" badge for teased videos */}
                       <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                        <div
-                          className="p-4 rounded-full"
-                          style={{ backgroundColor: `${theme.accents.goldenGlow}90` }}
-                        >
-                          <Play size={32} fill="white" style={{ color: "white" }} />
-                        </div>
+                        {teased ? (
+                          <span
+                            className="text-xs font-semibold uppercase tracking-wide px-3 py-1 rounded-full"
+                            style={{ backgroundColor: `${theme.surfaces.base}cc`, color: theme.text.secondary }}
+                          >
+                            Soon
+                          </span>
+                        ) : (
+                          <div
+                            className="p-4 rounded-full"
+                            style={{ backgroundColor: `${theme.accents.goldenGlow}90` }}
+                          >
+                            <Play size={32} fill="white" style={{ color: "white" }} />
+                          </div>
+                        )}
                       </div>
                     </div>
 

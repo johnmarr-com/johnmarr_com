@@ -5,7 +5,7 @@ import {
   X, Save, Trash2, Plus, ChevronRight, ChevronDown,
   Music, Video, Check, Loader2, ArrowLeft,
   Disc, Eye, EyeOff, Pencil, Play, GripVertical,
-  Globe, Lock,
+  Globe, Lock, Clock,
 } from "lucide-react";
 import {
   DndContext,
@@ -78,12 +78,14 @@ function SortableVideoRow({
   video,
   theme,
   onTogglePublish,
+  onToggleTease,
   onEdit,
   onDelete,
 }: {
   video: JMMusicVideo;
   theme: ReturnType<typeof useJMStyle>["theme"];
   onTogglePublish: () => void;
+  onToggleTease: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -131,6 +133,14 @@ function SortableVideoRow({
         {video.isPublished ? <Eye size={14} /> : <EyeOff size={14} />}
       </button>
       <button
+        onClick={onToggleTease}
+        title={video.tease ? "Teased — greyed out & disabled for viewers" : "Available — tap to tease"}
+        className="p-1 rounded hover:bg-white/10 transition-colors"
+        style={{ color: video.tease ? theme.accents.goldenGlow : theme.text.tertiary }}
+      >
+        <Clock size={14} />
+      </button>
+      <button
         onClick={onEdit}
         className="p-1 rounded hover:bg-white/10 transition-colors"
         style={{ color: theme.text.tertiary }}
@@ -152,12 +162,14 @@ function SortableSongRow({
   song,
   theme,
   onTogglePublish,
+  onToggleTease,
   onEdit,
   onDelete,
 }: {
   song: JMSong;
   theme: ReturnType<typeof useJMStyle>["theme"];
   onTogglePublish: () => void;
+  onToggleTease: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -209,6 +221,14 @@ function SortableSongRow({
         style={{ color: song.isPublished ? theme.semantic.success : theme.text.tertiary }}
       >
         {song.isPublished ? <Eye size={12} /> : <EyeOff size={12} />}
+      </button>
+      <button
+        onClick={onToggleTease}
+        title={song.tease ? "Teased — greyed out & unplayable for listeners" : "Available — tap to tease"}
+        className="p-1 rounded hover:bg-white/10 transition-colors"
+        style={{ color: song.tease ? theme.accents.goldenGlow : theme.text.tertiary }}
+      >
+        <Clock size={12} />
       </button>
       <button
         onClick={onEdit}
@@ -703,6 +723,16 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
     }
   };
 
+  const handleToggleSongTease = async (song: JMSong) => {
+    try {
+      await updateSong(song.id, { tease: !song.tease });
+      await fetchArtist();
+      onUpdated();
+    } catch (err) {
+      console.error("Failed to toggle song tease:", err);
+    }
+  };
+
   // Music Video handlers
   const startAddVideo = () => {
     setFormState({
@@ -800,6 +830,16 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
       onUpdated();
     } catch (err) {
       console.error("Failed to toggle video publish:", err);
+    }
+  };
+
+  const handleToggleVideoTease = async (video: JMMusicVideo) => {
+    try {
+      await updateMusicVideo(video.id, { tease: !video.tease });
+      await fetchArtist();
+      onUpdated();
+    } catch (err) {
+      console.error("Failed to toggle video tease:", err);
     }
   };
 
@@ -1227,6 +1267,7 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
                                         song={song}
                                         theme={theme}
                                         onTogglePublish={() => handleToggleSongPublish(song)}
+                                        onToggleTease={() => handleToggleSongTease(song)}
                                         onEdit={() => startEditSong(song)}
                                         onDelete={() => handleDeleteSong(song)}
                                       />
@@ -1292,6 +1333,7 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
                                 video={video}
                                 theme={theme}
                                 onTogglePublish={() => handleToggleVideoPublish(video)}
+                                onToggleTease={() => handleToggleVideoTease(video)}
                                 onEdit={() => startEditVideo(video)}
                                 onDelete={() => handleDeleteVideo(video)}
                               />

@@ -586,6 +586,7 @@ export interface JMSong {
   createdAt: Timestamp;
   updatedAt: Timestamp;
   isPublished: boolean;           // Draft vs live
+  tease?: boolean;                // Released-but-teased: visible in the list but greyed out & unplayable
 }
 
 /**
@@ -600,6 +601,7 @@ export interface JMSongInput {
   audioURL: string;
   trackNumber?: number;
   isPublished?: boolean;
+  tease?: boolean;
 }
 
 /**
@@ -624,6 +626,7 @@ export interface JMMusicVideo {
   createdAt: Timestamp;
   updatedAt: Timestamp;
   isPublished: boolean;           // Draft vs live
+  tease?: boolean;                // Released-but-teased: visible in the list but greyed out & disabled
 }
 
 /**
@@ -638,6 +641,7 @@ export interface JMMusicVideoInput {
   thumbnailURL?: string;
   order?: number;
   isPublished?: boolean;
+  tease?: boolean;
 }
 
 /**
