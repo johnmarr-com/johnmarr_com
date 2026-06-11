@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useCallback, useRef } from "react";
-import { ShieldCheck, ShieldAlert } from "lucide-react";
+import { ShieldCheck, ShieldAlert, Flag } from "lucide-react";
 import { JMBannerText } from "@/JMKit";
 import { postGameComment, GamePrimaryButton, GameStatusMessage } from "../_gamecore";
 import {
@@ -33,6 +33,15 @@ export default function MegaSketchyScoring({
   const scoringRef = useRef(false);
 
   const scoreWithAI = useCallback(async () => {
+    // No AI verdict (elementMatches === [] from the Mad Libs phase, i.e. the
+    // judge was unavailable): skip the AI narrative entirely and record a
+    // neutral result. The UI then shows a non-judgmental "Mission Accomplished".
+    if (!elementMatches || elementMatches.length === 0) {
+      await updateSessionFields(sessionId, {
+        scoringResult: { passed: false, narrative: "" },
+      });
+      return;
+    }
     const original = assembleOriginal(message.template, message.elements);
     const { result: garbled, finalElements } = assembleMadLibs(
       message.template,
@@ -99,32 +108,55 @@ Write 2-3 sentences as a dramatic spy mission debrief. Be funny and reference sp
   }
 
   const result = sessionScoringResult;
+  // elementMatches === [] means the AI judge was unavailable in the Mad Libs
+  // phase, so there is no verdict — close on a neutral "Mission Accomplished"
+  // (the intended-vs-received relay was shown on the previous screen).
+  const unjudged = !elementMatches || elementMatches.length === 0;
 
   return (
     <div className="fixed inset-0 z-10 flex flex-col items-center justify-center px-6">
       <div className="flex w-full max-w-lg flex-col items-center gap-6">
-        {/* Verdict icon */}
-        <div className={`rounded-full p-4 ${result.passed ? "bg-green-400/10" : "bg-red-400/10"}`}>
-          {result.passed ? (
-            <ShieldCheck className="h-16 w-16 text-green-400" />
-          ) : (
-            <ShieldAlert className="h-16 w-16 text-red-400" />
-          )}
-        </div>
+        {unjudged ? (
+          <>
+            {/* No verdict — neutral completion */}
+            <div className="rounded-full bg-white/10 p-4">
+              <Flag className="h-16 w-16 text-white/80" />
+            </div>
+            <JMBannerText borderColor="rgba(255, 255, 255, 0.25)">
+              <h1 className="px-8 py-4 text-4xl font-black uppercase tracking-wider text-white">
+                Mission Accomplished
+              </h1>
+            </JMBannerText>
+            <p className="text-center text-lg leading-relaxed text-white/60">
+              The message ran the gauntlet of the network.
+            </p>
+          </>
+        ) : (
+          <>
+            {/* Verdict icon */}
+            <div className={`rounded-full p-4 ${result.passed ? "bg-green-400/10" : "bg-red-400/10"}`}>
+              {result.passed ? (
+                <ShieldCheck className="h-16 w-16 text-green-400" />
+              ) : (
+                <ShieldAlert className="h-16 w-16 text-red-400" />
+              )}
+            </div>
 
-        {/* Verdict text */}
-        <JMBannerText borderColor={result.passed ? "rgba(34, 197, 94, 0.4)" : "rgba(239, 68, 68, 0.4)"}>
-          <h1 className={`px-8 py-4 text-4xl font-black uppercase tracking-wider ${
-            result.passed ? "text-green-400" : "text-red-400"
-          }`}>
-            Mission {result.passed ? "Passed" : "Failed"}
-          </h1>
-        </JMBannerText>
+            {/* Verdict text */}
+            <JMBannerText borderColor={result.passed ? "rgba(34, 197, 94, 0.4)" : "rgba(239, 68, 68, 0.4)"}>
+              <h1 className={`px-8 py-4 text-4xl font-black uppercase tracking-wider ${
+                result.passed ? "text-green-400" : "text-red-400"
+              }`}>
+                Mission {result.passed ? "Passed" : "Failed"}
+              </h1>
+            </JMBannerText>
 
-        {/* Narrative */}
-        <p className="text-center text-lg leading-relaxed text-white/80">
-          {result.narrative}
-        </p>
+            {/* Narrative */}
+            <p className="text-center text-lg leading-relaxed text-white/80">
+              {result.narrative}
+            </p>
+          </>
+        )}
 
         {/* Action */}
         <div className="w-full pt-4">

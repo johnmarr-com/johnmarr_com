@@ -80,17 +80,6 @@ For each element, respond with ONLY a comma-separated list of "Y" or "N" (Y = cl
 
 Response:`;
 
-    // Deterministic fallback: an element "matches" if any word of the original
-    // survives in the received text. Used whenever the AI judge gives nothing
-    // usable (e.g. an outage / lapsed credits) so we never score a clean relay
-    // as all-MISS just because the judge was silent.
-    const heuristicMatches = () =>
-      message.elements.map((orig, i) => {
-        const received = (finalElements[i] ?? "").toLowerCase();
-        const origWords = orig.toLowerCase().split(/\s+/);
-        return origWords.some((w) => received.includes(w));
-      });
-
     try {
       const { comment } = await postGameComment(prompt);
       const tokens = comment
@@ -98,17 +87,17 @@ Response:`;
         .split(/[,\s]+/)
         .map((t) => t.trim().toUpperCase())
         .filter(Boolean);
-      // Only trust the AI when it actually returned a Y/N token per element;
-      // an empty or garbled response falls back to the heuristic.
+      // Trust the AI only when it returned a Y/N token per element. An empty or
+      // garbled reply (e.g. the AI judge is unavailable) writes [] — the
+      // "unjudged" sentinel — so the relay is shown without a fake verdict
+      // rather than scoring every element a MISS.
       const usable =
         tokens.length >= message.elements.length &&
         tokens.slice(0, message.elements.length).every((t) => t === "Y" || t === "N");
-      const matches = usable
-        ? message.elements.map((_, i) => tokens[i] === "Y")
-        : heuristicMatches();
+      const matches = usable ? message.elements.map((_, i) => tokens[i] === "Y") : [];
       await updateSessionFields(sessionId, { elementMatches: matches });
     } catch {
-      await updateSessionFields(sessionId, { elementMatches: heuristicMatches() });
+      await updateSessionFields(sessionId, { elementMatches: [] });
     }
   }, [message.elements, finalElements, sessionId]);
 
@@ -127,6 +116,9 @@ Response:`;
   }
 
   const matches = sessionElementMatches;
+  // [] = the AI judge was unavailable, so nothing was scored — show the relay
+  // in a neutral colour rather than implying every element was a MISS.
+  const unjudged = matches.length === 0;
 
   return (
     <div className="fixed inset-0 z-10 flex flex-col">
@@ -189,12 +181,13 @@ Response:`;
                     }
                     const idx = part.index!;
                     const received = finalElements[idx] ?? "???";
-                    const isMatch = matches[idx];
+                    const cls = unjudged
+                      ? "text-white"
+                      : matches[idx]
+                        ? "text-green-400"
+                        : "text-orange-400";
                     return (
-                      <span
-                        key={pi}
-                        className={`font-bold ${isMatch ? "text-green-400" : "text-orange-400"}`}
-                      >
+                      <span key={pi} className={`font-bold ${cls}`}>
                         {received}
                       </span>
                     );
