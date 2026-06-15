@@ -216,6 +216,12 @@ export interface ComposeGameInput {
    * resolution. Omit for client-resolved (legacy) games.
    */
   round?: { resolverKey: string };
+  /**
+   * Opt in to the generic server-authority engine (`gameEngine` Cloud
+   * Function). Stamps the session with `engineKey` at creation; the game's
+   * reducer then owns all state progression server-side (no host SPOF).
+   */
+  authority?: { engineKey: string };
 }
 
 // ─────────────────────────────────────────────────────────────

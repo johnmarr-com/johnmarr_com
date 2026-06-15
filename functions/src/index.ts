@@ -5,14 +5,18 @@ import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import { logger } from "firebase-functions";
 
-// Server-authoritative round resolution: register game resolvers (side-effect
-// imports) and re-export the generic Firestore-triggered resolver.
+// Server-authoritative game engine: register game reducers (side-effect
+// imports) and export the generic Firestore-triggered engine. hml/rps register
+// via the legacy round-resolver registry and are served through the engine's
+// simultaneous-move adapter, so `gameEngine` fully replaces the old
+// `resolveRound` trigger (they must not both run, or rounds double-resolve).
 import "./roundEngine/hml.spec";
 import "./roundEngine/rps.spec";
+import "./games/boaty/boaty.spec";
 
 initializeApp();
 
-export { resolveRound } from "./roundEngine/resolveRound.fn";
+export { gameEngine } from "./engine/gameEngine.fn";
 
 const LEGACY_RETENTION_MS = 24 * 60 * 60 * 1000;
 

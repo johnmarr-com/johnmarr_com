@@ -42,6 +42,10 @@ export interface LastAttack {
   result: AttackResult;
   /** Defender's gator before the post-hit slither (throw phase shows this; then board shows new pos). */
   defenderGatorBefore?: Position;
+  /** Server-computed: did this hit destroy a whole raft? (drives the sink taunt) */
+  sunk?: boolean;
+  /** The raft type destroyed, when `sunk`. */
+  sunkType?: RaftType;
 }
 
 // ─── Session State ───────────────────────────────────────────
@@ -49,7 +53,9 @@ export interface LastAttack {
 export interface BoatyState {
   session: GameSession | null;
   btPhase: BoatyPhase;
-  btBoards: Record<string, PlayerBoard>;
+  /** The player's OWN board (from the owner-readable secret doc); null until
+   *  they've submitted it. The opponent's board is never client-readable. */
+  myBoard: PlayerBoard | null;
   btReady: Record<string, boolean>;
   btCurrentTurn: string | null;
   /** Attacks keyed by TARGET uid — attacks made against that player's board. */

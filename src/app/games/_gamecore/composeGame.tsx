@@ -195,8 +195,9 @@ function ComposedGameInner({ config }: { config: ComposeGameInput }) {
         ? { engineSlug: gameData.engineSlug }
         : {}),
       ...(config.round?.resolverKey ? { resolverKey: config.round.resolverKey } : {}),
+      ...(config.authority?.engineKey ? { engineKey: config.authority.engineKey } : {}),
     };
-  }, [gameData, config.slug, config.round]);
+  }, [gameData, config.slug, config.round, config.authority]);
 
   // ─── Loading & engine skin resolution ────────────────────
   if (isLoading) return null;
