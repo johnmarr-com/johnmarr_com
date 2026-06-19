@@ -1,9 +1,19 @@
 "use client";
 
 import { composeGame } from "../_gamecore";
+import { useAuth } from "@/lib/AuthProvider";
 import WordonkulousGame from "./WordonkulousGame";
 import WordonkulousPackLobbySelector from "./WordonkulousPackLobbySelector";
+import type { GameSession } from "@/lib/game-sessions";
 import type { GC3Props } from "../_gamecore/registry/types";
+
+/** Only the host configures the pack/length (and only the host's writes are
+ *  permitted pre-start), so render the selector for the host alone. */
+function WordonkulousLobbyExtra({ session }: { session: GameSession }) {
+  const { user } = useAuth();
+  if (session.ownerId !== user?.uid) return null;
+  return <WordonkulousPackLobbySelector sessionId={session.id} />;
+}
 
 function WordonkulousGameAdapter({ sessionId, gameData, onGameEnd }: GC3Props) {
   return (
@@ -25,7 +35,7 @@ export default composeGame({
   // Server-authoritative: the gameEngine Cloud Function owns all phase
   // progression + scoring (engineKey "wordonkulous").
   authority: { engineKey: "wordonkulous" },
-  lobbyExtra: ({ session }) => <WordonkulousPackLobbySelector sessionId={session.id} />,
+  lobbyExtra: ({ session }) => <WordonkulousLobbyExtra session={session} />,
   lobbyCanStart: ({ session }) =>
     !!(session as unknown as Record<string, unknown>)["wkLobbyPackId"],
   // Play Again → engine start-of-game shape. The generic fields (status,

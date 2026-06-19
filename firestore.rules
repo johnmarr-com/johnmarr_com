@@ -353,6 +353,14 @@ service cloud.firestore {
             // every advance, so this blocks a host from writing game fields
             // mid-game (when seq > 0) while still permitting Play Again.
             && request.resource.data.seq == 0 )
+          ||
+          // Pre-game lobby setup: the host may freely configure the lobby
+          // (pack pick, round count, etc.) while status is still 'lobby'. No
+          // game state exists yet — the engine only runs once status=='playing'
+          // — and startGame itself (lobby → playing) is allowed here too.
+          ( resource.data.ownerId == request.auth.uid
+            && resource.data.status == 'lobby'
+            && request.resource.data.engineKey == resource.data.engineKey )
         ) )
         ||
         ( !('engineKey' in resource.data) && (
