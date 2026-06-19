@@ -11,6 +11,7 @@ import {
   getAIAuthHeaders,
 } from "@/app/games/_gamecore";
 import type { JMContent } from "@/lib/content-types";
+import { fetchWithRetry } from "@/lib/fetch-retry";
 import { PointsManager, Activity } from "@/lib/points";
 import { useBoatySession } from "./useBoatySession";
 import type { RaftDef, Position, AttackRecord } from "./boatyTypes";
@@ -83,7 +84,9 @@ export default function BoatyGame({ sessionId, gameData, onGameEnd }: BoatyGameP
   const postBoaty = useCallback(
     async (action: string, payload: Record<string, unknown>) => {
       const headers = await getAIAuthHeaders();
-      const res = await fetch("/api/games/boaty", {
+      // Retry transient failures (the dropped-command hole on flaky links);
+      // idempotent actions + the server turn-check make retries safe.
+      const res = await fetchWithRetry("/api/games/boaty", {
         method: "POST",
         headers,
         body: JSON.stringify({ action, sessionId, ...payload }),
