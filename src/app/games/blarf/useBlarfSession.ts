@@ -14,7 +14,9 @@ export function useBlarfSession(
   setPhase: (phase: BlarfPhase) => Promise<void>;
 } {
   const [session, setSession] = useState<GameSession | null>(null);
+  const [myRole, setMyRole] = useState<BlarfState["myRole"]>(null);
   const unsubRef = useRef<(() => void) | null>(null);
+  const roleUnsubRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -34,6 +36,36 @@ export function useBlarfSession(
       unsubRef.current?.();
     };
   }, [sessionId]);
+
+  // Subscribe to this player's OWN secret role doc (owner-readable). Only their
+  // own role is ever readable — the Blarfer list can't be peeked before reveal.
+  useEffect(() => {
+    if (!sessionId || !userId) return;
+    let cancelled = false;
+    (async () => {
+      const { initializeFirebase } = await import("@/lib/firebase");
+      const { getFirestore, doc, onSnapshot } = await import("firebase/firestore");
+      const { app } = await initializeFirebase();
+      const db = getFirestore(app);
+      const ref = doc(db, "blarfRoles", sessionId, "roles", userId);
+      const unsub = onSnapshot(
+        ref,
+        (snap) => {
+          if (!cancelled) {
+            setMyRole(snap.exists() ? (snap.data() as BlarfState["myRole"]) : null);
+          }
+        },
+        () => {}, // pre-assignment: no doc — ignore
+      );
+      if (cancelled) unsub();
+      else roleUnsubRef.current = unsub;
+    })();
+    return () => {
+      cancelled = true;
+      roleUnsubRef.current?.();
+      roleUnsubRef.current = null;
+    };
+  }, [sessionId, userId]);
 
   const updateFields = useCallback(
     async (fields: Record<string, unknown>) => {
@@ -81,6 +113,9 @@ export function useBlarfSession(
     bfLobbyPackCoverURL: (data?.["bfLobbyPackCoverURL"] as string) ?? null,
     bfLobbyRounds: (data?.["bfLobbyRounds"] as number) ?? null,
     bfRevealed: (data?.["bfRevealed"] as boolean) ?? false,
+    bfReveal:
+      (data?.["bfReveal"] as Record<string, { word: string; isBlarfer: boolean }>) ?? {},
+    myRole,
     isHost,
   };
 

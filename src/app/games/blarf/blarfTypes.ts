@@ -102,6 +102,11 @@ export interface BlarfState {
   bfLobbyRounds: number | null;
   /** Host has revealed results to all players */
   bfRevealed: boolean;
+  /** Public reveal map (engine-written at results): uid → {word, isBlarfer} */
+  bfReveal: Record<string, { word: string; isBlarfer: boolean }>;
+  /** This player's OWN role this round, from the owner-readable secret doc
+   *  (`blarfRoles/{sid}/roles/{uid}`). Null until assigned. */
+  myRole: { word: string; isBlarfer: boolean; letter: string } | null;
   isHost: boolean;
 }
 

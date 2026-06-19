@@ -1,6 +1,7 @@
 "use client";
 
 import { getAIAuthHeaders } from "../_gamecore/getAIAuthHeaders";
+import type { BlarfRoundData } from "./blarfTypes";
 
 /**
  * Client-side helpers that call the server-side BLARF API.
@@ -20,6 +21,30 @@ async function bfRequest(
   const data = await res.json();
   if (!res.ok) return { ok: false, error: data.error ?? "Unknown error" };
   return { ok: true };
+}
+
+/** Host: choose the pack + round count (server stores round data secretly). */
+export async function selectPack(
+  sessionId: string,
+  pack: { id: string; name?: string; coverURL?: string | null; rounds: BlarfRoundData[] },
+  roundCount: number,
+): Promise<{ ok: boolean; error?: string }> {
+  return bfRequest({
+    action: "select-pack",
+    sessionId,
+    packId: pack.id,
+    packName: pack.name ?? null,
+    packCoverURL: pack.coverURL ?? null,
+    rounds: pack.rounds,
+    roundCount,
+  });
+}
+
+/** The current speaker signals they're done (engine advances). */
+export async function speakerDone(
+  sessionId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  return bfRequest({ action: "speaker-done", sessionId });
 }
 
 /** Confirm that the player has seen their role (Blarfer or not). */

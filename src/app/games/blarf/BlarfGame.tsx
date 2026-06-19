@@ -1,23 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthProvider";
 import { useBlarfSession } from "./useBlarfSession";
-import {
-  initScores,
-  selectRounds,
-  getCurrentRound,
-  assignRoles,
-  shuffleArray,
-  scoreBlarfRound,
-  applyScoreDeltas,
-  determineWinners,
-} from "./blarfTypes";
+import { scoreBlarfRound } from "./blarfTypes";
 import type { BlarfRoundScoreResult } from "./blarfTypes";
-import { GameGamertagBadge, recordGameStats, useGameColors } from "@/app/games/_gamecore";
+import { GameGamertagBadge, recordGameStats, useGameColors, useEngineDeadline } from "@/app/games/_gamecore";
+import { selectPack, speakerDone } from "./blarfApi";
 import { PointsManager, Activity } from "@/lib/points";
 import { JMConfettiOverlay, JMSimpleButton } from "@/JMKit";
 import { GamePrimaryButton } from "@/app/games/_gamecore";
@@ -35,7 +27,9 @@ import MultiVoteScreen from "./screens/MultiVoteScreen";
 import BlarferRevealScreen from "./screens/BlarferRevealScreen";
 import WinnerScreen from "./screens/WinnerScreen";
 
-const VOTE_TIMER_MS = 0; // timers disabled for dev
+// Timer durations for the progress bars — keep in sync with the blarf reducer.
+const BF_SPEAK_MS = 15_000;
+const BF_VOTE_MS = 60_000;
 
 const BF_LENGTH_PRESETS: GameLengthPreset[] = [
   { key: "learn", label: "Learn", rounds: 1, estimatedMinutes: 2, icon: GraduationCap, iconColor: "#ffffff" },
@@ -49,7 +43,6 @@ interface BlarfGameProps {
   splashBgURL?: string;
   gameLogoURL?: string;
   splashIconURL?: string;
-  /** When provided (via composeGame), the game calls this instead of rendering its own WinnerScreen. */
   gameData?: JMContent;
   onGameEnd?: (result: GameEndResult) => void;
 }
@@ -64,7 +57,7 @@ export default function BlarfGame({
   const router = useRouter();
   const { tertiary } = useGameColors();
   const userId = user?.uid ?? "";
-  const { state, updateFields } = useBlarfSession(sessionId, userId);
+  const { state } = useBlarfSession(sessionId, userId);
   const [showRoundIntro, setShowRoundIntro] = useState(false);
   const [lastRoundResult, setLastRoundResult] = useState<BlarfRoundScoreResult | null>(null);
   const [pickerLengthKey, setPickerLengthKey] = useState("standard");
@@ -72,12 +65,9 @@ export default function BlarfGame({
   const {
     session,
     bfPhase,
-    bfRounds,
     bfCurrentRound,
     bfTotalRounds,
     bfBlarfers,
-    bfAssignments,
-    bfBlarferLetter,
     bfVoiceStyle,
     bfRoleConfirmed,
     bfSpeakingOrder,
@@ -88,309 +78,96 @@ export default function BlarfGame({
     bfPackCoverURL,
     bfWinners,
     bfWinnerPoints,
-    bfLobbyPackId,
-    bfLobbyRounds,
-    bfRevealed,
+    bfReveal,
+    myRole,
     isHost,
   } = state;
 
-  const players = session?.players ?? [];
+  const players = useMemo(() => session?.players ?? [], [session?.players]);
   const playerUids = players.map((p) => p.uid);
   const kicked = session?.kickedUids?.includes(userId) ?? false;
-  const roundData = getCurrentRound(bfRounds, bfCurrentRound);
 
-  // ─── Derived values ────────────────────────────────────────
+  // Server-stamped deadline for the current phase; nudge the engine when it passes.
+  const phaseDeadlineAt =
+    ((session as unknown as Record<string, unknown>)?.["phaseDeadlineAt"] as number | undefined) ?? 0;
+  useEngineDeadline(sessionId, phaseDeadlineAt);
 
+  // ─── Derived ───────────────────────────────────────────────
   const confirmCount = Object.keys(bfRoleConfirmed).length;
-  const allConfirmed = confirmCount >= players.length && players.length > 0;
-
   const voteCount = Object.keys(bfVotes).length;
   const expectedVotes = players.length;
-  const allVotesIn = voteCount >= expectedVotes && expectedVotes > 0;
   const hasVoted = bfVotes[userId] != null;
 
-  const myWord = bfAssignments[userId] ?? "";
-  const isBlarfer = bfBlarfers.includes(userId);
+  const myWord = myRole?.word ?? "";
+  const isBlarfer = myRole?.isBlarfer ?? false;
+  const myLetter = myRole?.letter ?? "";
   const hasConfirmed = bfRoleConfirmed[userId] === true;
 
-  const isLastSpeaker = bfCurrentSpeaker >= bfSpeakingOrder.length - 1;
+  // Word map for the results reveal (from the engine-published bfReveal).
+  const revealAssignments = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const [uid, r] of Object.entries(bfReveal)) m[uid] = r.word;
+    return m;
+  }, [bfReveal]);
 
-  // Sync pickerLengthKey from lobby rounds
-  useEffect(() => {
-    if (bfLobbyRounds != null) {
-      const match = BF_LENGTH_PRESETS.find((p) => p.rounds === bfLobbyRounds);
-      if (match) setPickerLengthKey(match.key);
-    }
-  }, [bfLobbyRounds]);
-
-  // ─── Host: Auto-apply lobby pack ──────────────────────────
-
-  const [lobbyAutoApplyFailed, setLobbyAutoApplyFailed] = useState(false);
-
-  useEffect(() => {
-    if (bfPhase !== "pack-select") {
-      setLobbyAutoApplyFailed(false);
-      return;
-    }
-    if (!bfLobbyPackId || !isHost || lobbyAutoApplyFailed) return;
-
-    let cancelled = false;
-    (async () => {
-      const { getBlarfPack } = await import("@/lib/blarf-packs");
-      const pack = await getBlarfPack(bfLobbyPackId);
-      if (cancelled) return;
-      if (!pack?.rounds.length) {
-        setLobbyAutoApplyFailed(true);
-        return;
-      }
-      await handlePackSelected(pack);
-    })().catch(() => {
-      if (!cancelled) setLobbyAutoApplyFailed(true);
-    });
-
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHost, bfPhase, bfLobbyPackId, lobbyAutoApplyFailed]);
-
-  // ─── Host: Pack selected ──────────────────────────────────
-
+  // ─── Host: pick pack + length AFTER Start (server stores round data secretly) ──
   const handlePackSelected = useCallback(
     async (pack: BlarfPack) => {
       const preset = BF_LENGTH_PRESETS.find((p) => p.key === pickerLengthKey);
-      const lobbyOrPresetRounds = bfLobbyRounds ?? preset?.rounds ?? 4;
-      const count = Math.min(lobbyOrPresetRounds, pack.rounds.length);
-      const rounds = selectRounds(pack.rounds, count);
-      const scores = initScores(playerUids);
-      const { deleteField } = await import("firebase/firestore");
-      await updateFields({
-        bfPackId: pack.id,
-        bfPackName: pack.name,
-        bfPackCoverURL: pack.coverImageURL || null,
-        bfRounds: rounds,
-        bfCurrentRound: 1,
-        bfTotalRounds: count,
-        bfBlarfers: [],
-        bfAssignments: {},
-        bfBlarferLetter: "",
-        bfVoiceStyle: null,
-        bfRoleConfirmed: {},
-        bfSpeakingOrder: [],
-        bfCurrentSpeaker: 0,
-        bfVotes: {},
-        bfVoteDeadline: 0,
-        bfScores: scores,
-        bfRoundDeltas: {},
-        bfVoteCounts: {},
-        bfWinners: [],
-        bfWinnerPoints: 0,
-        bfPhase: "round-intro",
-        bfLobbyPackId: deleteField(),
-        bfLobbyPackName: deleteField(),
-        bfLobbyPackCoverURL: deleteField(),
-        bfLobbyRounds: deleteField(),
-      });
+      const rounds = preset?.rounds ?? 4;
+      const result = await selectPack(
+        sessionId,
+        { id: pack.id, name: pack.name, coverURL: pack.coverImageURL || null, rounds: pack.rounds },
+        rounds,
+      );
+      if (!result.ok) throw new Error(result.error);
     },
-    [playerUids, bfLobbyRounds, pickerLengthKey, updateFields],
+    [sessionId, pickerLengthKey],
   );
 
-  // ─── Round intro lifecycle ────────────────────────────────
+  // ─── Player: signal done speaking (engine advances; timer is the backstop) ──
+  const handleSpeakerDone = useCallback(async () => {
+    const result = await speakerDone(sessionId);
+    if (!result.ok) throw new Error(result.error);
+  }, [sessionId]);
 
-  const roundIntroFiredRef = useRef(false);
-
+  // ─── Round intro overlay ───────────────────────────────────
   useEffect(() => {
-    if (bfPhase === "round-intro") {
-      setShowRoundIntro(true);
-      roundIntroFiredRef.current = false;
-    }
+    if (bfPhase === "round-intro") setShowRoundIntro(true);
   }, [bfPhase]);
 
-  const handleRoundIntroComplete = useCallback(async () => {
-    if (!isHost || !roundData || roundIntroFiredRef.current) return;
-    roundIntroFiredRef.current = true;
-    const { blarfers, assignments, blarferLetter } = assignRoles(playerUids, roundData);
-    await updateFields({
-      bfBlarfers: blarfers,
-      bfAssignments: assignments,
-      bfBlarferLetter: blarferLetter,
-      bfVoiceStyle: roundData.voiceStyle ?? null,
-      bfRoleConfirmed: {},
-      bfPhase: "role-reveal",
-    });
-  }, [isHost, roundData, playerUids, updateFields]);
-
-  // ─── Host: All roles confirmed → speaking ─────────────────
-
+  // ─── Results: recompute the round breakdown for display (deterministic from
+  //     the now-public bfVotes + bfBlarfers). ──
   useEffect(() => {
-    if (!isHost || bfPhase !== "role-reveal") return;
-    if (!allConfirmed) return;
-    void advanceToSpeaking();
+    if (bfPhase === "results" && !lastRoundResult) {
+      setLastRoundResult(scoreBlarfRound(bfVotes, bfBlarfers, playerUids));
+    }
+    if (bfPhase !== "results") setLastRoundResult(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHost, bfPhase, allConfirmed]);
+  }, [bfPhase]);
 
-  const advanceToSpeaking = useCallback(async () => {
-    if (!isHost) return;
-    const order = shuffleArray(playerUids);
-    await updateFields({
-      bfSpeakingOrder: order,
-      bfCurrentSpeaker: 0,
-      bfPhase: "speaking",
-    });
-  }, [isHost, playerUids, updateFields]);
-
-  // ─── Host: Advance speaker ────────────────────────────────
-
-  const advanceSpeaker = useCallback(async () => {
-    if (!isHost) return;
-    if (isLastSpeaker) {
-      await updateFields({
-        bfVotes: {},
-        bfVoteDeadline: VOTE_TIMER_MS > 0 ? Date.now() + VOTE_TIMER_MS : 0,
-        bfPhase: "voting",
-      });
-    } else {
-      await updateFields({
-        bfCurrentSpeaker: bfCurrentSpeaker + 1,
-      });
-    }
-  }, [isHost, isLastSpeaker, bfCurrentSpeaker, updateFields]);
-
-  // ─── Host: All votes in or timer → score round ────────────
-
-  useEffect(() => {
-    if (!isHost || bfPhase !== "voting") return;
-    if (allVotesIn) {
-      void advanceToResults();
-      return;
-    }
-    if (bfVoteDeadline <= 0) return;
-    const ms = Math.max(0, bfVoteDeadline - Date.now());
-    const timer = setTimeout(() => { void advanceToResults(); }, ms);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHost, bfPhase, allVotesIn, bfVoteDeadline]);
-
-  const advanceToResults = useCallback(async () => {
-    if (!isHost) return;
-    const result = scoreBlarfRound(bfVotes, bfBlarfers, playerUids);
-    const newScores = applyScoreDeltas(bfScores, result.deltas);
-    setLastRoundResult(result);
-    await updateFields({
-      bfScores: newScores,
-      bfRoundDeltas: result.deltas,
-      bfVoteCounts: result.voteCounts,
-      bfRevealed: false,
-      bfPhase: "results",
-    });
-  }, [isHost, bfVotes, bfBlarfers, playerUids, bfScores, updateFields]);
-
-  // ─── Host: Continue from results ──────────────────────────
-
-  const advanceFromResults = useCallback(async () => {
-    if (!isHost) return;
-    if (bfCurrentRound < bfTotalRounds) {
-      await updateFields({
-        bfCurrentRound: bfCurrentRound + 1,
-        bfBlarfers: [],
-        bfAssignments: {},
-        bfBlarferLetter: "",
-        bfVoiceStyle: null,
-        bfRoleConfirmed: {},
-        bfSpeakingOrder: [],
-        bfCurrentSpeaker: 0,
-        bfVotes: {},
-        bfVoteDeadline: 0,
-        bfRoundDeltas: {},
-        bfVoteCounts: {},
-        bfPhase: "round-intro",
-      });
-      setLastRoundResult(null);
-      return;
-    }
-
-    const { winners, points } = determineWinners(bfScores);
-    await updateFields({
-      bfWinners: winners,
-      bfWinnerPoints: points,
-      bfPhase: "final",
-    });
-    PointsManager.award(Activity.PLAY_GAME);
-    if (isHost) PointsManager.award(Activity.HOST_GAME);
-    if (winners.includes(userId)) PointsManager.award(Activity.WIN_GAME);
-    recordGameStats(playerUids, winners, session?.ownerId ?? "");
-  }, [
-    isHost,
-    userId,
-    bfCurrentRound,
-    bfTotalRounds,
-    bfScores,
-    playerUids,
-    session?.ownerId,
-    updateFields,
-  ]);
-
-  // ─── Play Again ───────────────────────────────────────────
-
-  const handlePlayAgain = useCallback(async () => {
-    await updateFields({
-      bfPhase: "pack-select",
-      bfPackId: null,
-      bfPackName: null,
-      bfPackCoverURL: null,
-      bfRounds: [],
-      bfCurrentRound: 1,
-      bfTotalRounds: 1,
-      bfBlarfers: [],
-      bfAssignments: {},
-      bfBlarferLetter: "",
-      bfVoiceStyle: null,
-      bfRoleConfirmed: {},
-      bfSpeakingOrder: [],
-      bfCurrentSpeaker: 0,
-      bfVotes: {},
-      bfVoteDeadline: 0,
-      bfScores: {},
-      bfRoundDeltas: {},
-      bfVoteCounts: {},
-      bfWinners: [],
-      bfWinnerPoints: 0,
-      bfRevealed: false,
-      bfLobbyRounds: null,
-    });
-  }, [updateFields]);
-
-  // ─── Delegate to composeGame result screen when available ──
+  // ─── Delegate to composeGame result screen on finish + gamification ──
   const gameEndFiredRef = useRef(false);
   useEffect(() => {
     if (bfPhase === "final" && bfWinners.length > 0 && onGameEnd && !gameEndFiredRef.current) {
       gameEndFiredRef.current = true;
-      const players = session?.players ?? [];
+      const ps = session?.players ?? [];
       onGameEnd({
-        winners: players.filter((p) => bfWinners.includes(p.uid)),
+        winners: ps.filter((p) => bfWinners.includes(p.uid)),
         winnerPoints: bfWinnerPoints,
-        allPlayers: players,
+        allPlayers: ps,
         scores: bfScores,
       });
+      PointsManager.award(Activity.PLAY_GAME);
+      if (isHost) PointsManager.award(Activity.HOST_GAME);
+      if (bfWinners.includes(userId)) PointsManager.award(Activity.WIN_GAME);
+      if (isHost) recordGameStats(playerUids, bfWinners, session?.ownerId ?? "");
     }
-    if (bfPhase !== "final") {
-      gameEndFiredRef.current = false;
-    }
-  }, [bfPhase, bfWinners, bfWinnerPoints, bfScores, onGameEnd, session?.players]);
-
-  // ─── Non-host: compute round result locally ───────────────
-
-  useEffect(() => {
-    if (bfPhase === "results" && !lastRoundResult) {
-      const result = scoreBlarfRound(bfVotes, bfBlarfers, playerUids);
-      setLastRoundResult(result);
-    }
-    if (bfPhase !== "results") {
-      setLastRoundResult(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bfPhase]);
+    if (bfPhase !== "final") gameEndFiredRef.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires once on transition to final
+  }, [bfPhase, bfWinners, bfWinnerPoints, bfScores, onGameEnd, session?.players, isHost, userId]);
 
   // ─── Render ───────────────────────────────────────────────
-
   if (!session) return null;
 
   return (
@@ -403,8 +180,8 @@ export default function BlarfGame({
         />
       )}
 
-      {/* Pack select (host picks, others wait) */}
-      {bfPhase === "pack-select" && isHost && (lobbyAutoApplyFailed || !bfLobbyPackId) && (
+      {/* Pack + length: host configures here (after Start); others wait. */}
+      {bfPhase === "pack-select" && isHost && (
         <BlarfPackPicker
           onSelect={handlePackSelected}
           lengthPresets={BF_LENGTH_PRESETS}
@@ -427,31 +204,12 @@ export default function BlarfGame({
           />
         </div>
       )}
-      {bfPhase === "pack-select" && isHost && !lobbyAutoApplyFailed && bfLobbyPackId && (
-        <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 px-6">
-          {gameLogoURL && (
-            <div className="motion-reduce:animate-none animate-[float_3s_ease-in-out_infinite]">
-              <Image
-                src={gameLogoURL}
-                alt=""
-                width={400}
-                height={200}
-                className="h-36 w-auto max-w-[min(400px,85vw)] object-contain drop-shadow-lg select-none sm:h-48"
-              />
-            </div>
-          )}
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-white border-t-transparent drop-shadow-lg" />
-          <p className="text-sm font-bold uppercase tracking-wider text-white drop-shadow-lg">
-            Loading pack&hellip;
-          </p>
-        </div>
-      )}
 
       {/* Round intro overlay */}
       {showRoundIntro && (
         <RoundIntroScreen
           roundNumber={bfCurrentRound}
-          onComplete={handleRoundIntroComplete}
+          onComplete={() => {}}
           onAnimationDone={() => setShowRoundIntro(false)}
         />
       )}
@@ -463,7 +221,7 @@ export default function BlarfGame({
             sessionId={sessionId}
             isBlarfer={isBlarfer}
             word={myWord}
-            letter={bfBlarferLetter}
+            letter={myLetter}
             voiceStyle={bfVoiceStyle}
             hasConfirmed={hasConfirmed}
             confirmCount={confirmCount}
@@ -479,13 +237,14 @@ export default function BlarfGame({
             speakingOrder={bfSpeakingOrder}
             currentSpeakerIndex={bfCurrentSpeaker}
             currentUserId={userId}
-            assignments={bfAssignments}
-            blarfers={bfBlarfers}
+            players={players}
+            myWord={myWord}
+            amIBlarfer={isBlarfer}
+            letter={myLetter}
             voiceStyle={bfVoiceStyle}
-            letter={bfBlarferLetter}
-            isHost={isHost}
-            isLastSpeaker={isLastSpeaker}
-            onNextSpeaker={advanceSpeaker}
+            deadline={phaseDeadlineAt}
+            durationMs={BF_SPEAK_MS}
+            onDone={handleSpeakerDone}
           />
         </div>
       )}
@@ -499,6 +258,7 @@ export default function BlarfGame({
             currentUserId={userId}
             playerCount={players.length}
             deadline={bfVoteDeadline}
+            durationMs={BF_VOTE_MS}
             hasVoted={hasVoted}
             voteCount={voteCount}
             totalVoters={expectedVotes}
@@ -514,7 +274,7 @@ export default function BlarfGame({
           <BlarferRevealScreen
             players={players}
             blarfers={bfBlarfers}
-            assignments={bfAssignments}
+            assignments={revealAssignments}
             votes={bfVotes}
             roundDeltas={lastRoundResult.deltas}
             voteCounts={lastRoundResult.voteCounts}
@@ -523,10 +283,6 @@ export default function BlarfGame({
             scores={bfScores}
             roundNumber={bfCurrentRound}
             totalRounds={bfTotalRounds}
-            isHost={isHost}
-            revealed={bfRevealed}
-            onReveal={() => updateFields({ bfRevealed: true })}
-            onContinue={advanceFromResults}
           />
         </div>
       )}
@@ -541,7 +297,7 @@ export default function BlarfGame({
             allPlayers={players}
             scores={bfScores}
             isHost={isHost}
-            onPlayAgain={handlePlayAgain}
+            onPlayAgain={() => {}}
           />
         </div>
       )}

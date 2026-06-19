@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { JMAvatarView } from "@/JMKit";
 import { useGameColors } from "@/app/games/_gamecore";
@@ -17,11 +18,9 @@ interface BlarferRevealScreenProps {
   scores: Record<string, number>;
   roundNumber: number;
   totalRounds: number;
-  isHost: boolean;
-  revealed: boolean;
-  onReveal: () => void;
-  onContinue: () => void;
 }
+
+const REVEAL_DELAY_MS = 2800;
 
 export default function BlarferRevealScreen({
   players,
@@ -32,13 +31,17 @@ export default function BlarferRevealScreen({
   scores,
   roundNumber,
   totalRounds,
-  isHost,
-  revealed,
-  onReveal,
-  onContinue,
 }: BlarferRevealScreenProps) {
 
   const { primary, danger } = useGameColors();
+
+  // Auto-reveal: the flip-card plays for everyone, then results appear; the
+  // engine auto-advances to the next round (no host control).
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setRevealed(true), REVEAL_DELAY_MS);
+    return () => clearTimeout(t);
+  }, []);
 
   // Players sorted by score descending
   const sortedPlayers = [...players].sort(
@@ -66,76 +69,33 @@ export default function BlarferRevealScreen({
       </p>
 
       {!revealed ? (
-        <>
-          {isHost ? (
-            <div className="flex w-full max-w-md flex-col items-center gap-5 py-4">
-              <p className="text-center text-xl font-black text-white">
-                Have {blarferLabel} reveal {blarfers.length === 1 ? "themself" : "themselves"}!
-              </p>
-              <div className="bf-flip-card w-full max-w-[300px]">
-                <div className="bf-flip-card-inner">
-                  <div className="bf-flip-card-front">
-                    <Image
-                      src="/images/games/blarf/Blarf-Vote.png"
-                      alt=""
-                      width={300}
-                      height={300}
-                      className="w-full object-contain drop-shadow-lg"
-                    />
-                  </div>
-                  <div className="bf-flip-card-back">
-                    <Image
-                      src="/images/games/blarf/Blarf-Reveal.png"
-                      alt="Reveal the Blarfer"
-                      width={300}
-                      height={300}
-                      className="w-full object-contain drop-shadow-lg"
-                    />
-                  </div>
-                </div>
+        <div className="flex w-full max-w-md flex-col items-center gap-5 py-4">
+          <p className="text-center text-xl font-black text-white">
+            Revealing {blarferLabel}&hellip;
+          </p>
+          <div className="bf-flip-card w-full max-w-[300px]">
+            <div className="bf-flip-card-inner">
+              <div className="bf-flip-card-front">
+                <Image
+                  src="/images/games/blarf/Blarf-Vote.png"
+                  alt=""
+                  width={300}
+                  height={300}
+                  className="w-full object-contain drop-shadow-lg"
+                />
               </div>
-              <p className="text-center text-sm font-bold text-white">
-                Let the group react, then show the results.
-              </p>
-              <button
-                onClick={onReveal}
-                className="w-full rounded-xl py-4 text-lg font-black uppercase tracking-wider transition-all hover:scale-[1.02] active:scale-95"
-                style={{
-                  backgroundColor: danger,
-                  color: "#ffffff",
-                  boxShadow: `0 10px 15px -3px ${danger}40`,
-                }}
-              >
-                Show Results
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center py-8">
-              <div className="bf-flip-card w-full max-w-[300px]">
-                <div className="bf-flip-card-inner">
-                  <div className="bf-flip-card-front">
-                    <Image
-                      src="/images/games/blarf/Blarf-Vote.png"
-                      alt=""
-                      width={300}
-                      height={300}
-                      className="w-full object-contain drop-shadow-lg"
-                    />
-                  </div>
-                  <div className="bf-flip-card-back">
-                    <Image
-                      src="/images/games/blarf/Blarf-Reveal.png"
-                      alt="Reveal the Blarfer"
-                      width={300}
-                      height={300}
-                      className="w-full object-contain drop-shadow-lg"
-                    />
-                  </div>
-                </div>
+              <div className="bf-flip-card-back">
+                <Image
+                  src="/images/games/blarf/Blarf-Reveal.png"
+                  alt="Reveal the Blarfer"
+                  width={300}
+                  height={300}
+                  className="w-full object-contain drop-shadow-lg"
+                />
               </div>
             </div>
-          )}
-        </>
+          </div>
+        </div>
       ) : (
         <>
           {/* Blarfer cards */}
@@ -229,16 +189,10 @@ export default function BlarferRevealScreen({
             </div>
           </div>
 
-          {/* Host continue */}
-          {isHost && (
-            <button
-              onClick={onContinue}
-              className="mt-2 w-full max-w-md rounded-xl py-4 text-lg font-black uppercase tracking-wider text-black transition-all hover:scale-[1.02] active:scale-95"
-              style={{ backgroundColor: primary }}
-            >
-              {roundNumber < totalRounds ? "Next Round" : "See Winner"}
-            </button>
-          )}
+          {/* Server-authoritative: the engine auto-advances after the hold. */}
+          <p className="mt-2 text-center text-sm font-semibold text-white">
+            {roundNumber < totalRounds ? "Next round starting" : "Final results"}&hellip;
+          </p>
         </>
       )}
     </div>

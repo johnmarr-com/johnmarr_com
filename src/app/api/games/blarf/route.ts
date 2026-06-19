@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "@/lib/firebase-admin";
 import { getAdminFirestore } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { getVotesPerPlayer } from "@/app/games/blarf/blarfTypes";
+import { getVotesPerPlayer, selectRounds, initScores } from "@/app/games/blarf/blarfTypes";
+import type { BlarfRoundData } from "@/app/games/blarf/blarfTypes";
 
 // ─── Per-UID rate limiting ──────────────────────────────────
 
@@ -61,6 +62,14 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { action } = body as { action: string };
 
+    if (action === "select-pack") {
+      return handleSelectPack(body, uid);
+    }
+
+    if (action === "speaker-done") {
+      return handleSpeakerDone(body, uid);
+    }
+
     if (action === "confirm-role") {
       return handleConfirmRole(body, uid);
     }
@@ -77,6 +86,115 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     );
   }
+}
+
+// ─── SELECT PACK (host-only setup) ─────────────────────────
+
+const MAX_ROUNDS_IN_PACK = 500;
+
+interface SelectPackBody {
+  action: "select-pack";
+  sessionId: string;
+  packId: string;
+  packName?: string;
+  packCoverURL?: string | null;
+  rounds: BlarfRoundData[];
+  roundCount: number;
+}
+
+/**
+ * Host picks the pack + round count. The round data (letters + word pools) is
+ * SECRET — written to `blarfSecret/{sid}` (server-only) so it can't leak; only
+ * public meta (pack name/cover, total rounds, initial scores) goes on the
+ * session doc. NOT bfPhase: the engine flips pack-select → round-intro.
+ */
+async function handleSelectPack(body: unknown, uid: string): Promise<NextResponse> {
+  const { sessionId, packId, packName, packCoverURL, rounds, roundCount } =
+    body as SelectPackBody;
+  if (
+    !sessionId ||
+    typeof packId !== "string" ||
+    !Array.isArray(rounds) ||
+    rounds.length === 0 ||
+    rounds.length > MAX_ROUNDS_IN_PACK ||
+    typeof roundCount !== "number"
+  ) {
+    return NextResponse.json({ error: "Invalid pack payload" }, { status: 400 });
+  }
+
+  const db = getAdminFirestore();
+  const sessionRef = db.doc(`gameSessions/${sessionId}`);
+  const sessionSnap = await sessionRef.get();
+  if (!sessionSnap.exists) {
+    return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  }
+  const data = sessionSnap.data()!;
+  if (data["ownerId"] !== uid) {
+    return NextResponse.json({ error: "Only the host can select the pack" }, { status: 403 });
+  }
+  if (((data["bfPhase"] as string) ?? "pack-select") !== "pack-select") {
+    return NextResponse.json({ error: "Pack already selected" }, { status: 409 });
+  }
+
+  const playerUids = (data["playerUids"] as string[]) ?? [];
+  const count = Math.max(1, Math.min(Math.floor(roundCount), rounds.length));
+  const chosen = selectRounds(rounds, count);
+
+  // Secret round data (server-only).
+  await db.doc(`blarfSecret/${sessionId}`).set({ rounds: chosen });
+  // Public meta only.
+  await sessionRef.update({
+    bfPackId: packId,
+    bfPackName: packName ?? null,
+    bfPackCoverURL: packCoverURL ?? null,
+    bfTotalRounds: count,
+    bfCurrentRound: 1,
+    bfScores: initScores(playerUids),
+    bfWinners: [],
+    bfWinnerPoints: 0,
+    bfLobbyPackId: FieldValue.delete(),
+    bfLobbyPackName: FieldValue.delete(),
+    bfLobbyPackCoverURL: FieldValue.delete(),
+    bfLobbyRounds: FieldValue.delete(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  return NextResponse.json({ ok: true });
+}
+
+// ─── SPEAKER DONE ──────────────────────────────────────────
+
+interface SpeakerDoneBody {
+  action: "speaker-done";
+  sessionId: string;
+}
+
+/** The CURRENT speaker signals they're done — engine advances to the next
+ *  speaker (or the timer does it if they freeze). */
+async function handleSpeakerDone(body: unknown, uid: string): Promise<NextResponse> {
+  const { sessionId } = body as SpeakerDoneBody;
+  if (!sessionId) {
+    return NextResponse.json({ error: "Missing sessionId" }, { status: 400 });
+  }
+  const db = getAdminFirestore();
+  const sessionRef = db.doc(`gameSessions/${sessionId}`);
+  const snap = await sessionRef.get();
+  if (!snap.exists) {
+    return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  }
+  const data = snap.data()!;
+  if (data["bfPhase"] !== "speaking") {
+    return NextResponse.json({ error: "Not in speaking phase" }, { status: 409 });
+  }
+  const order = (data["bfSpeakingOrder"] as string[]) ?? [];
+  const idx = (data["bfCurrentSpeaker"] as number) ?? 0;
+  if (order[idx] !== uid) {
+    return NextResponse.json({ error: "Not your turn to speak" }, { status: 409 });
+  }
+  await sessionRef.update({
+    [`inbox.speakerDone.${uid}`]: { at: Date.now() },
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  return NextResponse.json({ ok: true });
 }
 
 // ─── CONFIRM ROLE ──────────────────────────────────────────

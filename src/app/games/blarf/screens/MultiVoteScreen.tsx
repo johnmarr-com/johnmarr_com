@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import Image from "next/image";
 import { JMAvatarView } from "@/JMKit";
-import { useGameColors } from "@/app/games/_gamecore";
+import { useGameColors, PhaseTimerBar } from "@/app/games/_gamecore";
 import { submitVotes } from "../blarfApi";
 import { getVotesPerPlayer } from "../blarfTypes";
 import type { GameSessionPlayer } from "@/lib/game-sessions";
@@ -14,6 +14,7 @@ interface MultiVoteScreenProps {
   currentUserId: string;
   playerCount: number;
   deadline: number;
+  durationMs: number;
   hasVoted: boolean;
   voteCount: number;
   totalVoters: number;
@@ -27,6 +28,7 @@ export default function MultiVoteScreen({
   currentUserId,
   playerCount,
   deadline,
+  durationMs,
   hasVoted,
   voteCount,
   totalVoters,
@@ -37,22 +39,9 @@ export default function MultiVoteScreen({
   const totalVotesAllowed = getVotesPerPlayer(playerCount);
   const [allocations, setAllocations] = useState<Record<string, number>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(0);
 
   const votesUsed = Object.values(allocations).reduce((a, b) => a + b, 0);
   const votesRemaining = totalVotesAllowed - votesUsed;
-
-  // Countdown timer
-  useEffect(() => {
-    if (deadline <= 0) return;
-    const tick = () => {
-      const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-      setSecondsLeft(left);
-    };
-    tick();
-    const id = setInterval(tick, 500);
-    return () => clearInterval(id);
-  }, [deadline]);
 
   const addVote = useCallback((uid: string) => {
     if (uid === currentUserId || votesRemaining <= 0) return;
@@ -88,9 +77,6 @@ export default function MultiVoteScreen({
       setSubmitting(false);
     }
   };
-
-  const timerColor =
-    secondsLeft <= 10 ? "text-red-400" : secondsLeft <= 20 ? "text-amber-400" : "text-white/50";
 
   if (hasVoted) {
     return (
@@ -128,11 +114,9 @@ export default function MultiVoteScreen({
       </p>
 
       {/* Timer */}
-      {deadline > 0 && (
-        <p className={`text-center text-sm font-bold tabular-nums ${timerColor}`}>
-          {secondsLeft}s to vote
-        </p>
-      )}
+      <div className="w-full max-w-md">
+        <PhaseTimerBar deadline={deadline} durationMs={durationMs} />
+      </div>
       <div className="rounded-full px-6 py-2.5" style={{ backgroundColor: votesRemaining > 0 ? danger : secondary }}>
         <p className="text-lg font-black text-white">
           {votesRemaining > 0

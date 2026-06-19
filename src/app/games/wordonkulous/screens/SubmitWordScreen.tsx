@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
-import { useGameColors } from "@/app/games/_gamecore";
+import { useGameColors, PhaseTimerBar } from "@/app/games/_gamecore";
 import DefinitionCard from "./DefinitionCard";
-import PhaseTimerBar from "./PhaseTimerBar";
 
 interface SubmitWordScreenProps {
   definition: string;

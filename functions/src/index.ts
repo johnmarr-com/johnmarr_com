@@ -14,6 +14,7 @@ import "./roundEngine/hml.spec";
 import "./roundEngine/rps.spec";
 import "./games/boaty/boaty.spec";
 import "./games/wordonkulous/wordonkulous.spec";
+import "./games/blarf/blarf.spec";
 
 initializeApp();
 

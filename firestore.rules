@@ -642,6 +642,20 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Blarf — per-player secret role for the current round. A player may read
+    // their OWN role (word / Blarfer status); others' are NEVER readable, so the
+    // Blarfer list can't be peeked before the reveal. Admin-SDK writes only.
+    match /blarfRoles/{sessionId}/roles/{uid} {
+      allow read: if isAuthenticated() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // Blarf — the pack's per-round data (letters + word pools), server-only.
+    // Never client-readable; written by the Blarf API route, read by gameEngine.
+    match /blarfSecret/{sessionId} {
+      allow read, write: if false;
+    }
+
     // Legacy sevyn collections — read-only for migration (remove after migration)
     match /sevynHeists/{heistId} {
       allow read: if true;

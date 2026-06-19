@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useGameColors } from "@/app/games/_gamecore";
+import { useGameColors, PhaseTimerBar } from "@/app/games/_gamecore";
 import DefinitionCard from "./DefinitionCard";
-import PhaseTimerBar from "./PhaseTimerBar";
 
 interface WordEntry {
   authorId: string;
