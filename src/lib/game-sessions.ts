@@ -92,11 +92,6 @@ export interface GameSession {
   resolverKey?: string;
   /** Monotonic sync counter; incremented by the server on each round resolution. */
   seq?: number;
-  /** When set, the session is driven by the generic server-authority engine
-   *  (`gameEngine` Cloud Function) under this key. */
-  engineKey?: string;
-  /** Namespaced client→server event inbox: channel → uid → event. */
-  inbox?: Record<string, Record<string, Record<string, unknown>>>;
 
   replayCount?: number;
   retentionDays?: number;
@@ -188,8 +183,6 @@ export interface CreateSessionInput {
   engineSlug?: string;
   /** Opt in to server-authoritative round resolution; selects the server resolver. */
   resolverKey?: string;
-  /** Opt in to the generic server-authority engine; selects the game reducer. */
-  engineKey?: string;
 }
 
 /**
@@ -228,7 +221,6 @@ export async function createGameSession(
       ? { engineSlug: input.engineSlug }
       : {}),
     ...(input.resolverKey ? { resolverKey: input.resolverKey } : {}),
-    ...(input.engineKey ? { engineKey: input.engineKey } : {}),
     gameLogoURL: input.gameLogoURL,
     inviteCode,
     maxPlayers: input.maxPlayers,
@@ -514,7 +506,6 @@ export async function startGame(
     status: "playing",
     currentRound: 0,
     pendingMoves: {},
-    inbox: {},
     rounds: [],
     transcript: [],
     playerSides,
@@ -545,29 +536,6 @@ export async function submitMove(
 
   await updateDoc(doc(db, "gameSessions", sessionId), {
     [`pendingMoves.${uid}`]: move,
-  });
-}
-
-/**
- * Submit a player event into the server-authority inbox.
- * Writes only this player's slot for the channel; the `gameEngine` Cloud
- * Function consumes it. The `eventId` makes a retried write idempotent (it
- * overwrites the same slot rather than enqueueing a duplicate).
- */
-export async function submitEvent(
-  sessionId: string,
-  uid: string,
-  channel: string,
-  payload: Record<string, unknown>,
-): Promise<void> {
-  const { doc, updateDoc } = await import("firebase/firestore");
-  const db = await getDb();
-  const eventId =
-    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  await updateDoc(doc(db, "gameSessions", sessionId), {
-    [`inbox.${channel}.${uid}`]: { eventId, ...payload },
   });
 }
 

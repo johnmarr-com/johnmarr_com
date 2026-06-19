@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { GameSession } from "@/lib/game-sessions";
+import { updateSessionFields } from "@/app/games/_gamecore";
 import type {
   BoatyPhase,
   BoatyState,
@@ -10,24 +11,16 @@ import type {
   LastAttack,
 } from "./boatyTypes";
 
-/**
- * Server-authoritative Boaty session hook.
- *
- * Reads the public game state from the session doc and the player's OWN secret
- * board from `boatyBoards/{sessionId}/boards/{userId}` (owner-readable, so it
- * survives a reconnect). All game writes go through the Boaty API route — the
- * client never writes game state directly.
- */
 export function useBoatySession(
   sessionId: string,
   userId: string,
-): { state: BoatyState } {
+): {
+  state: BoatyState;
+  updateFields: (fields: Record<string, unknown>) => Promise<void>;
+} {
   const [session, setSession] = useState<GameSession | null>(null);
-  const [myBoard, setMyBoard] = useState<PlayerBoard | null>(null);
-  const sessionUnsubRef = useRef<(() => void) | null>(null);
-  const boardUnsubRef = useRef<(() => void) | null>(null);
+  const unsubRef = useRef<(() => void) | null>(null);
 
-  // Subscribe to the public session doc.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -35,56 +28,39 @@ export function useBoatySession(
       const unsub = await subscribeToSession(sessionId, (s) => {
         if (!cancelled) setSession(s);
       });
-      if (cancelled) unsub();
-      else sessionUnsubRef.current = unsub;
+      if (cancelled) {
+        unsub();
+      } else {
+        unsubRef.current = unsub;
+      }
     })();
     return () => {
       cancelled = true;
-      sessionUnsubRef.current?.();
-      sessionUnsubRef.current = null;
+      unsubRef.current?.();
     };
   }, [sessionId]);
 
-  // Subscribe to the player's own secret board doc (owner-readable).
-  useEffect(() => {
-    if (!sessionId || !userId) return;
-    let cancelled = false;
-    (async () => {
-      const { initializeFirebase } = await import("@/lib/firebase");
-      const { getFirestore, doc, onSnapshot } = await import("firebase/firestore");
-      const { app } = await initializeFirebase();
-      const db = getFirestore(app);
-      const ref = doc(db, "boatyBoards", sessionId, "boards", userId);
-      const unsub = onSnapshot(
-        ref,
-        (snap) => {
-          if (!cancelled) setMyBoard(snap.exists() ? (snap.data() as PlayerBoard) : null);
-        },
-        () => {}, // pre-submit: no doc / no read — ignore
-      );
-      if (cancelled) unsub();
-      else boardUnsubRef.current = unsub;
-    })();
-    return () => {
-      cancelled = true;
-      boardUnsubRef.current?.();
-      boardUnsubRef.current = null;
-    };
-  }, [sessionId, userId]);
+  const updateFields = useCallback(
+    async (fields: Record<string, unknown>) => {
+      await updateSessionFields(sessionId, fields);
+    },
+    [sessionId],
+  );
 
   const data = session as (GameSession & Record<string, unknown>) | null;
+  const isHost = session?.ownerId === userId;
 
   const state: BoatyState = {
     session,
     btPhase: (data?.["btPhase"] as BoatyPhase) ?? "setup",
-    myBoard,
+    btBoards: (data?.["btBoards"] as Record<string, PlayerBoard>) ?? {},
     btReady: (data?.["btReady"] as Record<string, boolean>) ?? {},
     btCurrentTurn: (data?.["btCurrentTurn"] as string) ?? null,
     btAttacks: (data?.["btAttacks"] as Record<string, AttackRecord>) ?? {},
     btLastAttack: (data?.["btLastAttack"] as LastAttack) ?? null,
     btWinner: (data?.["btWinner"] as string) ?? null,
-    isHost: session?.ownerId === userId,
+    isHost,
   };
 
-  return { state };
+  return { state, updateFields };
 }
