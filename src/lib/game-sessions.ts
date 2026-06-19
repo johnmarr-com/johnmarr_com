@@ -500,13 +500,13 @@ export async function subscribeToSession(
   sessionId: string,
   callback: (session: GameSession | null) => void,
 ): Promise<() => void> {
-  const { doc, onSnapshot, getDocFromServer } = await import("firebase/firestore");
+  const { doc, onSnapshot } = await import("firebase/firestore");
   const { kickFirestoreConnection } = await import("./firebase");
   const db = await getDb();
   const ref = doc(db, "gameSessions", sessionId);
 
-  const HEARTBEAT_MS = 4000;
-  const PROBE_TIMEOUT_MS = 3000;
+  const HEARTBEAT_MS = 3000;
+  const PROBE_TIMEOUT_MS = 4000;
   let cancelled = false;
   let appliedSeq = 0; // highest seq delivered to the consumer
   let lastStatus: GameSession["status"] | null = null;
@@ -538,43 +538,57 @@ export async function subscribeToSession(
   };
   subscribe();
 
-  // Heartbeat watchdog. A forced SERVER read disambiguates the two quiet
-  // states the push channel can't: "legitimately idle" (opponent is thinking —
-  // server seq == ours) vs. "my channel is wedged" (I'm missing updates). On a
-  // healthy link the read returns fast; if it HANGS past the probe timeout,
-  // that *is* the wedged-stream signature (the read rides the same dead
-  // transport) → force the connection to rebuild instead of waiting out the
-  // SDK's ~30s internal recovery.
+  // Auth header for the HTTPS poll fallback (token is SDK-cached).
+  const authHeader = async (): Promise<Record<string, string>> => {
+    try {
+      const { getAuth } = await import("./auth");
+      const auth = await getAuth();
+      const u = auth.currentUser;
+      if (!u) return {};
+      return { Authorization: `Bearer ${await u.getIdToken()}` };
+    } catch {
+      return {};
+    }
+  };
+
+  // Heartbeat watchdog. Polls the session over PLAIN HTTPS — a transport that
+  // (unlike the Firestore Watch stream) iOS Safari can't wedge on
+  // backgrounding/idle. Renders from whichever channel has the newest seq, so
+  // the game keeps advancing even when the realtime listener is dead, and
+  // best-effort kicks the SDK to revive its fast path. This is the hard
+  // guarantee against the "frozen for 30+ seconds" stall.
   let probing = false;
   const tick = async (): Promise<void> => {
     if (cancelled || lastStatus === "finished" || probing) return;
     probing = true;
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), PROBE_TIMEOUT_MS);
     try {
-      const probe = getDocFromServer(ref);
-      const timeout = new Promise<never>((_, rej) =>
-        setTimeout(() => rej(new Error("probe-timeout")), PROBE_TIMEOUT_MS),
+      const headers = await authHeader();
+      if (!headers["Authorization"] || cancelled) return;
+      const res = await fetch(
+        `/api/games/session-state?sessionId=${encodeURIComponent(sessionId)}`,
+        { headers, cache: "no-store", signal: ctrl.signal },
       );
-      const snap = await Promise.race([probe, timeout]);
-      if (cancelled) return;
-      if (!snap.exists()) {
+      if (cancelled || !res.ok) return;
+      const body = (await res.json()) as { session: (GameSession & { seq?: number }) | null };
+      const data = body.session;
+      if (!data) {
         apply(null, 0);
         return;
       }
-      const data = { id: snap.id, ...(snap.data() as Omit<GameSession, "id">) };
       const seq = data.seq ?? 0;
       if (seq > appliedSeq) {
-        // The live listener missed this update though the link is healthy —
-        // apply it and re-establish the listener for subsequent advances.
+        // Realtime listener stalled/missed it — render from the poll so play
+        // continues, and nudge the SDK to rebuild its (likely wedged) stream.
         apply(data, seq);
-        unsub();
-        subscribe();
+        void kickFirestoreConnection();
       }
     } catch {
-      // Probe timed out or errored → the realtime transport is likely wedged.
-      // Force a fresh connection; the re-established listener flushes current
-      // state in ~1s. (No-op/harmless if we were merely briefly offline.)
+      // Timeout / network blip — try to revive the stream; next beat retries.
       void kickFirestoreConnection();
     } finally {
+      clearTimeout(to);
       probing = false;
     }
   };

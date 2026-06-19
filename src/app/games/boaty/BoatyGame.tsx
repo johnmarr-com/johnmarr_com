@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/AuthProvider";
 import {
   GameGamertagBadge,
@@ -18,8 +18,14 @@ import type { RaftDef, Position, AttackRecord } from "./boatyTypes";
 import type { GameEndResult } from "@/app/games/_gamecore/registry/types";
 import SetupScreen from "./screens/SetupScreen";
 import PlayScreen from "./screens/PlayScreen";
+import { BOATY_ATTACK_ANIM_MS } from "./boatyLogic";
 
 const EMPTY_ATTACKS: AttackRecord = { hits: [], misses: [], gatorHits: [] };
+
+// On a win, btPhase→"finished" arrives in the SAME snapshot as the winning
+// attack, so we hold the result screen this long to let PlayScreen play the
+// kill-shot animation + sink taunt first (anim + ~2s taunt tail).
+const WIN_SCREEN_HOLD_MS = BOATY_ATTACK_ANIM_MS + 2000;
 
 function cellLabel(p: { row: number; col: number }): string {
   return `${String.fromCharCode(65 + p.col)}${p.row + 1}`;
@@ -112,10 +118,24 @@ export default function BoatyGame({ sessionId, gameData, onGameEnd }: BoatyGameP
     [postBoaty, opponentUid],
   );
 
+  // Hold the win screen until the winning kill-shot animation + sink taunt have
+  // played out on PlayScreen (btPhase→"finished" lands in the same snapshot as
+  // the final attack, so without this the result screen replaces the animation
+  // instantly — the "went straight to the win screen" bug).
+  const [winReady, setWinReady] = useState(false);
+  useEffect(() => {
+    if (btPhase !== "finished" || !btWinner) {
+      setWinReady(false);
+      return;
+    }
+    const t = setTimeout(() => setWinReady(true), WIN_SCREEN_HOLD_MS);
+    return () => clearTimeout(t);
+  }, [btPhase, btWinner]);
+
   // ─── Delegate to composeGame result screen on finish ──────────
   const gameEndFiredRef = useRef(false);
   useEffect(() => {
-    if (btPhase === "finished" && btWinner && onGameEnd && !gameEndFiredRef.current) {
+    if (winReady && btWinner && onGameEnd && !gameEndFiredRef.current) {
       gameEndFiredRef.current = true;
       const winner = players.find((p) => p.uid === btWinner);
       const loser = players.find((p) => p.uid !== btWinner);
@@ -162,8 +182,8 @@ export default function BoatyGame({ sessionId, gameData, onGameEnd }: BoatyGameP
       }
     }
     if (btPhase !== "finished") gameEndFiredRef.current = false;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires once on transition to finished
-  }, [btPhase, btWinner, btAttacks, onGameEnd, players, isHost, userId, playerUids, session?.ownerId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires once when winReady latches
+  }, [winReady, btPhase, btWinner, btAttacks, onGameEnd, players, isHost, userId, playerUids, session?.ownerId]);
 
   // ─── Render ────────────────────────────────────────────────
   if (!session) return null;
@@ -206,7 +226,9 @@ export default function BoatyGame({ sessionId, gameData, onGameEnd }: BoatyGameP
         </div>
       )}
 
-      {btPhase === "play" && btCurrentTurn && myBoard && (
+      {/* Keep PlayScreen mounted through the win hold so the kill-shot animation
+          + sink taunt play before the result screen takes over. */}
+      {(btPhase === "play" || (btPhase === "finished" && !winReady)) && btCurrentTurn && myBoard && (
         <div className="relative z-10 flex min-h-0 flex-1 flex-col">
           {gameData.splashBgURL && (
             <div
