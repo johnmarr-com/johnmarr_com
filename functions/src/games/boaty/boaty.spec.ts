@@ -17,6 +17,7 @@
  */
 
 import { FieldValue } from "firebase-admin/firestore";
+import { logger } from "firebase-functions";
 import { registerEngine } from "../../engine/registry";
 import type { EngineSession, Reducer, StateUpdate, SessionPlayer } from "../../engine/types";
 import type { AttackRecord, AttackResult, PlayerBoard } from "./types";
@@ -71,7 +72,10 @@ function resolveOne(
   consumeInbox: boolean,
 ): StateUpdate | null {
   const targetBoard = boards[targetUid];
-  if (!targetBoard) return null; // board not yet written — wait
+  if (!targetBoard) {
+    logger.warn(`[boaty] ${sessionId}: cannot resolve — secret board missing for target ${targetUid}`);
+    return null; // board not yet written — wait
+  }
 
   const result: AttackResult = resolveAttack(row, col, targetBoard);
   const prev = (s.btAttacks as Record<string, AttackRecord> | undefined)?.[targetUid];
@@ -115,6 +119,10 @@ function resolveOne(
   };
   if (consumeInbox) fields[`inbox.attacks.${attackerUid}`] = FieldValue.delete();
 
+  logger.info(
+    `[boaty] ${sessionId}: ${attackerUid} → (${row},${col}) = ${result}` +
+      (won ? " — WIN" : ` — turn→${nextTurn}`),
+  );
   return { fields, docWrites, gameOver: won, ...(won ? { winner: attackerUid } : {}) };
 }
 

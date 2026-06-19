@@ -274,6 +274,31 @@ export default function PlayScreen({
     return () => clearTimeout(t);
   }, [displayTurn, currentUserId]);
 
+  // Robustness: the server advances the turn the instant an attack resolves; the
+  // normal path syncs displayTurn when the attack animation finishes (t2). But if
+  // that animation never fires (a missed/coalesced Firestore snapshot on iOS),
+  // displayTurn would stay stale and the turn would look "stuck." This fallback
+  // syncs displayTurn to the server's turn once we're idle (no animation running),
+  // so the turn can never wedge.
+  useEffect(() => {
+    if (displayTurn === currentTurn || molotov) return;
+    const t = setTimeout(() => setDisplayTurn(currentTurnRef.current), 1500);
+    return () => clearTimeout(t);
+  }, [displayTurn, currentTurn, molotov]);
+
+  // Robustness: never leave the player locked out of tapping. `attacking` is set
+  // on tap and cleared when the attack animation completes; if the resolution is
+  // lost, release the lock after a grace period so they can retry (a duplicate
+  // submit is rejected server-side, so this is safe).
+  useEffect(() => {
+    if (!attacking) return;
+    const t = setTimeout(() => {
+      setAttacking(false);
+      setPendingCell(null);
+    }, 12000);
+    return () => clearTimeout(t);
+  }, [attacking]);
+
   // Gator popup: hold ~4s, then fade out over 500ms, then unmount
   useEffect(() => {
     if (!gatorHitPopup) return;

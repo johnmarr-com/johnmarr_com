@@ -191,6 +191,18 @@ export default function BoatyGame({ sessionId, gameData, onGameEnd }: BoatyGameP
         </div>
       )}
 
+      {/* Play phase but the secret board / turn is still loading (e.g. right
+          after a refresh, the owner-readable board doc is in flight). Show a
+          spinner instead of a blank dark screen. */}
+      {btPhase === "play" && (!btCurrentTurn || !myBoard) && (
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6">
+          <div className="h-10 w-10 animate-spin rounded-full border-3" style={{ borderColor: primary, borderTopColor: "transparent" }} />
+          <p className="text-center text-lg font-bold uppercase tracking-wider text-white/60">
+            Loading game&hellip;
+          </p>
+        </div>
+      )}
+
       {btPhase === "play" && btCurrentTurn && myBoard && (
         <div className="relative z-10 flex min-h-0 flex-1 flex-col">
           {gameData.splashBgURL && (

@@ -18,6 +18,7 @@
 
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { logger } from "firebase-functions";
 import { getReducer } from "./registry";
 import { runEffects } from "./effects";
 import type { EngineSession, EngineEffect } from "./types";
@@ -42,42 +43,59 @@ export const gameEngine = onDocumentUpdated(
 
     let pendingEffects: EngineEffect[] = [];
 
-    await db.runTransaction(async (txn) => {
-      const snap = await txn.get(ref);
-      if (!snap.exists) return;
-      const s = snap.data() as EngineSession;
+    try {
+      await db.runTransaction(async (txn) => {
+        const snap = await txn.get(ref);
+        if (!snap.exists) return;
+        const s = snap.data() as EngineSession;
 
-      // Re-validate authoritatively inside the transaction.
-      if ((s.engineKey ?? s.resolverKey) !== key || s.status !== "playing") return;
-      if (!reducer.shouldRun(s)) return;
+        // Re-validate authoritatively inside the transaction.
+        if ((s.engineKey ?? s.resolverKey) !== key || s.status !== "playing") return;
+        if (!reducer.shouldRun(s)) return;
 
-      // Read declared secret docs (e.g. hidden boards) within the same txn.
-      const secrets: Record<string, Record<string, unknown> | null> = {};
-      for (const path of secretPaths) {
-        const ss = await txn.get(db.doc(path));
-        secrets[path] = ss.exists ? (ss.data() as Record<string, unknown>) : null;
-      }
+        // Read declared secret docs (e.g. hidden boards) within the same txn.
+        const secrets: Record<string, Record<string, unknown> | null> = {};
+        for (const path of secretPaths) {
+          const ss = await txn.get(db.doc(path));
+          secrets[path] = ss.exists ? (ss.data() as Record<string, unknown>) : null;
+        }
 
-      const out = reducer.reduce({ session: s, sessionId, now: Date.now(), secrets });
-      if (!out) return; // nothing to advance — also breaks the self-write loop
+        const out = reducer.reduce({ session: s, sessionId, now: Date.now(), secrets });
+        if (!out) {
+          // shouldRun passed but reduce found nothing to do — surfaced so a
+          // "stuck" game (e.g. a missing secret board) is visible in the logs.
+          logger.info(`[engine] ${key} ${sessionId}: no-op (reduce returned null)`);
+          return;
+        }
 
-      const fields: Record<string, unknown> = {
-        ...out.fields,
-        seq: FieldValue.increment(1),
-        updatedAt: FieldValue.serverTimestamp(),
-      };
-      if (out.gameOver) {
-        fields["status"] = "finished";
-        fields["winner"] = out.winner ?? null;
-      }
-      txn.update(ref, fields);
+        const fields: Record<string, unknown> = {
+          ...out.fields,
+          seq: FieldValue.increment(1),
+          updatedAt: FieldValue.serverTimestamp(),
+        };
+        if (out.gameOver) {
+          fields["status"] = "finished";
+          fields["winner"] = out.winner ?? null;
+        }
+        logger.info(`[engine] ${key} ${sessionId}: advance`, {
+          fields: Object.keys(out.fields),
+          gameOver: !!out.gameOver,
+          docWrites: (out.docWrites ?? []).length,
+        });
+        txn.update(ref, fields);
 
-      for (const w of out.docWrites ?? []) {
-        txn.set(db.doc(w.path), w.fields, { merge: w.merge ?? true });
-      }
+        for (const w of out.docWrites ?? []) {
+          txn.set(db.doc(w.path), w.fields, { merge: w.merge ?? true });
+        }
 
-      pendingEffects = out.effects ?? [];
-    });
+        pendingEffects = out.effects ?? [];
+      });
+    } catch (err) {
+      logger.error(`[engine] ${key} ${sessionId}: transaction failed`, {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
+    }
 
     if (pendingEffects.length > 0) {
       await runEffects(pendingEffects, { db, sessionId });
