@@ -5,7 +5,7 @@ import Image from "next/image";
 import { JMAvatarView } from "@/JMKit";
 import { useGameColors, PhaseTimerBar } from "@/app/games/_gamecore";
 import { submitVotes } from "../blarfApi";
-import { getVotesPerPlayer } from "../blarfTypes";
+import { getVotesPerPlayer, getBlarferCount } from "../blarfTypes";
 import type { GameSessionPlayer } from "@/lib/game-sessions";
 
 interface MultiVoteScreenProps {
@@ -13,6 +13,7 @@ interface MultiVoteScreenProps {
   players: GameSessionPlayer[];
   currentUserId: string;
   playerCount: number;
+  amIBlarfer: boolean;
   deadline: number;
   durationMs: number;
   hasVoted: boolean;
@@ -27,6 +28,7 @@ export default function MultiVoteScreen({
   players,
   currentUserId,
   playerCount,
+  amIBlarfer,
   deadline,
   durationMs,
   hasVoted,
@@ -37,6 +39,7 @@ export default function MultiVoteScreen({
 }: MultiVoteScreenProps) {
   const { primary, secondary, danger } = useGameColors();
   const totalVotesAllowed = getVotesPerPlayer(playerCount);
+  const blarferCount = getBlarferCount(playerCount);
   const [allocations, setAllocations] = useState<Record<string, number>>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -112,6 +115,25 @@ export default function MultiVoteScreen({
       <p className="-mt-2 text-sm font-bold text-white/60">
         {voteCount} of {totalVoters} players voted
       </p>
+
+      {/* Blarfer blend-in note — they vote to keep cover, not to detect. */}
+      {amIBlarfer && (
+        <div
+          className="w-full max-w-md rounded-xl border px-4 py-3 text-center"
+          style={{ borderColor: `${danger}66`, backgroundColor: `${danger}1A` }}
+        >
+          <p className="text-sm font-black uppercase tracking-wider" style={{ color: danger }}>
+            🤫 {blarferCount === 1 ? "You're the Blarfer" : "You're a Blarfer"}
+          </p>
+          <p className="mt-1 text-sm font-semibold text-white/90">
+            {blarferCount === 1 ? (
+              <>Cast a decoy vote to blend in — you can&rsquo;t catch yourself, so this won&rsquo;t score you, but <strong>not</strong> voting would blow your cover.</>
+            ) : (
+              <>Vote to blend in. You <strong>can</strong> rat out a fellow Blarfer for +1&hellip; but you&rsquo;d be helping catch them.</>
+            )}
+          </p>
+        </div>
+      )}
 
       {/* Timer */}
       <div className="w-full max-w-md">

@@ -257,6 +257,7 @@ export default function BlarfGame({
             players={players}
             currentUserId={userId}
             playerCount={players.length}
+            amIBlarfer={isBlarfer}
             deadline={bfVoteDeadline}
             durationMs={BF_VOTE_MS}
             hasVoted={hasVoted}
