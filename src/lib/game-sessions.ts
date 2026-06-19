@@ -477,20 +477,94 @@ export async function joinGameSessionById(
  * Subscribe to real-time updates on a game session.
  * Returns an unsubscribe function.
  */
+/**
+ * Subscribe to a session with self-healing state reconciliation.
+ *
+ * Multiplayer netcode best-practice, three layers:
+ *  1. PUSH (primary): Firestore `onSnapshot` is the websocket fast-path —
+ *     sub-second when the link is healthy.
+ *  2. MONOTONIC APPLY-GATE: the engine stamps a monotonic `seq` on every
+ *     authoritative advance. We track the highest `seq` shown and DROP any
+ *     snapshot older than it — this rejects the stale/out-of-order payload
+ *     Firestore's offline cache can serve after a socket flap (which would
+ *     otherwise clobber newer state). A `seq` of 0 is treated as a reset
+ *     (Play-Again / startGame) and always passes, re-arming the watermark.
+ *  3. HEARTBEAT (backstop): on flaky links the push stream can silently stall
+ *     and strand a client on stale state — the "both players waiting" freeze.
+ *     Every few seconds (while not finished) we force a SERVER read; if it is
+ *     newer than what we've shown, the push was missed, so we apply it AND
+ *     resubscribe the (wedged) listener so the fast-path recovers. As long as
+ *     the server advanced `seq`, no client can stay stuck longer than one beat.
+ */
 export async function subscribeToSession(
   sessionId: string,
   callback: (session: GameSession | null) => void,
 ): Promise<() => void> {
-  const { doc, onSnapshot } = await import("firebase/firestore");
+  const { doc, onSnapshot, getDocFromServer } = await import("firebase/firestore");
   const db = await getDb();
+  const ref = doc(db, "gameSessions", sessionId);
 
-  return onSnapshot(doc(db, "gameSessions", sessionId), (snap) => {
-    if (!snap.exists()) {
+  const HEARTBEAT_MS = 5000;
+  let cancelled = false;
+  let appliedSeq = 0; // highest seq delivered to the consumer
+  let lastStatus: GameSession["status"] | null = null;
+  let unsub: () => void = () => {};
+
+  // Deliver a payload unless it is a genuinely stale mid-game snapshot.
+  const apply = (data: GameSession | null, seq: number): void => {
+    if (cancelled) return;
+    if (data === null) {
       callback(null);
       return;
     }
-    callback({ id: snap.id, ...(snap.data() as Omit<GameSession, "id">) });
-  });
+    // Drop only strictly-older mid-game snapshots; always allow resets (seq 0).
+    if (appliedSeq > 0 && seq > 0 && seq < appliedSeq) return;
+    appliedSeq = seq;
+    lastStatus = data.status;
+    callback(data);
+  };
+
+  const subscribe = (): void => {
+    unsub = onSnapshot(ref, (snap) => {
+      if (!snap.exists()) {
+        apply(null, 0);
+        return;
+      }
+      const data = { id: snap.id, ...(snap.data() as Omit<GameSession, "id">) };
+      apply(data, data.seq ?? 0);
+    });
+  };
+  subscribe();
+
+  const tick = async (): Promise<void> => {
+    if (cancelled || lastStatus === "finished") return; // no point reconciling a done game
+    try {
+      const snap = await getDocFromServer(ref);
+      if (cancelled) return;
+      if (!snap.exists()) {
+        apply(null, 0);
+        return;
+      }
+      const data = { id: snap.id, ...(snap.data() as Omit<GameSession, "id">) };
+      const seq = data.seq ?? 0;
+      if (seq > appliedSeq) {
+        apply(data, seq);
+        // The live listener missed this update → it may be wedged. Recreate it
+        // so the websocket fast-path recovers for subsequent advances.
+        unsub();
+        subscribe();
+      }
+    } catch {
+      // offline / transient — the next beat retries.
+    }
+  };
+  const timer = setInterval(() => void tick(), HEARTBEAT_MS);
+
+  return () => {
+    cancelled = true;
+    clearInterval(timer);
+    unsub();
+  };
 }
 
 // ─────────────────────────────────────────────────────────────
