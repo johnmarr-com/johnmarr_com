@@ -332,53 +332,75 @@ service cloud.firestore {
       //   submissions, AI comments, lobby roster), and the host may reset to the
       //   start-of-game shape (startGame / Play Again).
       allow update: if isAuthenticated() && (
-        ( !('resolverKey' in resource.data) && (
-          resource.data.ownerId == request.auth.uid
-          || (request.auth.uid in request.resource.data.playerUids
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'pendingTap', 'currentClue', 'guessesRemaining',
-              'guessesUsedThisTurn', 'bonusGuessAvailable',
-              'activeTeam', 'svPhase', 'updatedAt',
-              'playerUids', 'players', 'playerCount',
-              'pendingInviteUids',
-              // Sweep the Leg / Tap Smash Arena — simultaneous-move submissions
-              'pendingMoves',
-              // Bluff Box — the current "sharer" rotates each round and is
-              // often not the host. They write the revealed card + remaining
-              // pool, their share text, their truth/lie pick, and advance the
-              // phase. Every other player writes their own vote nested under
-              // guesses.{uid}.
-              'sharerChoice', 'guesses', 'bbPhase',
-              'cardURL', 'cardPool', 'humanShareText',
-              // Mega Sketchy — the player whose turn it is appends their
-              // drawing/guess to chains.{elementIndex}; any player casts a
-              // vote nested under votes.{uid}. (Phase advance, play order,
-              // element-match + scoring judgements are all host-only writes.)
-              'chains', 'votes',
-              // Boaty McBoatface — both players write boards, attacks, turns
-              'btBoards', 'btReady', 'btAttacks', 'btLastAttack',
-              'btCurrentTurn', 'btWinner', 'btPhase'
-            ]))
-        ) )
-        ||
-        ( ('resolverKey' in resource.data) && (
-          // (1) Any participant may write fields OTHER than the server-owned
-          //     round-progress fields (covers move submission, AI post-game
-          //     comments, and lobby roster ops: join / add-AI / kick).
+        // ENGINE (engineKey set): the generic gameEngine Cloud Function owns ALL
+        // game state. Clients write only lobby roster; every game event goes
+        // through the authenticated API route (Admin SDK, bypasses rules). The
+        // host may start / reset to the value-checked start-of-game shape.
+        ( ('engineKey' in resource.data) && (
           ( request.auth.uid in request.resource.data.playerUids
-            && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-              'rounds', 'winner', 'currentRound', 'seq', 'transcript', 'status'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'playerUids', 'players', 'playerCount', 'pendingInviteUids',
+              'kickedUids', 'updatedAt'
             ]) )
           ||
-          // (2) Host reset to the start-of-game shape (startGame / Play Again).
-          //     Value-checked, so it may also set seq / replayCount / other
-          //     fields, but can never forge a round result or a win.
           ( resource.data.ownerId == request.auth.uid
-            && request.resource.data.resolverKey == resource.data.resolverKey
+            && request.resource.data.engineKey == resource.data.engineKey
             && request.resource.data.status == 'playing'
             && request.resource.data.currentRound == 0
             && request.resource.data.rounds.size() == 0
             && request.resource.data.winner == null )
+        ) )
+        ||
+        ( !('engineKey' in resource.data) && (
+          ( !('resolverKey' in resource.data) && (
+            resource.data.ownerId == request.auth.uid
+            || (request.auth.uid in request.resource.data.playerUids
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                'pendingTap', 'currentClue', 'guessesRemaining',
+                'guessesUsedThisTurn', 'bonusGuessAvailable',
+                'activeTeam', 'svPhase', 'updatedAt',
+                'playerUids', 'players', 'playerCount',
+                'pendingInviteUids',
+                // Sweep the Leg / Tap Smash Arena — simultaneous-move submissions
+                'pendingMoves',
+                // Bluff Box — the current "sharer" rotates each round and is
+                // often not the host. They write the revealed card + remaining
+                // pool, their share text, their truth/lie pick, and advance the
+                // phase. Every other player writes their own vote nested under
+                // guesses.{uid}.
+                'sharerChoice', 'guesses', 'bbPhase',
+                'cardURL', 'cardPool', 'humanShareText',
+                // Mega Sketchy — the player whose turn it is appends their
+                // drawing/guess to chains.{elementIndex}; any player casts a
+                // vote nested under votes.{uid}. (Phase advance, play order,
+                // element-match + scoring judgements are all host-only writes.)
+                'chains', 'votes',
+                // Boaty McBoatface — legacy (pre-engine) sessions only; new
+                // Boaty sessions use the engineKey regime above.
+                'btBoards', 'btReady', 'btAttacks', 'btLastAttack',
+                'btCurrentTurn', 'btWinner', 'btPhase'
+              ]))
+          ) )
+          ||
+          ( ('resolverKey' in resource.data) && (
+            // (1) Any participant may write fields OTHER than the server-owned
+            //     round-progress fields (covers move submission, AI post-game
+            //     comments, and lobby roster ops: join / add-AI / kick).
+            ( request.auth.uid in request.resource.data.playerUids
+              && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+                'rounds', 'winner', 'currentRound', 'seq', 'transcript', 'status'
+              ]) )
+            ||
+            // (2) Host reset to the start-of-game shape (startGame / Play Again).
+            //     Value-checked, so it may also set seq / replayCount / other
+            //     fields, but can never forge a round result or a win.
+            ( resource.data.ownerId == request.auth.uid
+              && request.resource.data.resolverKey == resource.data.resolverKey
+              && request.resource.data.status == 'playing'
+              && request.resource.data.currentRound == 0
+              && request.resource.data.rounds.size() == 0
+              && request.resource.data.winner == null )
+          ) )
         ) )
       );
 
@@ -593,6 +615,19 @@ service cloud.firestore {
     match /fyveKeys/{keyId} {
       // Keys are NEVER readable by clients — only via Admin SDK in API routes
       allow read, create, update, delete: if false;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // BOATY BOARDS (Server-only secret board placements)
+    // ─────────────────────────────────────────────────────────────
+
+    match /boatyBoards/{sessionId}/boards/{uid} {
+      // Hidden raft/gator placements, one doc per player. A player may read their
+      // OWN board (so it survives a reconnect); the opponent's is NEVER readable.
+      // Writes are Admin-SDK-only (Boaty API route on setup + gameEngine on gator
+      // slither), so a board can't be forged or peeked.
+      allow read: if isAuthenticated() && request.auth.uid == uid;
+      allow write: if false;
     }
 
     // Legacy sevyn collections — read-only for migration (remove after migration)

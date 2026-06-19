@@ -16,12 +16,7 @@ import { JMAvatarView } from "@/JMKit";
 import type { GameSessionPlayer } from "@/lib/game-sessions";
 import type { PlayerBoard, AttackRecord, LastAttack, AttackResult } from "../boatyTypes";
 import {
-  resolveAttack,
-  checkWin,
-  moveGator,
   posKey,
-  findRaftAt,
-  isRaftDestroyed,
   BOATY_ATTACK_ANIM_MS,
   BOATY_THROW_MS,
 } from "../boatyLogic";
@@ -52,21 +47,11 @@ interface PlayScreenProps {
   players: GameSessionPlayer[];
   currentTurn: string;
   myBoard: PlayerBoard;
-  opponentBoard: PlayerBoard;
   attacksOnMe: AttackRecord;
   attacksOnOpponent: AttackRecord;
   lastAttack: LastAttack | null;
-  onAttack: (
-    row: number,
-    col: number,
-    result: AttackResult,
-    defenderGatorBefore: { row: number; col: number },
-    newGator: { row: number; col: number },
-    updatedAttacks: AttackRecord,
-    won: boolean,
-  ) => Promise<void>;
-  /** Called after the animation finishes to advance the turn. */
-  onTurnEnd: () => Promise<void>;
+  /** Send the attack coordinates; the server resolves it authoritatively. */
+  onAttack: (row: number, col: number) => Promise<void>;
 }
 
 export default function PlayScreen({
@@ -76,12 +61,10 @@ export default function PlayScreen({
   players,
   currentTurn,
   myBoard,
-  opponentBoard,
   attacksOnMe,
   attacksOnOpponent,
   lastAttack,
   onAttack,
-  onTurnEnd,
 }: PlayScreenProps) {
   const [attacking, setAttacking] = useState(false);
   const [molotovLottieData, setMolotovLottieData] = useState<object | null>(null);
@@ -122,10 +105,18 @@ export default function PlayScreen({
   }, []);
 
   // ── Grid flip state ──────────────────────────────────────
+  // `isMyTurn` (server truth) gates INPUT. `displayTurn` lags the server turn so
+  // the grid never flips mid-animation — the server advances the turn the instant
+  // an attack resolves, and the animation's completion syncs displayTurn forward.
   const isMyTurn = currentTurn === currentUserId;
-  const [displayView, setDisplayView] = useState<"attack" | "defend">(isMyTurn ? "attack" : "defend");
+  const [displayTurn, setDisplayTurn] = useState(currentTurn);
+  const currentTurnRef = useRef(currentTurn);
+  currentTurnRef.current = currentTurn;
+  const [displayView, setDisplayView] = useState<"attack" | "defend">(
+    displayTurn === currentUserId ? "attack" : "defend",
+  );
   const [flipAnim, setFlipAnim] = useState<"" | "bt-flip-out" | "bt-flip-in">("");
-  const prevTurnRef = useRef(currentTurn);
+  const prevTurnRef = useRef(displayTurn);
 
   // ── Molotov animation state ──────────────────────────────
   const [molotov, setMolotov] = useState<{
@@ -195,10 +186,11 @@ export default function PlayScreen({
     // Determine whether this attack destroyed a raft, and whether it was a win —
     // use the defender's board + post-attack hits list (Firestore sends these atomically with btLastAttack).
     const defenderIsMe = lastAttack.targetUid === currentUserId;
-    const targetRafts = defenderIsMe ? myBoard.rafts : opponentBoard.rafts;
     const targetHits = defenderIsMe ? attacksOnMe.hits : attacksOnOpponent.hits;
-    const hitRaft = result === "hit" ? findRaftAt(targetRafts, row, col) : undefined;
-    const raftDestroyed = !!hitRaft && isRaftDestroyed(hitRaft, targetHits);
+    // The server tells us whether a raft was destroyed + which type — the client
+    // no longer knows the opponent's board.
+    const raftDestroyed = !!lastAttack.sunk;
+    const sunkType = lastAttack.sunkType;
     const attackerWon = result === "hit" && targetHits.length >= 9; // TOTAL_RAFT_SQUARES
 
     // Pick the taunt to play (if any). Raft-sink sounds play even on the winning kill shot
@@ -208,8 +200,8 @@ export default function PlayScreen({
     let code: "S" | "L" | "B" | "G" | null = null;
     if (result === "gator" && !attackerWon) {
       code = "G";
-    } else if (raftDestroyed && hitRaft) {
-      code = RAFT_TAUNT_CODE[hitRaft.type];
+    } else if (raftDestroyed && sunkType) {
+      code = RAFT_TAUNT_CODE[sunkType];
     }
     if (code) {
       // Gator fires often, so cycle through all 5 before any repeat; raft-sink taunts stay purely random.
@@ -239,8 +231,8 @@ export default function PlayScreen({
       if (tauntUrl) bgMusic.playSfx(tauntUrl);
       if (result === "gator") setGatorHitPopup(iAmAttacker ? "attacker" : "defender");
       // Attacker-only sunk-raft popup — skipped on the winning kill shot (the win screen takes over).
-      if (iAmAttacker && raftDestroyed && hitRaft && !attackerWon) {
-        setRaftSinkPopup(hitRaft.type);
+      if (iAmAttacker && raftDestroyed && sunkType && !attackerWon) {
+        setRaftSinkPopup(sunkType);
       }
       // Defender gator position: single source of truth is Firestore (already moved in attack write).
     }, BOATY_THROW_MS);
@@ -250,9 +242,10 @@ export default function PlayScreen({
     const holdExtraMs = raftDestroyed && !attackerWon ? TAUNT_EXTRA_HOLD_MS : 0;
     const t2 = setTimeout(() => {
       setMolotov(null);
-      if (iAmAttacker) {
-        void onTurnEnd().finally(() => setAttacking(false));
-      }
+      if (iAmAttacker) setAttacking(false);
+      // The server already advanced the turn the moment the attack resolved;
+      // reflect it now that this animation is done (no flip mid-molotov).
+      setDisplayTurn(currentTurnRef.current);
     }, BOATY_ATTACK_ANIM_MS + holdExtraMs);
 
     return () => {
@@ -262,24 +255,24 @@ export default function PlayScreen({
     // lastAttack omitted: same attack is keyed by lastAttackKey; including lastAttack's object
     // identity would re-run cleanup mid-animation when Firestore sends a new snapshot.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- lastAttackKey + render closure
-  }, [lastAttackKey, currentUserId, getCellCenter, onTurnEnd]);
+  }, [lastAttackKey, currentUserId, getCellCenter]);
 
   // ── 3D grid flip on turn change ──────────────────────────
   useEffect(() => {
-    if (currentTurn === prevTurnRef.current) return;
-    prevTurnRef.current = currentTurn;
+    if (displayTurn === prevTurnRef.current) return;
+    prevTurnRef.current = displayTurn;
 
     // Phase 1: flip out old view
     setFlipAnim("bt-flip-out");
     const t = setTimeout(() => {
       // Phase 2: swap content + flip in new view
-      setDisplayView(currentTurn === currentUserId ? "attack" : "defend");
+      setDisplayView(displayTurn === currentUserId ? "attack" : "defend");
       setFlipAnim("bt-flip-in");
       // Phase 3: clear anim class after flip-in completes
       setTimeout(() => setFlipAnim(""), 250);
     }, 250);
     return () => clearTimeout(t);
-  }, [currentTurn, currentUserId]);
+  }, [displayTurn, currentUserId]);
 
   // Gator popup: hold ~4s, then fade out over 500ms, then unmount
   useEffect(() => {
@@ -311,36 +304,19 @@ export default function PlayScreen({
       if (alreadyAttacked.has(key)) return;
 
       setAttacking(true);
-      // Hide result on grid until shared lastAttack animation reveals it (before Firestore round-trip).
+      // Optimistic: hide the cell result until the shared lastAttack animation
+      // reveals it. The server resolves the attack and both clients animate from
+      // the resulting btLastAttack.
       setPendingCell({ row, col });
-
-      // Resolve the attack locally — we know the result immediately
-      const result = resolveAttack(row, col, opponentBoard);
-      const updatedAttacks: AttackRecord = {
-        hits: [...attacksOnOpponent.hits],
-        misses: [...attacksOnOpponent.misses],
-        gatorHits: [...attacksOnOpponent.gatorHits],
-      };
-      if (result === "hit") {
-        updatedAttacks.hits.push({ row, col });
-      } else if (result === "miss") {
-        updatedAttacks.misses.push({ row, col });
-      } else {
-        updatedAttacks.gatorHits.push({ row, col });
+      try {
+        await onAttack(row, col);
+      } catch {
+        // Submission failed (e.g. weak signal) — let the player try again.
+        setAttacking(false);
+        setPendingCell(null);
       }
-      const defenderGatorBefore = opponentBoard.gator;
-      const newGator = moveGator(opponentBoard.gator, opponentBoard.rafts);
-      const won = result === "hit" && checkWin(updatedAttacks);
-
-      // Write to Firestore FIRST — both players see lastAttack at the same time
-      // and both play the animation from the shared listener.
-      // Turn change is NOT included here — it happens after the animation.
-      await onAttack(row, col, result, defenderGatorBefore, newGator, updatedAttacks, won);
-
-      // Animation is handled by the lastAttack listener (shared by both players).
-      // We just wait for it to finish, then we're done.
     },
-    [isMyTurn, attacking, attacksOnOpponent, opponentBoard, onAttack],
+    [isMyTurn, attacking, attacksOnOpponent, onAttack],
   );
 
   return (
@@ -377,8 +353,8 @@ export default function PlayScreen({
       />
       {/* Player avatars — absolutely positioned so they don't push grid layout */}
       <div className="pointer-events-none absolute inset-x-0 top-4 z-20 flex items-start justify-between px-4">
-        <PlayerBadge player={me} isActive={isMyTurn} side="left" />
-        <PlayerBadge player={opponent} isActive={!isMyTurn} side="right" />
+        <PlayerBadge player={me} isActive={displayView === "attack"} side="left" />
+        <PlayerBadge player={opponent} isActive={displayView === "defend"} side="right" />
       </div>
 
       {/* Board: flex spacers push map into the middle of the band so it sits further from the bottom */}
@@ -419,7 +395,7 @@ export default function PlayScreen({
           </div>
           {/* "{GAMERTAG}'s turn" overlay — shows at the start of their turn, fades out once their attack animation begins */}
           <div
-            className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${!isMyTurn && !molotov ? "opacity-100" : "opacity-0"}`}
+            className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${displayView === "defend" && !molotov ? "opacity-100" : "opacity-0"}`}
           >
             <div className="rounded-2xl border border-[#daa520] bg-black/85 px-7 py-4 backdrop-blur-sm">
               <p className="animate-pulse text-lg font-black uppercase tracking-wider text-white/80">
