@@ -75,8 +75,8 @@ export default function VotingScreen({
       )}
 
       {!hasVoted ? (
-        <div className="flex w-full max-w-md flex-col gap-3">
-          <p className="animate-[wk-fade-up_0.3s_ease-out_0.1s_both] text-center text-sm font-bold uppercase tracking-wider text-white drop-shadow-md">
+        <div className="mt-4 flex w-full max-w-md flex-col gap-3">
+          <p className="mb-3 animate-[wk-fade-up_0.3s_ease-out_0.1s_both] text-center text-sm font-bold uppercase tracking-wider text-white drop-shadow-md">
             Vote for your favourite
           </p>
           {[...words].sort((a, b) => {

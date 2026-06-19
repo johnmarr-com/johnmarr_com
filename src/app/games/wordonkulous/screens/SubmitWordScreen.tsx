@@ -64,13 +64,13 @@ export default function SubmitWordScreen({
       </div>
 
       {!hasSubmitted ? (
-        <div className="flex w-full max-w-md animate-[wk-fade-up_0.5s_ease-out_0.2s_both] flex-col items-center gap-4">
+        <div className="flex w-full max-w-md animate-[wk-fade-up_0.5s_ease-out_0.2s_both] flex-col items-center gap-7">
           {/* Phase timer */}
           <PhaseTimerBar deadline={deadline} durationMs={timerDurationMs} />
 
           {/* Input */}
           <div className="w-full">
-            <label className="mb-3 block text-center text-sm font-bold uppercase tracking-wider text-white drop-shadow-md">
+            <label className="mb-6 block text-center text-sm font-bold uppercase tracking-wider text-white drop-shadow-md">
               Create a <strong>crazy word</strong><br />for the <strong>crazy definition</strong>
             </label>
             <input
