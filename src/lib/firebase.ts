@@ -57,6 +57,12 @@ export async function initializeFirebase(): Promise<{
       experimentalAutoDetectLongPolling: true,
     });
 
+    // iOS Safari suspends long-lived connections on backgrounding / screen-lock
+    // / network idle; the wedged Watch stream then only self-heals after the
+    // SDK's internal ~30s recovery (the "20-second freeze"). Force an immediate
+    // reconnect the moment iOS hands control back, instead of waiting it out.
+    installConnectionRevival();
+
     // Initialize Analytics only if supported (not in SSR, not blocked by browser)
     try {
       const analyticsSupported = await isSupported();
@@ -72,6 +78,44 @@ export async function initializeFirebase(): Promise<{
   })();
 
   return initPromise;
+}
+
+/**
+ * Force Firestore's realtime connection to rebuild.
+ *
+ * A `disableNetwork → enableNetwork` toggle drops a wedged Watch stream and
+ * re-establishes a fresh one in ~1s, flushing current server state — versus
+ * waiting ~30s for the SDK's internal recovery. Only affects READS (all client
+ * writes go through Next.js API routes, not the Firestore SDK), so it can never
+ * disrupt an in-flight command. Concurrent calls coalesce via the `kicking`
+ * guard. Exported so a staleness watchdog (subscribeToSession) can call it.
+ */
+let kicking = false;
+export async function kickFirestoreConnection(): Promise<void> {
+  if (kicking || !firebaseApp) return;
+  kicking = true;
+  try {
+    const { getFirestore, disableNetwork, enableNetwork } = await import("firebase/firestore");
+    const db = getFirestore(firebaseApp);
+    await disableNetwork(db);
+    await enableNetwork(db);
+  } catch {
+    // best-effort; the periodic watchdog will try again
+  } finally {
+    kicking = false;
+  }
+}
+
+let revivalInstalled = false;
+function installConnectionRevival(): void {
+  if (revivalInstalled || typeof window === "undefined") return;
+  revivalInstalled = true;
+  // Tab/app foregrounded — the prime moment an iOS-suspended stream is stale.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") void kickFirestoreConnection();
+  });
+  // Network returned after a drop.
+  window.addEventListener("online", () => void kickFirestoreConnection());
 }
 
 /**

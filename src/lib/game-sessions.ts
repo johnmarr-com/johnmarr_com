@@ -501,10 +501,12 @@ export async function subscribeToSession(
   callback: (session: GameSession | null) => void,
 ): Promise<() => void> {
   const { doc, onSnapshot, getDocFromServer } = await import("firebase/firestore");
+  const { kickFirestoreConnection } = await import("./firebase");
   const db = await getDb();
   const ref = doc(db, "gameSessions", sessionId);
 
-  const HEARTBEAT_MS = 5000;
+  const HEARTBEAT_MS = 4000;
+  const PROBE_TIMEOUT_MS = 3000;
   let cancelled = false;
   let appliedSeq = 0; // highest seq delivered to the consumer
   let lastStatus: GameSession["status"] | null = null;
@@ -536,10 +538,23 @@ export async function subscribeToSession(
   };
   subscribe();
 
+  // Heartbeat watchdog. A forced SERVER read disambiguates the two quiet
+  // states the push channel can't: "legitimately idle" (opponent is thinking —
+  // server seq == ours) vs. "my channel is wedged" (I'm missing updates). On a
+  // healthy link the read returns fast; if it HANGS past the probe timeout,
+  // that *is* the wedged-stream signature (the read rides the same dead
+  // transport) → force the connection to rebuild instead of waiting out the
+  // SDK's ~30s internal recovery.
+  let probing = false;
   const tick = async (): Promise<void> => {
-    if (cancelled || lastStatus === "finished") return; // no point reconciling a done game
+    if (cancelled || lastStatus === "finished" || probing) return;
+    probing = true;
     try {
-      const snap = await getDocFromServer(ref);
+      const probe = getDocFromServer(ref);
+      const timeout = new Promise<never>((_, rej) =>
+        setTimeout(() => rej(new Error("probe-timeout")), PROBE_TIMEOUT_MS),
+      );
+      const snap = await Promise.race([probe, timeout]);
       if (cancelled) return;
       if (!snap.exists()) {
         apply(null, 0);
@@ -548,14 +563,19 @@ export async function subscribeToSession(
       const data = { id: snap.id, ...(snap.data() as Omit<GameSession, "id">) };
       const seq = data.seq ?? 0;
       if (seq > appliedSeq) {
+        // The live listener missed this update though the link is healthy —
+        // apply it and re-establish the listener for subsequent advances.
         apply(data, seq);
-        // The live listener missed this update → it may be wedged. Recreate it
-        // so the websocket fast-path recovers for subsequent advances.
         unsub();
         subscribe();
       }
     } catch {
-      // offline / transient — the next beat retries.
+      // Probe timed out or errored → the realtime transport is likely wedged.
+      // Force a fresh connection; the re-established listener flushes current
+      // state in ~1s. (No-op/harmless if we were merely briefly offline.)
+      void kickFirestoreConnection();
+    } finally {
+      probing = false;
     }
   };
   const timer = setInterval(() => void tick(), HEARTBEAT_MS);

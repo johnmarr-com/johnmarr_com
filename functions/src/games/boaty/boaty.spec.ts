@@ -117,6 +117,13 @@ function resolveOne(
     btLastAttack: lastAttack,
     btCurrentTurn: won ? attackerUid : nextTurn,
   };
+  // On a win the engine also sets the GENERIC status/winner (below), but the
+  // Boaty client renders its end flow off the bt* fields — set both, or the
+  // win resolves server-side yet neither device ever leaves the play screen.
+  if (won) {
+    fields["btPhase"] = "finished";
+    fields["btWinner"] = attackerUid;
+  }
   if (consumeInbox) fields[`inbox.attacks.${attackerUid}`] = FieldValue.delete();
 
   logger.info(
