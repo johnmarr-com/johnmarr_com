@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useGameColors } from "@/app/games/_gamecore";
 import DefinitionCard from "./DefinitionCard";
+import PhaseTimerBar from "./PhaseTimerBar";
 
 interface WordEntry {
   authorId: string;
@@ -16,6 +17,7 @@ interface VotingScreenProps {
   words: WordEntry[];
   currentUserId: string;
   deadline: number;
+  timerDurationMs: number;
   hasVoted: boolean;
   voteCount: number;
   totalVoters: number;
@@ -29,6 +31,7 @@ export default function VotingScreen({
   words,
   currentUserId,
   deadline,
+  timerDurationMs,
   hasVoted,
   voteCount,
   totalVoters,
@@ -38,19 +41,6 @@ export default function VotingScreen({
   const [confirmTarget, setConfirmTarget] = useState<WordEntry | null>(null);
   const [dismissing, setDismissing] = useState(false);
   const [voting, setVoting] = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(0);
-
-  // Countdown timer
-  useEffect(() => {
-    if (deadline <= 0) return;
-    const tick = () => {
-      const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-      setSecondsLeft(left);
-    };
-    tick();
-    const id = setInterval(tick, 500);
-    return () => clearInterval(id);
-  }, [deadline]);
 
   const dismissModal = () => {
     setDismissing(true);
@@ -68,9 +58,6 @@ export default function VotingScreen({
     dismissModal();
   };
 
-  const timerColor =
-    secondsLeft <= 10 ? "text-red-400" : secondsLeft <= 20 ? "text-amber-400" : "text-white/50";
-
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto px-4 py-6">
       <DefinitionCard
@@ -80,11 +67,11 @@ export default function VotingScreen({
         compact
       />
 
-      {/* Timer */}
-      {deadline > 0 && !hasVoted && (
-        <p className={`text-center text-sm font-bold tabular-nums ${timerColor}`}>
-          {secondsLeft}s to vote
-        </p>
+      {/* Phase timer */}
+      {!hasVoted && (
+        <div className="w-full max-w-md">
+          <PhaseTimerBar deadline={deadline} durationMs={timerDurationMs} />
+        </div>
       )}
 
       {!hasVoted ? (

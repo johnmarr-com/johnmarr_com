@@ -97,6 +97,47 @@ export default function RoundResultsScreen({
         </div>
       )}
 
+      {/* Everyone's words — who made what (part of the fun) */}
+      <div className="w-full max-w-md rounded-xl border border-white/10 bg-black/40 px-4 py-3" style={{ boxShadow: "inset 0 4px 8px rgba(0,0,0,0.5), inset 0 -2px 4px rgba(255,255,255,0.1)" }}>
+        <p className="mb-2 text-center text-xs font-black uppercase tracking-widest text-white/50">
+          The Words
+        </p>
+        <div className="flex flex-col gap-2">
+          {Object.entries(submissions)
+            .sort((a, b) => (voteCounts[b[0]] ?? 0) - (voteCounts[a[0]] ?? 0))
+            .map(([uid, word]) => {
+              const p = getPlayer(uid);
+              const isWinner = firstPlace.includes(uid);
+              const v = voteCounts[uid] ?? 0;
+              return (
+                <div
+                  key={uid}
+                  className="flex items-center gap-3 rounded-lg px-2 py-1.5"
+                  style={isWinner ? { backgroundColor: `${primary}1A` } : undefined}
+                >
+                  <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-black">
+                    <JMAvatarView width={32} avatarName={p?.avatarName ?? "default"} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="truncate text-base font-black lowercase tracking-wider"
+                      style={{ color: isWinner ? primary : "#ffffff" }}
+                    >
+                      &ldquo;{word}&rdquo;
+                    </p>
+                    <p className="truncate text-xs font-bold" style={{ color: secondary }}>
+                      {p?.gamertag ?? uid}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-xs font-black tabular-nums text-white/60">
+                    {v} {v === 1 ? "vote" : "votes"}
+                  </span>
+                </div>
+              );
+            })}
+        </div>
+      </div>
+
       {/* Leaderboard */}
       <div className="w-full max-w-md rounded-xl border border-white/10 bg-black/40 px-4 py-3" style={{ boxShadow: "inset 0 4px 8px rgba(0,0,0,0.5), inset 0 -2px 4px rgba(255,255,255,0.1)" }}>
         <p className="mb-2 text-center text-xs font-black uppercase tracking-widest text-white/50">

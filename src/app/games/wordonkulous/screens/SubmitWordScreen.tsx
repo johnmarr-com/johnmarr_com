@@ -4,12 +4,14 @@ import { useState, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 import { useGameColors } from "@/app/games/_gamecore";
 import DefinitionCard from "./DefinitionCard";
+import PhaseTimerBar from "./PhaseTimerBar";
 
 interface SubmitWordScreenProps {
   definition: string;
   roundNumber: number;
   totalRounds: number;
   deadline: number;
+  timerDurationMs: number;
   hasSubmitted: boolean;
   submissionCount: number;
   totalPlayers: number;
@@ -21,6 +23,7 @@ export default function SubmitWordScreen({
   roundNumber,
   totalRounds,
   deadline,
+  timerDurationMs,
   hasSubmitted,
   submissionCount,
   totalPlayers,
@@ -30,20 +33,7 @@ export default function SubmitWordScreen({
   const [word, setWord] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [secondsLeft, setSecondsLeft] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Countdown timer
-  useEffect(() => {
-    if (deadline <= 0) return;
-    const tick = () => {
-      const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-      setSecondsLeft(left);
-    };
-    tick();
-    const id = setInterval(tick, 500);
-    return () => clearInterval(id);
-  }, [deadline]);
 
   // Auto-focus input
   useEffect(() => {
@@ -63,9 +53,6 @@ export default function SubmitWordScreen({
     }
   };
 
-  const timerColor =
-    secondsLeft <= 10 ? "text-red-400" : secondsLeft <= 30 ? "text-amber-400" : "text-white/50";
-
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center gap-5 overflow-y-auto px-4 py-6">
       <div className="animate-[wk-slide-down_0.5s_ease-out_both]">
@@ -78,12 +65,8 @@ export default function SubmitWordScreen({
 
       {!hasSubmitted ? (
         <div className="flex w-full max-w-md animate-[wk-fade-up_0.5s_ease-out_0.2s_both] flex-col items-center gap-4">
-          {/* Timer */}
-          {deadline > 0 && (
-            <p className={`text-center text-sm font-bold tabular-nums ${timerColor}`}>
-              {secondsLeft}s remaining
-            </p>
-          )}
+          {/* Phase timer */}
+          <PhaseTimerBar deadline={deadline} durationMs={timerDurationMs} />
 
           {/* Input */}
           <div className="w-full">

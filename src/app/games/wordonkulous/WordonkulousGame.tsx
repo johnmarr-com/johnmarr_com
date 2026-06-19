@@ -33,6 +33,11 @@ import RoundResultsScreen from "./screens/RoundResultsScreen";
 import WinnerScreen from "./screens/WinnerScreen";
 import WordonkulousPackPicker from "./WordonkulousPackPicker";
 
+// Phase timer durations for the progress bar — keep in sync with the
+// wordonkulous reducer (SUBMIT_MS / VOTE_MS).
+const WK_SUBMIT_MS = 75_000;
+const WK_VOTE_MS = 45_000;
+
 interface WordonkulousGameProps {
   sessionId: string;
   splashBgURL?: string;
@@ -287,6 +292,7 @@ export default function WordonkulousGame({
             roundNumber={wkCurrentRound}
             totalRounds={wkTotalRounds}
             deadline={wkSubmitDeadline}
+            timerDurationMs={WK_SUBMIT_MS}
             hasSubmitted={hasSubmitted}
             submissionCount={submissionCount}
             totalPlayers={expectedSubmissions}
@@ -305,6 +311,7 @@ export default function WordonkulousGame({
             words={votingWords}
             currentUserId={userId}
             deadline={wkVoteDeadline}
+            timerDurationMs={WK_VOTE_MS}
             hasVoted={hasVoted}
             voteCount={voteCount}
             totalVoters={expectedVotes}
