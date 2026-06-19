@@ -86,8 +86,6 @@ export default function WordonkulousGame({
     wkVoteDeadline,
     wkShuffledAuthors,
     wkPackCoverURL,
-    wkLobbyPackId,
-    wkLobbyRounds,
     isHost,
   } = state;
 
@@ -120,52 +118,16 @@ export default function WordonkulousGame({
     .filter((uid) => wkSubmissions[uid] != null)
     .map((uid) => ({ authorId: uid, word: wkSubmissions[uid]! }));
 
-  // Sync pickerLengthKey from lobby rounds (first game from lobby)
-  useEffect(() => {
-    if (wkLobbyRounds != null) {
-      const match = WK_LENGTH_PRESETS.find((p) => p.rounds === wkLobbyRounds);
-      if (match) setPickerLengthKey(match.key);
-    }
-  }, [wkLobbyRounds, WK_LENGTH_PRESETS]);
-
-  // ─── Host: Auto-apply lobby pack ──────────────────────────
-
-  const [lobbyAutoApplyFailed, setLobbyAutoApplyFailed] = useState(false);
-
-  useEffect(() => {
-    if (wkPhase !== "pack-select") {
-      setLobbyAutoApplyFailed(false);
-      return;
-    }
-    if (!wkLobbyPackId || !isHost || lobbyAutoApplyFailed) return;
-
-    let cancelled = false;
-    (async () => {
-      const { getPack } = await import("@/lib/wordonkulous-packs");
-      const pack = await getPack(wkLobbyPackId);
-      if (cancelled) return;
-      if (!pack?.definitions.length) {
-        setLobbyAutoApplyFailed(true);
-        return;
-      }
-      await handlePackSelected(pack);
-    })().catch(() => {
-      if (!cancelled) setLobbyAutoApplyFailed(true);
-    });
-
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHost, wkPhase, wkLobbyPackId, lobbyAutoApplyFailed]);
-
-  // ─── Host: Pack selected ──────────────────────────────────
+  // ─── Host: Pack + length chosen in the pack-select phase ──
+  // (Lobby is invite/Start only; the host configures the game here, after Start,
+  // using the same picker as Play Again — single source of pack/length choice.)
 
   const handlePackSelected = useCallback(
     async (pack: WordonkulousPack) => {
-      // Resolve rounds from lobby field (first game) or local picker state (play again).
       // The SERVER does the shuffle-select + score init + the pack-select→round-intro
-      // transition; the client only forwards the host's chosen pack.
+      // transition; the client only forwards the host's chosen pack + round count.
       const preset = WK_LENGTH_PRESETS.find((p) => p.key === pickerLengthKey);
-      const rounds = wkLobbyRounds ?? preset?.rounds ?? 5;
+      const rounds = preset?.rounds ?? 5;
       const result = await selectPack(
         sessionId,
         { id: pack.id, name: pack.name, coverURL: pack.coverImageURL || null, definitions: pack.definitions },
@@ -173,7 +135,7 @@ export default function WordonkulousGame({
       );
       if (!result.ok) throw new Error(result.error);
     },
-    [sessionId, wkLobbyRounds, pickerLengthKey, WK_LENGTH_PRESETS],
+    [sessionId, pickerLengthKey, WK_LENGTH_PRESETS],
   );
 
   // ─── Round intro lifecycle ────────────────────────────────
@@ -278,8 +240,8 @@ export default function WordonkulousGame({
         />
       )}
 
-      {/* Pack select (host picks, others wait) */}
-      {wkPhase === "pack-select" && isHost && (lobbyAutoApplyFailed || !wkLobbyPackId) && (
+      {/* Pack + length: the host configures here (after Start); others wait. */}
+      {wkPhase === "pack-select" && isHost && (
         <WordonkulousPackPicker
           onSelect={handlePackSelected}
           lengthPresets={WK_LENGTH_PRESETS}
@@ -303,27 +265,7 @@ export default function WordonkulousGame({
           )}
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-white border-t-transparent drop-shadow-lg" />
           <p className="text-sm font-bold uppercase tracking-wider text-white drop-shadow-lg">
-            Host is selecting a pack&hellip;
-          </p>
-        </div>
-      )}
-      {wkPhase === "pack-select" && isHost && !lobbyAutoApplyFailed && wkLobbyPackId && (
-        <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 px-6">
-          {gameLogoURL != null && gameLogoURL.length > 0 && (
-            <div className="motion-reduce:animate-none animate-[float_3s_ease-in-out_infinite]">
-              <Image
-                src={gameLogoURL}
-                alt=""
-                width={400}
-                height={200}
-                className="h-36 w-auto max-w-[min(400px,85vw)] object-contain drop-shadow-lg select-none sm:h-48"
-                priority={false}
-              />
-            </div>
-          )}
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-white border-t-transparent drop-shadow-lg" />
-          <p className="text-sm font-bold uppercase tracking-wider text-white drop-shadow-lg">
-            Loading pack&hellip;
+            Host is setting up the game&hellip;
           </p>
         </div>
       )}
