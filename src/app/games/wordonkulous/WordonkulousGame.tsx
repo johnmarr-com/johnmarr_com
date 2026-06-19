@@ -4,19 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useAuth } from "@/lib/AuthProvider";
 import { useWordonkulousSession } from "./useWordonkulousSession";
-import {
-  initScores,
-  selectDefinitions,
-  shuffleArray,
-  getCurrentDefinition,
-  scoreRound,
-  applyScoreDeltas,
-  determineWinners,
-} from "./wordonkulousTypes";
+import { getCurrentDefinition, scoreRound } from "./wordonkulousTypes";
 import type { RoundScoreResult } from "./wordonkulousTypes";
-import { isAiPlayer, getPersona, recordGameStats, GameGamertagBadge, useGameColors } from "@/app/games/_gamecore";
-import { aiSubmitWord, aiVote } from "./aiWordonkulousPlayer";
-import { submitWord, submitVote } from "./wordonkulousApi";
+import { recordGameStats, GameGamertagBadge, useGameColors, useEngineDeadline } from "@/app/games/_gamecore";
+import { selectPack, submitWord, submitVote } from "./wordonkulousApi";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { GraduationCap, Zap, Timer, SportShoe } from "lucide-react";
@@ -42,9 +33,6 @@ import RoundResultsScreen from "./screens/RoundResultsScreen";
 import WinnerScreen from "./screens/WinnerScreen";
 import WordonkulousPackPicker from "./WordonkulousPackPicker";
 
-const SUBMIT_TIMER_MS = 0; // timers disabled for dev
-const VOTE_TIMER_MS = 0;   // timers disabled for dev
-
 interface WordonkulousGameProps {
   sessionId: string;
   splashBgURL?: string;
@@ -66,7 +54,6 @@ export default function WordonkulousGame({
   const { primary, secondary, danger } = useGameColors();
   const userId = user?.uid ?? "";
   const { state, updateFields } = useWordonkulousSession(sessionId, userId);
-  const aiProcessingRef = useRef(false);
   const [showRoundIntro, setShowRoundIntro] = useState(false);
   const [lastRoundResult, setLastRoundResult] = useState<RoundScoreResult | null>(null);
   const [pickerLengthKey, setPickerLengthKey] = useState("standard");
@@ -109,17 +96,21 @@ export default function WordonkulousGame({
   const kicked = session?.kickedUids?.includes(userId) ?? false;
   const definition = getCurrentDefinition(wkDefinitions, wkCurrentRound);
 
+  // Nudge the engine the instant a timed phase deadline passes (round intro /
+  // submit / vote / results), so it advances without waiting for the sweep.
+  const phaseDeadlineAt =
+    ((session as unknown as Record<string, unknown>)?.["phaseDeadlineAt"] as number | undefined) ?? 0;
+  useEngineDeadline(sessionId, phaseDeadlineAt);
+
   // ─── Derived values ────────────────────────────────────────
 
   const submissionCount = Object.keys(wkSubmissions).length;
   const expectedSubmissions = players.length;
-  const allSubmissionsIn = submissionCount >= expectedSubmissions && expectedSubmissions > 0;
 
   // Voters = all players who submitted (you can only vote if you submitted)
   const voterUids = Object.keys(wkSubmissions);
   const voteCount = Object.keys(wkVotes).length;
   const expectedVotes = voterUids.length; // everyone votes (can't vote for self, but still expected)
-  const allVotesIn = voteCount >= expectedVotes && expectedVotes > 0;
 
   const hasSubmitted = wkSubmissions[userId] != null;
   const hasVoted = wkVotes[userId] != null;
@@ -170,36 +161,19 @@ export default function WordonkulousGame({
 
   const handlePackSelected = useCallback(
     async (pack: WordonkulousPack) => {
-      // Resolve rounds from lobby field (first game) or local picker state (play again)
+      // Resolve rounds from lobby field (first game) or local picker state (play again).
+      // The SERVER does the shuffle-select + score init + the pack-select→round-intro
+      // transition; the client only forwards the host's chosen pack.
       const preset = WK_LENGTH_PRESETS.find((p) => p.key === pickerLengthKey);
-      const lobbyOrPresetRounds = wkLobbyRounds ?? preset?.rounds ?? 5;
-      const count = Math.min(lobbyOrPresetRounds, pack.definitions.length);
-      const defs = selectDefinitions(pack.definitions, count);
-      const scores = initScores(playerUids);
-      const { deleteField } = await import("firebase/firestore");
-      await updateFields({
-        wkPackId: pack.id,
-        wkPackName: pack.name,
-        wkPackCoverURL: pack.coverImageURL || null,
-        wkDefinitions: defs,
-        wkCurrentRound: 1,
-        wkTotalRounds: count,
-        wkSubmissions: {},
-        wkVotes: {},
-        wkScores: scores,
-        wkWinners: [],
-        wkWinnerPoints: 0,
-        wkSubmitDeadline: 0,
-        wkVoteDeadline: 0,
-        wkShuffledAuthors: [],
-        wkPhase: "round-intro",
-        wkLobbyPackId: deleteField(),
-        wkLobbyPackName: deleteField(),
-        wkLobbyPackCoverURL: deleteField(),
-        wkLobbyRounds: deleteField(),
-      });
+      const rounds = wkLobbyRounds ?? preset?.rounds ?? 5;
+      const result = await selectPack(
+        sessionId,
+        { id: pack.id, name: pack.name, coverURL: pack.coverImageURL || null, definitions: pack.definitions },
+        rounds,
+      );
+      if (!result.ok) throw new Error(result.error);
     },
-    [playerUids, wkLobbyRounds, pickerLengthKey, updateFields, WK_LENGTH_PRESETS],
+    [sessionId, wkLobbyRounds, pickerLengthKey, WK_LENGTH_PRESETS],
   );
 
   // ─── Round intro lifecycle ────────────────────────────────
@@ -208,18 +182,7 @@ export default function WordonkulousGame({
     if (wkPhase === "round-intro") setShowRoundIntro(true);
   }, [wkPhase]);
 
-  const handleRoundIntroComplete = useCallback(async () => {
-    if (!isHost) return;
-    await updateFields({
-      wkSubmissions: {},
-      wkVotes: {},
-      wkShuffledAuthors: [],
-      wkSubmitDeadline: SUBMIT_TIMER_MS > 0 ? Date.now() + SUBMIT_TIMER_MS : 0,
-      wkPhase: "submitting",
-    });
-  }, [isHost, updateFields]);
-
-  // ─── Player: Submit word (via API) ────────────────────────
+  // ─── Player actions (via API; engine owns all phase transitions) ──
 
   const handleSubmitWord = useCallback(
     async (word: string) => {
@@ -229,70 +192,6 @@ export default function WordonkulousGame({
     [sessionId],
   );
 
-  // ─── Host: AI submit words ────────────────────────────────
-
-  useEffect(() => {
-    if (!isHost || wkPhase !== "submitting" || aiProcessingRef.current) return;
-
-    const aiPlayers = players.filter(
-      (p) => isAiPlayer(p.uid) && wkSubmissions[p.uid] == null,
-    );
-    if (aiPlayers.length === 0) return;
-
-    aiProcessingRef.current = true;
-    (async () => {
-      try {
-        for (const ai of aiPlayers) {
-          const persona = getPersona(ai.uid);
-          const word = await aiSubmitWord(definition, {
-            prompt: persona?.prompt ?? "",
-            voice: persona?.voice ?? "",
-          });
-          await updateFields({ [`wkSubmissions.${ai.uid}`]: word });
-        }
-      } finally {
-        aiProcessingRef.current = false;
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHost, wkPhase, definition, players, wkSubmissions]);
-
-  // ─── Host: All submissions in or timer → move to voting ───
-
-  useEffect(() => {
-    if (!isHost || wkPhase !== "submitting") return;
-
-    if (allSubmissionsIn) {
-      void advanceToVoting();
-      return;
-    }
-
-    // Timer fallback
-    if (wkSubmitDeadline <= 0) return;
-    const ms = Math.max(0, wkSubmitDeadline - Date.now());
-    const timer = setTimeout(() => { void advanceToVoting(); }, ms);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHost, wkPhase, allSubmissionsIn, wkSubmitDeadline]);
-
-  const advanceToVoting = useCallback(async () => {
-    if (!isHost) return;
-    // Randomise the display order of submitted words
-    const submittedUids = Object.keys(wkSubmissions);
-    console.log(
-      `[Wordonkulous] advanceToVoting: ${submittedUids.length} submissions from ${players.length} players. ` +
-      `submitters=[${submittedUids.join(",")}] players=[${players.map((p) => p.uid).join(",")}]`,
-    );
-    const shuffled = shuffleArray(submittedUids);
-    await updateFields({
-      wkShuffledAuthors: shuffled,
-      wkVoteDeadline: VOTE_TIMER_MS > 0 ? Date.now() + VOTE_TIMER_MS : 0,
-      wkPhase: "voting",
-    });
-  }, [isHost, wkSubmissions, players, updateFields]);
-
-  // ─── Player: Submit vote (via API) ────────────────────────
-
   const handleVote = useCallback(
     async (authorId: string) => {
       const result = await submitVote(sessionId, authorId);
@@ -300,107 +199,6 @@ export default function WordonkulousGame({
     },
     [sessionId],
   );
-
-  // ─── Host: AI vote ────────────────────────────────────────
-
-  useEffect(() => {
-    if (!isHost || wkPhase !== "voting" || aiProcessingRef.current) return;
-
-    const aiVoters = players.filter(
-      (p) => isAiPlayer(p.uid) && wkSubmissions[p.uid] != null && wkVotes[p.uid] == null,
-    );
-    if (aiVoters.length === 0) return;
-
-    const words = wkShuffledAuthors
-      .filter((uid) => wkSubmissions[uid] != null)
-      .map((uid) => ({ authorId: uid, word: wkSubmissions[uid]! }));
-
-    aiProcessingRef.current = true;
-    (async () => {
-      try {
-        for (const ai of aiVoters) {
-          const persona = getPersona(ai.uid);
-          const votedFor = await aiVote(definition, words, ai.uid, {
-            prompt: persona?.prompt ?? "",
-            voice: persona?.voice ?? "",
-          });
-          await updateFields({ [`wkVotes.${ai.uid}`]: votedFor });
-        }
-      } finally {
-        aiProcessingRef.current = false;
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHost, wkPhase, definition, players, wkSubmissions, wkVotes, wkShuffledAuthors]);
-
-  // ─── Host: All votes in or timer → score round ────────────
-
-  useEffect(() => {
-    if (!isHost || wkPhase !== "voting") return;
-
-    if (allVotesIn) {
-      void advanceToResults();
-      return;
-    }
-
-    if (wkVoteDeadline <= 0) return;
-    const ms = Math.max(0, wkVoteDeadline - Date.now());
-    const timer = setTimeout(() => { void advanceToResults(); }, ms);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHost, wkPhase, allVotesIn, wkVoteDeadline]);
-
-  const advanceToResults = useCallback(async () => {
-    if (!isHost) return;
-    const result = scoreRound(wkVotes, wkSubmissions);
-    const newScores = applyScoreDeltas(wkScores, result.deltas);
-    setLastRoundResult(result);
-    await updateFields({
-      wkScores: newScores,
-      wkPhase: "results",
-    });
-  }, [isHost, wkVotes, wkSubmissions, wkScores, updateFields]);
-
-  // ─── Host: Continue from results ──────────────────────────
-
-  const advanceFromResults = useCallback(async () => {
-    if (!isHost) return;
-
-    if (wkCurrentRound < wkTotalRounds) {
-      await updateFields({
-        wkCurrentRound: wkCurrentRound + 1,
-        wkSubmissions: {},
-        wkVotes: {},
-        wkShuffledAuthors: [],
-        wkSubmitDeadline: 0,
-        wkVoteDeadline: 0,
-        wkPhase: "round-intro",
-      });
-      setLastRoundResult(null);
-      return;
-    }
-
-    // Game over
-    const { winners, points } = determineWinners(wkScores);
-    await updateFields({
-      wkWinners: winners,
-      wkWinnerPoints: points,
-      wkPhase: "final",
-    });
-    PointsManager.award(Activity.PLAY_GAME);
-    if (isHost) PointsManager.award(Activity.HOST_GAME);
-    if (winners.includes(userId)) PointsManager.award(Activity.WIN_GAME);
-    recordGameStats(playerUids, winners, session?.ownerId ?? "");
-  }, [
-    isHost,
-    userId,
-    wkCurrentRound,
-    wkTotalRounds,
-    wkScores,
-    playerUids,
-    session?.ownerId,
-    updateFields,
-  ]);
 
   // ─── Play Again ───────────────────────────────────────────
 
@@ -437,11 +235,19 @@ export default function WordonkulousGame({
         allPlayers: players,
         scores: wkScores,
       });
+
+      // Gamification (was the host's advanceFromResults; engine now owns the
+      // transition, so each client awards its own points; host records stats once).
+      PointsManager.award(Activity.PLAY_GAME);
+      if (isHost) PointsManager.award(Activity.HOST_GAME);
+      if (wkWinners.includes(userId)) PointsManager.award(Activity.WIN_GAME);
+      if (isHost) recordGameStats(playerUids, wkWinners, session?.ownerId ?? "");
     }
     if (wkPhase !== "final") {
       gameEndFiredRef.current = false;
     }
-  }, [wkPhase, wkWinners, wkWinnerPoints, wkScores, onGameEnd, session?.players]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires once on transition to final
+  }, [wkPhase, wkWinners, wkWinnerPoints, wkScores, onGameEnd, session?.players, isHost, userId]);
 
   // ─── Non-host: store round result locally when phase changes to results ─
 
@@ -526,7 +332,7 @@ export default function WordonkulousGame({
       {showRoundIntro && (
         <RoundIntroScreen
           roundNumber={wkCurrentRound}
-          onComplete={handleRoundIntroComplete}
+          onComplete={() => {}}
           onAnimationDone={() => setShowRoundIntro(false)}
         />
       )}
@@ -579,8 +385,6 @@ export default function WordonkulousGame({
             voteCounts={lastRoundResult.voteCounts}
             firstPlace={lastRoundResult.firstPlace}
             scores={wkScores}
-            isHost={isHost}
-            onContinue={advanceFromResults}
           />
         </div>
       )}

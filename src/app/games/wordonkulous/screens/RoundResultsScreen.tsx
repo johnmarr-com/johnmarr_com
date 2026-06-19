@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useMemo } from "react";
+import { useMemo } from "react";
 import { JMAvatarView } from "@/JMKit";
 import { useGameColors } from "@/app/games/_gamecore";
 import type { GameSessionPlayer } from "@/lib/game-sessions";
@@ -19,11 +19,7 @@ interface RoundResultsScreenProps {
   voteCounts: Record<string, number>;
   firstPlace: string[];
   scores: Record<string, number>;
-  isHost: boolean;
-  onContinue: () => void;
 }
-
-const AUTO_ADVANCE_MS = 0; // disabled for dev
 
 export default function RoundResultsScreen({
   definition,
@@ -35,18 +31,8 @@ export default function RoundResultsScreen({
   voteCounts,
   firstPlace,
   scores,
-  isHost,
-  onContinue,
 }: RoundResultsScreenProps) {
   const { primary, secondary } = useGameColors();
-  const autoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Host auto-advance
-  useEffect(() => {
-    if (!isHost || AUTO_ADVANCE_MS <= 0) return;
-    autoRef.current = setTimeout(onContinue, AUTO_ADVANCE_MS);
-    return () => { if (autoRef.current) clearTimeout(autoRef.current); };
-  }, [isHost, onContinue]);
 
   const playerMap = useMemo(() => {
     const m = new Map<string, GameSessionPlayer>();
@@ -133,25 +119,10 @@ export default function RoundResultsScreen({
         </div>
       </div>
 
-      {/* Continue button (host only) */}
-      {isHost && (
-        <button
-          onClick={() => {
-            if (autoRef.current) clearTimeout(autoRef.current);
-            onContinue();
-          }}
-          className="mt-2 w-full max-w-md rounded-xl py-4 text-lg font-bold uppercase tracking-wider text-black shadow-lg transition-all hover:scale-[1.02] active:scale-95"
-          style={{ backgroundColor: primary, boxShadow: `0 10px 15px -3px ${primary}40` }}
-        >
-          {roundNumber < totalRounds ? "Next Round" : "Final Results"}
-        </button>
-      )}
-
-      {!isHost && (
-        <p className="mt-2 text-center text-sm font-semibold text-white">
-          Waiting for host to continue&hellip;
-        </p>
-      )}
+      {/* Server-authoritative: the engine advances after the results hold. */}
+      <p className="mt-2 text-center text-sm font-semibold text-white">
+        {roundNumber < totalRounds ? "Next round starting" : "Final results"}&hellip;
+      </p>
     </div>
   );
 }

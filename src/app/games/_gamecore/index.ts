@@ -1,6 +1,7 @@
 export { GameLandingPage, type GameLandingPageProps, type GameMode } from "./GameLandingPage";
 export { GameMultiplayerFlow } from "./GameMultiplayerFlow";
 export { useMultiplayerRound, type RoundResolver, type MpPhase, type ResolverOutput } from "./useMultiplayerRound";
+export { useEngineDeadline } from "./useEngineDeadline";
 export { useTrackKnownPlayers } from "./useTrackKnownPlayers";
 export { useGameMusic } from "./useGameMusic";
 export { bgMusic, SFX } from "./BackgroundMusicPlayer";

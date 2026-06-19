@@ -13,10 +13,12 @@ import { logger } from "firebase-functions";
 import "./roundEngine/hml.spec";
 import "./roundEngine/rps.spec";
 import "./games/boaty/boaty.spec";
+import "./games/wordonkulous/wordonkulous.spec";
 
 initializeApp();
 
 export { gameEngine } from "./engine/gameEngine.fn";
+export { sweepDeadlines } from "./engine/sweepDeadlines.fn";
 
 const LEGACY_RETENTION_MS = 24 * 60 * 60 * 1000;
 

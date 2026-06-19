@@ -348,7 +348,11 @@ service cloud.firestore {
             && request.resource.data.status == 'playing'
             && request.resource.data.currentRound == 0
             && request.resource.data.rounds.size() == 0
-            && request.resource.data.winner == null )
+            && request.resource.data.winner == null
+            // seq == 0 is unique to the reset shape: the engine bumps seq on
+            // every advance, so this blocks a host from writing game fields
+            // mid-game (when seq > 0) while still permitting Play Again.
+            && request.resource.data.seq == 0 )
         ) )
         ||
         ( !('engineKey' in resource.data) && (

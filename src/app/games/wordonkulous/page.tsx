@@ -20,11 +20,25 @@ function WordonkulousGameAdapter({ sessionId, gameData, onGameEnd }: GC3Props) {
 export default composeGame({
   slug: "wordonkulous",
   GameComponent: WordonkulousGameAdapter,
-  allowAI: true,
+  // Group game: no AI players (removed — they were test scaffolding).
+  allowAI: false,
+  // Server-authoritative: the gameEngine Cloud Function owns all phase
+  // progression + scoring (engineKey "wordonkulous").
+  authority: { engineKey: "wordonkulous" },
   lobbyExtra: ({ session }) => <WordonkulousPackLobbySelector sessionId={session.id} />,
   lobbyCanStart: ({ session }) =>
     !!(session as unknown as Record<string, unknown>)["wkLobbyPackId"],
+  // Play Again → engine start-of-game shape. The generic fields (status,
+  // currentRound:0, rounds:[], winner:null, seq:0, inbox:{}) satisfy the
+  // value-checked engineKey host-reset rule; phaseDeadlineAt:0 = untimed.
   resetFields: () => ({
+    status: "playing",
+    currentRound: 0,
+    rounds: [],
+    winner: null,
+    seq: 0,
+    inbox: {},
+    phaseDeadlineAt: 0,
     wkPhase: "pack-select",
     wkPackId: null,
     wkPackName: null,

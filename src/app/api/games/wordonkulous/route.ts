@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "@/lib/firebase-admin";
 import { getAdminFirestore } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { selectDefinitions, initScores } from "@/app/games/wordonkulous/wordonkulousTypes";
 
 // ─── Per-UID rate limiting ──────────────────────────────────
 
@@ -64,6 +65,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { action } = body as { action: string };
 
+    if (action === "select-pack") {
+      return handleSelectPack(body, uid);
+    }
+
     if (action === "submit-word") {
       return handleSubmitWord(body, uid);
     }
@@ -80,6 +85,89 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     );
   }
+}
+
+// ─── SELECT PACK (host-only setup) ──────────────────────────
+
+const MAX_DEFINITIONS = 500;
+
+interface SelectPackBody {
+  action: "select-pack";
+  sessionId: string;
+  packId: string;
+  packName?: string;
+  packCoverURL?: string | null;
+  definitions: string[];
+  rounds: number;
+}
+
+/**
+ * Host picks the word pack + round count. The client resolves the pack (built-in
+ * packs live in client code) and sends its full definition list; the SERVER does
+ * the shuffle-select + score init authoritatively, and writes the round setup —
+ * but NOT wkPhase: the engine flips pack-select → round-intro once it sees the
+ * definitions + scores land. Replaces the host's direct client write.
+ */
+async function handleSelectPack(body: unknown, uid: string): Promise<NextResponse> {
+  const { sessionId, packId, packName, packCoverURL, definitions, rounds } =
+    body as SelectPackBody;
+
+  if (
+    !sessionId ||
+    typeof packId !== "string" ||
+    !Array.isArray(definitions) ||
+    definitions.length === 0 ||
+    definitions.length > MAX_DEFINITIONS ||
+    !definitions.every((d) => typeof d === "string") ||
+    typeof rounds !== "number"
+  ) {
+    return NextResponse.json({ error: "Invalid pack payload" }, { status: 400 });
+  }
+
+  const db = getAdminFirestore();
+  const sessionRef = db.doc(`gameSessions/${sessionId}`);
+  const sessionSnap = await sessionRef.get();
+  if (!sessionSnap.exists) {
+    return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  }
+  const data = sessionSnap.data()!;
+
+  // Host-only setup action.
+  if (data["ownerId"] !== uid) {
+    return NextResponse.json({ error: "Only the host can select the pack" }, { status: 403 });
+  }
+  // Only during pack-select (can't re-pick mid-game).
+  if (((data["wkPhase"] as string) ?? "pack-select") !== "pack-select") {
+    return NextResponse.json({ error: "Pack already selected" }, { status: 409 });
+  }
+
+  const playerUids = (data["playerUids"] as string[]) ?? [];
+  const count = Math.max(1, Math.min(Math.floor(rounds), definitions.length));
+  const defs = selectDefinitions(definitions, count);
+  const scores = initScores(playerUids);
+
+  await sessionRef.update({
+    wkPackId: packId,
+    wkPackName: packName ?? null,
+    wkPackCoverURL: packCoverURL ?? null,
+    wkDefinitions: defs,
+    wkTotalRounds: count,
+    wkCurrentRound: 1,
+    wkSubmissions: {},
+    wkVotes: {},
+    wkScores: scores,
+    wkWinners: [],
+    wkWinnerPoints: 0,
+    wkShuffledAuthors: [],
+    // clear lobby pre-selection
+    wkLobbyPackId: FieldValue.delete(),
+    wkLobbyPackName: FieldValue.delete(),
+    wkLobbyPackCoverURL: FieldValue.delete(),
+    wkLobbyRounds: FieldValue.delete(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  return NextResponse.json({ ok: true });
 }
 
 // ─── SUBMIT WORD ────────────────────────────────────────────

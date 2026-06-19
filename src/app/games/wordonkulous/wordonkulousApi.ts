@@ -22,6 +22,23 @@ async function wkRequest(
   return { ok: true };
 }
 
+/** Host: choose the word pack + round count (server selects defs + inits scores). */
+export async function selectPack(
+  sessionId: string,
+  pack: { id: string; name?: string; coverURL?: string | null; definitions: string[] },
+  rounds: number,
+): Promise<{ ok: boolean; error?: string }> {
+  return wkRequest({
+    action: "select-pack",
+    sessionId,
+    packId: pack.id,
+    packName: pack.name ?? null,
+    packCoverURL: pack.coverURL ?? null,
+    definitions: pack.definitions,
+    rounds,
+  });
+}
+
 /** Submit a made-up word for the current round. */
 export async function submitWord(
   sessionId: string,
