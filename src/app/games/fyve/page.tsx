@@ -3,7 +3,6 @@
 import { composeGame } from "../_gamecore";
 import type { GameSession } from "@/lib/game-sessions";
 import FyveGame from "./FyveGame";
-import HeistLobbySelector from "./HeistLobbySelector";
 import FyveBuildHeistsButton from "./FyveBuildHeistsButton";
 import type { GC3Props } from "../_gamecore/registry/types";
 
@@ -27,25 +26,32 @@ export default composeGame({
   slug: "fyve",
   GameComponent: FyveAdapter,
   multiplayerFlowMode: "party",
-  // FYVE's brand orange. HeistLobbySelector falls back to the game's CMS
-  // primary when no override is passed, but FYVE's CMS colors aren't set yet,
-  // so pin the brand color (drop this prop once FYVE's primaryColor is set).
-  lobbyExtra: ({ session }: { session: GameSession }) => (
-    <HeistLobbySelector sessionId={session.id} accentColor="#E84C1E" />
-  ),
+  // Server-authoritative: the gameEngine reducer owns the live game (board +
+  // secret-key generation, the reveal loop, turns, win/loss). Setup (heist /
+  // teams / bosses) is host-driven via /api/games/fyve.
+  authority: { engineKey: "fyve" },
+  // Lobby = invite + Start only; the host picks the heist AFTER Start (the
+  // heist-select phase). Two teams of 2 is the realistic floor.
   lobbyCanStart: ({ session }: { session: GameSession }) =>
-    !!(session as unknown as Record<string, unknown>)["fyveLobbyHeistId"],
+    (session.players?.length ?? 0) >= 4,
   landingExtra: <FyveBuildHeistsButton />,
-  // Required by composeGame; FYVE handles its own rematch (handlePlayAgain) so
-  // GC5 is never reached. Mirrors handlePlayAgain for correctness if it ever is.
+  // FYVE runs its own rematch via the route (play-again → boss-select), so GC5
+  // is never reached. This satisfies composeGame + the value-checked engineKey
+  // reset rule for a clean start-of-game shape if it ever is.
   resetFields: () => ({
+    status: "playing",
+    currentRound: 0,
+    rounds: [],
+    winner: null,
+    seq: 0,
+    inbox: {},
+    svPhase: "heist-select",
     board: null,
     keyDocId: null,
     activeTeam: null,
     currentClue: null,
     guessesRemaining: 0,
     guessesUsedThisTurn: 0,
-    pendingTap: null,
     winningTeam: null,
     loseByBomb: false,
     bombRevealedBy: null,
@@ -55,7 +61,5 @@ export default composeGame({
     t2RevealCount: 0,
     t1RevealedAssets: [],
     t2RevealedAssets: [],
-    status: "playing",
-    svPhase: "boss-select",
   }),
 });

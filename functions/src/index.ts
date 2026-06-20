@@ -16,6 +16,7 @@ import "./games/boaty/boaty.spec";
 import "./games/wordonkulous/wordonkulous.spec";
 import "./games/blarf/blarf.spec";
 import "./games/bluffbox/bluffbox.spec";
+import "./games/fyve/fyve.spec";
 
 initializeApp();
 

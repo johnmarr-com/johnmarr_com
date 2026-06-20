@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import type { GameSession } from "@/lib/game-sessions";
-import { updateSessionFields } from "@/app/games/_gamecore";
 import type {
   FyvePhase,
   FyveSessionState,
@@ -117,24 +116,7 @@ export function useFyveSession({ sessionId, userId }: UseFyveSessionOptions) {
   // Is it my team's turn?
   const isMyTeamActive = svState.activeTeam === myTeam;
 
-  // Host: advance phase
-  const setPhase = useCallback(
-    async (phase: FyvePhase) => {
-      if (!sessionId || !isHost) return;
-      await updateSessionFields(sessionId, { svPhase: phase });
-    },
-    [sessionId, isHost],
-  );
-
-  // Generic field update (bound to sessionId)
-  const updateFields = useCallback(
-    async (fields: Record<string, unknown>) => {
-      if (!sessionId) return;
-      await updateSessionFields(sessionId, fields);
-    },
-    [sessionId],
-  );
-
+  // Read-only: the engine (via /api/games/fyve) owns ALL writes.
   return {
     session,
     svState,
@@ -142,8 +124,6 @@ export function useFyveSession({ sessionId, userId }: UseFyveSessionOptions) {
     myTeam,
     isBoss,
     isMyTeamActive,
-    setPhase,
-    updateFields,
   };
 }
 

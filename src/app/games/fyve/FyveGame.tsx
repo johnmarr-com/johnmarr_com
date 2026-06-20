@@ -3,10 +3,23 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useAuth } from "@/lib/AuthProvider";
-import { GameGamertagBadge, getAIAuthHeaders, bgMusic, SFX, recordGameStats } from "@/app/games/_gamecore";
+import { GameGamertagBadge, bgMusic, SFX, recordGameStats } from "@/app/games/_gamecore";
 import { PointsManager, Activity } from "@/lib/points";
 import { JMTeamInterstitial, JMGameResultOverlay } from "@/JMKit";
 import { useFyveSession } from "./useFyveSession";
+import {
+  confirmTeams,
+  continueBriefing,
+  backToTeams,
+  selectBosses,
+  selectHeist,
+  submitClue,
+  tapCard,
+  passTurn,
+  playAgain,
+  getBossView,
+  updateDraft,
+} from "./fyveApi";
 import {
   ASSETS_PER_TEAM,
   type FyveHeist,
@@ -20,6 +33,7 @@ import {
 import BriefingScreen from "./screens/BriefingScreen";
 import TeamFormationScreen from "./screens/TeamFormationScreen";
 import BossSelectScreen from "./screens/BossSelectScreen";
+import HeistPickerModal from "./HeistPickerModal";
 
 import BossScreen from "./screens/BossScreen";
 import OperativeScreen from "./screens/OperativeScreen";
@@ -81,8 +95,6 @@ export default function FyveGame({
     myTeam,
     isBoss,
     isMyTeamActive,
-    setPhase,
-    updateFields,
   } = useFyveSession({ sessionId, userId });
 
   // Track loaded heist data for briefing + reveal metadata
@@ -110,9 +122,14 @@ export default function FyveGame({
   // Team interstitial — shows when activeTeam changes during gameplay
   const [interstitialTeam, setInterstitialTeam] = useState<FyveTeam | null>(null);
   const prevActiveTeamRef = useRef<FyveTeam | null>(null);
+  // When the engine switches teams atomically with a reveal, defer the
+  // interstitial until the reveal overlay finishes so they don't stack.
+  const pendingInterstitialRef = useRef<FyveTeam | null>(null);
   // Game-over overlay: "loss" shows bomb loss first, then transitions to "win"
   const [gameOverPhase, setGameOverPhase] = useState<"loss" | "win" | null>(null);
   const gameOverDismissedRef = useRef(false);
+  // Heist picker (host, heist-select phase)
+  const [heistPickerOpen, setHeistPickerOpen] = useState(false);
   const {
     svPhase,
     selectedHeistId,
@@ -132,31 +149,6 @@ export default function FyveGame({
   const t1Display = t1Name ?? "Team 1";
   const t2Display = t2Name ?? "Team 2";
   const activeTeamName = activeTeam ? teamDisplay(activeTeam, svState).name : "";
-
-  // ─── Auto-advance from lobby heist selection ───────────────
-  // If lobby selected a heist (fyveLobbyHeist* fields), apply it on first load
-  useEffect(() => {
-    if (!isHost || !session || svPhase !== "heist-select") return;
-    const raw = session as unknown as Record<string, unknown>;
-    const lobbyHeistId = raw["fyveLobbyHeistId"] as string | undefined;
-    if (!lobbyHeistId) return;
-
-    (async () => {
-      const { getHeist } = await import("@/lib/fyve-heists");
-      const h = await getHeist(lobbyHeistId);
-      if (!h) return;
-      setHeist(h);
-      await updateFields({
-        selectedHeistId: h.id,
-        selectedHeistTitle: h.title,
-        selectedHeistBgUrl: h.backgroundImageUrl,
-        selectedHeistTargetUrl: h.targetObjectImageUrl,
-        heistBriefing: h.briefing,
-        heistSetting: h.setting,
-        svPhase: "briefing",
-      });
-    })();
-  }, [isHost, session, svPhase, updateFields]);
 
   // ─── Load heist data when selected ─────────────────────────
   useEffect(() => {
@@ -204,251 +196,83 @@ export default function FyveGame({
     }
   }, [heist]);
 
-  // ─── Fetch boss view when game starts and I'm a boss ─────────
+  // ─── Fetch boss view when the board is dealt and I'm a boss ──
   useEffect(() => {
     if (!isBoss || !keyDocId || !sessionId) return;
     (async () => {
-      const headers = await getAIAuthHeaders();
-      const res = await fetch("/api/games/fyve", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          action: "get-boss-view",
-          sessionId,
-          keyDocId,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setBossColorMap(data.colorMap);
-
-        // ─── DEBUG: log boss view with board ──────────────
-        const colorMap = data.colorMap as string[];
-        console.log("[FYVE CLIENT] Boss color map received:");
-        board?.forEach((card, i) => {
-          const type = colorMap[i] ?? "?";
-          const typeLabel = type === "T1" ? "Syndicate 1" : type === "T2" ? "Syndicate 2" : type === "N" ? "Civilian" : type === "BOMB" ? "BOMB" : type;
-          console.log(`  Card ${i + 1}: "${card.word}" → ${typeLabel}`);
-        });
-      }
+      const colorMap = await getBossView(sessionId);
+      if (colorMap) setBossColorMap(colorMap);
     })();
-  }, [isBoss, keyDocId, sessionId, board]);
+  }, [isBoss, keyDocId, sessionId]);
+
+  // ─── Heist chosen (host) → engine-free setup write ─────────
+  const handleHeistSelected = useCallback(
+    (h: FyveHeist) => {
+      setHeist(h);
+      void selectHeist(sessionId, h.id);
+    },
+    [sessionId],
+  );
 
   // ─── Team Formation Complete ──────────────────────────────
   const handleTeamsFormed = useCallback(
-    async (teams: Record<FyveTeam, { members: string[] }>, t1Name: string, t2Name: string) => {
-      await updateFields({
-        teams: {
-          syndicate1: { members: teams.syndicate1.members, bossUid: null },
-          syndicate2: { members: teams.syndicate2.members, bossUid: null },
-        },
+    (teams: Record<FyveTeam, { members: string[] }>, t1Name: string, t2Name: string) => {
+      void confirmTeams(sessionId, {
+        team1: teams.syndicate1.members,
+        team2: teams.syndicate2.members,
         t1Name,
         t2Name,
-        svPhase: "boss-select",
       });
     },
-    [updateFields],
+    [sessionId],
   );
 
-  // ─── Game Start (generate key + board on server) ──────────
-  const startGame = useCallback(
-    async (firstTeam: FyveTeam) => {
-      if (!isHost || !selectedHeistId) return;
-      const headers = await getAIAuthHeaders();
-      const res = await fetch("/api/games/fyve", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          action: "generate-key",
-          sessionId,
-          heistId: selectedHeistId,
-        }),
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-
-      // ─── DEBUG: log board from server ─────────────────────
-      console.log("[FYVE CLIENT] Board received from generate-key:");
-      (data.board as { index: number; word: string }[]).forEach((c, i) => {
-        console.log(`  Card ${i + 1}: "${c.word}"`);
-      });
-
-      await updateFields({
-        board: data.board,
-        keyDocId: data.keyDocId,
-        activeTeam: firstTeam,
-        t1Score: 0,
-        t2Score: 0,
-        t1RevealCount: 0,
-        t2RevealCount: 0,
-        t1RevealedAssets: [],
-        t2RevealedAssets: [],
-        guessesRemaining: 0,
-        guessesUsedThisTurn: 0,
-        currentClue: null,
-        pendingTap: null,
-        winningTeam: null,
-        loseByBomb: false,
-        bombRevealedBy: null,
-        svPhase: "boss-clue",
-      });
+  // ─── Draft team-formation live preview (throttled) ─────────
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleDraftChanged = useCallback(
+    (draft: { draftTeam1?: string[]; draftTeam2?: string[]; draftT1Logo?: string | null; draftT2Logo?: string | null }) => {
+      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+      draftTimerRef.current = setTimeout(() => {
+        void updateDraft(sessionId, draft);
+      }, 250);
     },
-    [isHost, selectedHeistId, sessionId, updateFields],
+    [sessionId],
   );
 
-  // ─── Boss Selection Complete → immediately start game ──────
+  // ─── Boss Selection Complete → engine generates board + coin flip ──
   const handleBossesSelected = useCallback(
-    async (s1Boss: string, s2Boss: string) => {
-      if (!isHost || !svState.teams) return;
-      await updateFields({
-        teams: {
-          syndicate1: { ...svState.teams.syndicate1, bossUid: s1Boss },
-          syndicate2: { ...svState.teams.syndicate2, bossUid: s2Boss },
-        },
-      });
-      // Host picks a random first team and starts the game immediately
-      if (isHost) {
-        const firstTeam: FyveTeam = Math.random() < 0.5 ? "syndicate1" : "syndicate2";
-        await startGame(firstTeam);
-      }
+    (s1Boss: string, s2Boss: string) => {
+      void selectBosses(sessionId, s1Boss, s2Boss);
     },
-    [updateFields, svState.teams, isHost, startGame],
+    [sessionId],
   );
 
-  // ─── Clue Submitted ──────────────────────────────────────
+  // ─── Clue Submitted (active boss) → engine sets clue + phase ──
   const handleClueSubmitted = useCallback(
-    async (word: string, number: number) => {
-      if (!isBoss || !isMyTeamActive) return;
-      await updateFields({
-        currentClue: { word, number, givenBy: userId },
-        guessesRemaining: number,
-        guessesUsedThisTurn: 0,
-        svPhase: "operative-guess",
-      });
+    (word: string, number: number) => {
+      void submitClue(sessionId, word, number);
     },
-    [updateFields, userId, isBoss, isMyTeamActive],
+    [sessionId],
   );
 
-  // ─── Card Reveal (host calls server) ─────────────────────
-  const handleRevealCard = useCallback(
-    async (cardIndex: number) => {
-      if (!isHost || !keyDocId || !selectedHeistId) return;
-      const headers = await getAIAuthHeaders();
-      const res = await fetch("/api/games/fyve", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          action: "reveal-card",
-          sessionId,
-          keyDocId,
-          cardIndex,
-          heistId: selectedHeistId,
-        }),
-      });
-      if (!res.ok) return;
-      const result: FyveRevealResult = await res.json();
-
-      // Update the board card as revealed
-      const updatedBoard = board ? [...board] : [];
-      if (updatedBoard[cardIndex]) {
-        updatedBoard[cardIndex] = {
-          ...updatedBoard[cardIndex],
-          revealed: true,
-          revealedType: result.cardType,
-          revealedName: result.name,
-          revealedDescription: result.description,
-          revealedImageUrl: result.imageUrl,
-          ...(result.bombSoundEffect ? { revealedSoundEffect: result.bombSoundEffect } : {}),
-        };
-      }
-
-      // Calculate score changes + game outcome
-      const updates: Record<string, unknown> = {
-        board: updatedBoard,
-        svPhase: "card-reveal" as const,
-        pendingTap: null,
-      };
-
-      const currentActiveTeam = activeTeam!;
-      const oppositeTeam: FyveTeam = currentActiveTeam === "syndicate1" ? "syndicate2" : "syndicate1";
-
-      if (result.cardType === "T1") {
-        const newCount = svState.t1RevealCount + 1;
-        updates["t1RevealCount"] = newCount;
-        updates["t1Score"] = newCount;
-        // Assign asset number
-        if (updatedBoard[cardIndex]) {
-          updatedBoard[cardIndex] = {
-            ...updatedBoard[cardIndex]!,
-            revealedAssetNumber: newCount,
-          };
-          updates["board"] = updatedBoard;
-        }
-        if (newCount >= ASSETS_PER_TEAM) {
-          updates["winningTeam"] = "syndicate1";
-          updates["svPhase"] = "game-over";
-        }
-      } else if (result.cardType === "T2") {
-        const newCount = svState.t2RevealCount + 1;
-        updates["t2RevealCount"] = newCount;
-        updates["t2Score"] = newCount;
-        if (updatedBoard[cardIndex]) {
-          updatedBoard[cardIndex] = {
-            ...updatedBoard[cardIndex]!,
-            revealedAssetNumber: newCount,
-          };
-          updates["board"] = updatedBoard;
-        }
-        if (newCount >= ASSETS_PER_TEAM) {
-          updates["winningTeam"] = "syndicate2";
-          updates["svPhase"] = "game-over";
-        }
-      } else if (result.cardType === "BOMB") {
-        // Bomb: the guessing team loses, opponent wins
-        updates["winningTeam"] = oppositeTeam;
-        updates["loseByBomb"] = true;
-        updates["bombRevealedBy"] = svState.pendingTap?.tappedBy ?? null;
-        updates["svPhase"] = "game-over";
-      }
-
-      // Mark session finished so it leaves "active games" lists
-      if (updates["winningTeam"]) {
-        updates["status"] = "finished";
-        PointsManager.award(Activity.PLAY_GAME);
-        if (isHost) PointsManager.award(Activity.HOST_GAME);
+  // ─── Game-over → award points + record stats (once, any client/host) ──
+  const gameEndFiredRef = useRef(false);
+  useEffect(() => {
+    if (svPhase === "game-over" && winningTeam && !gameEndFiredRef.current) {
+      gameEndFiredRef.current = true;
+      PointsManager.award(Activity.PLAY_GAME);
+      if (isHost) {
+        PointsManager.award(Activity.HOST_GAME);
         const allUids = session?.playerUids ?? [];
-        const winTeam = updates["winningTeam"] as FyveTeam;
-        const winnerUids = svState.teams?.[winTeam]?.members ?? [];
-        if (winnerUids.includes(userId)) PointsManager.award(Activity.WIN_GAME);
+        const winnerUids = svState.teams?.[winningTeam]?.members ?? [];
         recordGameStats(allUids, winnerUids, session?.ownerId ?? "");
       }
-
-      // If not game-over, handle turn continuation / switching
-      if (!updates["winningTeam"]) {
-        const isOwnAsset =
-          (currentActiveTeam === "syndicate1" && result.cardType === "T1") ||
-          (currentActiveTeam === "syndicate2" && result.cardType === "T2");
-
-        if (isOwnAsset) {
-          // Correct guess — decrement. When it reaches 0 the team has used its
-          // whole clue and handleRevealDismissed swaps to the other team.
-          const newRemaining = svState.guessesRemaining - 1;
-          const newUsed = svState.guessesUsedThisTurn + 1;
-          updates["guessesRemaining"] = newRemaining;
-          updates["guessesUsedThisTurn"] = newUsed;
-          // Stay in operative-guess phase (after reveal animation)
-        } else {
-          // Wrong: opponent asset or neutral → switch teams
-          updates["guessesRemaining"] = 0;
-          updates["guessesUsedThisTurn"] = 0;
-        }
-      }
-
-      await updateFields(updates);
-      // Overlay is triggered by board-change detection (useEffect below)
-    },
-    [isHost, userId, keyDocId, selectedHeistId, sessionId, board, activeTeam, svState, updateFields, session?.playerUids, session?.ownerId],
-  );
+      const winnerUids = svState.teams?.[winningTeam]?.members ?? [];
+      if (winnerUids.includes(userId)) PointsManager.award(Activity.WIN_GAME);
+    }
+    if (svPhase !== "game-over") gameEndFiredRef.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires once at game-over
+  }, [svPhase, winningTeam, isHost, userId]);
 
   // ─── Detect board changes → trigger reveal animation (all clients) ──
   useEffect(() => {
@@ -492,14 +316,14 @@ export default function FyveGame({
     }
   }, [board, animReveal, bombFail]);
 
-  // ─── After Card Reveal Animation (non-bomb cards only) ─────
-  const handleRevealDismissed = useCallback(async () => {
-    const revealedIndex = animReveal?.cardIndex;
+  // ─── After Card Reveal Animation (presentation only; the engine already
+  // applied score/turn/win atomically at reveal time) ──
+  const handleRevealDismissed = useCallback(() => {
     prevBoardRef.current = board; // Sync ref to prevent re-trigger
     revealPendingRef.current = false;
 
-    // 5th-card clean win: keep reveal visible under win overlay, then clean up
-    if (svState.winningTeam) {
+    // Clean win on the revealed card: keep it visible under the win overlay.
+    if (winningTeam) {
       setGameOverPhase("win");
       setTimeout(() => setAnimReveal(null), 1200);
       return;
@@ -507,102 +331,47 @@ export default function FyveGame({
 
     setAnimReveal(null);
 
-    if (!isHost || revealedIndex == null) return;
-
-    const lastRevealed = board?.find(
-      (c) => c.revealed && c.index === revealedIndex,
-    );
-    if (!lastRevealed) return;
-
-    const currentActiveTeam = activeTeam!;
-    const isOwnAsset =
-      (currentActiveTeam === "syndicate1" && lastRevealed.revealedType === "T1") ||
-      (currentActiveTeam === "syndicate2" && lastRevealed.revealedType === "T2");
-
-    if (isOwnAsset && svState.guessesRemaining > 0) {
-      // Continue guessing
-      await updateFields({ svPhase: "operative-guess" });
-    } else {
-      // Switch teams
-      const nextTeam: FyveTeam = currentActiveTeam === "syndicate1" ? "syndicate2" : "syndicate1";
-      await updateFields({
-        activeTeam: nextTeam,
-        currentClue: null,
-        guessesRemaining: 0,
-        guessesUsedThisTurn: 0,
-        svPhase: "boss-clue",
-      });
+    // If the engine switched teams with this reveal, play the interstitial now.
+    if (pendingInterstitialRef.current) {
+      setInterstitialTeam(pendingInterstitialRef.current);
+      pendingInterstitialRef.current = null;
     }
-  }, [animReveal, board, isHost, svState, activeTeam, updateFields]);
+  }, [board, winningTeam]);
 
-  // ─── Auto-reveal when pendingTap is confirmed (host only) ──
-  const revealFiredRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (!isHost || !svState.pendingTap) {
-      revealFiredRef.current = null;
-      return;
-    }
-    // Don't re-fire for the same tap
-    if (revealFiredRef.current === svState.pendingTap.cardIndex) return;
-    revealFiredRef.current = svState.pendingTap.cardIndex;
-    handleRevealCard(svState.pendingTap.cardIndex);
-  }, [isHost, svState.pendingTap, handleRevealCard]);
-
-  // ─── Team interstitial — fires when activeTeam changes during gameplay ──
+  // ─── Team interstitial — fires when activeTeam changes during gameplay,
+  // deferred until any in-flight reveal overlay finishes (so they don't stack). ──
   useEffect(() => {
     if (!board || !activeTeam) {
-      // Reset ref when game is torn down (Play Again) so the next
+      // Reset refs when the game is torn down (Play Again) so the next
       // game's first team always triggers the interstitial.
       prevActiveTeamRef.current = null;
+      pendingInterstitialRef.current = null;
       return;
     }
     if (prevActiveTeamRef.current !== activeTeam) {
-      setInterstitialTeam(activeTeam);
+      prevActiveTeamRef.current = activeTeam;
+      if (animReveal || bombFail || revealPendingRef.current) {
+        pendingInterstitialRef.current = activeTeam; // fire on reveal dismiss
+      } else {
+        setInterstitialTeam(activeTeam);
+      }
     }
-    prevActiveTeamRef.current = activeTeam;
-  }, [activeTeam, board]);
+  }, [activeTeam, board, animReveal, bombFail]);
 
-  // ─── Pass Turn (any operative on the active team — same Firestore rules as pendingTap) ──
-  const handlePassTurn = useCallback(async () => {
+  // ─── Pass Turn (any operative on the active team) → engine switches ──
+  const handlePassTurn = useCallback(() => {
     if (svPhase !== "operative-guess" || !activeTeam || myTeam !== activeTeam || isBoss) return;
-    const nextTeam: FyveTeam = activeTeam === "syndicate1" ? "syndicate2" : "syndicate1";
-    await updateFields({
-      activeTeam: nextTeam,
-      currentClue: null,
-      guessesRemaining: 0,
-      guessesUsedThisTurn: 0,
-      pendingTap: null,
-      svPhase: "boss-clue",
-    });
-  }, [svPhase, activeTeam, myTeam, isBoss, updateFields]);
+    void passTurn(sessionId);
+  }, [svPhase, activeTeam, myTeam, isBoss, sessionId]);
 
-  // ─── Play Again (host resets to boss-select) ─────────────
-  const handlePlayAgain = useCallback(async () => {
+  // ─── Play Again (host) → engine resets to boss-select ─────
+  const handlePlayAgain = useCallback(() => {
     if (!isHost) return;
     bgMusic.stop();
     gameOverDismissedRef.current = true;
     setGameOverPhase(null);
-    await updateFields({
-      board: null,
-      keyDocId: null,
-      activeTeam: null,
-      currentClue: null,
-      guessesRemaining: 0,
-      guessesUsedThisTurn: 0,
-      pendingTap: null,
-      winningTeam: null,
-      loseByBomb: false,
-      bombRevealedBy: null,
-      t1Score: 0,
-      t2Score: 0,
-      t1RevealCount: 0,
-      t2RevealCount: 0,
-      t1RevealedAssets: [],
-      t2RevealedAssets: [],
-      status: "playing",
-      svPhase: "boss-select",
-    });
-  }, [isHost, updateFields]);
+    void playAgain(sessionId);
+  }, [isHost, sessionId]);
 
   // ─── Reset gameOverPhase when game restarts (fixes stale state on non-host) ──
   useEffect(() => {
@@ -754,7 +523,7 @@ export default function FyveGame({
       {/* Phase router */}
       <div className="relative z-10">
         {svPhase === "heist-select" && isHost && (
-          <div className="flex min-h-dvh flex-col items-center justify-center px-4">
+          <div className="flex min-h-dvh flex-col items-center justify-center gap-7 px-4">
             {gameLogoURL && (
               <div className="animate-gentle-float">
                 <Image
@@ -767,8 +536,25 @@ export default function FyveGame({
                 />
               </div>
             )}
-            <p className="mt-6 text-white/40 text-sm animate-pulse">Loading heist...</p>
+            <button
+              type="button"
+              onClick={() => setHeistPickerOpen(true)}
+              className="rounded-xl px-9 py-4 text-lg font-black uppercase tracking-wider text-black transition-transform active:scale-95"
+              style={{ backgroundColor: FYVE_COLORS.orange }}
+            >
+              Choose Heist
+            </button>
           </div>
+        )}
+        {svPhase === "heist-select" && isHost && heistPickerOpen && (
+          <HeistPickerModal
+            onSelect={(h) => {
+              setHeistPickerOpen(false);
+              handleHeistSelected(h);
+            }}
+            onClose={() => setHeistPickerOpen(false)}
+            accentColor={FYVE_COLORS.orange}
+          />
         )}
         {svPhase === "heist-select" && !isHost && (
           <div className="relative z-10 flex min-h-dvh flex-col items-center justify-center px-6">
@@ -789,7 +575,7 @@ export default function FyveGame({
           <BriefingScreen
             heist={heist}
             isHost={isHost}
-            onContinue={() => isHost && setPhase("team-formation")}
+            onContinue={() => { if (isHost) void continueBriefing(sessionId); }}
           />
         )}
 
@@ -802,7 +588,7 @@ export default function FyveGame({
             draftTeam2={svState.draftTeam2}
             draftT1Logo={svState.draftT1Logo}
             draftT2Logo={svState.draftT2Logo}
-            onDraftChanged={(draft) => updateFields(draft)}
+            onDraftChanged={handleDraftChanged}
           />
         )}
 
@@ -814,7 +600,7 @@ export default function FyveGame({
             draftT1Logo={svState.draftT1Logo}
             draftT2Logo={svState.draftT2Logo}
             onElected={handleBossesSelected}
-            onBack={isHost ? () => setPhase("team-formation") : undefined}
+            onBack={isHost ? () => void backToTeams(sessionId) : undefined}
           />
         )}
 
@@ -873,7 +659,6 @@ export default function FyveGame({
               activeTeamName={activeTeamName}
               currentClue={currentClue}
               isMyTurn={false}
-              pendingTap={svState.pendingTap}
               heist={heist}
               t1Score={t1Score}
               t2Score={t2Score}
@@ -887,50 +672,9 @@ export default function FyveGame({
               currentClue={currentClue}
               guessesRemaining={guessesRemaining}
               canTap={isMyTeamActive && !isBoss}
-              pendingTap={svState.pendingTap}
               guessesUsedThisTurn={svState.guessesUsedThisTurn}
-              onTapCard={(cardIndex, tappedByGamertag) => {
-                updateFields({
-                  pendingTap: {
-                    cardIndex,
-                    tappedBy: userId,
-                    tappedByGamertag,
-                    confirmedAt: Date.now(),
-                  },
-                });
-              }}
+              onTapCard={(cardIndex) => void tapCard(sessionId, cardIndex)}
               onPassTurn={handlePassTurn}
-              heist={heist}
-              t1Score={t1Score}
-              t2Score={t2Score}
-            />
-          )
-        )}
-
-        {svPhase === "card-reveal" && board && (
-          isBoss ? (
-            <BossScreen
-              board={board}
-              colorMap={bossColorMap}
-              activeTeam={activeTeam!}
-              myTeam={myTeam!}
-              activeTeamName={activeTeamName}
-              currentClue={currentClue}
-              isMyTurn={false}
-              pendingTap={svState.pendingTap}
-              heist={heist}
-              t1Score={t1Score}
-              t2Score={t2Score}
-            />
-          ) : (
-            <OperativeScreen
-              board={board}
-              activeTeam={activeTeam!}
-              myTeam={myTeam!}
-              activeTeamName={activeTeamName}
-              currentClue={currentClue}
-              guessesRemaining={guessesRemaining}
-              canTap={false}
               heist={heist}
               t1Score={t1Score}
               t2Score={t2Score}

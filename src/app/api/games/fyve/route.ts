@@ -1,26 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken } from "@/lib/firebase-admin";
-import { getAdminFirestore } from "@/lib/firebase-admin";
+import { verifyIdToken, getAdminFirestore } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import {
-  HEIST_ELEMENT_LABELS,
-  ASSETS_PER_TEAM,
-  type CardType,
-  type FyveKeyDoc,
-  type FyveBossView,
-  type FyveRevealResult,
-} from "@/app/games/fyve/fyveTypes";
+import type { CardType, FyveBossView } from "@/app/games/fyve/fyveTypes";
+
+/**
+ * FYVE — intent-writer route (engineKey "fyve").
+ *
+ * The gameEngine reducer owns the LIVE GAME (board + secret-key generation, the
+ * reveal loop, turn switching, win/loss). This route only:
+ *  - writes host SETUP state (heist pick → briefing → team formation → bosses),
+ *  - writes player MOVE intents into the inbox (clue / tap / pass / startHeist)
+ *    which the engine then resolves,
+ *  - serves a boss their color map (get-boss-view) — a per-boss read, never stored,
+ *  - resets for a rematch (play-again).
+ *
+ * Setup/reset writes bump `seq` (no engine advance follows them, so the client's
+ * poll fallback needs a higher seq to apply them). Move intents don't — the
+ * engine's resulting advance bumps seq and carries the new state.
+ */
 
 // ─── Per-UID rate limiting ──────────────────────────────────
 const RATE_WINDOW_MS = 60_000;
-const MAX_REQUESTS_PER_WINDOW = 60;
-
+const MAX_REQUESTS_PER_WINDOW = 120;
 const requestLog = new Map<string, number[]>();
 
 function isRateLimited(uid: string): boolean {
   const now = Date.now();
-  const timestamps = requestLog.get(uid) ?? [];
-  const recent = timestamps.filter((t) => now - t < RATE_WINDOW_MS);
+  const recent = (requestLog.get(uid) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
   if (recent.length >= MAX_REQUESTS_PER_WINDOW) return true;
   recent.push(now);
   requestLog.set(uid, recent);
@@ -29,8 +35,8 @@ function isRateLimited(uid: string): boolean {
 
 setInterval(() => {
   const now = Date.now();
-  for (const [uid, timestamps] of requestLog) {
-    const recent = timestamps.filter((t) => now - t < RATE_WINDOW_MS);
+  for (const [uid, ts] of requestLog) {
+    const recent = ts.filter((t) => now - t < RATE_WINDOW_MS);
     if (recent.length === 0) requestLog.delete(uid);
     else requestLog.set(uid, recent);
   }
@@ -38,426 +44,271 @@ setInterval(() => {
 
 // ─── Helpers ────────────────────────────────────────────────
 
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j]!, a[i]!];
+interface BoardCardLite {
+  word: string;
+  revealed: boolean;
+}
+interface TeamRoster {
+  members?: string[];
+  bossUid?: string | null;
+}
+
+function eventId(): string {
+  return `${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
+}
+
+/** Single-word clue legality vs the (unrevealed) board words. */
+function clueValidity(clueWord: string, boardWords: string[]): { valid: boolean; reason?: string } {
+  const word = clueWord.trim().toUpperCase();
+  if (word.length === 0 || word.includes(" ")) return { valid: false, reason: "Clue must be a single word" };
+  const boardUpper = boardWords.map((w) => w.toUpperCase());
+  if (boardUpper.includes(word)) return { valid: false, reason: "Clue cannot be a word on the board" };
+  for (const bw of boardUpper) {
+    if (bw.length >= 4 && (word.startsWith(bw) || bw.startsWith(word))) {
+      return { valid: false, reason: `Clue appears to be a derivative of "${bw}"` };
+    }
   }
-  return a;
+  return { valid: true };
 }
 
 // ─── Route ──────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
-  // ─── Authenticate ─────────────────────────────────────────
   const authHeader = request.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
-    return NextResponse.json(
-      { error: "Missing or invalid authorization header" },
-      { status: 401 },
-    );
+    return NextResponse.json({ error: "Missing or invalid authorization header" }, { status: 401 });
   }
-
   let uid: string;
   try {
-    const decoded = await verifyIdToken(authHeader.substring(7));
-    uid = decoded.uid;
+    uid = (await verifyIdToken(authHeader.substring(7))).uid;
   } catch {
     return NextResponse.json({ error: "Invalid auth token" }, { status: 401 });
   }
-
   if (isRateLimited(uid)) {
-    return NextResponse.json(
-      { error: "Too many requests — try again shortly" },
-      { status: 429 },
-    );
+    return NextResponse.json({ error: "Too many requests — try again shortly" }, { status: 429 });
   }
 
   try {
     const body = await request.json();
-    const { action } = body as { action: string };
-
-    // ─── GENERATE KEY ─────────────────────────────────────
-    // Called by host when game starts. Creates the secret key
-    // and stores it in fyveKeys (admin-only collection).
-    if (action === "generate-key") {
-      return handleGenerateKey(body, uid);
+    const action = body?.action as string | undefined;
+    const sessionId = body?.sessionId as string | undefined;
+    if (!action || !sessionId) {
+      return NextResponse.json({ error: "Missing action or sessionId" }, { status: 400 });
     }
 
-    // ─── GET BOSS VIEW ─────────────────────────────────────
-    // Returns the color-coded map for a boss.
+    const db = getAdminFirestore();
+    const sessionRef = db.doc(`gameSessions/${sessionId}`);
+    const sessionSnap = await sessionRef.get();
+    if (!sessionSnap.exists) {
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    }
+    const data = sessionSnap.data()!;
+    if (data["engineKey"] !== "fyve") {
+      return NextResponse.json({ error: "Not a FYVE engine session" }, { status: 400 });
+    }
+
+    const isHost = data["ownerId"] === uid;
+    const phase = (data["svPhase"] as string) ?? "heist-select";
+    const teams = data["teams"] as Record<string, TeamRoster> | undefined;
+    const activeTeam = data["activeTeam"] as "syndicate1" | "syndicate2" | null;
+    const playerUids = (data["playerUids"] ?? []) as string[];
+
+    const bumpSeq = { seq: FieldValue.increment(1), updatedAt: FieldValue.serverTimestamp() };
+
+    // ── get-boss-view (read; a boss's color map, never stored) ──
     if (action === "get-boss-view") {
-      return handleGetBossView(body, uid);
+      if (!playerUids.includes(uid)) {
+        return NextResponse.json({ error: "Not a player in this session" }, { status: 403 });
+      }
+      const isBoss = teams?.["syndicate1"]?.bossUid === uid || teams?.["syndicate2"]?.bossUid === uid;
+      if (!isBoss) return NextResponse.json({ error: "Only bosses can view the key" }, { status: 403 });
+      const keySnap = await db.doc(`fyveKeys/${sessionId}`).get();
+      if (!keySnap.exists) return NextResponse.json({ error: "Key not ready" }, { status: 404 });
+      const view: FyveBossView = { colorMap: keySnap.data()!["key"] as CardType[] };
+      return NextResponse.json(view);
     }
 
-    // ─── REVEAL CARD ──────────────────────────────────────
-    // Called by host when operative's tap is confirmed.
-    // Checks the key and returns what the card is.
-    if (action === "reveal-card") {
-      return handleRevealCard(body, uid);
+    // ── select-heist (host) → briefing ──
+    if (action === "select-heist") {
+      if (!isHost) return NextResponse.json({ error: "Only the host can pick the heist" }, { status: 403 });
+      if (phase !== "heist-select") return NextResponse.json({ error: "Heist already chosen" }, { status: 409 });
+      const heistId = body?.heistId as string | undefined;
+      if (!heistId) return NextResponse.json({ error: "Missing heistId" }, { status: 400 });
+      const heistSnap = await db.doc(`fyveHeists/${heistId}`).get();
+      if (!heistSnap.exists) return NextResponse.json({ error: "Heist not found" }, { status: 404 });
+      const h = heistSnap.data()!;
+      await sessionRef.update({
+        selectedHeistId: heistId,
+        selectedHeistTitle: (h["title"] as string) ?? null,
+        selectedHeistBgUrl: (h["backgroundImageUrl"] as string) ?? null,
+        selectedHeistTargetUrl: (h["targetObjectImageUrl"] as string) ?? null,
+        heistBriefing: (h["briefing"] as string) ?? null,
+        heistSetting: (h["setting"] as Record<string, unknown>) ?? null,
+        svPhase: "briefing",
+        ...bumpSeq,
+      });
+      return NextResponse.json({ ok: true });
     }
 
-    // ─── VALIDATE CLUE ────────────────────────────────────
-    // Server-side clue validation to prevent board-word clues.
+    // ── continue-briefing (host) → team-formation ──
+    if (action === "continue-briefing") {
+      if (!isHost) return NextResponse.json({ error: "Only the host can continue" }, { status: 403 });
+      if (phase !== "briefing") return NextResponse.json({ error: "Not in briefing" }, { status: 409 });
+      await sessionRef.update({ svPhase: "team-formation", ...bumpSeq });
+      return NextResponse.json({ ok: true });
+    }
+
+    // ── update-draft (host) — live team-formation preview ──
+    if (action === "update-draft") {
+      if (!isHost) return NextResponse.json({ error: "Only the host can edit teams" }, { status: 403 });
+      if (phase !== "team-formation") return NextResponse.json({ error: "Not forming teams" }, { status: 409 });
+      await sessionRef.update({
+        draftTeam1: (body?.draftTeam1 as string[]) ?? [],
+        draftTeam2: (body?.draftTeam2 as string[]) ?? [],
+        draftT1Logo: (body?.draftT1Logo as string) ?? null,
+        draftT2Logo: (body?.draftT2Logo as string) ?? null,
+        ...bumpSeq,
+      });
+      return NextResponse.json({ ok: true });
+    }
+
+    // ── confirm-teams (host) → boss-select ──
+    if (action === "confirm-teams") {
+      if (!isHost) return NextResponse.json({ error: "Only the host can confirm teams" }, { status: 403 });
+      if (phase !== "team-formation") return NextResponse.json({ error: "Not forming teams" }, { status: 409 });
+      const team1 = (body?.team1 as string[]) ?? [];
+      const team2 = (body?.team2 as string[]) ?? [];
+      if (team1.length === 0 || team2.length === 0) {
+        return NextResponse.json({ error: "Each team needs at least one player" }, { status: 400 });
+      }
+      await sessionRef.update({
+        teams: {
+          syndicate1: { members: team1, bossUid: null },
+          syndicate2: { members: team2, bossUid: null },
+        },
+        t1Name: (body?.t1Name as string) ?? null,
+        t2Name: (body?.t2Name as string) ?? null,
+        draftT1Logo: (body?.t1Logo as string) ?? (data["draftT1Logo"] ?? null),
+        draftT2Logo: (body?.t2Logo as string) ?? (data["draftT2Logo"] ?? null),
+        svPhase: "boss-select",
+        ...bumpSeq,
+      });
+      return NextResponse.json({ ok: true });
+    }
+
+    // ── back-to-teams (host) — re-edit teams from boss-select ──
+    if (action === "back-to-teams") {
+      if (!isHost) return NextResponse.json({ error: "Only the host can edit teams" }, { status: 403 });
+      if (phase !== "boss-select") return NextResponse.json({ error: "Not in boss select" }, { status: 409 });
+      await sessionRef.update({ svPhase: "team-formation", ...bumpSeq });
+      return NextResponse.json({ ok: true });
+    }
+
+    // ── select-bosses (host) — writes bosses + startHeist intent → engine ──
+    if (action === "select-bosses") {
+      if (!isHost) return NextResponse.json({ error: "Only the host can select bosses" }, { status: 403 });
+      if (phase !== "boss-select") return NextResponse.json({ error: "Not in boss select" }, { status: 409 });
+      const s1Boss = body?.s1Boss as string | undefined;
+      const s2Boss = body?.s2Boss as string | undefined;
+      if (!s1Boss || !s2Boss) return NextResponse.json({ error: "Both bosses required" }, { status: 400 });
+      if (!teams?.["syndicate1"]?.members?.includes(s1Boss) || !teams?.["syndicate2"]?.members?.includes(s2Boss)) {
+        return NextResponse.json({ error: "Boss must be a member of their team" }, { status: 400 });
+      }
+      await sessionRef.update({
+        "teams.syndicate1.bossUid": s1Boss,
+        "teams.syndicate2.bossUid": s2Boss,
+        [`inbox.startHeist.${uid}`]: { eventId: eventId() },
+      });
+      return NextResponse.json({ ok: true });
+    }
+
+    // ── submit-clue (active boss) — validate, then write clue intent ──
+    if (action === "submit-clue") {
+      if (phase !== "boss-clue") return NextResponse.json({ error: "Not awaiting a clue" }, { status: 409 });
+      const activeBoss = activeTeam ? teams?.[activeTeam]?.bossUid : null;
+      if (uid !== activeBoss) return NextResponse.json({ error: "Only the active boss can give a clue" }, { status: 403 });
+      const clueWord = (body?.clueWord as string | undefined)?.trim() ?? "";
+      const number = body?.number as number | undefined;
+      if (!clueWord || number == null || number < 1 || number > 5) {
+        return NextResponse.json({ error: "Clue word + a number 1–5 required" }, { status: 400 });
+      }
+      const board = (data["board"] as BoardCardLite[] | undefined) ?? [];
+      const boardWords = board.filter((c) => !c.revealed).map((c) => c.word);
+      const v = clueValidity(clueWord, boardWords);
+      if (!v.valid) return NextResponse.json({ error: v.reason ?? "Invalid clue" }, { status: 400 });
+      await sessionRef.update({
+        [`inbox.clue.${uid}`]: { word: clueWord.toUpperCase(), number, eventId: eventId() },
+      });
+      return NextResponse.json({ ok: true });
+    }
+
+    // ── tap-card (active operative) — write tap intent → engine reveals ──
+    if (action === "tap-card") {
+      if (phase !== "operative-guess") return NextResponse.json({ error: "Not guessing" }, { status: 409 });
+      const roster = activeTeam ? teams?.[activeTeam] : undefined;
+      const isActiveOperative = !!roster?.members?.includes(uid) && roster.bossUid !== uid;
+      if (!isActiveOperative) return NextResponse.json({ error: "Only an operative on the active team can tap" }, { status: 403 });
+      const cardIndex = body?.cardIndex as number | undefined;
+      if (cardIndex == null || cardIndex < 0 || cardIndex > 15) {
+        return NextResponse.json({ error: "Invalid card index" }, { status: 400 });
+      }
+      const board = (data["board"] as BoardCardLite[] | undefined) ?? [];
+      if (board[cardIndex]?.revealed) return NextResponse.json({ error: "Card already revealed" }, { status: 409 });
+      await sessionRef.update({
+        [`inbox.tap.${uid}`]: { cardIndex, eventId: eventId() },
+      });
+      return NextResponse.json({ ok: true });
+    }
+
+    // ── pass-turn (active operative) — write pass intent → engine switches ──
+    if (action === "pass-turn") {
+      if (phase !== "operative-guess") return NextResponse.json({ error: "Not guessing" }, { status: 409 });
+      const roster = activeTeam ? teams?.[activeTeam] : undefined;
+      const isActiveOperative = !!roster?.members?.includes(uid) && roster.bossUid !== uid;
+      if (!isActiveOperative) return NextResponse.json({ error: "Only an operative on the active team can pass" }, { status: 403 });
+      await sessionRef.update({
+        [`inbox.pass.${uid}`]: { eventId: eventId() },
+      });
+      return NextResponse.json({ ok: true });
+    }
+
+    // ── play-again (host) — reset to boss-select (teams + heist preserved) ──
+    if (action === "play-again") {
+      if (!isHost) return NextResponse.json({ error: "Only the host can restart" }, { status: 403 });
+      await sessionRef.update({
+        board: null,
+        keyDocId: null,
+        activeTeam: null,
+        currentClue: null,
+        guessesRemaining: 0,
+        guessesUsedThisTurn: 0,
+        winningTeam: null,
+        loseByBomb: false,
+        bombRevealedBy: null,
+        t1Score: 0,
+        t2Score: 0,
+        t1RevealCount: 0,
+        t2RevealCount: 0,
+        t1RevealedAssets: [],
+        t2RevealedAssets: [],
+        status: "playing",
+        svPhase: "boss-select",
+        inbox: {},
+        ...bumpSeq,
+      });
+      return NextResponse.json({ ok: true });
+    }
+
+    // ── validate-clue (read-only) — used by the boss UI for live feedback ──
     if (action === "validate-clue") {
-      return handleValidateClue(body);
+      const clueWord = (body?.clueWord as string | undefined) ?? "";
+      const boardWords = (body?.boardWords as string[] | undefined) ?? [];
+      return NextResponse.json(clueValidity(clueWord, boardWords));
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (err) {
     console.error(`[FYVE] Error for uid=${uid}:`, err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-}
-
-// ─── GENERATE KEY ───────────────────────────────────────────
-
-interface GenerateKeyBody {
-  action: "generate-key";
-  sessionId: string;
-  heistId: string;
-}
-
-async function handleGenerateKey(
-  body: unknown,
-  uid: string,
-): Promise<NextResponse> {
-  const { sessionId, heistId } = body as GenerateKeyBody;
-  if (!sessionId || !heistId) {
-    return NextResponse.json({ error: "Missing sessionId or heistId" }, { status: 400 });
-  }
-
-  const db = getAdminFirestore();
-
-  // Verify the caller is the session host
-  const sessionSnap = await db.doc(`gameSessions/${sessionId}`).get();
-  if (!sessionSnap.exists) {
-    return NextResponse.json({ error: "Session not found" }, { status: 404 });
-  }
-  const sessionData = sessionSnap.data()!;
-  if (sessionData["ownerId"] !== uid) {
-    return NextResponse.json({ error: "Only the host can generate the key" }, { status: 403 });
-  }
-
-  // Load the heist
-  const heistSnap = await db.doc(`fyveHeists/${heistId}`).get();
-  if (!heistSnap.exists) {
-    return NextResponse.json({ error: "Heist not found" }, { status: 404 });
-  }
-  const heist = heistSnap.data()!;
-  const words = heist["words"] as { tier1: string[]; tier2: string[]; tier3: string[] };
-  const civilians = heist["civilians"] as { name: string; description: string; imageUrl: string }[];
-
-  // Build the board — ALL words come from the pool (no character names)
-  const boardSize = ASSETS_PER_TEAM * 3 + 1; // T1 + T2 + neutral + bomb
-  const fullPool = [...words.tier1, ...words.tier2, ...words.tier3];
-  console.log(`[FYVE DEBUG] Full word pool (${fullPool.length} words):`, fullPool);
-  const boardWords = shuffle(fullPool).slice(0, boardSize);
-  console.log(`[FYVE DEBUG] Selected ${boardSize} board words:`, boardWords);
-
-  // Generate the key template and shuffle it
-  const keyTemplate: CardType[] = [
-    ...Array<CardType>(ASSETS_PER_TEAM).fill("T1"),   // team 1 assets
-    ...Array<CardType>(ASSETS_PER_TEAM).fill("T2"),   // team 2 assets
-    ...Array<CardType>(ASSETS_PER_TEAM).fill("N"),     // neutral civilians
-    "BOMB",                                             // 1 bomb
-  ];
-  const key = shuffle(keyTemplate);
-
-  // Assets are NOT pre-assigned to card positions — they reveal in story order.
-  // Only civilians need specific board-position assignments.
-
-  // Civilian assignments: assign each neutral position to a civilian index
-  const civilianAssignments: Record<number, number> = {};
-  const neutralPositions = key.map((k, i) => (k === "N" ? i : -1)).filter((i) => i >= 0);
-  const shuffledCivIndices = shuffle([0, 1, 2, 3, 4]);
-  neutralPositions.forEach((boardIdx, i) => {
-    civilianAssignments[boardIdx] = shuffledCivIndices[i]!;
-  });
-
-  // Bomb position
-  const bombIndex = key.indexOf("BOMB");
-
-  // Store the key document (admin-only)
-  const keyRef = db.collection("fyveKeys").doc();
-  const keyDoc: Omit<FyveKeyDoc, "createdAt"> & { createdAt: FieldValue } = {
-    sessionId,
-    key,
-    t1RevealCount: 0,
-    t2RevealCount: 0,
-    civilianAssignments,
-    bombIndex,
-    revealedCards: [],
-    createdAt: FieldValue.serverTimestamp(),
-  };
-  await keyRef.set(keyDoc);
-
-  // Build the public board (no color info)
-  const board = boardWords.map((word, i) => ({
-    index: i,
-    word,
-    revealed: false,
-  }));
-
-  // ─── DEBUG: log full board layout ───────────────────────
-  console.log("[FYVE DEBUG] ═══ BOARD LAYOUT ═══");
-  board.forEach((card, i) => {
-    const type = key[i]!;
-    let detail = "";
-    if (type === "T1" || type === "T2") {
-      detail = "(asset revealed in story order at game time)";
-    } else if (type === "N") {
-      const cIdx = civilianAssignments[i];
-      const civ = cIdx != null ? civilians[cIdx] : undefined;
-      detail = `civilian="${civ?.name ?? "?"}"`;
-    } else {
-      detail = "BOMB";
-    }
-    const typeLabel = type === "T1" ? "Syndicate 1" : type === "T2" ? "Syndicate 2" : type === "N" ? "Civilian" : "BOMB";
-    console.log(`[FYVE DEBUG] Card ${i + 1}: word="${card.word}" | type=${typeLabel} | ${detail}`);
-  });
-  console.log("[FYVE DEBUG] ═══════════════════");
-
-  return NextResponse.json({
-    keyDocId: keyRef.id,
-    board,
-  });
-}
-
-// ─── GET BOSS VIEW ──────────────────────────────────────────
-
-interface GetBossViewBody {
-  action: "get-boss-view";
-  sessionId: string;
-  keyDocId: string;
-}
-
-async function handleGetBossView(
-  body: unknown,
-  uid: string,
-): Promise<NextResponse> {
-  const { sessionId, keyDocId } = body as GetBossViewBody;
-  if (!sessionId || !keyDocId) {
-    return NextResponse.json({ error: "Missing sessionId or keyDocId" }, { status: 400 });
-  }
-
-  const db = getAdminFirestore();
-
-  // Verify the session exists and the caller is in it
-  const sessionSnap = await db.doc(`gameSessions/${sessionId}`).get();
-  if (!sessionSnap.exists) {
-    return NextResponse.json({ error: "Session not found" }, { status: 404 });
-  }
-  const sessionData = sessionSnap.data()!;
-  const playerUids = (sessionData["playerUids"] ?? []) as string[];
-  if (!playerUids.includes(uid)) {
-    return NextResponse.json({ error: "Not a player in this session" }, { status: 403 });
-  }
-
-  // Verify the caller is a boss for one of the teams
-  const teams = sessionData["teams"] as Record<string, { members: string[]; bossUid: string | null }> | undefined;
-  if (!teams) {
-    return NextResponse.json({ error: "Teams not yet formed" }, { status: 400 });
-  }
-
-  const isBoss =
-    teams["syndicate1"]?.bossUid === uid ||
-    teams["syndicate2"]?.bossUid === uid;
-
-  if (!isBoss) {
-    return NextResponse.json({ error: "Only bosses can view the key" }, { status: 403 });
-  }
-
-  // Load the key
-  const keySnap = await db.doc(`fyveKeys/${keyDocId}`).get();
-  if (!keySnap.exists) {
-    return NextResponse.json({ error: "Key not found" }, { status: 404 });
-  }
-  const keyData = keySnap.data() as FyveKeyDoc;
-  if (keyData.sessionId !== sessionId) {
-    return NextResponse.json({ error: "Key/session mismatch" }, { status: 403 });
-  }
-
-  const view: FyveBossView = {
-    colorMap: keyData.key,
-  };
-
-  return NextResponse.json(view);
-}
-
-// ─── REVEAL CARD ────────────────────────────────────────────
-
-interface RevealCardBody {
-  action: "reveal-card";
-  sessionId: string;
-  keyDocId: string;
-  cardIndex: number;
-  heistId: string;
-}
-
-async function handleRevealCard(
-  body: unknown,
-  uid: string,
-): Promise<NextResponse> {
-  const { sessionId, keyDocId, cardIndex, heistId } = body as RevealCardBody;
-  if (!sessionId || !keyDocId || cardIndex == null || !heistId) {
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-  }
-
-  const maxCardIndex = ASSETS_PER_TEAM * 3; // last valid index = boardSize - 1
-  if (cardIndex < 0 || cardIndex > maxCardIndex) {
-    return NextResponse.json({ error: "Invalid card index" }, { status: 400 });
-  }
-
-  const db = getAdminFirestore();
-
-  // Verify the caller is the host
-  const sessionSnap = await db.doc(`gameSessions/${sessionId}`).get();
-  if (!sessionSnap.exists) {
-    return NextResponse.json({ error: "Session not found" }, { status: 404 });
-  }
-  if (sessionSnap.data()!["ownerId"] !== uid) {
-    return NextResponse.json({ error: "Only the host can reveal cards" }, { status: 403 });
-  }
-
-  // Load the heist for asset/civilian/bomb metadata
-  const heistSnap = await db.doc(`fyveHeists/${heistId}`).get();
-  if (!heistSnap.exists) {
-    return NextResponse.json({ error: "Heist not found" }, { status: 404 });
-  }
-  const heist = heistSnap.data()!;
-  const assets = heist["assets"] as {
-    name: string; description: string; imageUrl: string;
-    bombDescription?: string; bombImageUrl?: string; bombSoundEffect?: string;
-  }[];
-  const civilians = heist["civilians"] as { name: string; description: string; imageUrl: string }[];
-
-  // Use a transaction for atomic read + idempotency check + counter update
-  const keyRef = db.doc(`fyveKeys/${keyDocId}`);
-  try {
-    const result = await db.runTransaction(async (tx) => {
-      const keySnap = await tx.get(keyRef);
-      if (!keySnap.exists) throw new Error("Key not found");
-      const keyData = keySnap.data() as FyveKeyDoc;
-      if (keyData.sessionId !== sessionId) throw new Error("Key/session mismatch");
-
-      // Idempotency: reject if this card was already revealed
-      const alreadyRevealed = keyData.revealedCards ?? [];
-      if (alreadyRevealed.includes(cardIndex)) throw new Error("Card already revealed");
-
-      const cardType = keyData.key[cardIndex]!;
-
-      // Track this card as revealed
-      const keyUpdates: Record<string, unknown> = {
-        revealedCards: [...alreadyRevealed, cardIndex],
-      };
-
-      let txResult: FyveRevealResult;
-
-      if (cardType === "T1" || cardType === "T2") {
-        const countField = cardType === "T1" ? "t1RevealCount" : "t2RevealCount";
-        const currentCount = (keyData[countField] as number) ?? 0;
-        const asset = assets[currentCount];
-        keyUpdates[countField] = currentCount + 1;
-
-        txResult = {
-          cardIndex,
-          cardType,
-          name: asset?.name ?? "ASSET",
-          description: asset?.description ?? "",
-          imageUrl: asset?.imageUrl ?? "",
-        };
-      } else if (cardType === "N") {
-        const civIdx = keyData.civilianAssignments[cardIndex];
-        const civ = civIdx != null ? civilians[civIdx] : undefined;
-        txResult = {
-          cardIndex,
-          cardType,
-          name: civ?.name ?? "CIVILIAN",
-          description: civ?.description ?? "",
-          imageUrl: civ?.imageUrl ?? "",
-        };
-      } else {
-        // BOMB — use per-element bomb based on which element the active team is on
-        const sessionData = sessionSnap.data()!;
-        const activeTeam = sessionData["activeTeam"] as string;
-        const countField = activeTeam === "syndicate1" ? "t1RevealCount" : "t2RevealCount";
-        const elementIndex = (keyData[countField] as number) ?? 0;
-        const elementAsset = assets[elementIndex];
-
-        txResult = {
-          cardIndex,
-          cardType,
-          name: HEIST_ELEMENT_LABELS[elementIndex] ?? "THE BOMB",
-          description: elementAsset?.bombDescription || "",
-          imageUrl: elementAsset?.bombImageUrl || "",
-          bombSoundEffect: elementAsset?.bombSoundEffect || "",
-        };
-      }
-
-      tx.update(keyRef, keyUpdates);
-      return txResult;
-    });
-
-    return NextResponse.json(result);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Transaction failed";
-    if (msg === "Card already revealed") {
-      return NextResponse.json({ error: msg }, { status: 409 });
-    }
-    if (msg === "Key not found") {
-      return NextResponse.json({ error: msg }, { status: 404 });
-    }
-    if (msg === "Key/session mismatch") {
-      return NextResponse.json({ error: msg }, { status: 403 });
-    }
-    return NextResponse.json({ error: msg }, { status: 500 });
-  }
-}
-
-// ─── VALIDATE CLUE ──────────────────────────────────────────
-
-interface ValidateClueBody {
-  action: "validate-clue";
-  clueWord: string;
-  boardWords: string[];
-}
-
-async function handleValidateClue(
-  body: unknown,
-): Promise<NextResponse> {
-  const { clueWord, boardWords } = body as ValidateClueBody;
-
-  if (!clueWord || !boardWords) {
-    return NextResponse.json({ error: "Missing clueWord or boardWords" }, { status: 400 });
-  }
-
-  const word = clueWord.trim().toUpperCase();
-
-  // Must be a single word (no spaces)
-  if (word.length === 0 || word.includes(" ")) {
-    return NextResponse.json({ valid: false, reason: "Clue must be a single word" });
-  }
-
-  // Must not match any board word
-  const boardUpper = boardWords.map((w) => w.toUpperCase());
-  if (boardUpper.includes(word)) {
-    return NextResponse.json({ valid: false, reason: "Clue cannot be a word on the board" });
-  }
-
-  // Basic stemming check — clue should not be a prefix/suffix derivative
-  for (const bw of boardUpper) {
-    if (bw.length >= 4 && (word.startsWith(bw) || bw.startsWith(word))) {
-      return NextResponse.json({
-        valid: false,
-        reason: `Clue appears to be a derivative of "${bw}"`,
-      });
-    }
-  }
-
-  return NextResponse.json({ valid: true });
 }
