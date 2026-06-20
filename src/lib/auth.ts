@@ -278,6 +278,18 @@ export async function signInWithGoogle(funnelId?: string | null): Promise<User |
 
   const provider = new GoogleAuthProvider();
 
+  // Mobile browsers (esp. iOS WebKit) block or unreliably handle the OAuth
+  // popup — go straight to redirect. With the first-party authDomain this now
+  // completes on iOS; the result is picked up by getRedirectResult on reload.
+  const isMobile =
+    typeof navigator !== "undefined" &&
+    (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+      (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent)));
+  if (isMobile) {
+    await signInWithRedirect(authInstance, provider);
+    return null;
+  }
+
   try {
     const result = await signInWithPopup(authInstance, provider);
 
