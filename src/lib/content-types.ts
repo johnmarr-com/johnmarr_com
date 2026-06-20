@@ -188,6 +188,12 @@ export interface JMContent {
   secondaryColor?: string;        // Secondary accent hex (e.g. "#3B82F6") for complementary UI elements
   tertiaryColor?: string;         // Tertiary accent hex — backgrounds, secondary actions
   dangerColor?: string;           // Danger/alert accent hex — warnings, destructive actions, enemy labels
+  // Pack/selector popup ("game modal") colors. Empty → the game's picker falls
+  // back to a sensible default. See toPickerColors in GameColorsProvider.
+  modalBgColor?: string;          // Modal background fill (e.g. the splash background color)
+  modalAccentColor?: string;      // Modal accent — title, selected checkmark, Play button
+  modalTabColor?: string;         // Active tab highlight
+  modalBorderColor?: string;      // Modal frame/border (empty = subtle default border)
 
   // ─── GameCore Assembly ────────────────────────────────────
   /** Which phase component variants to use for each GC slot. Set via admin Game Assembly GUI. */
@@ -248,6 +254,10 @@ export interface JMContentInput {
   secondaryColor?: string;
   tertiaryColor?: string;
   dangerColor?: string;
+  modalBgColor?: string;
+  modalAccentColor?: string;
+  modalTabColor?: string;
+  modalBorderColor?: string;
   brandId?: string;
   parentId?: string | null;
   order?: number;

@@ -45,6 +45,10 @@ interface EditState {
   secondaryColor: string;
   tertiaryColor: string;
   dangerColor: string;
+  modalBgColor: string;
+  modalAccentColor: string;
+  modalTabColor: string;
+  modalBorderColor: string;
   isPublished: boolean;
   assembly: GameAssembly | undefined;
 }
@@ -74,6 +78,10 @@ function stateFromGame(game: JMContent): EditState {
     secondaryColor: game.secondaryColor ?? "",
     tertiaryColor: game.tertiaryColor ?? "",
     dangerColor: game.dangerColor ?? "",
+    modalBgColor: game.modalBgColor ?? "",
+    modalAccentColor: game.modalAccentColor ?? "",
+    modalTabColor: game.modalTabColor ?? "",
+    modalBorderColor: game.modalBorderColor ?? "",
     isPublished: game.isPublished,
     assembly: (game as unknown as Record<string, unknown>)["assembly"] as GameAssembly | undefined,
   };
@@ -229,6 +237,10 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
       if (editState.secondaryColor.trim()) updates.secondaryColor = editState.secondaryColor.trim();
       if (editState.tertiaryColor.trim()) updates.tertiaryColor = editState.tertiaryColor.trim();
       if (editState.dangerColor.trim()) updates.dangerColor = editState.dangerColor.trim();
+      updates.modalBgColor = editState.modalBgColor.trim();
+      updates.modalAccentColor = editState.modalAccentColor.trim();
+      updates.modalTabColor = editState.modalTabColor.trim();
+      updates.modalBorderColor = editState.modalBorderColor.trim();
       if (editState.assembly) updates.assembly = editState.assembly;
 
       await updateContent(gameId, updates);
@@ -849,6 +861,116 @@ export function GameEditModal({ gameId, onClose, onUpdated }: GameEditModalProps
                 </div>
                 <p className="mt-1 text-xs" style={{ color: theme.text.tertiary }}>
                   Game palette: primary (titles, highlights), secondary (names, accents), tertiary (backgrounds, secondary actions), danger (alerts, enemy labels).
+                </p>
+              </div>
+
+              {/* Pack / Selector Modal Colors */}
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider" style={{ color: theme.text.tertiary }}>
+                  Pack / Selector Modal
+                </p>
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <label className="mb-1 block text-sm font-medium" style={{ color: theme.text.secondary }}>
+                      Modal Background
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <ColorSwatchInput
+                        value={editState.modalBgColor}
+                        onChange={(v) => setEditState({ ...editState, modalBgColor: v })}
+                        ariaLabel="Modal background color"
+                      />
+                      <input
+                        type="text"
+                        value={editState.modalBgColor}
+                        onChange={(e) => setEditState({ ...editState, modalBgColor: e.target.value })}
+                        placeholder="auto"
+                        className="w-full rounded-lg border px-3 py-2 text-sm font-mono"
+                        style={{
+                          backgroundColor: "rgba(0, 0, 0, 0.4)",
+                          borderColor: "rgba(255, 255, 255, 0.2)",
+                          color: theme.text.primary,
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <label className="mb-1 block text-sm font-medium" style={{ color: theme.text.secondary }}>
+                      Modal Accent
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <ColorSwatchInput
+                        value={editState.modalAccentColor}
+                        onChange={(v) => setEditState({ ...editState, modalAccentColor: v })}
+                        ariaLabel="Modal accent color"
+                      />
+                      <input
+                        type="text"
+                        value={editState.modalAccentColor}
+                        onChange={(e) => setEditState({ ...editState, modalAccentColor: e.target.value })}
+                        placeholder="auto"
+                        className="w-full rounded-lg border px-3 py-2 text-sm font-mono"
+                        style={{
+                          backgroundColor: "rgba(0, 0, 0, 0.4)",
+                          borderColor: "rgba(255, 255, 255, 0.2)",
+                          color: theme.text.primary,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 flex gap-4">
+                  <div className="flex-1">
+                    <label className="mb-1 block text-sm font-medium" style={{ color: theme.text.secondary }}>
+                      Modal Tab
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <ColorSwatchInput
+                        value={editState.modalTabColor}
+                        onChange={(v) => setEditState({ ...editState, modalTabColor: v })}
+                        ariaLabel="Modal active tab color"
+                      />
+                      <input
+                        type="text"
+                        value={editState.modalTabColor}
+                        onChange={(e) => setEditState({ ...editState, modalTabColor: e.target.value })}
+                        placeholder="auto"
+                        className="w-full rounded-lg border px-3 py-2 text-sm font-mono"
+                        style={{
+                          backgroundColor: "rgba(0, 0, 0, 0.4)",
+                          borderColor: "rgba(255, 255, 255, 0.2)",
+                          color: theme.text.primary,
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <label className="mb-1 block text-sm font-medium" style={{ color: theme.text.secondary }}>
+                      Modal Border
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <ColorSwatchInput
+                        value={editState.modalBorderColor}
+                        onChange={(v) => setEditState({ ...editState, modalBorderColor: v })}
+                        ariaLabel="Modal border color"
+                      />
+                      <input
+                        type="text"
+                        value={editState.modalBorderColor}
+                        onChange={(e) => setEditState({ ...editState, modalBorderColor: e.target.value })}
+                        placeholder="none"
+                        className="w-full rounded-lg border px-3 py-2 text-sm font-mono"
+                        style={{
+                          backgroundColor: "rgba(0, 0, 0, 0.4)",
+                          borderColor: "rgba(255, 255, 255, 0.2)",
+                          color: theme.text.primary,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <p className="mt-1 text-xs" style={{ color: theme.text.tertiary }}>
+                  Colors for the pack/selector popup. Leave blank to use the game&rsquo;s built-in default. Title follows the accent; the Play-button text auto-contrasts.
                 </p>
               </div>
 

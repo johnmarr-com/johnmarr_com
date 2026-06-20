@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/lib/AuthProvider";
 import { getOfficialPacks, getMyPacks, getSharedPacks, type WordonkulousPack } from "@/lib/wordonkulous-packs";
 import { JMAssetPicker, type JMAssetPickerItem } from "@/JMKit";
+import { useGameColors, toPickerColors } from "@/app/games/_gamecore";
 import type { GameLengthPreset } from "@/app/games/_gamecore/gameLengthPresets";
 
 type PackItem = WordonkulousPack & JMAssetPickerItem;
@@ -30,6 +31,14 @@ export default function WordonkulousPackPicker({
   defaultPackId,
 }: WordonkulousPackPickerProps) {
   const { user } = useAuth();
+  const gc = useGameColors();
+  // Hot-pink background is pulled from the splash; CMS can override any role.
+  const modalColors = toPickerColors({
+    background: gc.modalBg || "#ff1493",
+    accent: gc.modalAccent || "#8eff0e",
+    tab: gc.modalTab || "#0272de",
+    border: gc.modalBorder || "#2563eb",
+  });
   const [officialPacks, setOfficialPacks] = useState<PackItem[]>([]);
   const [sharedPacks, setSharedPacks] = useState<PackItem[]>([]);
   const [myPacks, setMyPacks] = useState<PackItem[]>([]);
@@ -74,14 +83,7 @@ export default function WordonkulousPackPicker({
       onClose={onClose}
       loading={loading}
       actionLabel="Play"
-      colors={{
-        background: "#ff1493",
-        title: "#8eff0e",
-        activeTab: "#0272de",
-        accent: "#8eff0e",
-        buttonText: "#000000",
-        border: "#2563eb",
-      }}
+      colors={modalColors}
       lengthPresets={lengthPresets}
       selectedLengthKey={selectedLengthKey}
       onLengthChange={onLengthChange}

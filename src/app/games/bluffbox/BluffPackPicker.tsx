@@ -9,6 +9,7 @@ import {
   type BluffBoxPack,
 } from "@/lib/bluffbox-packs";
 import { JMAssetPicker, type JMAssetPickerItem } from "@/JMKit";
+import { useGameColors, toPickerColors } from "@/app/games/_gamecore";
 import type { GameLengthPreset } from "@/app/games/_gamecore/gameLengthPresets";
 
 type PackItem = BluffBoxPack & JMAssetPickerItem;
@@ -42,6 +43,15 @@ export default function BluffPackPicker({
   onLengthChange,
 }: BluffPackPickerProps) {
   const { user } = useAuth();
+  const gc = useGameColors();
+  // BluffBox modal follows its brand blues (secondary/tertiary) unless the CMS
+  // overrides any role explicitly.
+  const modalColors = toPickerColors({
+    background: gc.modalBg || gc.tertiary,
+    accent: gc.modalAccent || gc.secondary,
+    tab: gc.modalTab || gc.tertiary,
+    border: gc.modalBorder || gc.secondary,
+  });
   const [officialPacks, setOfficialPacks] = useState<PackItem[]>([]);
   const [sharedPacks, setSharedPacks] = useState<PackItem[]>([]);
   const [myPacks, setMyPacks] = useState<PackItem[]>([]);
@@ -91,14 +101,7 @@ export default function BluffPackPicker({
       onClose={onClose}
       loading={loading}
       actionLabel="Play"
-      colors={{
-        background: "#1c1410",
-        title: "#fbbf24",
-        activeTab: "#b45309",
-        accent: "#fbbf24",
-        buttonText: "#000000",
-        border: "#f59e0b",
-      }}
+      colors={modalColors}
       lengthPresets={lengthPresets}
       selectedLengthKey={selectedLengthKey}
       onLengthChange={onLengthChange}

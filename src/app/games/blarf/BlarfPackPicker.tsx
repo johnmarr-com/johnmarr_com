@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/lib/AuthProvider";
 import { getOfficialBlarfPacks, getMyBlarfPacks, getSharedBlarfPacks, type BlarfPack } from "@/lib/blarf-packs";
 import { JMAssetPicker, type JMAssetPickerItem } from "@/JMKit";
+import { useGameColors, toPickerColors } from "@/app/games/_gamecore";
 import type { GameLengthPreset } from "@/app/games/_gamecore/gameLengthPresets";
 
 type PackItem = BlarfPack & JMAssetPickerItem;
@@ -30,6 +31,15 @@ export default function BlarfPackPicker({
   defaultPackId,
 }: BlarfPackPickerProps) {
   const { user } = useAuth();
+  const gc = useGameColors();
+  // Reproduces Blarf's existing look (blue / gold / red, no thick border);
+  // any role is CMS-overridable.
+  const modalColors = toPickerColors({
+    background: gc.modalBg || "#1c588c",
+    accent: gc.modalAccent || "#F7D047",
+    tab: gc.modalTab || "#C93C3C",
+    border: gc.modalBorder || undefined,
+  });
   const [officialPacks, setOfficialPacks] = useState<PackItem[]>([]);
   const [sharedPacks, setSharedPacks] = useState<PackItem[]>([]);
   const [myPacks, setMyPacks] = useState<PackItem[]>([]);
@@ -74,13 +84,7 @@ export default function BlarfPackPicker({
       onClose={onClose}
       loading={loading}
       actionLabel="Play"
-      colors={{
-        background: "#1c588c",
-        title: "#F7D047",
-        activeTab: "#C93C3C",
-        accent: "#F7D047",
-        buttonText: "#000000",
-      }}
+      colors={modalColors}
       lengthPresets={lengthPresets}
       selectedLengthKey={selectedLengthKey}
       onLengthChange={onLengthChange}
