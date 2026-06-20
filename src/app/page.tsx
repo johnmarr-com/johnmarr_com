@@ -15,7 +15,7 @@ import { bgMusic } from "@/lib/BackgroundMusicPlayer";
 import { getGamePlayHref, getGamePlayHrefWithSession } from "@/lib/composite-game-slug";
 
 export default function Home() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, gamertag } = useAuth();
   const { theme } = useJMStyle();
   const router = useRouter();
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
@@ -133,10 +133,14 @@ export default function Home() {
       }
     };
 
-    if (user && !isLoading) {
+    // Only first-time users (no gamertag yet) need the onboarding check. A
+    // returning player already has a gamertag — skip it entirely so the
+    // onboarding modal can't flash on navigation back to home (the page
+    // remounts and hasCheckedAvatar resets, but gamertag persists/caches).
+    if (user && !isLoading && !gamertag) {
       checkFirstLogin();
     }
-  }, [user, isLoading, hasCheckedAvatar]);
+  }, [user, isLoading, hasCheckedAvatar, gamertag]);
 
   const handleDeleteInvite = useCallback(async (invite: GameInvite) => {
     if (!user) return;
@@ -322,9 +326,10 @@ export default function Home() {
         )}
       </main>
 
-      {/* Welcome modal for first-time users */}
+      {/* Welcome modal for first-time users. Belt-and-suspenders: never render
+          for a player who already has a gamertag, so it can't flash on return. */}
       <JMWelcomeAvatarModal
-        isOpen={showWelcomeModal}
+        isOpen={showWelcomeModal && !gamertag}
         onClose={() => setShowWelcomeModal(false)}
       />
 
