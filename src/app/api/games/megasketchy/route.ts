@@ -129,6 +129,10 @@ export async function POST(request: NextRequest) {
       if (!isHost) return NextResponse.json({ error: "Only the host can restart" }, { status: 403 });
       const missionNumber = ((data["missionNumber"] as number | undefined) ?? 0) + 1;
       await sessionRef.update({
+        // The previous game ended with status:"finished"; restore "playing" so
+        // the engine fires again (lobby → briefing).
+        status: "playing",
+        winner: null,
         skPhase: "lobby",
         playOrder: [],
         message: null,

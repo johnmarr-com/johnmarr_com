@@ -115,6 +115,18 @@ export default function MegaSketchyPlayScreen({
 
   const isDraw = task.taskType === "draw";
 
+  // 60s hourglass, shown just below the canvas (visible without scrolling).
+  const timer = (
+    <div
+      className={`mt-3 flex items-center justify-center gap-2 rounded-full px-5 py-1.5 text-lg font-black tabular-nums ${
+        secsLeft <= 10 ? "bg-red-500/25 text-red-300" : "bg-white/10 text-white/70"
+      }`}
+    >
+      <Hourglass className={`h-5 w-5 ${secsLeft <= 10 ? "animate-pulse" : ""}`} />
+      {secsLeft}s
+    </div>
+  );
+
   return (
     <div className="fixed inset-0 z-10 flex flex-col">
       {/* Header bar */}
@@ -132,19 +144,10 @@ export default function MegaSketchyPlayScreen({
           </span>
         </div>
         {queueLength > 1 && (
-          <span className="absolute left-3/4 -translate-x-1/2 rounded-full bg-green-400/10 px-3 py-1 text-xs font-bold text-green-400/70">
+          <span className="ml-auto rounded-full bg-green-400/10 px-3 py-1 text-xs font-bold text-green-400/70">
             +{queueLength - 1} queued
           </span>
         )}
-        {/* 60s hourglass */}
-        <span
-          className={`ml-auto flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-black tabular-nums ${
-            secsLeft <= 10 ? "bg-red-500/25 text-red-300" : "bg-white/10 text-white/70"
-          }`}
-        >
-          <Hourglass className={`h-4 w-4 ${secsLeft <= 10 ? "animate-pulse" : ""}`} />
-          {secsLeft}s
-        </span>
       </div>
 
       {/* Main content area */}
@@ -165,6 +168,7 @@ export default function MegaSketchyPlayScreen({
             <div className="w-full max-w-lg">
               <SketchCanvas ref={canvasRef} />
             </div>
+            {timer}
           </>
         ) : (
           <>
@@ -177,6 +181,8 @@ export default function MegaSketchyPlayScreen({
               </div>
               <SketchCanvas readOnly backgroundImage={task.input.value} />
             </div>
+
+            {timer}
 
             {/* Text input with blinking cursor placeholder */}
             <div className="w-full max-w-lg">

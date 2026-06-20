@@ -45,7 +45,6 @@ const ACTIVE_PHASES = new Set([
   "reveal",
   "scoring",
   "voting",
-  "done",
 ]);
 
 const missionPath = (id: string): string => `megasketchyMissions/${id}`;
@@ -239,23 +238,27 @@ const megaSketchyReducer: Reducer = {
       };
     }
 
-    // ── scoring → voting (advanced/expert) or done (basic). ──
+    // ── scoring → voting (advanced/expert) or share (basic, the end). ──
+    // The transmission-log viewer (share) is the universal end screen; the game
+    // is marked over only when we land there (status:finished stops the engine,
+    // so we must NOT set it before share or later transitions would hang).
     if (phase === "scoring") {
       const adv = inbox["advance"];
       if (!adv || Object.keys(adv).length === 0) return null;
       const toVoting = gameMode === "advanced" || gameMode === "expert";
-      logger.info(`[megasketchy] ${sid}: scoring → ${toVoting ? "voting" : "done"}`);
-      const update: StateUpdate = {
-        fields: { skPhase: toVoting ? "voting" : "done", "inbox.advance": FieldValue.delete() },
-      };
-      if (!toVoting) {
-        update.gameOver = true;
-        update.winner = (s["scoringResult"] as { passed?: boolean } | null)?.passed ? "agents" : null;
+      if (toVoting) {
+        logger.info(`[megasketchy] ${sid}: scoring → voting`);
+        return { fields: { skPhase: "voting", "inbox.advance": FieldValue.delete() } };
       }
-      return update;
+      logger.info(`[megasketchy] ${sid}: scoring → share (game over)`);
+      return {
+        fields: { skPhase: "share", "inbox.advance": FieldValue.delete() },
+        gameOver: true,
+        winner: (s["scoringResult"] as { passed?: boolean } | null)?.passed ? "agents" : null,
+      };
     }
 
-    // ── voting: collect votes; host advance → done. ──
+    // ── voting: collect votes; host advance → share (the end). ──
     if (phase === "voting") {
       const vote = inbox["vote"] as Record<string, { targetUid?: string }> | undefined;
       const adv = inbox["advance"];
@@ -272,22 +275,14 @@ const megaSketchyReducer: Reducer = {
         }
       }
       if (adv && Object.keys(adv).length > 0) {
-        logger.info(`[megasketchy] ${sid}: voting → done`);
+        logger.info(`[megasketchy] ${sid}: voting → share (game over)`);
         return {
-          fields: { ...fields, skPhase: "done", "inbox.advance": FieldValue.delete() },
+          fields: { ...fields, skPhase: "share", "inbox.advance": FieldValue.delete() },
           gameOver: true,
           winner: (s["scoringResult"] as { passed?: boolean } | null)?.passed ? "agents" : null,
         };
       }
       return changed || Object.keys(fields).length > 0 ? { fields } : null;
-    }
-
-    // ── done → share (host). ──
-    if (phase === "done") {
-      const adv = inbox["advance"];
-      if (!adv || Object.keys(adv).length === 0) return null;
-      logger.info(`[megasketchy] ${sid}: done → share`);
-      return { fields: { skPhase: "share", "inbox.advance": FieldValue.delete() } };
     }
 
     return null;

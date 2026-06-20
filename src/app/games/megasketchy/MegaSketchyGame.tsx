@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
-import { useGameMusic, GameGamertagBadge, GameSectionHeader, GamePrimaryButton, GameStatusMessage, recordGameStats, useEngineDeadline } from "../_gamecore";
+import { useGameMusic, GameGamertagBadge, GamePrimaryButton, GameStatusMessage, recordGameStats, useEngineDeadline } from "../_gamecore";
 import { PointsManager, Activity } from "@/lib/points";
 import { useMegaSketchySession } from "./useMegaSketchySession";
 import * as msApi from "./megaSketchyApi";
@@ -112,10 +112,10 @@ export default function MegaSketchyGame({
     [sessionId, currentTask],
   );
 
-  // Game-over → award points + record stats (once, when the engine finishes).
+  // Game-over → award points + record stats (once, when the viewer opens).
   const gameEndFiredRef = useRef(false);
   useEffect(() => {
-    if (skState.skPhase === "done" && !gameEndFiredRef.current) {
+    if (skState.skPhase === "share" && !gameEndFiredRef.current) {
       gameEndFiredRef.current = true;
       const passed = skState.scoringResult?.passed ?? false;
       PointsManager.award(Activity.PLAY_GAME);
@@ -126,8 +126,8 @@ export default function MegaSketchyGame({
         recordGameStats(allUids, passed ? allUids : [], session?.ownerId ?? "");
       }
     }
-    if (skState.skPhase !== "done") gameEndFiredRef.current = false;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires once at done
+    if (skState.skPhase !== "share") gameEndFiredRef.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires once at share
   }, [skState.skPhase, skState.scoringResult, isHost]);
 
   // Loading state
@@ -244,32 +244,6 @@ export default function MegaSketchyGame({
           onProceed={handleAdvance}
           isHost={isHost}
         />
-      );
-      break;
-
-    case "done":
-      phaseContent = (
-        <div className="fixed inset-0 z-10 flex flex-col items-center justify-center px-6">
-          <div className="flex w-full max-w-lg flex-col items-center gap-5">
-            <GameSectionHeader
-              eyebrow="Mission Complete"
-              title="Debrief Over"
-              titleColorClass="text-white"
-            />
-            <p className="text-center text-base text-white/60">
-              Thanks for playing, agents. The syndicate lives to spy another day.
-            </p>
-            <div className="w-full pt-2">
-              {isHost ? (
-                <GamePrimaryButton onClick={handleAdvance}>
-                  View Transmissions
-                </GamePrimaryButton>
-              ) : (
-                <GameStatusMessage message="Waiting for host..." />
-              )}
-            </div>
-          </div>
-        </div>
       );
       break;
 

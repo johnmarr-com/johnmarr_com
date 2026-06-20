@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useCallback, useMemo, useRef } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { JMAvatarView, JMAIAvatarView } from "@/JMKit";
 import { GamePrimaryButton, GameStatusMessage } from "../_gamecore";
 import { getPlayerForStep, type Chains, type ChainEntry } from "./chainEngine";
@@ -25,6 +26,7 @@ export default function MegaSketchyShare({
   isHost,
   onPlayAgain,
 }: MegaSketchyShareProps) {
+  const router = useRouter();
   const [selectedUid, setSelectedUid] = useState(userId);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -77,6 +79,15 @@ export default function MegaSketchyShare({
 
   return (
     <div className="fixed inset-0 z-10 flex flex-col">
+      {/* Exit (everyone) */}
+      <button
+        onClick={() => router.push("/")}
+        aria-label="Exit"
+        className="absolute left-4 top-4 z-30 flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white/80 backdrop-blur-sm transition-colors hover:bg-white/15 hover:text-white"
+      >
+        <X className="h-5 w-5" />
+      </button>
+
       {/* Header */}
       <div className="shrink-0 px-6 pt-8 pb-2 text-center">
         <p className="mb-1 text-xs font-bold uppercase tracking-[0.3em] text-green-400/70">
@@ -103,7 +114,7 @@ export default function MegaSketchyShare({
               <div
                 key={idx}
                 className="relative shrink-0 snap-start overflow-hidden rounded-2xl bg-white"
-                style={{ width: "min(85vw, 480px)", aspectRatio: "1 / 1" }}
+                style={{ width: "min(85vw, 480px)", aspectRatio: "4 / 3" }}
               >
                 {/* Gamertag badge */}
                 <div className="absolute right-2.5 top-2.5 z-10 rounded-lg bg-purple-600 px-3 py-1.5 shadow-sm">
