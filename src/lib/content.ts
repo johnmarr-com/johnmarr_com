@@ -1195,46 +1195,16 @@ interface FeaturedContentResult {
  * Returns items formatted for the carousel component
  */
 export async function getFeaturedContent(): Promise<FeaturedContentResult[]> {
-  const { initializeFirebase } = await import("./firebase");
-  const { getFirestore, collection, query, where, orderBy, getDocs } = await import("firebase/firestore");
-  
-  const { app } = await initializeFirebase();
-  const db = getFirestore(app);
-  
-  const featuredRef = collection(db, "featured");
-  const q = query(
-    featuredRef,
-    where("isActive", "==", true),
-    orderBy("order", "asc")
-  );
-  
-  const snapshot = await getDocs(q);
-  
-  const rows: FeaturedContentResult[] = snapshot.docs.map((doc) => {
-    const data = doc.data() as JMFeaturedItem;
-    const result: FeaturedContentResult = {
-      id: doc.id,
-      title: data.title,
-      backdropURL: data.backdropURL,
-      contentId: data.contentId,
-      contentType: data.contentType,
-    };
-    if (data.subtitle) result.subtitle = data.subtitle;
-    if (data.description) result.description = data.description;
-    if (data.slug) result.slug = data.slug;
-    return result;
-  });
-
-  await Promise.all(
-    rows.map(async (row) => {
-      if (row.contentType !== "game" || !row.contentId) return;
-      const c = await getContent(row.contentId);
-      if (c?.slug) row.slug = c.slug;
-      if (c?.engineSlug) row.engineSlug = c.engineSlug;
-    }),
-  );
-
-  return rows;
+  // Read over plain HTTPS (Admin SDK), NOT a client getDocs on the realtime
+  // stream — the stream wedges on iOS and made the home banner hang.
+  try {
+    const res = await fetch("/api/content/featured", { cache: "no-store" });
+    if (!res.ok) return [];
+    const { rows } = (await res.json()) as { rows: FeaturedContentResult[] };
+    return rows ?? [];
+  } catch {
+    return [];
+  }
 }
 
 /**
