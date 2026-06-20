@@ -15,7 +15,6 @@ import GroupGuessModal from "./screens/GroupGuessModal";
 import TurnResultModal from "./screens/TurnResultModal";
 import WinnerScreen from "./screens/WinnerScreen";
 import BluffPackPicker from "./BluffPackPicker";
-import BluffPackGridPicker from "./BluffPackGridPicker";
 import type { BluffBoxPack } from "@/lib/bluffbox-packs";
 import { JMConfettiOverlay } from "@/JMKit";
 import type { JMContent } from "@/lib/content-types";
@@ -39,7 +38,7 @@ export default function BluffBoxGame({
   gameLogoURL,
   onGameEnd,
 }: BluffBoxGameProps) {
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
   const userId = user?.uid ?? "";
   const { state } = useBluffBoxSession(sessionId, userId);
   const [resultDismissed, setResultDismissed] = useState(false);
@@ -190,21 +189,7 @@ export default function BluffBoxGame({
 
         {/* ── Pack Select (host picks AFTER Start; others wait) ── */}
         {bbPhase === "pack-select" && isHost && (
-          isAdmin ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
-              <h2 className="text-xl font-black uppercase tracking-wider text-amber-400">
-                Choose a Bluff Pack
-              </h2>
-              <BluffPackPicker onSelect={handlePackSelected} onClose={() => {}} />
-            </div>
-          ) : (
-            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 pt-4 pb-10">
-              <h2 className="text-center text-xl font-black uppercase tracking-wider text-amber-400">
-                Choose a Bluff Pack
-              </h2>
-              <BluffPackGridPicker onSelect={handlePackSelected} />
-            </div>
-          )
+          <BluffPackPicker onSelect={handlePackSelected} />
         )}
         {bbPhase === "pack-select" && !isHost && (
           <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6">
