@@ -9,6 +9,7 @@ import {
   type BluffBoxPack,
 } from "@/lib/bluffbox-packs";
 import { JMAssetPicker, type JMAssetPickerItem } from "@/JMKit";
+import type { GameLengthPreset } from "@/app/games/_gamecore/gameLengthPresets";
 
 type PackItem = BluffBoxPack & JMAssetPickerItem;
 
@@ -26,9 +27,20 @@ interface BluffPackPickerProps {
   /** Omit to hide the close button (host must pick to proceed). */
   onClose?: (() => void) | undefined;
   defaultPackId?: string | null | undefined;
+  /** Round-count presets (omit to hide the length picker). */
+  lengthPresets?: GameLengthPreset[] | undefined;
+  selectedLengthKey?: string | undefined;
+  onLengthChange?: ((preset: GameLengthPreset) => void) | undefined;
 }
 
-export default function BluffPackPicker({ onSelect, onClose, defaultPackId }: BluffPackPickerProps) {
+export default function BluffPackPicker({
+  onSelect,
+  onClose,
+  defaultPackId,
+  lengthPresets,
+  selectedLengthKey,
+  onLengthChange,
+}: BluffPackPickerProps) {
   const { user } = useAuth();
   const [officialPacks, setOfficialPacks] = useState<PackItem[]>([]);
   const [sharedPacks, setSharedPacks] = useState<PackItem[]>([]);
@@ -87,6 +99,9 @@ export default function BluffPackPicker({ onSelect, onClose, defaultPackId }: Bl
         buttonText: "#000000",
         border: "#f59e0b",
       }}
+      lengthPresets={lengthPresets}
+      selectedLengthKey={selectedLengthKey}
+      onLengthChange={onLengthChange}
     />
   );
 }

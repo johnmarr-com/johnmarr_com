@@ -21,10 +21,11 @@ async function bbRequest(
   return { ok: true };
 }
 
-/** Host: choose the card pack (server shuffles into the secret pool + inits the game). */
+/** Host: choose the card pack + round count (server shuffles into the secret pool + inits the game). */
 export async function selectPack(
   sessionId: string,
   pack: { id: string; name?: string; coverURL?: string | null; cards: string[] },
+  rounds: number,
 ): Promise<{ ok: boolean; error?: string }> {
   return bbRequest({
     action: "select-pack",
@@ -33,6 +34,7 @@ export async function selectPack(
     packName: pack.name ?? null,
     packCoverURL: pack.coverURL ?? null,
     cards: pack.cards,
+    rounds,
   });
 }
 

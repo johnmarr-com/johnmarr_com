@@ -30,6 +30,7 @@ setInterval(() => {
 }, RATE_WINDOW_MS);
 
 const MAX_CARDS = 2000;
+const MAX_ROUNDS = 10;
 
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get("Authorization");
@@ -81,6 +82,13 @@ export async function POST(request: NextRequest) {
     if (!packId || !Array.isArray(cards) || cards.length === 0 || cards.length > MAX_CARDS) {
       return NextResponse.json({ error: "Invalid pack payload" }, { status: 400 });
     }
+    // Host-chosen round count (defaults to the headcount-based auto count on the
+    // client); clamp server-side so it stays sane regardless of what's sent.
+    const requestedRounds = Number(body?.rounds);
+    const totalRounds =
+      Number.isFinite(requestedRounds) && requestedRounds >= 1
+        ? Math.min(MAX_ROUNDS, Math.floor(requestedRounds))
+        : calculateTotalRounds(playerUids.length);
     // Secret card pool (shuffled, server-only) so upcoming cards can't be peeked.
     await db.doc(`bluffSecrets/${sessionId}`).set({ cardPool: shuffleCards(cards), sharerChoice: null });
     // Public meta + turn order; engine flips pack-select → round-intro.
@@ -88,7 +96,7 @@ export async function POST(request: NextRequest) {
       selectedPackId: packId,
       selectedPackName: (body?.packName as string | undefined) ?? null,
       selectedPackCoverURL: (body?.packCoverURL as string | undefined) ?? null,
-      totalRounds: calculateTotalRounds(playerUids.length),
+      totalRounds,
       roundNumber: 1,
       turnOrder: shuffleTurnOrder(playerUids),
       currentTurnIndex: 0,

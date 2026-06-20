@@ -7,6 +7,9 @@ import { useBluffBoxSession } from "./useBluffBoxSession";
 import { selectPack, submitSharerChoice, submitGuess } from "./bluffboxApi";
 import { GameGamertagBadge, recordGameStats, useEngineDeadline, PhaseTimerBar } from "@/app/games/_gamecore";
 import { PointsManager, Activity } from "@/lib/points";
+import { calculateTotalRounds } from "./tournament";
+import type { GameLengthPreset } from "@/app/games/_gamecore/gameLengthPresets";
+import { Zap, Timer, Flame } from "lucide-react";
 
 import RoundIntroScreen from "./screens/RoundIntroScreen";
 import MatchupScreen from "./screens/MatchupScreen";
@@ -67,6 +70,20 @@ export default function BluffBoxGame({
   const players = useMemo(() => session?.players ?? [], [session?.players]);
   const playerUids = useMemo(() => players.map((p) => p.uid), [players]);
 
+  // ─── Round-count picker (defaults to the headcount-based auto count) ──
+  const playerCount = players.length;
+  const autoRounds = useMemo(() => calculateTotalRounds(playerCount), [playerCount]);
+  const [pickerLengthKey, setPickerLengthKey] = useState<string | null>(null);
+  const lengthPresets: GameLengthPreset[] = useMemo(() => {
+    const perRound = Math.max(2, playerCount); // ~1 min per turn
+    return [
+      { key: "r1", label: "Quick", rounds: 1, estimatedMinutes: perRound, icon: Zap, iconColor: "#fbbf24" },
+      { key: "r2", label: "Standard", rounds: 2, estimatedMinutes: perRound * 2, icon: Timer, iconColor: "#f59e0b" },
+      { key: "r3", label: "Extended", rounds: 3, estimatedMinutes: perRound * 3, icon: Flame, iconColor: "#ef4444" },
+    ];
+  }, [playerCount]);
+  const effectiveLengthKey = pickerLengthKey ?? `r${autoRounds}`;
+
   const phaseDeadlineAt =
     ((session as unknown as Record<string, unknown>)?.["phaseDeadlineAt"] as number | undefined) ?? 0;
   useEngineDeadline(sessionId, phaseDeadlineAt);
@@ -98,15 +115,20 @@ export default function BluffBoxGame({
   // ─── Actions (all via the API; engine owns progression) ────
   const handlePackSelected = useCallback(
     async (pack: BluffBoxPack) => {
-      const result = await selectPack(sessionId, {
-        id: pack.id,
-        name: pack.name,
-        coverURL: pack.coverImageURL ?? null,
-        cards: pack.cards,
-      });
+      const rounds = lengthPresets.find((p) => p.key === effectiveLengthKey)?.rounds ?? autoRounds;
+      const result = await selectPack(
+        sessionId,
+        {
+          id: pack.id,
+          name: pack.name,
+          coverURL: pack.coverImageURL ?? null,
+          cards: pack.cards,
+        },
+        rounds,
+      );
       if (!result.ok) throw new Error(result.error);
     },
-    [sessionId],
+    [sessionId, lengthPresets, effectiveLengthKey, autoRounds],
   );
 
   const handleSharerChoice = useCallback(
@@ -189,7 +211,12 @@ export default function BluffBoxGame({
 
         {/* ── Pack Select (host picks AFTER Start; others wait) ── */}
         {bbPhase === "pack-select" && isHost && (
-          <BluffPackPicker onSelect={handlePackSelected} />
+          <BluffPackPicker
+            onSelect={handlePackSelected}
+            lengthPresets={lengthPresets}
+            selectedLengthKey={effectiveLengthKey}
+            onLengthChange={(preset) => setPickerLengthKey(preset.key)}
+          />
         )}
         {bbPhase === "pack-select" && !isHost && (
           <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6">
