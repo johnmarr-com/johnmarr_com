@@ -117,9 +117,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    // ── advance a result/display phase (host) ──
+    // ── advance a result/display phase (any participant) ──
+    // The end-game display phases (madlibs/reveal/scoring) are advanceable by
+    // anyone so the group never waits on the host to reach the viewer.
     if (action === "advance") {
-      if (!isHost) return NextResponse.json({ error: "Only the host can advance" }, { status: 403 });
+      if (!inGame) return NextResponse.json({ error: "Not a player in this session" }, { status: 403 });
       await sessionRef.update({ [`inbox.advance.${uid}`]: { eventId: eventId() } });
       return NextResponse.json({ ok: true });
     }

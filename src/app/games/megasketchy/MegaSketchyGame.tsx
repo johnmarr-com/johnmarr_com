@@ -83,11 +83,12 @@ export default function MegaSketchyGame({
     [isHost, sessionId],
   );
 
-  // Host: advance the result/display phases (engine decides what's next).
+  // Advance the result/display phases (engine decides what's next). Allowed for
+  // any player — the scoring screen exposes this to everyone (no host-gate), so
+  // the group never waits on the host to reach the transmissions viewer.
   const handleAdvance = useCallback(() => {
-    if (!isHost) return;
     void msApi.advance(sessionId);
-  }, [isHost, sessionId]);
+  }, [sessionId]);
 
   // Player: cast a vote (advanced/expert modes).
   const handleVote = useCallback(
@@ -227,7 +228,6 @@ export default function MegaSketchyGame({
           elementMatches={skState.elementMatches}
           sessionScoringResult={skState.scoringResult}
           onComplete={handleAdvance}
-          isHost={isHost}
         />
       );
       break;
