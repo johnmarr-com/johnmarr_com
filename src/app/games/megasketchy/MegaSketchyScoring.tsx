@@ -1,104 +1,27 @@
 "use client";
 
-import { useEffect, useCallback, useRef } from "react";
 import { ShieldCheck, ShieldAlert, Flag } from "lucide-react";
 import { JMBannerText } from "@/JMKit";
-import { postGameComment, GamePrimaryButton, GameStatusMessage } from "../_gamecore";
-import {
-  assembleMadLibs,
-  assembleOriginal,
-  type Chains,
-} from "./chainEngine";
-import { updateSessionFields, type ScoringResult } from "./useMegaSketchySession";
+import { GamePrimaryButton, GameStatusMessage } from "../_gamecore";
+import { type ScoringResult } from "./useMegaSketchySession";
 
 interface MegaSketchyScoringProps {
-  sessionId: string;
-  chains: Chains;
-  message: { template: string; elements: string[] };
+  /** From the Mad Libs judge: [] means the LLM was unavailable (no verdict). */
   elementMatches: boolean[] | null;
+  /** Set by the server "megasketchy-score" effect; null while evaluating. */
   sessionScoringResult: ScoringResult | null;
-  onComplete: (passed: boolean) => void;
+  onComplete: () => void;
   isHost: boolean;
 }
 
 export default function MegaSketchyScoring({
-  sessionId,
-  chains,
-  message,
   elementMatches,
   sessionScoringResult,
   onComplete,
   isHost,
 }: MegaSketchyScoringProps) {
-  const scoringRef = useRef(false);
-
-  const scoreWithAI = useCallback(async () => {
-    // No AI verdict (elementMatches === [] from the Mad Libs phase, i.e. the
-    // judge was unavailable): skip the AI narrative entirely and record a
-    // neutral result. The UI then shows a non-judgmental "Mission Accomplished".
-    if (!elementMatches || elementMatches.length === 0) {
-      await updateSessionFields(sessionId, {
-        scoringResult: { passed: false, narrative: "" },
-      });
-      return;
-    }
-    const original = assembleOriginal(message.template, message.elements);
-    const { result: garbled, finalElements } = assembleMadLibs(
-      message.template,
-      chains,
-      message.elements.length,
-    );
-
-    const matches = elementMatches ?? message.elements.map(() => false);
-    const matchCount = matches.filter(Boolean).length;
-    const passed = matchCount >= Math.ceil(message.elements.length / 2);
-
-    const elementComparison = message.elements
-      .map(
-        (orig, i) =>
-          `  ${i + 1}. "${orig}" → "${finalElements[i] ?? "???"}" [${matches[i] ? "MATCH" : "MISS"}]`,
-      )
-      .join("\n");
-
-    const prompt = `You are the AI handler for a spy-themed party game called "Mega Sketchy." A secret message was relayed through a chain of agents via alternating sketching and guessing, like Telephone/Telestrations.
-
-ORIGINAL MESSAGE FROM CONTROL:
-${original}
-
-WHAT CAME THROUGH THE SPY NETWORK:
-${garbled}
-
-ELEMENT-BY-ELEMENT (already judged):
-${elementComparison}
-
-Result: ${matchCount}/${message.elements.length} elements matched. Mission ${passed ? "PASSED" : "FAILED"}.
-
-Write 2-3 sentences as a dramatic spy mission debrief. Be funny and reference specific elements that were hilariously mangled or surprisingly preserved. Stay in character as a spy handler. Just the narrative, no labels or prefixes.`;
-
-    let narrative: string;
-    try {
-      const { comment } = await postGameComment(prompt);
-      narrative = comment.trim() ||
-        (passed
-          ? "Against all odds, the intel made it through. Control is pleased."
-          : "The message was mangled beyond recognition. Agents are compromised.");
-    } catch {
-      narrative = passed
-        ? "The intel survived the network. Mission accomplished, agents."
-        : "Too much was lost in translation. The mission has failed.";
-    }
-
-    await updateSessionFields(sessionId, {
-      scoringResult: { passed, narrative },
-    });
-  }, [chains, message, elementMatches, sessionId]);
-
-  useEffect(() => {
-    if (!isHost || sessionScoringResult || scoringRef.current) return;
-    scoringRef.current = true;
-    scoreWithAI();
-  }, [isHost, sessionScoringResult, scoreWithAI]);
-
+  // The server "megasketchy-score" effect computes pass/fail + the debrief
+  // narrative; until it writes scoringResult, show the evaluating state.
   if (!sessionScoringResult) {
     return (
       <div className="fixed inset-0 z-10 flex flex-col items-center justify-center">
@@ -161,7 +84,7 @@ Write 2-3 sentences as a dramatic spy mission debrief. Be funny and reference sp
         {/* Action */}
         <div className="w-full pt-4">
           {isHost ? (
-            <GamePrimaryButton onClick={() => onComplete(result.passed)} variant="white">
+            <GamePrimaryButton onClick={onComplete} variant="white">
               Continue
             </GamePrimaryButton>
           ) : (

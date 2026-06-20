@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useMemo } from "react";
 import { ChevronRight } from "lucide-react";
-import { postGameComment, GameSectionHeader, GamePrimaryButton, GameStatusMessage } from "../_gamecore";
+import { GameSectionHeader, GamePrimaryButton, GameStatusMessage } from "../_gamecore";
 import { assembleMadLibs, type Chains } from "./chainEngine";
-import { updateSessionFields } from "./useMegaSketchySession";
 
 interface MegaSketchyMadLibsProps {
-  sessionId: string;
   chains: Chains;
   message: { template: string; elements: string[] };
+  /** Set by the server "megasketchy-judge" effect: boolean[] verdict, or [] if
+   *  the LLM was unavailable, or null while still judging. */
   sessionElementMatches: boolean[] | null;
   onProceed: () => void;
   isHost: boolean;
@@ -46,7 +46,6 @@ function parseTemplate(template: string, elementCount: number): TemplatePart[] {
 }
 
 export default function MegaSketchyMadLibs({
-  sessionId,
   chains,
   message,
   sessionElementMatches,
@@ -54,7 +53,6 @@ export default function MegaSketchyMadLibs({
   isHost,
 }: MegaSketchyMadLibsProps) {
   const [showReceived, setShowReceived] = useState(false);
-  const judgingRef = useRef(false);
 
   const { finalElements } = useMemo(
     () => assembleMadLibs(message.template, chains, message.elements.length),
@@ -66,47 +64,8 @@ export default function MegaSketchyMadLibs({
     [message.template, message.elements.length],
   );
 
-  const judgeElements = useCallback(async () => {
-    const pairs = message.elements
-      .map((orig, i) => `${i + 1}. "${orig}" → "${finalElements[i] ?? "???"}"`)
-      .join("\n");
-
-    const prompt = `You are judging a spy-themed party game. Players passed a secret message through a chain of drawing and guessing (like Telephone). For each element below, decide if the received word/phrase preserves the core meaning of the original (even if wording changed).
-
-ELEMENT PAIRS (Original → Received):
-${pairs}
-
-For each element, respond with ONLY a comma-separated list of "Y" or "N" (Y = close enough, N = wrong). Example for 4 elements: Y,N,N,Y
-
-Response:`;
-
-    try {
-      const { comment } = await postGameComment(prompt);
-      const tokens = comment
-        .trim()
-        .split(/[,\s]+/)
-        .map((t) => t.trim().toUpperCase())
-        .filter(Boolean);
-      // Trust the AI only when it returned a Y/N token per element. An empty or
-      // garbled reply (e.g. the AI judge is unavailable) writes [] — the
-      // "unjudged" sentinel — so the relay is shown without a fake verdict
-      // rather than scoring every element a MISS.
-      const usable =
-        tokens.length >= message.elements.length &&
-        tokens.slice(0, message.elements.length).every((t) => t === "Y" || t === "N");
-      const matches = usable ? message.elements.map((_, i) => tokens[i] === "Y") : [];
-      await updateSessionFields(sessionId, { elementMatches: matches });
-    } catch {
-      await updateSessionFields(sessionId, { elementMatches: [] });
-    }
-  }, [message.elements, finalElements, sessionId]);
-
-  useEffect(() => {
-    if (!isHost || sessionElementMatches || judgingRef.current) return;
-    judgingRef.current = true;
-    judgeElements();
-  }, [isHost, sessionElementMatches, judgeElements]);
-
+  // The server "megasketchy-judge" effect writes elementMatches; until then,
+  // show the decrypting state (no client-side LLM call any more).
   if (!sessionElementMatches) {
     return (
       <div className="fixed inset-0 z-10 flex flex-col items-center justify-center">

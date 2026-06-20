@@ -1,17 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   subscribeToSession,
   type GameSession,
 } from "@/lib/game-sessions";
-import { updateSessionFields } from "@/app/games/_gamecore";
 import {
   getPlayerQueue,
   isPlayerFullyDone,
   allChainsComplete,
   type Chains,
-  type ChainEntry,
   type PlayerTask,
 } from "./chainEngine";
 
@@ -38,6 +36,8 @@ export interface MegaSketchyState {
   aiPlayerId: string | null;
   message: { id: string; template: string; elements: string[] } | null;
   chains: Chains;
+  /** Per-chain hourglass deadline (epoch ms) for the current pending step. */
+  chainDeadlines: Record<string, number>;
   skPhase: SkPhase;
   gameMode: "basic" | "advanced" | "expert";
   moleId: string | null;
@@ -46,22 +46,6 @@ export interface MegaSketchyState {
   votes: Record<string, string>;
   elementMatches: boolean[] | null;
   scoringResult: ScoringResult | null;
-}
-
-// ─── Game-Specific Helpers ──────────────────────────────────
-
-export { updateSessionFields };
-
-export async function appendChainEntry(
-  sessionId: string,
-  elementIndex: number,
-  entry: ChainEntry,
-  currentChain: ChainEntry[],
-): Promise<void> {
-  const newChain = [...currentChain, entry];
-  await updateSessionFields(sessionId, {
-    [`chains.${elementIndex}`]: newChain,
-  });
 }
 
 // ─── Hook ────────────────────────────────────────────────────
@@ -105,6 +89,7 @@ export function useMegaSketchySession({
         aiPlayerId: null,
         message: null,
         chains: {},
+        chainDeadlines: {},
         skPhase: "lobby" as SkPhase,
         gameMode: "basic" as const,
         moleId: null,
@@ -123,6 +108,7 @@ export function useMegaSketchySession({
       aiPlayerId: (s["aiPlayerId"] as string) ?? null,
       message: (s["message"] as MegaSketchyState["message"]) ?? null,
       chains: (s["chains"] as Chains) ?? {},
+      chainDeadlines: (s["chainDeadlines"] as Record<string, number>) ?? {},
       skPhase: (s["skPhase"] as SkPhase) ?? "lobby",
       gameMode: (s["gameMode"] as MegaSketchyState["gameMode"]) ?? "basic",
       moleId: (s["moleId"] as string) ?? null,
@@ -158,25 +144,7 @@ export function useMegaSketchySession({
     return allChainsComplete(skState.chains, skState.playOrder.length);
   }, [skState.chains, skState.playOrder]);
 
-  // Submit a chain entry (text guess or image URL), then release the lock
-  const transmit = useCallback(
-    async (entry: ChainEntry) => {
-      if (!sessionId || !currentTask) return;
-      const chain = skState.chains[String(currentTask.elementIndex)] ?? [];
-      await appendChainEntry(sessionId, currentTask.elementIndex, entry, chain);
-    },
-    [sessionId, currentTask, skState.chains],
-  );
-
-  // Host: advance phase
-  const setPhase = useCallback(
-    async (phase: SkPhase) => {
-      if (!sessionId || !isHost) return;
-      await updateSessionFields(sessionId, { skPhase: phase });
-    },
-    [sessionId, isHost],
-  );
-
+  // Read-only: the engine (via /api/games/megasketchy) owns ALL writes.
   return {
     session,
     skState,
@@ -186,10 +154,5 @@ export function useMegaSketchySession({
     queueLength,
     playerDone,
     chainsComplete,
-    transmit,
-    setPhase,
-    updateSessionFields: sessionId
-      ? (fields: Record<string, unknown>) => updateSessionFields(sessionId, fields)
-      : async () => {},
   };
 }

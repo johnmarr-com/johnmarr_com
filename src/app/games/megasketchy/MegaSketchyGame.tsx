@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
-import { useGameMusic, GameGamertagBadge, GameSectionHeader, GamePrimaryButton, GameStatusMessage, recordGameStats } from "../_gamecore";
+import { useGameMusic, GameGamertagBadge, GameSectionHeader, GamePrimaryButton, GameStatusMessage, recordGameStats, useEngineDeadline } from "../_gamecore";
 import { PointsManager, Activity } from "@/lib/points";
-import { useMegaSketchySession, updateSessionFields } from "./useMegaSketchySession";
-import { buildInitialChains, type ChainEntry } from "./chainEngine";
+import { useMegaSketchySession } from "./useMegaSketchySession";
+import * as msApi from "./megaSketchyApi";
+import { type ChainEntry } from "./chainEngine";
 
-import { getMission, missionToSecretMessage } from "@/lib/megasketchy-missions";
 import type { MegaSketchyMission } from "@/lib/megasketchy-missions";
 import MegaSketchyBriefing from "./MegaSketchyBriefing";
 import MegaSketchyPlayScreen from "./MegaSketchyPlayScreen";
@@ -28,15 +28,6 @@ interface MegaSketchyGameProps {
   backgroundMusicURL?: string;
   backgroundMusicVolume?: number;
   bgMusicLandingOnly?: boolean;
-}
-
-function shuffleArray<T>(arr: T[]): T[] {
-  const out = [...arr];
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [out[i], out[j]] = [out[j]!, out[i]!];
-  }
-  return out;
 }
 
 export default function MegaSketchyGame({
@@ -62,160 +53,82 @@ export default function MegaSketchyGame({
     currentTask,
     queueLength,
     playerDone,
-    chainsComplete,
-    transmit,
-    setPhase,
   } = useMegaSketchySession({ sessionId, userId });
 
   const kicked = session?.kickedUids?.includes(userId) ?? false;
 
-  const setupRef = useRef(false);
+  // Nudge the engine the instant a chain's 60s hourglass expires, so it
+  // auto-skips an AFK player without waiting for the scheduled sweep. The
+  // engine owns lobby→briefing (shuffle), active→madlibs (auto), and every
+  // transition; the LLM judge/scoring run as server effects. No AI players.
+  const phaseDeadlineAt =
+    ((session as unknown as Record<string, unknown>)?.["phaseDeadlineAt"] as number | undefined) ?? 0;
+  useEngineDeadline(sessionId, phaseDeadlineAt);
 
-  // Host: when lobby phase, determine play order and advance to briefing
-  // AI players are already in session.players from the lobby — just shuffle everyone
-  useEffect(() => {
-    if (!isHost || !session || session.status !== "playing") return;
-    if (skState.skPhase !== "lobby" || setupRef.current) return;
-    setupRef.current = true;
-
-    const order = shuffleArray(session.players.map((p) => p.uid));
-
-    updateSessionFields(sessionId, {
-      skPhase: "briefing",
-      playOrder: order,
-      aiPlayerId: null,
-      message: null,
-      chains: {},
-      gameMode: "basic",
-      moleId: null,
-      eliminatedPlayers: [],
-      missionNumber: 0,
-      votes: {},
-      elementMatches: null,
-      scoringResult: null,
-    });
-  }, [isHost, session, skState.skPhase, sessionId]);
-
-  // Host: auto-transition to madlibs when all chains complete
-  useEffect(() => {
-    if (!isHost || skState.skPhase !== "active" || !chainsComplete) return;
-    setPhase("madlibs");
-  }, [isHost, skState.skPhase, chainsComplete, setPhase]);
-
-  // AI players have been removed from MegaSketchy by design — the game's joy
-  // is watching humans try to draw under pressure. The LLM still handles the
-  // judge role (Mad Libs + Scoring commentary). See docs/AI-PLAY-PLAN.md.
-
-  // Host-only: reorder players from briefing drag-and-drop
+  // Host: reorder players from briefing drag-and-drop
   const handleReorder = useCallback(
-    async (newOrder: string[]) => {
+    (newOrder: string[]) => {
       if (!isHost) return;
-      await updateSessionFields(sessionId, { playOrder: newOrder });
+      void msApi.reorder(sessionId, newOrder);
     },
     [isHost, sessionId],
   );
 
-  // Host-only: "Begin Mission" from briefing — fetch mission, build chains, go active
+  // Host: "Begin Mission" — the engine loads the mission + seeds the chains
   const handleBriefingReady = useCallback(
-    async (selectedMission: MegaSketchyMission | null) => {
+    (selectedMission: MegaSketchyMission | null) => {
       if (!isHost || !selectedMission) return;
-
-      const playerCount = skState.playOrder.length;
-      const mission = await getMission(selectedMission.id);
-      if (!mission) return;
-
-      const msg = missionToSecretMessage(mission, playerCount);
-      const chains = buildInitialChains(msg.elements);
-
-      await updateSessionFields(sessionId, {
-        skPhase: "active",
-        message: { id: msg.sourceId, template: msg.template, elements: msg.elements },
-        chains,
-      });
+      void msApi.beginMission(sessionId, selectedMission.id);
     },
-    [isHost, skState.playOrder.length, sessionId],
+    [isHost, sessionId],
   );
 
-  // Host-only: advance from madlibs to scoring
-  const handleMadLibsProceed = useCallback(() => {
+  // Host: advance the result/display phases (engine decides what's next).
+  const handleAdvance = useCallback(() => {
     if (!isHost) return;
-    setPhase("scoring");
-  }, [isHost, setPhase]);
+    void msApi.advance(sessionId);
+  }, [isHost, sessionId]);
 
-  // Host-only: advance from reveal to scoring
-  const handleRevealProceed = useCallback(() => {
-    if (!isHost) return;
-    setPhase("scoring");
-  }, [isHost, setPhase]);
-
-  // Host-only: advance from scoring to voting or done
-  const handleScoringComplete = useCallback(
-    async () => {
-      if (!isHost) return;
-
-      if (skState.gameMode === "advanced" || skState.gameMode === "expert") {
-        await updateSessionFields(sessionId, { skPhase: "voting" });
-      } else {
-        await updateSessionFields(sessionId, { skPhase: "done" });
-        PointsManager.award(Activity.PLAY_GAME);
-        if (isHost) PointsManager.award(Activity.HOST_GAME);
-        const allUids = session?.playerUids ?? [];
-        const passed = skState.scoringResult?.passed ?? false;
-        if (passed) PointsManager.award(Activity.WIN_GAME);
-        recordGameStats(allUids, passed ? allUids : [], session?.ownerId ?? "");
-      }
-    },
-    [isHost, skState.gameMode, skState.scoringResult, sessionId, session?.ownerId, session?.playerUids],
-  );
-
-  // Player action: cast a vote
+  // Player: cast a vote (advanced/expert modes).
   const handleVote = useCallback(
-    async (targetUid: string) => {
-      await updateSessionFields(sessionId, {
-        [`votes.${userId}`]: targetUid,
-      });
+    async (targetUid: string): Promise<void> => {
+      await msApi.vote(sessionId, targetUid);
     },
-    [sessionId, userId],
+    [sessionId],
   );
 
-  // Host-only: finalize voting phase
-  const handleVotingProceed = useCallback(async () => {
+  // Host: reset for another round (engine re-shuffles → briefing).
+  const handlePlayAgain = useCallback(() => {
     if (!isHost) return;
-    await updateSessionFields(sessionId, { skPhase: "done" });
-    PointsManager.award(Activity.PLAY_GAME);
-    if (isHost) PointsManager.award(Activity.HOST_GAME);
-    const allUids = session?.playerUids ?? [];
-    const passed = skState.scoringResult?.passed ?? false;
-    if (passed) PointsManager.award(Activity.WIN_GAME);
-    recordGameStats(allUids, passed ? allUids : [], session?.ownerId ?? "");
-  }, [isHost, sessionId, session?.playerUids, session?.ownerId, skState.scoringResult]);
+    void msApi.playAgain(sessionId);
+  }, [isHost, sessionId]);
 
-  // Host-only: reset game for another round
-  const handlePlayAgain = useCallback(async () => {
-    if (!isHost) return;
-    setupRef.current = false;
-    await updateSessionFields(sessionId, {
-      skPhase: "lobby",
-      playOrder: [],
-      aiPlayerId: null,
-      message: null,
-      chains: {},
-      gameMode: "basic",
-      moleId: null,
-      eliminatedPlayers: [],
-      missionNumber: (skState.missionNumber ?? 0) + 1,
-      votes: {},
-      elementMatches: null,
-      scoringResult: null,
-    });
-  }, [isHost, sessionId, skState.missionNumber]);
-
+  // Player: submit the current task's sketch URL / text guess.
   const handleTransmit = useCallback(
     async (entry: ChainEntry) => {
-      await transmit(entry);
+      if (!currentTask) return;
+      await msApi.transmit(sessionId, currentTask.elementIndex, entry.value);
     },
-    [transmit],
+    [sessionId, currentTask],
   );
+
+  // Game-over → award points + record stats (once, when the engine finishes).
+  const gameEndFiredRef = useRef(false);
+  useEffect(() => {
+    if (skState.skPhase === "done" && !gameEndFiredRef.current) {
+      gameEndFiredRef.current = true;
+      const passed = skState.scoringResult?.passed ?? false;
+      PointsManager.award(Activity.PLAY_GAME);
+      if (passed) PointsManager.award(Activity.WIN_GAME);
+      if (isHost) {
+        PointsManager.award(Activity.HOST_GAME);
+        const allUids = session?.playerUids ?? [];
+        recordGameStats(allUids, passed ? allUids : [], session?.ownerId ?? "");
+      }
+    }
+    if (skState.skPhase !== "done") gameEndFiredRef.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires once at done
+  }, [skState.skPhase, skState.scoringResult, isHost]);
 
   // Loading state
   if (!session || !userId) {
@@ -275,6 +188,7 @@ export default function MegaSketchyGame({
           onTransmit={handleTransmit}
           userId={userId}
           round={skState.missionNumber ?? 0}
+          deadlineAt={currentTask ? (skState.chainDeadlines[String(currentTask.elementIndex)] ?? 0) : 0}
         />
       );
       break;
@@ -283,11 +197,10 @@ export default function MegaSketchyGame({
       if (!skState.message) break;
       phaseContent = (
         <MegaSketchyMadLibs
-          sessionId={sessionId}
           chains={skState.chains}
           message={skState.message}
           sessionElementMatches={skState.elementMatches}
-          onProceed={handleMadLibsProceed}
+          onProceed={handleAdvance}
           isHost={isHost}
         />
       );
@@ -301,7 +214,7 @@ export default function MegaSketchyGame({
           playOrder={skState.playOrder}
           chains={skState.chains}
           message={skState.message}
-          onProceed={handleRevealProceed}
+          onProceed={handleAdvance}
           isHost={isHost}
         />
       );
@@ -311,12 +224,9 @@ export default function MegaSketchyGame({
       if (!skState.message) break;
       phaseContent = (
         <MegaSketchyScoring
-          sessionId={sessionId}
-          chains={skState.chains}
-          message={skState.message}
           elementMatches={skState.elementMatches}
           sessionScoringResult={skState.scoringResult}
-          onComplete={handleScoringComplete}
+          onComplete={handleAdvance}
           isHost={isHost}
         />
       );
@@ -331,7 +241,7 @@ export default function MegaSketchyGame({
           moleId={skState.moleId}
           votes={skState.votes}
           onVote={handleVote}
-          onProceed={handleVotingProceed}
+          onProceed={handleAdvance}
           isHost={isHost}
         />
       );
@@ -351,7 +261,7 @@ export default function MegaSketchyGame({
             </p>
             <div className="w-full pt-2">
               {isHost ? (
-                <GamePrimaryButton onClick={() => setPhase("share")}>
+                <GamePrimaryButton onClick={handleAdvance}>
                   View Transmissions
                 </GamePrimaryButton>
               ) : (

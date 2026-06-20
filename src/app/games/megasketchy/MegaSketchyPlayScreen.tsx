@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
-import { Send } from "lucide-react";
+import { useRef, useState, useCallback, useEffect } from "react";
+import { Send, Hourglass } from "lucide-react";
 import { SketchCanvas, type SketchCanvasRef, GamePrimaryButton, GameStatusMessage } from "../_gamecore";
 import { uploadSketch } from "@/lib/game-sketches";
 import type { ChainEntry, PlayerTask } from "./chainEngine";
@@ -14,6 +14,8 @@ interface MegaSketchyPlayScreenProps {
   onTransmit: (entry: ChainEntry) => Promise<void>;
   userId: string;
   round: number;
+  /** Epoch ms when this task's 60s hourglass expires (0 = none). */
+  deadlineAt: number;
 }
 
 export default function MegaSketchyPlayScreen({
@@ -24,10 +26,12 @@ export default function MegaSketchyPlayScreen({
   onTransmit,
   userId,
   round,
+  deadlineAt,
 }: MegaSketchyPlayScreenProps) {
   const canvasRef = useRef<SketchCanvasRef>(null);
   const [textGuess, setTextGuess] = useState("");
   const [sending, setSending] = useState(false);
+  const [secsLeft, setSecsLeft] = useState(60);
 
   const handleTransmitDrawing = useCallback(async () => {
     if (!canvasRef.current || !task || sending) return;
@@ -61,6 +65,34 @@ export default function MegaSketchyPlayScreen({
       setSending(false);
     }
   }, [task, textGuess, sending, userId, onTransmit]);
+
+  // 60s hourglass. When it runs out we auto-submit the current work so an
+  // active player's drawing/guess is captured; the engine independently
+  // auto-skips a truly-absent player, so a chain can never freeze.
+  const firedRef = useRef(false);
+  const onTimeoutRef = useRef<() => void>(() => {});
+  onTimeoutRef.current = () => {
+    if (!task || sending) return;
+    if (task.taskType === "draw") void handleTransmitDrawing();
+    else void handleTransmitGuess();
+  };
+  useEffect(() => {
+    if (!task || !deadlineAt) {
+      setSecsLeft(60);
+      return;
+    }
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((deadlineAt - Date.now()) / 1000));
+      setSecsLeft(left);
+      if (left <= 0 && !firedRef.current) {
+        firedRef.current = true;
+        onTimeoutRef.current();
+      }
+    };
+    tick();
+    const id = setInterval(tick, 500);
+    return () => clearInterval(id);
+  }, [task, deadlineAt]);
 
   // Waiting state
   if (!task) {
@@ -104,6 +136,15 @@ export default function MegaSketchyPlayScreen({
             +{queueLength - 1} queued
           </span>
         )}
+        {/* 60s hourglass */}
+        <span
+          className={`ml-auto flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-black tabular-nums ${
+            secsLeft <= 10 ? "bg-red-500/25 text-red-300" : "bg-white/10 text-white/70"
+          }`}
+        >
+          <Hourglass className={`h-4 w-4 ${secsLeft <= 10 ? "animate-pulse" : ""}`} />
+          {secsLeft}s
+        </span>
       </div>
 
       {/* Main content area */}

@@ -39,18 +39,28 @@ export default composeGame({
   slug: "megasketchy",
   GameComponent: MegaSketchyAdapter,
   multiplayerFlowMode: "party",
+  // Server-authoritative: the gameEngine reducer owns the live game (chain
+  // seeding + the draw/guess loop with a 60s hourglass + auto-skip + all phase
+  // transitions), and the LLM judge/scoring run as post-commit engine effects.
+  authority: { engineKey: "megasketchy" },
   landingExtra: <MegaSketchyCreateMissionButton />,
   lobbyCanStart: ({ session }: { session: GameSession }) =>
     (session.players?.length ?? 0) >= MIN_PLAYERS,
-  // MegaSketchyGame owns its own Play Again (handlePlayAgain resets to the lobby
-  // skPhase and the host re-shuffles play order), so GC5 is never reached. This
-  // mirrors that reset for correctness if it ever is.
+  // MegaSketchy runs its own rematch via the route (play-again → lobby → engine
+  // re-shuffles → briefing), so GC5 is never reached. This satisfies composeGame
+  // + the value-checked engineKey reset rule for a clean start shape if it ever is.
   resetFields: () => ({
+    status: "playing",
+    currentRound: 0,
+    rounds: [],
+    winner: null,
+    seq: 0,
+    inbox: {},
     skPhase: "lobby",
     playOrder: [],
-    aiPlayerId: null,
     message: null,
     chains: {},
+    chainDeadlines: {},
     gameMode: "basic",
     moleId: null,
     eliminatedPlayers: [],
@@ -58,5 +68,6 @@ export default composeGame({
     votes: {},
     elementMatches: null,
     scoringResult: null,
+    phaseDeadlineAt: 0,
   }),
 });

@@ -17,14 +17,19 @@
  */
 
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
+import { defineSecret } from "firebase-functions/params";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { logger } from "firebase-functions";
 import { getReducer } from "./registry";
 import { runEffects } from "./effects";
 import type { EngineSession, EngineEffect } from "./types";
 
+// Post-commit LLM effects (e.g. MegaSketchy's judge/scoring) call Claude — bind
+// the Anthropic key so it's available in the function's runtime env.
+const anthropicKey = defineSecret("ANTHROPIC_API_KEY");
+
 export const gameEngine = onDocumentUpdated(
-  { document: "gameSessions/{sessionId}", minInstances: 1, memory: "256MiB" },
+  { document: "gameSessions/{sessionId}", minInstances: 1, memory: "256MiB", secrets: [anthropicKey] },
   async (event) => {
     const after = event.data?.after;
     if (!after || !after.exists) return;

@@ -17,6 +17,7 @@ import "./games/wordonkulous/wordonkulous.spec";
 import "./games/blarf/blarf.spec";
 import "./games/bluffbox/bluffbox.spec";
 import "./games/fyve/fyve.spec";
+import "./games/megasketchy/megasketchy.spec";
 
 initializeApp();
 
