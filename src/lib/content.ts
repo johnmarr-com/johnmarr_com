@@ -163,24 +163,20 @@ export async function getContentBySlug(
   contentType: JMContentType,
   slug: string
 ): Promise<JMContent | null> {
-  const { initializeFirebase } = await import("./firebase");
-  const { getFirestore, collection, query, where, getDocs, limit } = await import("firebase/firestore");
-  
-  const { app } = await initializeFirebase();
-  const db = getFirestore(app);
-  
-  const q = query(
-    collection(db, "content"),
-    where("isPublished", "==", true),
-    where("contentType", "==", contentType),
-    where("slug", "==", slug),
-    limit(1),
-  );
-  const snap = await getDocs(q);
-  if (snap.empty) return null;
-  
-  const doc = snap.docs[0]!;
-  return { id: doc.id, ...doc.data() } as JMContent;
+  // Read over plain HTTPS (Admin SDK on the server), NOT a client getDocs on the
+  // Firestore realtime stream — the stream wedges on iOS and made game landing
+  // pages hang on a black screen. Content is public; this returns published only.
+  try {
+    const res = await fetch(
+      `/api/content/by-slug?type=${encodeURIComponent(contentType)}&slug=${encodeURIComponent(slug)}`,
+      { cache: "no-store" },
+    );
+    if (!res.ok) return null;
+    const { content } = (await res.json()) as { content: JMContent | null };
+    return content ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**
