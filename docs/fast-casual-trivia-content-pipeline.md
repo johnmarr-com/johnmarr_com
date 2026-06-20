@@ -313,6 +313,10 @@ Iteration / cleanup retries adds 10–20%. Manual QA on residual pending is per-
 
 ## Final outcomes (April 2026 corpus run)
 
+> ⚠️ **Superseded.** This is an April-2026 snapshot. For the current state of the work (and the rest
+> of the 12 verticals), see [fast-casual-trivia-STATUS.md](fast-casual-trivia-STATUS.md). As of
+> 2026-06-20 the effort is **parked** (API funding) and EE's 2 pending rows have since been filled.
+
 - EE top-100: 439 / 441 filled (99.5%), 2 pending, ~99% audit-clean
 - PW top-100: 444 / 444 filled (100%), 0 pending, ~99% audit-clean
 - Combined: 883 / 885 (99.8% fill), ~$12 spent across all retries
