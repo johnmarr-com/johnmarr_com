@@ -7,7 +7,7 @@ import { useJMStyle } from "@/JMStyle";
 import { useAuth } from "@/lib/AuthProvider";
 import { getActiveSessionsForUser } from "@/lib/game-sessions";
 import { getGamePlayHrefWithSession } from "@/lib/composite-game-slug";
-import type { GameSession } from "@/lib/game-sessions";
+import type { ActiveSession } from "@/lib/game-sessions";
 
 interface JMMyGamesModalProps {
   onClose: () => void;
@@ -17,18 +17,18 @@ export function JMMyGamesModal({ onClose }: JMMyGamesModalProps) {
   const { theme } = useJMStyle();
   const { user } = useAuth();
   const router = useRouter();
-  const [sessions, setSessions] = useState<GameSession[]>([]);
+  const [sessions, setSessions] = useState<ActiveSession[]>([]);
   const [loading, setLoading] = useState(!!user);
 
   useEffect(() => {
     if (!user) return;
-    getActiveSessionsForUser(user.uid)
+    getActiveSessionsForUser()
       .then(setSessions)
       .catch(() => setSessions([]))
       .finally(() => setLoading(false));
   }, [user]);
 
-  const handleRejoin = (session: GameSession) => {
+  const handleRejoin = (session: ActiveSession) => {
     onClose();
     router.push(
       getGamePlayHrefWithSession(session.gameSlug, session.id, session.engineSlug),
@@ -129,12 +129,12 @@ export function JMMyGamesModal({ onClose }: JMMyGamesModalProps) {
                       className="text-xs"
                       style={{ color: theme.text.tertiary }}
                     >
-                      {session.players.length} player{session.players.length !== 1 ? "s" : ""}
+                      {session.playerCount} player{session.playerCount !== 1 ? "s" : ""}
                       {" · "}
                       {session.status === "lobby" ? "In lobby" : "In progress"}
                       {" · "}
-                      {session.updatedAt?.toDate
-                        ? session.updatedAt.toDate().toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
+                      {session.updatedAtMs
+                        ? new Date(session.updatedAtMs).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
                         : ""}
                     </p>
                   </div>

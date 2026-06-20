@@ -759,54 +759,41 @@ export async function removePlayerFromSession(
  * Filters out stale sessions: "playing" not updated in 2 h, "lobby" in 4 h.
  * Abandoned games naturally drop off without waiting for the daily cleanup.
  */
-export async function getActiveSessionsForUser(
-  userId: string,
-): Promise<GameSession[]> {
-  const { collection, query, where, getDocs } =
-    await import("firebase/firestore");
-  const db = await getDb();
+/** Lightweight, JSON-safe shape for the "My Games" list (from /api/games/active-sessions). */
+export interface ActiveSession {
+  id: string;
+  gameSlug: string;
+  engineSlug: string | null;
+  gameLogoURL: string | null;
+  gameName: string;
+  ownerId: string;
+  playerCount: number;
+  status: string;
+  /** Epoch ms (updatedAt) — JSON-safe; format client-side. */
+  updatedAtMs: number;
+}
 
-  const lobbyQ = query(
-    collection(db, "gameSessions"),
-    where("playerUids", "array-contains", userId),
-    where("status", "==", "lobby"),
-  );
-  const playingQ = query(
-    collection(db, "gameSessions"),
-    where("playerUids", "array-contains", userId),
-    where("status", "==", "playing"),
-  );
-
-  const [lobbySnap, playingSnap] = await Promise.all([
-    getDocs(lobbyQ),
-    getDocs(playingQ),
-  ]);
-
-  const sessions: GameSession[] = [];
-  for (const snap of [lobbySnap, playingSnap]) {
-    snap.docs.forEach((d) => {
-      sessions.push({ id: d.id, ...(d.data() as Omit<GameSession, "id">) });
+/**
+ * The signed-in user's active sessions, over plain HTTPS (Admin SDK on the
+ * server) — NOT a client getDocs on the Firestore realtime stream, which wedges
+ * on iOS. Identity comes from the auth token; the param is ignored.
+ */
+export async function getActiveSessionsForUser(): Promise<ActiveSession[]> {
+  try {
+    const { getAuth } = await import("./auth");
+    const auth = await getAuth();
+    const u = auth.currentUser;
+    if (!u) return [];
+    const res = await fetch("/api/games/active-sessions", {
+      headers: { Authorization: `Bearer ${await u.getIdToken()}` },
+      cache: "no-store",
     });
+    if (!res.ok) return [];
+    const { sessions } = (await res.json()) as { sessions: ActiveSession[] };
+    return sessions ?? [];
+  } catch {
+    return [];
   }
-
-  // Drop stale sessions — abandoned games that never got set to "finished"
-  const now = Date.now();
-  const STALE_PLAYING_MS = 2 * 60 * 60 * 1000; // 2 hours
-  const STALE_LOBBY_MS = 4 * 60 * 60 * 1000;   // 4 hours
-  const fresh = sessions.filter((s) => {
-    const updatedMs = s.updatedAt?.toMillis?.() ?? 0;
-    const age = now - updatedMs;
-    return s.status === "playing" ? age < STALE_PLAYING_MS : age < STALE_LOBBY_MS;
-  });
-
-  // Most recently updated first
-  fresh.sort((a, b) => {
-    const aMs = a.updatedAt?.toMillis?.() ?? 0;
-    const bMs = b.updatedAt?.toMillis?.() ?? 0;
-    return bMs - aMs;
-  });
-
-  return fresh;
 }
 
 // ─────────────────────────────────────────────────────────────
