@@ -4,9 +4,13 @@ import { useState } from "react";
 import { Plus, Trash2, X } from "lucide-react";
 import { JMImageUpload } from "@/JMKit";
 import { useJMStyle } from "@/JMStyle";
-import { useAuth } from "@/lib/AuthProvider";
 import { DEFAULT_BRAND, type BrandObject } from "@/lib/brand";
-import { saveHeroTemplate, uploadHeroTemplateImage } from "@/lib/scrollyfox";
+import {
+  newSegmentId,
+  uploadSegmentImage,
+  type ScrollyFoxSegment,
+  type SegmentType,
+} from "@/lib/scrollyfox";
 import {
   HeroSegment,
   type HeroCTA,
@@ -14,8 +18,11 @@ import {
   type HeroLayout,
 } from "./segments/HeroSegment";
 
-interface HeroEditorModalProps {
-  isOpen: boolean;
+interface SegmentEditorModalProps {
+  /** Segment to edit. Omit to build a new one. */
+  initialSegment?: ScrollyFoxSegment;
+  /** Hand the finished segment back to the document editor. */
+  onSave: (segment: ScrollyFoxSegment) => void;
   onClose: () => void;
 }
 
@@ -32,6 +39,11 @@ const DEFAULT_HERO: HeroContent = {
   ctas: [{ label: "Get Started", href: "#" }],
 };
 
+/** Segment types offered in the top-right selector. Only Hero ships today. */
+const SEGMENT_TYPES: { value: SegmentType; label: string }[] = [
+  { value: "hero", label: "Hero" },
+];
+
 const LAYOUT_OPTIONS: { value: HeroLayout; label: string }[] = [
   { value: "split-image-left", label: "Image left" },
   { value: "split-image-right", label: "Image right" },
@@ -43,19 +55,21 @@ const DEVICE_OPTIONS: { value: DeviceMode; label: string; widthPx: number | null
   { value: "mobile", label: "Mobile", widthPx: 360 },
 ];
 
-export function HeroEditorModal({ isOpen, onClose }: HeroEditorModalProps) {
+export function SegmentEditorModal({
+  initialSegment,
+  onSave,
+  onClose,
+}: SegmentEditorModalProps) {
   const { theme } = useJMStyle();
-  const { user, isAdmin } = useAuth();
-  const [draftId] = useState(
-    () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  const [segmentId] = useState(() => initialSegment?.id ?? newSegmentId());
+  const [type, setType] = useState<SegmentType>(
+    initialSegment?.type ?? "hero",
   );
-  const [content, setContent] = useState<HeroContent>(DEFAULT_HERO);
+  const [content, setContent] = useState<HeroContent>(
+    initialSegment?.content ?? DEFAULT_HERO,
+  );
   const [deviceMode, setDeviceMode] = useState<DeviceMode>("desktop");
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const brand: BrandObject = DEFAULT_BRAND;
-
-  if (!isOpen) return null;
 
   const ctas = content.ctas ?? [];
 
@@ -64,6 +78,13 @@ export function HeroEditorModal({ isOpen, onClose }: HeroEditorModalProps) {
     value: HeroContent[K],
   ) => {
     setContent((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleTypeChange = (next: SegmentType) => {
+    if (next === type) return;
+    // Hero is the only type today, so content carries over unchanged. When more
+    // segment types land, map shared fields (image, title, subtitle, CTAs) here.
+    setType(next);
   };
 
   const handleAddCta = () => {
@@ -84,19 +105,9 @@ export function HeroEditorModal({ isOpen, onClose }: HeroEditorModalProps) {
     );
   };
 
-  const handleSave = async () => {
-    if (!user || !isAdmin) return;
-    setIsSaving(true);
-    setSaveError(null);
-    try {
-      await saveHeroTemplate(content.layout, content, user.uid);
-      onClose();
-    } catch (err) {
-      console.error("Failed to save Hero template", err);
-      setSaveError(err instanceof Error ? err.message : "Save failed.");
-    } finally {
-      setIsSaving(false);
-    }
+  const handleSave = () => {
+    onSave({ id: segmentId, type, content });
+    onClose();
   };
 
   const activeDevice = DEVICE_OPTIONS.find((d) => d.value === deviceMode);
@@ -108,28 +119,56 @@ export function HeroEditorModal({ isOpen, onClose }: HeroEditorModalProps) {
       style={{ backgroundColor: theme.surfaces.base }}
       role="dialog"
       aria-modal="true"
-      aria-label="Hero template editor"
+      aria-label="Segment builder"
     >
       {/* Header */}
       <div
-        className="flex items-center justify-between border-b px-4 py-3"
+        className="flex items-center justify-between gap-3 border-b px-4 py-3"
         style={{ borderColor: theme.surfaces.elevated2 }}
       >
         <h2
           className="text-lg font-bold"
           style={{ color: theme.text.primary }}
         >
-          Hero Template Editor
+          {initialSegment ? "Edit Segment" : "Add Segment"}
         </h2>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-md p-2"
-          style={{ color: theme.text.secondary }}
-          aria-label="Close editor"
-        >
-          <X size={20} />
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Segment-type / template selector */}
+          <label className="flex items-center gap-2">
+            <span
+              className="hidden text-xs font-semibold sm:inline"
+              style={{ color: theme.text.secondary }}
+            >
+              Template
+            </span>
+            <select
+              value={type}
+              onChange={(e) => handleTypeChange(e.target.value as SegmentType)}
+              className="rounded-lg border-2 px-3 py-1.5 text-sm"
+              style={{
+                borderColor: theme.surfaces.elevated2,
+                backgroundColor: theme.surfaces.elevated1,
+                color: theme.text.primary,
+              }}
+              aria-label="Segment template"
+            >
+              {SEGMENT_TYPES.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-2"
+            style={{ color: theme.text.secondary }}
+            aria-label="Close editor"
+          >
+            <X size={20} />
+          </button>
+        </div>
       </div>
 
       {/* Body */}
@@ -224,7 +263,7 @@ export function HeroEditorModal({ isOpen, onClose }: HeroEditorModalProps) {
                 aspectRatio="landscape"
                 previewSize={300}
                 onUpload={(file) =>
-                  uploadHeroTemplateImage(file, "desktop", draftId)
+                  uploadSegmentImage(file, "desktop", segmentId)
                 }
                 onChange={(url) => updateContent("imageUrl", url)}
               />
@@ -234,11 +273,13 @@ export function HeroEditorModal({ isOpen, onClose }: HeroEditorModalProps) {
             <div>
               <JMImageUpload
                 label="Image (mobile, optional)"
-                {...(content.imageMobileUrl ? { value: content.imageMobileUrl } : {})}
+                {...(content.imageMobileUrl
+                  ? { value: content.imageMobileUrl }
+                  : {})}
                 aspectRatio="portrait"
                 previewSize={200}
                 onUpload={(file) =>
-                  uploadHeroTemplateImage(file, "mobile", draftId)
+                  uploadSegmentImage(file, "mobile", segmentId)
                 }
                 onChange={(url) => updateContent("imageMobileUrl", url)}
               />
@@ -354,11 +395,7 @@ export function HeroEditorModal({ isOpen, onClose }: HeroEditorModalProps) {
               borderColor: theme.surfaces.elevated2,
             }}
           >
-            <HeroSegment
-              {...content}
-              brand={brand}
-              deviceMode={deviceMode}
-            />
+            <HeroSegment {...content} brand={brand} deviceMode={deviceMode} />
           </div>
         </div>
       </div>
@@ -368,14 +405,6 @@ export function HeroEditorModal({ isOpen, onClose }: HeroEditorModalProps) {
         className="flex items-center justify-end gap-3 border-t px-4 py-3"
         style={{ borderColor: theme.surfaces.elevated2 }}
       >
-        {saveError && (
-          <span
-            className="mr-auto text-xs"
-            style={{ color: theme.semantic.error }}
-          >
-            {saveError}
-          </span>
-        )}
         <button
           type="button"
           onClick={onClose}
@@ -384,22 +413,18 @@ export function HeroEditorModal({ isOpen, onClose }: HeroEditorModalProps) {
         >
           Cancel
         </button>
-        {isAdmin && (
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={isSaving}
-            className="rounded-lg border-2 px-4 py-2 text-sm font-semibold transition-all"
-            style={{
-              borderColor: theme.accents.goldenGlow,
-              color: theme.accents.goldenGlow,
-              backgroundColor: "transparent",
-              opacity: isSaving ? 0.5 : 1,
-            }}
-          >
-            {isSaving ? "Saving…" : "Save to Templates"}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={handleSave}
+          className="rounded-lg border-2 px-4 py-2 text-sm font-semibold transition-all"
+          style={{
+            borderColor: theme.accents.goldenGlow,
+            color: theme.accents.goldenGlow,
+            backgroundColor: "transparent",
+          }}
+        >
+          Save
+        </button>
       </div>
     </div>
   );
