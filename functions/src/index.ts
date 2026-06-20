@@ -15,6 +15,7 @@ import "./roundEngine/rps.spec";
 import "./games/boaty/boaty.spec";
 import "./games/wordonkulous/wordonkulous.spec";
 import "./games/blarf/blarf.spec";
+import "./games/bluffbox/bluffbox.spec";
 
 initializeApp();
 

@@ -1,9 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { GameSession } from "@/lib/game-sessions";
-import { updateSessionFields } from "@/app/games/_gamecore";
-import type { BluffBoxTurnRecord } from "./aiBluffPlayer";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -11,11 +9,18 @@ export type BluffBoxPhase =
   | "pack-select"
   | "round-intro"
   | "sharing"
-  | "ai-share-display"
-  | "human-to-ai-input"
   | "guessing"
   | "result"
   | "game-over";
+
+/** A completed turn, appended to bbHistory by the engine (recap/history). */
+export interface BluffBoxTurnRecord {
+  sharerUid: string;
+  cardURL: string | null;
+  sharerChoice: "truth" | "lie";
+  guesses: Record<string, "truth" | "lie">;
+  roundNumber: number;
+}
 
 export interface BluffBoxState {
   session: GameSession | null;
@@ -23,40 +28,33 @@ export interface BluffBoxState {
   selectedPackId: string | null;
   selectedPackName: string | null;
   selectedPackCoverURL: string | null;
-  cardPool: string[];
   roundNumber: number;
   totalRounds: number;
   /** Shuffled UIDs — one sharer per index for the current round. */
   turnOrder: string[];
   /** Index into turnOrder for the current sharer. */
   currentTurnIndex: number;
-  /** Current card being shared (flat, not nested in matchup). */
+  /** Current card being shared (dealt by the engine, public). */
   cardURL: string | null;
-  /** The sharer's choice after they share. */
-  sharerChoice: "truth" | "lie" | null;
-  /** Every non-sharer's guess keyed by UID. */
+  /** Every non-sharer's guess keyed by UID (public; just truth/lie). */
   guesses: Record<string, "truth" | "lie">;
-  /** AI sharer's generated text. */
-  aiShareText: string | null;
-  /** Human sharer's typed text (for AI guessers). */
-  humanShareText: string | null;
+  /** The sharer's choice, published by the engine at `result` (hidden before). */
+  bbRevealChoice: "truth" | "lie" | null;
   /** Points per player UID. */
   scores: Record<string, number>;
-  /** Completed turns — fed to AI sharers/guessers as history per skill tier. */
+  /** Completed turns (recap). */
   bbHistory: BluffBoxTurnRecord[];
-  /** Winner UID(s) at game end. */
   winners: string[];
-  /** The winning point total. */
   winnerPoints: number;
   isHost: boolean;
 }
 
 // ─── Hook ────────────────────────────────────────────────────
+// Read-only session subscription. All game writes go through /api/games/bluffbox
+// (the engine owns progression); the client never writes game state directly.
 
 export function useBluffBoxSession(sessionId: string, userId: string): {
   state: BluffBoxState;
-  updateFields: (fields: Record<string, unknown>) => Promise<void>;
-  setPhase: (phase: BluffBoxPhase) => Promise<void>;
 } {
   const [session, setSession] = useState<GameSession | null>(null);
   const unsubRef = useRef<(() => void) | null>(null);
@@ -68,11 +66,8 @@ export function useBluffBoxSession(sessionId: string, userId: string): {
       const unsub = await subscribeToSession(sessionId, (s) => {
         if (!cancelled) setSession(s);
       });
-      if (cancelled) {
-        unsub();
-      } else {
-        unsubRef.current = unsub;
-      }
+      if (cancelled) unsub();
+      else unsubRef.current = unsub;
     })();
     return () => {
       cancelled = true;
@@ -80,15 +75,6 @@ export function useBluffBoxSession(sessionId: string, userId: string): {
     };
   }, [sessionId]);
 
-  const updateFields = useCallback(async (fields: Record<string, unknown>) => {
-    await updateSessionFields(sessionId, fields);
-  }, [sessionId]);
-
-  const setPhase = useCallback(async (phase: BluffBoxPhase) => {
-    await updateFields({ bbPhase: phase });
-  }, [updateFields]);
-
-  // Derive state from the raw session document
   const data = session as (GameSession & Record<string, unknown>) | null;
   const isHost = session?.ownerId === userId;
 
@@ -98,16 +84,13 @@ export function useBluffBoxSession(sessionId: string, userId: string): {
     selectedPackId: (data?.["selectedPackId"] as string) ?? null,
     selectedPackName: (data?.["selectedPackName"] as string) ?? null,
     selectedPackCoverURL: (data?.["selectedPackCoverURL"] as string) ?? null,
-    cardPool: (data?.["cardPool"] as string[]) ?? [],
     roundNumber: (data?.["roundNumber"] as number) ?? 1,
     totalRounds: (data?.["totalRounds"] as number) ?? 1,
     turnOrder: (data?.["turnOrder"] as string[]) ?? [],
     currentTurnIndex: (data?.["currentTurnIndex"] as number) ?? 0,
     cardURL: (data?.["cardURL"] as string) ?? null,
-    sharerChoice: (data?.["sharerChoice"] as "truth" | "lie") ?? null,
     guesses: (data?.["guesses"] as Record<string, "truth" | "lie">) ?? {},
-    aiShareText: (data?.["aiShareText"] as string) ?? null,
-    humanShareText: (data?.["humanShareText"] as string) ?? null,
+    bbRevealChoice: (data?.["bbRevealChoice"] as "truth" | "lie") ?? null,
     scores: (data?.["scores"] as Record<string, number>) ?? {},
     bbHistory: (data?.["bbHistory"] as BluffBoxTurnRecord[]) ?? [],
     winners: (data?.["winners"] as string[]) ?? [],
@@ -115,5 +98,5 @@ export function useBluffBoxSession(sessionId: string, userId: string): {
     isHost,
   };
 
-  return { state, updateFields, setPhase };
+  return { state };
 }

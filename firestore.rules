@@ -656,6 +656,13 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // BluffBox — the card pool + the current sharer's hidden truth/lie answer,
+    // server-only so guessers can't peek the answer before the reveal. Written
+    // by the BluffBox API route + gameEngine; never client-readable.
+    match /bluffSecrets/{sessionId} {
+      allow read, write: if false;
+    }
+
     // Legacy sevyn collections — read-only for migration (remove after migration)
     match /sevynHeists/{heistId} {
       allow read: if true;

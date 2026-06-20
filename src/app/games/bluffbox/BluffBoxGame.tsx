@@ -4,27 +4,13 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/AuthProvider";
 import { useBluffBoxSession } from "./useBluffBoxSession";
-import {
-  calculateTotalRounds,
-  initScores,
-  shuffleTurnOrder,
-  selectCard,
-  shuffleCards,
-  scoreTurn,
-  applyScoreDeltas,
-  determineWinners,
-} from "./tournament";
-import { isAiPlayer, getPersona } from "@/app/games/_gamecore";
-import { aiShare, aiGuess, type BluffBoxTurnRecord } from "./aiBluffPlayer";
-import { GameGamertagBadge } from "@/app/games/_gamecore";
+import { selectPack, submitSharerChoice, submitGuess } from "./bluffboxApi";
+import { GameGamertagBadge, recordGameStats, useEngineDeadline, PhaseTimerBar } from "@/app/games/_gamecore";
 import { PointsManager, Activity } from "@/lib/points";
-import { recordGameStats } from "@/app/games/_gamecore";
 
 import RoundIntroScreen from "./screens/RoundIntroScreen";
 import MatchupScreen from "./screens/MatchupScreen";
 import SharerViewScreen from "./screens/SharerViewScreen";
-import AIShareDisplay from "./screens/AIShareDisplay";
-import HumanToAIInput from "./screens/HumanToAIInput";
 import GroupGuessModal from "./screens/GroupGuessModal";
 import TurnResultModal from "./screens/TurnResultModal";
 import WinnerScreen from "./screens/WinnerScreen";
@@ -35,17 +21,15 @@ import { JMConfettiOverlay } from "@/JMKit";
 import type { JMContent } from "@/lib/content-types";
 import type { GameEndResult } from "@/app/games/_gamecore/registry/types";
 
-/** Host auto-advance from `result` phase (ms). 2× the original 4s; host tap runs `advanceFromResult` for everyone. */
-const RESULT_PHASE_AUTO_ADVANCE_MS = 8000;
+// Timer durations for the progress bars — keep in sync with the bluffbox reducer.
+const BB_SHARE_MS = 30_000;
+const BB_GUESS_MS = 15_000;
 
 interface BluffBoxGameProps {
   sessionId: string;
   splashBgURL?: string;
-  /** Shown above the left player on the matchup / VS screen */
   gameLogoURL?: string;
-  /** Present when assembled by composeGame (unused directly; adapter derives splash/logo). */
   gameData?: JMContent;
-  /** When provided (via composeGame), the game calls this instead of rendering its own WinnerScreen. */
   onGameEnd?: (result: GameEndResult) => void;
 }
 
@@ -57,31 +41,25 @@ export default function BluffBoxGame({
 }: BluffBoxGameProps) {
   const { user, isAdmin } = useAuth();
   const userId = user?.uid ?? "";
-  const { state, updateFields, setPhase } = useBluffBoxSession(
-    sessionId,
-    userId,
-  );
-  const aiProcessingRef = useRef(false);
+  const { state } = useBluffBoxSession(sessionId, userId);
   const [resultDismissed, setResultDismissed] = useState(false);
   const [showRoundIntro, setShowRoundIntro] = useState(false);
+  // The sharer's own pick is stored locally (the real answer lives server-side
+  // in the secret doc and is revealed to everyone only at `result`).
+  const [myChoice, setMyChoice] = useState<"truth" | "lie" | null>(null);
 
   const {
     session,
     bbPhase,
-    selectedPackId,
     selectedPackCoverURL,
-    cardPool,
     roundNumber,
     totalRounds,
     turnOrder,
     currentTurnIndex,
     cardURL,
-    sharerChoice,
     guesses,
-    aiShareText,
-    humanShareText,
+    bbRevealChoice,
     scores,
-    bbHistory,
     winners,
     winnerPoints,
     isHost,
@@ -90,374 +68,66 @@ export default function BluffBoxGame({
   const players = useMemo(() => session?.players ?? [], [session?.players]);
   const playerUids = useMemo(() => players.map((p) => p.uid), [players]);
 
-  // ─── Derived values ────────────────────────────────────────
+  const phaseDeadlineAt =
+    ((session as unknown as Record<string, unknown>)?.["phaseDeadlineAt"] as number | undefined) ?? 0;
+  useEngineDeadline(sessionId, phaseDeadlineAt);
 
+  // ─── Derived ───────────────────────────────────────────────
   const currentSharer = turnOrder[currentTurnIndex] ?? "";
   const isSharer = currentSharer === userId;
   const sharerPlayer = players.find((p) => p.uid === currentSharer);
-  const hasAiGuessers = players.some(
-    (p) => p.uid !== currentSharer && isAiPlayer(p.uid),
-  );
-  const expectedGuessCount = players.filter(
-    (p) => p.uid !== currentSharer,
-  ).length;
+  const expectedGuessCount = players.filter((p) => p.uid !== currentSharer).length;
   const guessCount = Object.keys(guesses).length;
-  const allGuessesIn =
-    guessCount >= expectedGuessCount && expectedGuessCount > 0;
-  const fooledCount = sharerChoice != null
-    ? players.filter((p) => p.uid !== currentSharer && guesses[p.uid] !== sharerChoice).length
-    : 0;
-  const sharerFooledEveryone = fooledCount > 0 && fooledCount === expectedGuessCount;
   const playerGuess = guesses[userId] ?? null;
   const hasGuessed = playerGuess != null;
+  const fooledCount = bbRevealChoice
+    ? players.filter((p) => p.uid !== currentSharer && guesses[p.uid] !== bbRevealChoice).length
+    : 0;
+  const sharerFooledEveryone = fooledCount > 0 && fooledCount === expectedGuessCount;
 
-  // ─── Host: Pack Selected ───────────────────────────────────
+  // Reset the sharer's local choice + result dismissal when the turn changes.
+  useEffect(() => {
+    setMyChoice(null);
+    setResultDismissed(false);
+  }, [roundNumber, currentTurnIndex]);
 
+  // Round-intro overlay; engine advances to `sharing` on its short deadline.
+  useEffect(() => {
+    if (bbPhase === "round-intro") setShowRoundIntro(true);
+  }, [bbPhase]);
+
+  // ─── Actions (all via the API; engine owns progression) ────
   const handlePackSelected = useCallback(
     async (pack: BluffBoxPack) => {
-      const shuffled = shuffleCards(pack.cards);
-      const total = calculateTotalRounds(playerUids.length);
-      const order = shuffleTurnOrder(playerUids);
-      const initScoresMap = initScores(playerUids);
-      const { deleteField } = await import("firebase/firestore");
-      await updateFields({
-        selectedPackId: pack.id,
-        selectedPackName: pack.name,
-        selectedPackCoverURL: pack.coverImageURL,
-        cardPool: shuffled,
-        roundNumber: 1,
-        totalRounds: total,
-        turnOrder: order,
-        currentTurnIndex: 0,
-        cardURL: null,
-        sharerChoice: null,
-        guesses: {},
-        aiShareText: null,
-        humanShareText: null,
-        scores: initScoresMap,
-        bbHistory: [],
-        winners: [],
-        winnerPoints: 0,
-        bbPhase: "round-intro",
-        bluffLobbyPackId: deleteField(),
-        bluffLobbyPackName: deleteField(),
-        bluffLobbyPackCoverURL: deleteField(),
+      const result = await selectPack(sessionId, {
+        id: pack.id,
+        name: pack.name,
+        coverURL: pack.coverImageURL ?? null,
+        cards: pack.cards,
       });
+      if (!result.ok) throw new Error(result.error);
     },
-    [playerUids, updateFields],
+    [sessionId],
   );
-
-  const [lobbyAutoApplyFailed, setLobbyAutoApplyFailed] = useState(false);
-
-  const lobbyPackIdRaw = session
-    ? (session as unknown as Record<string, unknown>)["bluffLobbyPackId"]
-    : undefined;
-  const lobbyPackId =
-    typeof lobbyPackIdRaw === "string" && lobbyPackIdRaw
-      ? lobbyPackIdRaw
-      : null;
-
-  useEffect(() => {
-    if (bbPhase !== "pack-select") {
-      setLobbyAutoApplyFailed(false);
-      return;
-    }
-    if (!lobbyPackId) {
-      setLobbyAutoApplyFailed(false);
-      return;
-    }
-    if (!isHost || lobbyAutoApplyFailed) return;
-
-    let cancelled = false;
-    (async () => {
-      const { getPack } = await import("@/lib/bluffbox-packs");
-      const pack = await getPack(lobbyPackId);
-      if (cancelled) return;
-      if (!pack?.cards.length) {
-        setLobbyAutoApplyFailed(true);
-        return;
-      }
-      await handlePackSelected(pack);
-    })().catch(() => {
-      if (!cancelled) setLobbyAutoApplyFailed(true);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isHost, bbPhase, lobbyPackId, lobbyAutoApplyFailed, handlePackSelected]);
-
-  // ─── Deal card (human sharer taps; AI sharer auto-dealt by host) ─
-
-  const handleRevealBox = useCallback(async () => {
-    if (!isHost && currentSharer !== userId) return;
-    let pool = cardPool;
-    if (pool.length === 0) {
-      const { getPack } = await import("@/lib/bluffbox-packs");
-      const pack = await getPack(selectedPackId!);
-      pool = shuffleCards(pack?.cards ?? []);
-    }
-    const { card, remainingPool } = selectCard(pool);
-    await updateFields({
-      cardURL: card,
-      cardPool: remainingPool,
-    });
-  }, [cardPool, currentSharer, userId, isHost, selectedPackId, updateFields]);
-
-  // ─── Host: Auto-deal for AI sharer ────────────────────────
-
-  const aiSharerAutoDealRef = useRef(false);
-
-  useEffect(() => {
-    if (bbPhase !== "sharing") {
-      aiSharerAutoDealRef.current = false;
-      return;
-    }
-    if (cardURL) return;
-    if (!isHost || !isAiPlayer(currentSharer)) return;
-    if (cardPool.length === 0) return;
-    if (aiSharerAutoDealRef.current) return;
-    aiSharerAutoDealRef.current = true;
-    void handleRevealBox();
-  }, [bbPhase, cardURL, currentSharer, cardPool.length, isHost, handleRevealBox]);
-
-  // ─── Sharer: Choose Truth/Lie ──────────────────────────────
 
   const handleSharerChoice = useCallback(
     async (choice: "truth" | "lie") => {
-      await updateFields({ sharerChoice: choice });
-
-      if (!isAiPlayer(currentSharer) && hasAiGuessers) {
-        await setPhase("human-to-ai-input");
-      } else {
-        await setPhase("guessing");
-      }
+      setMyChoice(choice);
+      const result = await submitSharerChoice(sessionId, choice);
+      if (!result.ok) setMyChoice(null); // let them retry
     },
-    [currentSharer, hasAiGuessers, updateFields, setPhase],
+    [sessionId],
   );
-
-  // ─── Host: AI Sharer Logic ────────────────────────────────
-
-  useEffect(() => {
-    if (!isHost || bbPhase !== "sharing" || !cardURL || aiProcessingRef.current)
-      return;
-    if (!isAiPlayer(currentSharer)) return;
-
-    aiProcessingRef.current = true;
-    (async () => {
-      try {
-        const persona = getPersona(currentSharer);
-        const result = await aiShare({
-          cardImageURL: cardURL,
-          persona: {
-            prompt: persona?.prompt ?? "",
-            voice: persona?.voice ?? "",
-            skillLevel: persona?.skillLevel,
-          },
-          history: bbHistory,
-          players,
-        });
-        await updateFields({
-          sharerChoice: result.choice,
-          aiShareText: result.shareText,
-          bbPhase: "ai-share-display",
-        });
-      } finally {
-        aiProcessingRef.current = false;
-      }
-    })();
-  }, [isHost, bbPhase, cardURL, currentSharer, bbHistory, players, updateFields]);
-
-  // ─── Human: Submit share text for AI guessers ─────────────
-
-  const handleHumanShareText = useCallback(
-    async (text: string) => {
-      await updateFields({
-        humanShareText: text,
-        bbPhase: "guessing",
-      });
-    },
-    [updateFields],
-  );
-
-  // ─── Any player: Submit guess ─────────────────────────────
 
   const handleGuess = useCallback(
     async (guess: "truth" | "lie") => {
-      await updateFields({ [`guesses.${userId}`]: guess });
+      const result = await submitGuess(sessionId, guess);
+      if (!result.ok) throw new Error(result.error);
     },
-    [userId, updateFields],
+    [sessionId],
   );
 
-  // ─── Host: AI Guesser Logic ───────────────────────────────
-
-  useEffect(() => {
-    if (!isHost || bbPhase !== "guessing" || aiProcessingRef.current) return;
-
-    const aiGuessers = players.filter(
-      (p) => p.uid !== currentSharer && isAiPlayer(p.uid) && !guesses[p.uid],
-    );
-    if (aiGuessers.length === 0) return;
-
-    const shareText =
-      humanShareText || aiShareText || "something mysterious";
-
-    const sharerName =
-      players.find((p) => p.uid === currentSharer)?.gamertag ?? "Someone";
-
-    aiProcessingRef.current = true;
-    (async () => {
-      try {
-        for (const ai of aiGuessers) {
-          const persona = getPersona(ai.uid);
-          const guess = await aiGuess({
-            shareText,
-            sharerName,
-            persona: {
-              prompt: persona?.prompt ?? "",
-              voice: persona?.voice ?? "",
-              skillLevel: persona?.skillLevel,
-            },
-            history: bbHistory,
-            players,
-          });
-          await updateFields({ [`guesses.${ai.uid}`]: guess });
-        }
-      } finally {
-        aiProcessingRef.current = false;
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHost, bbPhase, currentSharer, guesses, players, bbHistory]);
-
-  // ─── Host: All guesses in → calculate scores + enter result ─
-
-  useEffect(() => {
-    if (!isHost || bbPhase !== "guessing") return;
-    if (!allGuessesIn || !sharerChoice) return;
-
-    // Calculate and write scores BEFORE entering result phase
-    const deltas = scoreTurn(
-      sharerChoice,
-      guesses,
-      currentSharer,
-    );
-    const newScores = applyScoreDeltas(scores, deltas);
-
-    const turnRecord: BluffBoxTurnRecord = {
-      round: roundNumber,
-      turn: currentTurnIndex,
-      sharerUid: currentSharer,
-      shareText: humanShareText || aiShareText || "",
-      sharerChoice,
-      guesses,
-      fooledCount,
-    };
-
-    void updateFields({
-      scores: newScores,
-      bbHistory: [...bbHistory, turnRecord],
-      bbPhase: "result",
-    });
-  }, [
-    isHost,
-    bbPhase,
-    allGuessesIn,
-    sharerChoice,
-    guesses,
-    currentSharer,
-    playerUids.length,
-    scores,
-    updateFields,
-    roundNumber,
-    currentTurnIndex,
-    humanShareText,
-    aiShareText,
-    fooledCount,
-    bbHistory,
-  ]);
-
-  // ─── Reset resultDismissed when phase changes ─────────────
-
-  useEffect(() => {
-    if (bbPhase !== "result") {
-      setResultDismissed(false);
-    }
-  }, [bbPhase]);
-
-  // Show round-intro overlay when entering that phase; it self-dismisses via setShowRoundIntro(false).
-  useEffect(() => {
-    if (bbPhase === "round-intro") {
-      setShowRoundIntro(true);
-    }
-  }, [bbPhase]);
-
-  // ─── Host: Advance from result ────────────────────────────
-
-  const advanceFromResult = useCallback(async () => {
-    if (!isHost) return;
-
-    const nextTurnIndex = currentTurnIndex + 1;
-
-    if (nextTurnIndex < turnOrder.length) {
-      // More turns in this round
-      await updateFields({
-        currentTurnIndex: nextTurnIndex,
-        cardURL: null,
-        sharerChoice: null,
-        guesses: {},
-        aiShareText: null,
-        humanShareText: null,
-        bbPhase: "sharing",
-      });
-      return;
-    }
-
-    if (roundNumber < totalRounds) {
-      // More rounds to play
-      const newOrder = shuffleTurnOrder(playerUids);
-      await updateFields({
-        roundNumber: roundNumber + 1,
-        turnOrder: newOrder,
-        currentTurnIndex: 0,
-        cardURL: null,
-        sharerChoice: null,
-        guesses: {},
-        aiShareText: null,
-        humanShareText: null,
-        bbPhase: "round-intro",
-      });
-      return;
-    }
-
-    // Game over — determine winners
-    const { winners: w, points: p } = determineWinners(scores);
-    await updateFields({
-      winners: w,
-      winnerPoints: p,
-      bbPhase: "game-over",
-    });
-    PointsManager.award(Activity.PLAY_GAME);
-    if (isHost) PointsManager.award(Activity.HOST_GAME);
-    if (w.includes(userId)) PointsManager.award(Activity.WIN_GAME);
-    recordGameStats(playerUids, w, session?.ownerId ?? "");
-  }, [
-    isHost,
-    userId,
-    currentTurnIndex,
-    turnOrder.length,
-    roundNumber,
-    totalRounds,
-    playerUids,
-    scores,
-    session?.ownerId,
-    updateFields,
-  ]);
-
-  // ─── Hand the finished match off to the factory result screen (GC4) ───
-  // When composeGame supplies onGameEnd, call it instead of rendering the
-  // in-game WinnerScreen. Points + stats are already awarded in
-  // advanceFromResult (host-only); this is purely the GC3 → GC4 transition.
+  // ─── Finish → composeGame result + gamification ────────────
   const gameEndFiredRef = useRef(false);
   useEffect(() => {
     if (bbPhase === "game-over" && winners.length > 0 && onGameEnd && !gameEndFiredRef.current) {
@@ -468,55 +138,16 @@ export default function BluffBoxGame({
         allPlayers: players,
         scores,
       });
+      PointsManager.award(Activity.PLAY_GAME);
+      if (isHost) PointsManager.award(Activity.HOST_GAME);
+      if (winners.includes(userId)) PointsManager.award(Activity.WIN_GAME);
+      if (isHost) recordGameStats(playerUids, winners, session?.ownerId ?? "");
     }
     if (bbPhase !== "game-over") gameEndFiredRef.current = false;
-  }, [bbPhase, winners, winnerPoints, players, scores, onGameEnd]);
-
-  // ─── Host: Auto-advance from result after delay ───────────
-
-  useEffect(() => {
-    if (!isHost || bbPhase !== "result") return;
-    const timer = setTimeout(() => {
-      void advanceFromResult();
-    }, RESULT_PHASE_AUTO_ADVANCE_MS);
-    return () => clearTimeout(timer);
-  }, [isHost, bbPhase, advanceFromResult]);
-
-  // ─── Play Again ────────────────────────────────────────────
-
-  const handlePlayAgain = useCallback(async () => {
-    await updateFields({
-      bbPhase: "pack-select",
-      cardURL: null,
-      sharerChoice: null,
-      guesses: {},
-      aiShareText: null,
-      humanShareText: null,
-      winners: [],
-      winnerPoints: 0,
-      turnOrder: [],
-      currentTurnIndex: 0,
-      scores: {},
-      bbHistory: [],
-    });
-  }, [updateFields]);
-
-  // ─── Start first turn from round-intro ────────────────────
-
-  const startFirstTurn = useCallback(async () => {
-    if (!isHost) return;
-    await updateFields({
-      cardURL: null,
-      sharerChoice: null,
-      guesses: {},
-      aiShareText: null,
-      humanShareText: null,
-      bbPhase: "sharing",
-    });
-  }, [isHost, updateFields]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires once at game-over
+  }, [bbPhase, winners, winnerPoints, players, scores, onGameEnd, isHost, userId]);
 
   // ─── Render ────────────────────────────────────────────────
-
   if (!session) {
     return (
       <div className="flex h-screen items-center justify-center bg-black">
@@ -525,32 +156,14 @@ export default function BluffBoxGame({
     );
   }
 
-  const hostPackSelectSpinner =
-    bbPhase === "pack-select" &&
-    isHost &&
-    !!lobbyPackId &&
-    !lobbyAutoApplyFailed;
-
   const matchupScreenExtras = {
-    ...(gameLogoURL != null && gameLogoURL.length > 0 ? { gameLogoURL } : {}),
-    ...(splashBgURL != null && splashBgURL.length > 0
-      ? { backgroundImageURL: splashBgURL }
-      : {}),
+    ...(gameLogoURL ? { gameLogoURL } : {}),
+    ...(splashBgURL ? { backgroundImageURL: splashBgURL } : {}),
   };
-
-  const splashUnderlayExtras =
-    splashBgURL != null && splashBgURL.length > 0
-      ? { backgroundImageURL: splashBgURL }
-      : {};
-
-  const hasSplash = splashBgURL != null && splashBgURL.length > 0;
-  const sharerViewPhases =
-    (bbPhase === "sharing" || bbPhase === "guessing") && isSharer && !isAiPlayer(userId);
-  const humanToAiPhase = bbPhase === "human-to-ai-input" && isSharer;
-  /** Same 30% splash layer as sharer flow — avoids the heavy root gradient that hides art (e.g. game-over). */
-  const subtleSplashShell =
-    hasSplash &&
-    (sharerViewPhases || humanToAiPhase || bbPhase === "game-over");
+  const splashUnderlayExtras = splashBgURL ? { backgroundImageURL: splashBgURL } : {};
+  const hasSplash = !!splashBgURL;
+  const sharerViewPhases = (bbPhase === "sharing" || bbPhase === "guessing") && isSharer;
+  const subtleSplashShell = hasSplash && (sharerViewPhases || bbPhase === "game-over");
 
   return (
     <div
@@ -569,34 +182,20 @@ export default function BluffBoxGame({
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: `url(${splashBgURL})`,
-            opacity: 0.3,
-          }}
+          style={{ backgroundImage: `url(${splashBgURL})`, opacity: 0.3 }}
         />
       ) : null}
       <div className="relative z-10 flex min-h-0 flex-1 flex-col">
         <GameGamertagBadge badgeClassName="bg-black" />
 
-        {/* ── Pack Select ── */}
-        {bbPhase === "pack-select" &&
-          isHost &&
-          (hostPackSelectSpinner ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
-              <p className="text-sm text-white/60">
-                Starting game&hellip;
-              </p>
-            </div>
-          ) : isAdmin ? (
+        {/* ── Pack Select (host picks AFTER Start; others wait) ── */}
+        {bbPhase === "pack-select" && isHost && (
+          isAdmin ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
               <h2 className="text-xl font-black uppercase tracking-wider text-amber-400">
                 Choose a Bluff Pack
               </h2>
-              <BluffPackPicker
-                onSelect={handlePackSelected}
-                onClose={() => {}}
-              />
+              <BluffPackPicker onSelect={handlePackSelected} onClose={() => {}} />
             </div>
           ) : (
             <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 pt-4 pb-10">
@@ -605,10 +204,11 @@ export default function BluffBoxGame({
               </h2>
               <BluffPackGridPicker onSelect={handlePackSelected} />
             </div>
-          ))}
+          )
+        )}
         {bbPhase === "pack-select" && !isHost && (
           <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6">
-            {gameLogoURL != null && gameLogoURL.length > 0 ? (
+            {gameLogoURL ? (
               <div className="motion-reduce:animate-none animate-[float_3s_ease-in-out_infinite]">
                 <Image
                   src={gameLogoURL}
@@ -616,60 +216,44 @@ export default function BluffBoxGame({
                   width={400}
                   height={200}
                   className="h-24 w-auto max-w-[min(320px,80vw)] object-contain select-none sm:h-32"
-                  priority={false}
                 />
               </div>
             ) : null}
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
-            <p className="text-sm text-white/50">
-              Hold on to your seats&hellip;
-            </p>
+            <p className="text-sm text-white/50">Host is setting up the game&hellip;</p>
           </div>
         )}
 
-        {/* ── Round Intro (overlay — persists through phase change for exit animation) ── */}
+        {/* ── Round Intro overlay ── */}
         {showRoundIntro && (
           <RoundIntroScreen
             roundNumber={roundNumber}
             totalRounds={totalRounds}
-            onComplete={() => {
-              if (isHost) startFirstTurn();
-            }}
+            onComplete={() => {}}
             onAnimationDone={() => setShowRoundIntro(false)}
           />
         )}
 
         {/* ── Sharing ── */}
-        {bbPhase === "sharing" && isSharer && !isAiPlayer(userId) && (
-          <SharerViewScreen
-            key={`sharer-${roundNumber}-${currentTurnIndex}`}
-            roundNumber={roundNumber}
-            totalRounds={totalRounds}
-            {...(gameLogoURL != null && gameLogoURL.length > 0
-              ? { gameLogoURL }
-              : {})}
-            cardURL={cardURL}
-            packCoverURL={selectedPackCoverURL}
-            onRevealBox={handleRevealBox}
-            onChoose={handleSharerChoice}
-            sharerChoice={sharerChoice}
-          />
+        {bbPhase === "sharing" && isSharer && (
+          <>
+            <SharerViewScreen
+              key={`sharer-${roundNumber}-${currentTurnIndex}`}
+              roundNumber={roundNumber}
+              totalRounds={totalRounds}
+              {...(gameLogoURL ? { gameLogoURL } : {})}
+              cardURL={cardURL}
+              packCoverURL={selectedPackCoverURL}
+              onRevealBox={() => {}}
+              onChoose={handleSharerChoice}
+              sharerChoice={myChoice}
+            />
+            <div className="relative z-10 mx-auto w-full max-w-md px-6 pb-4">
+              <PhaseTimerBar deadline={phaseDeadlineAt} durationMs={BB_SHARE_MS} />
+            </div>
+          </>
         )}
-        {bbPhase === "sharing" && (!isSharer || isAiPlayer(userId)) && (
-          <MatchupScreen
-            roundNumber={roundNumber}
-            totalRounds={totalRounds}
-            players={players}
-            scores={scores}
-            currentSharer={currentSharer}
-            turnOrder={turnOrder}
-            currentTurnIndex={currentTurnIndex}
-            {...matchupScreenExtras}
-          />
-        )}
-
-        {/* ── AI Share Display ── */}
-        {bbPhase === "ai-share-display" && aiShareText && (
+        {bbPhase === "sharing" && !isSharer && (
           <>
             <MatchupScreen
               roundNumber={roundNumber}
@@ -681,56 +265,36 @@ export default function BluffBoxGame({
               currentTurnIndex={currentTurnIndex}
               {...matchupScreenExtras}
             />
-            <AIShareDisplay
-              {...splashUnderlayExtras}
-              aiName={sharerPlayer?.gamertag ?? "AI"}
-              aiAvatarName={sharerPlayer?.avatarName}
-              shareText={aiShareText}
-              onDismiss={() => {
-                if (isHost) setPhase("guessing");
-              }}
-            />
+            <div className="relative z-10 mx-auto w-full max-w-md px-6 pb-4">
+              <p className="mb-2 text-center text-sm font-bold uppercase tracking-wider text-white/70">
+                {sharerPlayer?.gamertag ?? "Someone"} is deciding&hellip;
+              </p>
+              <PhaseTimerBar deadline={phaseDeadlineAt} durationMs={BB_SHARE_MS} />
+            </div>
           </>
-        )}
-
-        {/* ── Human to AI Input ── */}
-        {bbPhase === "human-to-ai-input" && isSharer && (
-          <HumanToAIInput
-            aiName="the group"
-            onSubmit={handleHumanShareText}
-          />
-        )}
-        {bbPhase === "human-to-ai-input" && !isSharer && (
-          <MatchupScreen
-            roundNumber={roundNumber}
-            totalRounds={totalRounds}
-            players={players}
-            scores={scores}
-            currentSharer={currentSharer}
-            turnOrder={turnOrder}
-            currentTurnIndex={currentTurnIndex}
-            {...matchupScreenExtras}
-          />
         )}
 
         {/* ── Guessing ── */}
-        {bbPhase === "guessing" && isSharer && !isAiPlayer(userId) && (
-          <SharerViewScreen
-            key={`sharer-voting-${roundNumber}-${currentTurnIndex}`}
-            roundNumber={roundNumber}
-            totalRounds={totalRounds}
-            {...(gameLogoURL != null && gameLogoURL.length > 0
-              ? { gameLogoURL }
-              : {})}
-            cardURL={cardURL}
-            packCoverURL={selectedPackCoverURL}
-            onRevealBox={handleRevealBox}
-            onChoose={handleSharerChoice}
-            sharerChoice={sharerChoice}
-            waitingForVotes
-          />
+        {bbPhase === "guessing" && isSharer && (
+          <>
+            <SharerViewScreen
+              key={`sharer-voting-${roundNumber}-${currentTurnIndex}`}
+              roundNumber={roundNumber}
+              totalRounds={totalRounds}
+              {...(gameLogoURL ? { gameLogoURL } : {})}
+              cardURL={cardURL}
+              packCoverURL={selectedPackCoverURL}
+              onRevealBox={() => {}}
+              onChoose={handleSharerChoice}
+              sharerChoice={myChoice}
+              waitingForVotes
+            />
+            <div className="relative z-10 mx-auto w-full max-w-md px-6 pb-4">
+              <PhaseTimerBar deadline={phaseDeadlineAt} durationMs={BB_GUESS_MS} />
+            </div>
+          </>
         )}
-        {bbPhase === "guessing" && (!isSharer || isAiPlayer(userId)) && (
+        {bbPhase === "guessing" && !isSharer && (
           <>
             <MatchupScreen
               roundNumber={roundNumber}
@@ -742,20 +306,21 @@ export default function BluffBoxGame({
               currentTurnIndex={currentTurnIndex}
               {...matchupScreenExtras}
             />
-            {!isSharer && !isAiPlayer(userId) && (
-              <GroupGuessModal
-                {...splashUnderlayExtras}
-                sharerName={sharerPlayer?.gamertag ?? "Player"}
-                onGuess={handleGuess}
-                hasGuessed={hasGuessed}
-                guessCount={guessCount}
-                totalGuessers={expectedGuessCount}
-              />
-            )}
+            <GroupGuessModal
+              {...splashUnderlayExtras}
+              sharerName={sharerPlayer?.gamertag ?? "Player"}
+              onGuess={handleGuess}
+              hasGuessed={hasGuessed}
+              guessCount={guessCount}
+              totalGuessers={expectedGuessCount}
+            />
+            <div className="relative z-10 mx-auto w-full max-w-md px-6 pb-4">
+              <PhaseTimerBar deadline={phaseDeadlineAt} durationMs={BB_GUESS_MS} />
+            </div>
           </>
         )}
 
-        {/* ── Result ── */}
+        {/* ── Result (auto-advances; engine drives) ── */}
         {bbPhase === "result" && (
           <>
             <MatchupScreen
@@ -768,30 +333,23 @@ export default function BluffBoxGame({
               currentTurnIndex={currentTurnIndex}
               {...matchupScreenExtras}
             />
-            {!resultDismissed && sharerChoice && cardURL && (
+            {!resultDismissed && bbRevealChoice && cardURL && (
               <TurnResultModal
                 {...splashUnderlayExtras}
                 sharerName={sharerPlayer?.gamertag ?? "Player"}
                 sharerAvatarName={sharerPlayer?.avatarName}
-                sharerChoice={sharerChoice}
+                sharerChoice={bbRevealChoice}
                 cardURL={cardURL}
                 playerGuess={isSharer ? null : playerGuess}
                 sharerFooledCount={fooledCount}
                 sharerEarnedFoolBonus={sharerFooledEveryone}
-                onDismiss={() => {
-                  if (isHost) {
-                    void advanceFromResult();
-                  } else {
-                    setResultDismissed(true);
-                  }
-                }}
+                onDismiss={() => setResultDismissed(true)}
               />
             )}
           </>
         )}
 
-        {/* ── Game Over — confetti portals to `document.body` at z-index 99999 (above z-50 modals).
-            Skipped when composeGame handles the result via onGameEnd (GC4). */}
+        {/* ── Game Over (skipped when composeGame handles the result) ── */}
         {bbPhase === "game-over" && winners.length > 0 && !onGameEnd && (
           <>
             <JMConfettiOverlay loop />
@@ -801,7 +359,7 @@ export default function BluffBoxGame({
               allPlayers={players}
               scores={scores}
               isHost={isHost}
-              onPlayAgain={handlePlayAgain}
+              onPlayAgain={() => {}}
             />
           </>
         )}
