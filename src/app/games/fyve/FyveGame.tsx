@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import { useAuth } from "@/lib/AuthProvider";
 import { GameGamertagBadge, bgMusic, SFX, recordGameStats } from "@/app/games/_gamecore";
 import { PointsManager, Activity } from "@/lib/points";
@@ -33,7 +32,7 @@ import {
 import BriefingScreen from "./screens/BriefingScreen";
 import TeamFormationScreen from "./screens/TeamFormationScreen";
 import BossSelectScreen from "./screens/BossSelectScreen";
-import HeistPickerModal from "./HeistPickerModal";
+import FyveHeistPicker from "./FyveHeistPicker";
 
 import BossScreen from "./screens/BossScreen";
 import OperativeScreen from "./screens/OperativeScreen";
@@ -82,12 +81,13 @@ interface FyveGameProps {
 export default function FyveGame({
   sessionId,
   splashBgURL: _splashBgURL,
-  gameLogoURL,
+  gameLogoURL: _gameLogoURL,
   musicUrl,
 }: FyveGameProps) {
   const { user } = useAuth();
   const userId = user?.uid ?? "";
   void _splashBgURL; // reserved for future use
+  void _gameLogoURL; // host now sees the heist picker; non-host sees the Fyve-Things art
   const {
     session,
     svState,
@@ -130,8 +130,6 @@ export default function FyveGame({
   // Game-over overlay: "loss" shows bomb loss first, then transitions to "win"
   const [gameOverPhase, setGameOverPhase] = useState<"loss" | "win" | null>(null);
   const gameOverDismissedRef = useRef(false);
-  // Heist picker (host, heist-select phase)
-  const [heistPickerOpen, setHeistPickerOpen] = useState(false);
   const {
     svPhase,
     selectedHeistId,
@@ -526,38 +524,7 @@ export default function FyveGame({
       {/* Phase router */}
       <div className="relative z-10">
         {svPhase === "heist-select" && isHost && (
-          <div className="flex min-h-dvh flex-col items-center justify-center gap-7 px-4">
-            {gameLogoURL && (
-              <div className="animate-gentle-float">
-                <Image
-                  src={gameLogoURL}
-                  alt="FYVE"
-                  width={260}
-                  height={130}
-                  className="h-auto w-[260px] object-contain"
-                  draggable={false}
-                />
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={() => setHeistPickerOpen(true)}
-              className="rounded-xl px-9 py-4 text-lg font-black uppercase tracking-wider text-black transition-transform active:scale-95"
-              style={{ backgroundColor: FYVE_COLORS.orange }}
-            >
-              Choose Heist
-            </button>
-          </div>
-        )}
-        {svPhase === "heist-select" && isHost && heistPickerOpen && (
-          <HeistPickerModal
-            onSelect={(h) => {
-              setHeistPickerOpen(false);
-              handleHeistSelected(h);
-            }}
-            onClose={() => setHeistPickerOpen(false)}
-            accentColor={FYVE_COLORS.orange}
-          />
+          <FyveHeistPicker onSelect={handleHeistSelected} />
         )}
         {svPhase === "heist-select" && !isHost && (
           <div className="relative z-10 flex min-h-dvh flex-col items-center justify-center px-6">
