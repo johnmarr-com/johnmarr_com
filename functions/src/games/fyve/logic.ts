@@ -59,6 +59,8 @@ export interface BoardCard {
   revealedImageUrl?: string;
   revealedAssetNumber?: number;
   revealedSoundEffect?: string;
+  /** The team that tapped this card (active team at reveal time). */
+  revealedByTeam?: FyveTeam;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────

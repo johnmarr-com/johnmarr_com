@@ -8,7 +8,9 @@ import { useGridCardRect, useImagePreload } from "./overlayHooks";
 
 interface CardRevealOverlayProps {
   result: FyveRevealResult;
-  activeTeam: FyveTeam;
+  /** The team that TAPPED this card — drives the success/fail sound. Not the
+   *  live activeTeam, which the engine may have switched in the same write. */
+  revealedByTeam: FyveTeam;
   /** The word shown on the card front (unrevealed side) */
   boardWord: string;
   /** If true, skip fly-back — dismiss so the win overlay can appear on top. */
@@ -35,7 +37,7 @@ const FLYBACK_DURATION = 700;
 
 export default function CardRevealOverlay({
   result,
-  activeTeam,
+  revealedByTeam,
   boardWord,
   isGameEnding = false,
   onDismiss,
@@ -49,10 +51,13 @@ export default function CardRevealOverlay({
   // Preload image, THEN kick off animation
   useImagePreload(result.imageUrl, () => setPhase("fly-out"));
 
-  // Play reveal sound when fly-out begins
+  // Play reveal sound when fly-out begins. Success = the team that tapped
+  // revealed their OWN asset — judged by who tapped, not the live activeTeam
+  // (the engine switches activeTeam atomically with a turn-ending reveal, so
+  // using it here made a correct final guess play the FAIL sound).
   const isOwnAsset =
-    (activeTeam === "syndicate1" && result.cardType === "T1") ||
-    (activeTeam === "syndicate2" && result.cardType === "T2");
+    (revealedByTeam === "syndicate1" && result.cardType === "T1") ||
+    (revealedByTeam === "syndicate2" && result.cardType === "T2");
 
   useEffect(() => {
     if (phase !== "fly-out") return;

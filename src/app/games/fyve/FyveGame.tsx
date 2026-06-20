@@ -106,6 +106,8 @@ export default function FyveGame({
     cardIndex: number;
     word: string;
     result: FyveRevealResult;
+    /** Team that tapped — drives the success/fail sound (not the live activeTeam). */
+    revealedByTeam: FyveTeam | null;
   } | null>(null);
   // Sync flag — set immediately when a reveal is detected so same-render
   // effects (game-over) know a reveal is pending before state updates.
@@ -301,6 +303,7 @@ export default function FyveGame({
           setAnimReveal({
             cardIndex: i,
             word: cur.word,
+            revealedByTeam: cur.revealedByTeam ?? null,
             result: {
               cardIndex: i,
               cardType: cur.revealedType,
@@ -752,7 +755,7 @@ export default function FyveGame({
       {animReveal && (
         <CardRevealOverlay
           result={animReveal.result}
-          activeTeam={activeTeam!}
+          revealedByTeam={animReveal.revealedByTeam ?? activeTeam!}
           boardWord={animReveal.word}
           isGameEnding={!!svState.winningTeam}
           onDismiss={handleRevealDismissed}

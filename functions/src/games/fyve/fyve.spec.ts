@@ -241,6 +241,7 @@ const fyveReducer: Reducer = {
           revealedName: result.name,
           revealedDescription: result.description,
           revealedImageUrl: result.imageUrl,
+          revealedByTeam: activeTeam,
           ...(result.assetNumber != null ? { revealedAssetNumber: result.assetNumber } : {}),
           ...(result.bombSoundEffect ? { revealedSoundEffect: result.bombSoundEffect } : {}),
         };

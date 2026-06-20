@@ -124,6 +124,10 @@ export interface FyveBoardCard {
   revealedAssetNumber?: number;
   /** For bombs: sound effect URL from the per-element bomb */
   revealedSoundEffect?: string;
+  /** Which team tapped this card (the active team at reveal time). Lets the
+   *  reveal overlay pick the success/fail sound without depending on the live
+   *  activeTeam, which the engine may have already switched. */
+  revealedByTeam?: FyveTeam;
 }
 
 // ─── Teams & Roles ──────────────────────────────────────────
