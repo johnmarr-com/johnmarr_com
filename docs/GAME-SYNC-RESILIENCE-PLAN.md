@@ -7,6 +7,11 @@ opt-in) — not a one-off bolted onto two games. This pilot covers the two
 chaptered-video 1v1 games, which share one round loop (`useMultiplayerRound`),
 and is the template every future game ties into the same way.
 
+> **See also [`DATA-ACCESS.md`](./DATA-ACCESS.md)** — the site-wide rule that
+> generalizes this work: read-to-render over HTTPS, live-push via poll-backed
+> listeners, writes via API routes, login via a first-party auth domain. It's why
+> the iOS load/stuck issues went away.
+
 ## Decisions (locked)
 
 - **Server-authoritative resolution for all modes** (friends *and* AI). The
