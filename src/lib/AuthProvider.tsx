@@ -134,30 +134,30 @@ export function AuthProvider({ children }: AuthProviderProps) {
       aiImageGenSettings: DEFAULT_AI_IMAGE_GEN_SETTINGS,
     };
     if (!user) return defaults;
-    
+
     try {
-      const { getFirestore, doc, getDoc } = await import("firebase/firestore");
-      const { getFirebaseApp } = await import("./firebase");
-      
-      const app = await getFirebaseApp();
-      if (!app) return defaults;
-      
-      const db = getFirestore(app);
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-        return {
-          userTier: (data["tier"] === "paid" || data["tier"] === "pro") ? data["tier"] as UserTier : "free",
-          gamertag: data["gamertag"] ?? null,
-          avatarName: typeof data["avatarName"] === "string" ? data["avatarName"] : null,
-          level: typeof data["level"] === "number" ? data["level"] : 1,
-          points: typeof data["points"] === "number" ? data["points"] : 0,
-          levelledUp: data["levelledUp"] === true,
-          aiImageGenSettings: mergeAiImageGenSettingsFromUnknown(data["aiImageGenSettings"]),
-        };
-      }
-      return defaults;
+      // Read the profile over plain HTTPS (Admin SDK), NOT the Firestore
+      // realtime stream — the stream wedges on iOS and a getDoc then hangs
+      // 30s+. getIdToken() returns the cached token (fast); /api/me behaves
+      // identically on every device.
+      const token = await user.getIdToken();
+      const res = await fetch("/api/me", {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      if (!res.ok) return defaults;
+      const { user: d } = (await res.json()) as { user: Record<string, unknown> | null };
+      if (!d) return defaults;
+      const tier = d["tier"];
+      return {
+        userTier: tier === "paid" || tier === "pro" ? (tier as UserTier) : "free",
+        gamertag: (d["gamertag"] as string | null) ?? null,
+        avatarName: typeof d["avatarName"] === "string" ? (d["avatarName"] as string) : null,
+        level: typeof d["level"] === "number" ? (d["level"] as number) : 1,
+        points: typeof d["points"] === "number" ? (d["points"] as number) : 0,
+        levelledUp: d["levelledUp"] === true,
+        aiImageGenSettings: mergeAiImageGenSettingsFromUnknown(d["aiImageGenSettings"]),
+      };
     } catch (error) {
       console.error("Failed to fetch user data:", error);
       return defaults;
@@ -233,24 +233,46 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const auth = await getAuth();
 
         unsubscribe = onAuthStateChanged(auth, (user) => {
-          // Flip loading off the INSTANT we know the auth state. Do NOT block
-          // the whole app on the secondary reads below: getIdTokenResult and
-          // the user-doc getDoc can hang on iOS (ITP blocking the IndexedDB
-          // token store, or a wedged Firestore connection) with no timeout,
-          // which leaves the app stuck on the loading screen — and only on some
-          // devices. Enrich admin/profile in the background and merge when ready.
+          // INSTANT: auth state resolves from LOCAL persistence (no network),
+          // and we hydrate the profile from localStorage — so gamertag is
+          // available immediately and launching a game never waits on a
+          // network read. (The loading screen also clears here, not after the
+          // hangable reads below.)
+          let cached: Partial<UserData> | null = null;
+          if (user) {
+            try {
+              const raw = localStorage.getItem(`jm_profile_${user.uid}`);
+              // Don't replay a stale "levelled up" celebration from cache.
+              if (raw) cached = { ...(JSON.parse(raw) as UserData), levelledUp: false };
+            } catch {
+              /* ignore corrupt cache */
+            }
+          }
           setState((prev) => ({
             ...prev,
             user,
             isLoading: false,
             isAuthenticated: !!user,
+            ...(cached ?? {}),
           }));
+          // Refresh admin claim + profile over HTTPS (reliable on iOS), write
+          // the cache, and merge. Guard against a stale result clobbering newer
+          // auth state.
           void (async () => {
             const [isAdmin, userData] = await Promise.all([
               checkAdminClaim(user),
               fetchUserData(user),
             ]);
-            // Guard against a stale background result clobbering newer state.
+            if (user) {
+              try {
+                localStorage.setItem(
+                  `jm_profile_${user.uid}`,
+                  JSON.stringify({ ...userData, levelledUp: false }),
+                );
+              } catch {
+                /* ignore quota/availability */
+              }
+            }
             setState((prev) =>
               prev.user?.uid === user?.uid ? { ...prev, isAdmin, ...userData } : prev,
             );
