@@ -232,19 +232,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         const auth = await getAuth();
 
-        unsubscribe = onAuthStateChanged(auth, async (user) => {
-          const [isAdmin, userData] = await Promise.all([
-            checkAdminClaim(user),
-            fetchUserData(user),
-          ]);
-          setState(prev => ({
+        unsubscribe = onAuthStateChanged(auth, (user) => {
+          // Flip loading off the INSTANT we know the auth state. Do NOT block
+          // the whole app on the secondary reads below: getIdTokenResult and
+          // the user-doc getDoc can hang on iOS (ITP blocking the IndexedDB
+          // token store, or a wedged Firestore connection) with no timeout,
+          // which leaves the app stuck on the loading screen — and only on some
+          // devices. Enrich admin/profile in the background and merge when ready.
+          setState((prev) => ({
             ...prev,
             user,
             isLoading: false,
             isAuthenticated: !!user,
-            isAdmin,
-            ...userData,
           }));
+          void (async () => {
+            const [isAdmin, userData] = await Promise.all([
+              checkAdminClaim(user),
+              fetchUserData(user),
+            ]);
+            // Guard against a stale background result clobbering newer state.
+            setState((prev) =>
+              prev.user?.uid === user?.uid ? { ...prev, isAdmin, ...userData } : prev,
+            );
+          })();
         });
       } catch (error) {
         console.error("Failed to initialize auth:", error);
@@ -255,9 +265,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     };
 
+    // Safety net: if auth init itself hangs (getAuth never resolves, or
+    // onAuthStateChanged never fires — e.g. IndexedDB blocked on iOS), don't
+    // leave the app stuck loading forever. Drop the loader after a few seconds
+    // and treat as signed-out; the user can still use the app / retry login.
+    const safety = setTimeout(() => {
+      setState((prev) => (prev.isLoading ? { ...prev, isLoading: false } : prev));
+    }, 8000);
+
     void init();
 
     return () => {
+      clearTimeout(safety);
       if (unsubscribe) unsubscribe();
     };
   }, [checkAdminClaim, fetchUserData]);
