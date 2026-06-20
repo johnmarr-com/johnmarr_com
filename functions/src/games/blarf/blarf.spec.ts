@@ -88,7 +88,9 @@ const blarfReducer: Reducer = {
     const deadline = (s["phaseDeadlineAt"] as number | undefined) ?? 0;
     const scores = (s["bfScores"] as Record<string, number> | undefined) ?? {};
 
-    const secret = ctx.secrets[secretPath(sid)] as unknown as { rounds?: BlarfRoundData[] } | null;
+    const secret = ctx.secrets[secretPath(sid)] as unknown as
+      | { rounds?: BlarfRoundData[]; blarferCounts?: Record<string, number> }
+      | null;
     const roleOf = (uid: string): Role | null =>
       ctx.secrets[rolePath(sid, uid)] as unknown as Role | null;
 
@@ -110,16 +112,24 @@ const blarfReducer: Reducer = {
       if (now < deadline) return null;
       const round = getCurrentRound(secret?.rounds ?? [], (s["bfCurrentRound"] as number) ?? 1);
       if (!round) return null; // await secret doc
-      const { blarfers, assignments, blarferLetter } = assignRoles(uids, round);
-      const docWrites = uids.map((uid) => ({
-        path: rolePath(sid, uid),
-        fields: {
-          word: assignments[uid] ?? "",
-          isBlarfer: blarfers.includes(uid),
-          letter: blarferLetter,
-        } as Record<string, unknown>,
-        merge: false,
-      }));
+      // Fair rotation: pick the least-used Blarfers, then persist the bumped
+      // counts back to the secret doc (so the pick never leaks publicly).
+      const counts = secret?.blarferCounts ?? {};
+      const { blarfers, assignments, blarferLetter } = assignRoles(uids, round, counts);
+      const newCounts = { ...counts };
+      for (const uid of blarfers) newCounts[uid] = (newCounts[uid] ?? 0) + 1;
+      const docWrites = [
+        ...uids.map((uid) => ({
+          path: rolePath(sid, uid),
+          fields: {
+            word: assignments[uid] ?? "",
+            isBlarfer: blarfers.includes(uid),
+            letter: blarferLetter,
+          } as Record<string, unknown>,
+          merge: false,
+        })),
+        { path: secretPath(sid), fields: { blarferCounts: newCounts }, merge: true },
+      ];
       logger.info(`[blarf] ${sid}: round-intro → role-reveal (${blarfers.length} blarfer(s))`);
       return {
         fields: {

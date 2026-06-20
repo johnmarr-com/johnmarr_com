@@ -208,17 +208,33 @@ export interface RoleAssignment {
 }
 
 /**
- * Assign roles for a round. Randomly picks Blarfers and assigns
- * unique words to non-Blarfers from the round's word list.
+ * Pick `count` Blarfers, fewest prior turns first (random tiebreak). Fair
+ * rotation that recycles automatically when all counts are equal.
+ * NOTE: kept in sync with the server copy in `functions/src/games/blarf/logic.ts`
+ * (the live one — the engine, not the client, assigns roles).
+ */
+export function pickBlarfers(
+  playerUids: string[],
+  count: number,
+  blarferCounts: Record<string, number>,
+): string[] {
+  const ordered = shuffleArray(playerUids);
+  ordered.sort((a, b) => (blarferCounts[a] ?? 0) - (blarferCounts[b] ?? 0));
+  return ordered.slice(0, count);
+}
+
+/**
+ * Assign roles for a round: pick Blarfers (fair rotation via `blarferCounts`)
+ * and assign unique words to non-Blarfers from the round's word list.
  */
 export function assignRoles(
   playerUids: string[],
   roundData: BlarfRoundData,
+  blarferCounts: Record<string, number> = {},
 ): RoleAssignment {
   const blarferCount = getBlarferCount(playerUids.length);
-  const shuffled = shuffleArray(playerUids);
-  const blarfers = shuffled.slice(0, blarferCount);
-  const nonBlarfers = shuffled.slice(blarferCount);
+  const blarfers = pickBlarfers(playerUids, blarferCount, blarferCounts);
+  const nonBlarfers = playerUids.filter((u) => !blarfers.includes(u));
 
   // Shuffle words and assign one per non-Blarfer
   const shuffledWords = shuffleArray(roundData.words);

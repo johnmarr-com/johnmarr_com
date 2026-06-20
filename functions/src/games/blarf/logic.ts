@@ -85,15 +85,33 @@ export function getCurrentRound(
   return rounds[round - 1] ?? null;
 }
 
-/** Randomly pick Blarfers + assign unique words to non-Blarfers. */
+/**
+ * Pick `count` Blarfers, fewest prior turns first (random tiebreak). Fair
+ * rotation: everyone gets a turn before anyone repeats, and it recycles
+ * automatically — when all counts are equal the minimum just rises, freeing
+ * everyone again. No reset bookkeeping needed.
+ */
+export function pickBlarfers(
+  playerUids: string[],
+  count: number,
+  blarferCounts: Record<string, number>,
+): string[] {
+  // Shuffle first so equal counts are broken randomly (Array.sort is stable in V8).
+  const ordered = shuffleArray(playerUids);
+  ordered.sort((a, b) => (blarferCounts[a] ?? 0) - (blarferCounts[b] ?? 0));
+  return ordered.slice(0, count);
+}
+
+/** Pick Blarfers (fair rotation via `blarferCounts`) + assign unique words to
+ *  non-Blarfers. */
 export function assignRoles(
   playerUids: string[],
   roundData: BlarfRoundData,
+  blarferCounts: Record<string, number> = {},
 ): RoleAssignment {
   const blarferCount = getBlarferCount(playerUids.length);
-  const shuffled = shuffleArray(playerUids);
-  const blarfers = shuffled.slice(0, blarferCount);
-  const nonBlarfers = shuffled.slice(blarferCount);
+  const blarfers = pickBlarfers(playerUids, blarferCount, blarferCounts);
+  const nonBlarfers = playerUids.filter((u) => !blarfers.includes(u));
 
   const shuffledWords = shuffleArray(roundData.words);
   const assignments: Record<string, string> = {};
