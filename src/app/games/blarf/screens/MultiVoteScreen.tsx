@@ -129,7 +129,7 @@ export default function MultiVoteScreen({
             {blarferCount === 1 ? (
               <>Cast a decoy vote to blend in — you can&rsquo;t catch yourself, so this won&rsquo;t score you, but <strong>not</strong> voting would blow your cover.</>
             ) : (
-              <>Vote to blend in. You <strong>can</strong> rat out a fellow Blarfer for +1&hellip; but you&rsquo;d be helping catch them.</>
+              <>It&rsquo;s every Blarfer for themself — if you can spot another Blarfer, vote them out for <strong>+1</strong> and knock down a rival. Otherwise, blend in.</>
             )}
           </p>
         </div>
