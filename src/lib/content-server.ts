@@ -15,6 +15,10 @@ import { unstable_cache } from "next/cache";
 import { getAdminFirestore } from "@/lib/firebase-admin";
 import { normalizePageSlug } from "./pages";
 import type { PageSegment } from "./content-types";
+import { resolveStyle, toCss } from "./scrollyfox-style";
+import type { DeviceStyleLayers, ResolvedStyle } from "./scrollyfox-style";
+import type { ScrollyFoxSegment } from "./scrollyfox";
+import type { HeroContent } from "@/app/scrollyfox/segments/HeroSegment";
 
 /** A row/featured doc's owning page — absent pageId ⇒ the home page. */
 const pageOf = (d: DocumentData): string =>
@@ -307,7 +311,11 @@ export interface PageMeta {
 export type ResolvedSegment =
   | { type: "carousel"; id: string; featured: HomeFeatured[] }
   | { type: "rows"; id: string; rows: HomeRow[] }
-  | { type: "scrollyfox"; id: string; refId: string };
+  | {
+      type: "scrollyfox";
+      id: string;
+      heroes: { content: HeroContent; style: ResolvedStyle }[];
+    };
 
 export interface PageContent {
   page: PageMeta;
@@ -365,7 +373,19 @@ async function resolveSegments(page: PageMeta): Promise<ResolvedSegment[]> {
           return { type: "rows", id: seg.id, rows: await getRowsForCollectionServer(seg.refId) };
         }
         if (seg.type === "scrollyfox") {
-          return { type: "scrollyfox", id: seg.id, refId: seg.refId };
+          const db = getAdminFirestore();
+          const sf = await db.doc(`scrollyfoxes/${seg.refId}`).get();
+          if (!sf.exists) return null;
+          const data = sf.data() ?? {};
+          const docStyle = data["style"] as DeviceStyleLayers | undefined;
+          const sfSegs = Array.isArray(data["segments"])
+            ? (data["segments"] as ScrollyFoxSegment[])
+            : [];
+          const heroes = sfSegs.map((s) => ({
+            content: s.content,
+            style: toCss(resolveStyle(docStyle, s.style, "desktop")),
+          }));
+          return { type: "scrollyfox", id: seg.id, heroes };
         }
         return null;
       }),

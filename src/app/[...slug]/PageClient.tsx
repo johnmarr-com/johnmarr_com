@@ -12,6 +12,7 @@ import { useJMStyle } from "@/JMStyle";
 import { bgMusic } from "@/lib/BackgroundMusicPlayer";
 import { getGamePlayHref } from "@/lib/composite-game-slug";
 import type { HomeRow, PageMeta, ResolvedSegment } from "@/lib/content-server";
+import { HeroSegment } from "@/app/scrollyfox/segments/HeroSegment";
 
 interface PageClientProps {
   page: PageMeta;
@@ -93,7 +94,8 @@ export default function PageClient({ page, segments }: PageClientProps) {
   const hasAnything = segments.some(
     (s) =>
       (s.type === "carousel" && s.featured.length > 0) ||
-      (s.type === "rows" && s.rows.length > 0),
+      (s.type === "rows" && s.rows.length > 0) ||
+      (s.type === "scrollyfox" && s.heroes.length > 0),
   );
 
   return (
@@ -148,7 +150,16 @@ export default function PageClient({ page, segments }: PageClientProps) {
               </section>
             );
           }
-          // scrollyfox: rendered in a later phase
+          if (seg.type === "scrollyfox") {
+            if (seg.heroes.length === 0) return null;
+            return (
+              <section key={seg.id} className="mt-4">
+                {seg.heroes.map((h, i) => (
+                  <HeroSegment key={i} {...h.content} style={h.style} />
+                ))}
+              </section>
+            );
+          }
           return null;
         })}
 
