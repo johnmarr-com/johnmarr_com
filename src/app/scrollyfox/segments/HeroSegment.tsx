@@ -32,8 +32,12 @@ interface HeroSegmentProps extends HeroContent {
   /** Fully resolved style for the device this segment is rendering at. */
   style: ResolvedStyle;
   /**
-   * Forces a specific device mode for preview surfaces (editor, selector).
-   * When undefined, the component uses real responsive behavior via Tailwind breakpoints.
+   * Forces a specific device mode for preview surfaces (the segment editor's
+   * device selector). When undefined, the component is fully responsive — it
+   * reflows and swaps the mobile image via real CSS breakpoints / <picture>.
+   *
+   * Breakpoint mapping (per ScrollyFox.md §2): desktop 1070+, tablet 734–1069,
+   * mobile 320–733. Reflow uses Tailwind `md` (768) as the stack boundary.
    */
   deviceMode?: "desktop" | "tablet" | "mobile";
 }
@@ -50,11 +54,37 @@ export function HeroSegment({
   deviceMode,
 }: HeroSegmentProps) {
   const isForcedMobile = deviceMode === "mobile";
-
-  const resolvedImage =
-    isForcedMobile && imageMobileUrl ? imageMobileUrl : imageUrl;
   const altText = imageAlt ?? title ?? "";
   const ctaList = ctas ?? [];
+
+  // Desktop-preferred source; forced-device previews pick a variant explicitly.
+  const baseImage = imageUrl ?? imageMobileUrl ?? null;
+  const forcedImage =
+    isForcedMobile && imageMobileUrl ? imageMobileUrl : baseImage;
+
+  // Forced previews (device selector) pick the variant by deviceMode — a fixed
+  // box width can't trigger viewport media queries. Responsive surfaces use
+  // <picture> so the browser swaps to the mobile image as the window narrows.
+  const renderImage = (imgClassName: string) => {
+    if (deviceMode) {
+      return (
+        // eslint-disable-next-line @next/next/no-img-element -- dynamic author-supplied URL
+        <img
+          src={forcedImage ?? undefined}
+          alt={altText}
+          className={imgClassName}
+        />
+      );
+    }
+    return (
+      <picture className="contents">
+        {imageMobileUrl && (
+          <source media="(max-width: 767px)" srcSet={imageMobileUrl} />
+        )}
+        <img src={baseImage ?? undefined} alt={altText} className={imgClassName} />
+      </picture>
+    );
+  };
 
   // The styled "card" — bg / border / radius / shadow live on the section.
   const card = {
@@ -141,15 +171,8 @@ export function HeroSegment({
         className="relative flex w-full items-center justify-center overflow-hidden"
         style={{ ...card, minHeight: "clamp(320px, 52vh, 640px)" }}
       >
-        {resolvedImage && (
-          // eslint-disable-next-line @next/next/no-img-element -- dynamic author-supplied URL
-          <img
-            src={resolvedImage}
-            alt={altText}
-            className="absolute inset-0 h-full w-full object-cover"
-          />
-        )}
-        {resolvedImage && (
+        {baseImage && renderImage("absolute inset-0 h-full w-full object-cover")}
+        {baseImage && (
           <div
             className="absolute inset-0"
             style={{
@@ -173,13 +196,8 @@ export function HeroSegment({
           <div className="flex w-full max-w-2xl flex-col items-center text-center">
             {copyInner}
           </div>
-          {resolvedImage ? (
-            // eslint-disable-next-line @next/next/no-img-element -- dynamic author-supplied URL
-            <img
-              src={resolvedImage}
-              alt={altText}
-              className="w-full max-w-3xl rounded-xl object-contain"
-            />
+          {baseImage ? (
+            renderImage("w-full max-w-3xl rounded-xl object-contain")
           ) : (
             <div className="w-full max-w-3xl">{placeholder}</div>
           )}
@@ -188,23 +206,25 @@ export function HeroSegment({
     );
   }
 
-  // ── Split: image + copy sized to content and centered as an adjacent pair.
-  // No 50/50 halves — that was leaving the copy stranded mid-half. Now both
-  // hug the center with a fixed gap between them. ──
+  // ── Split: image + copy sized to content, centered as an adjacent pair. ──
   const imageOnLeft = layout === "split-image-left";
+
+  // Forced previews stack/align by deviceMode (a fixed-width box can't trigger
+  // viewport breakpoints); responsive surfaces use `md` as the stack boundary.
+  const splitDirection =
+    deviceMode === "mobile"
+      ? "flex-col"
+      : deviceMode === "tablet" || deviceMode === "desktop"
+        ? "flex-row"
+        : "flex-col md:flex-row";
 
   const imageBlock = (
     <div
       key="image"
       className="flex w-full items-center justify-center md:w-auto"
     >
-      {resolvedImage ? (
-        // eslint-disable-next-line @next/next/no-img-element -- dynamic author-supplied URL
-        <img
-          src={resolvedImage}
-          alt={altText}
-          className="max-h-[440px] w-full rounded-lg object-contain md:max-w-xl"
-        />
+      {baseImage ? (
+        renderImage("max-h-[440px] w-full rounded-lg object-contain md:max-w-xl")
       ) : (
         <div className="w-full max-w-md">{placeholder}</div>
       )}
@@ -222,7 +242,9 @@ export function HeroSegment({
 
   return (
     <section className="w-full overflow-hidden" style={card}>
-      <div className="mx-auto flex w-full max-w-5xl flex-col items-center justify-center gap-8 px-6 py-10 md:flex-row md:gap-10 md:px-10 md:py-14">
+      <div
+        className={`mx-auto flex w-full max-w-5xl items-center justify-center gap-8 px-6 py-10 md:gap-10 md:px-10 md:py-14 ${splitDirection}`}
+      >
         {imageOnLeft ? [imageBlock, textBlock] : [textBlock, imageBlock]}
       </div>
     </section>
