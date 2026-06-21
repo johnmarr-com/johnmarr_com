@@ -18,7 +18,7 @@ import type { PageSegment } from "./content-types";
 import { resolveStyle, toCss } from "./scrollyfox-style";
 import type { DeviceStyleLayers, ResolvedStyle } from "./scrollyfox-style";
 import type { ScrollyFoxSegment } from "./scrollyfox";
-import type { HeroContent } from "@/app/scrollyfox/segments/HeroSegment";
+import type { HeroContent, HeroLayout } from "@/app/scrollyfox/segments/HeroSegment";
 import {
   resolveButtonStyle,
   resolveBuiltinStyle,
@@ -352,6 +352,7 @@ export type ResolvedSegment =
         content: HeroContent;
         style: ResolvedStyle;
         ctaButton: ResolvedButtonStyle;
+        layouts?: { tablet?: HeroLayout; mobile?: HeroLayout };
       }[];
     };
 
@@ -447,6 +448,7 @@ async function resolveSegments(page: PageMeta): Promise<ResolvedSegment[]> {
               content: s.content,
               style: toCss(resolveStyle(docStyle, s.style, "desktop")),
               ctaButton: await resolveBtn(s.content.ctaButtonStyleId),
+              ...(s.layouts ? { layouts: s.layouts } : {}),
             })),
           );
           return { type: "scrollyfox", id: seg.id, heroes };

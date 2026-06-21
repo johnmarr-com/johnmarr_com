@@ -117,6 +117,7 @@ export function PageSegments({ segments }: { segments: ResolvedSegment[] }) {
                   {...h.content}
                   style={h.style}
                   ctaButton={h.ctaButton}
+                  {...(h.layouts ? { layouts: h.layouts } : {})}
                 />
               ))}
             </section>

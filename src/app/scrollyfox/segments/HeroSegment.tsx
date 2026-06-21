@@ -37,6 +37,13 @@ interface HeroSegmentProps extends HeroContent {
   /** Resolved CTA pill colors. Absent ⇒ Pink-Purple default. */
   ctaButton?: ResolvedButtonStyle;
   /**
+   * Per-device layout overrides (tablet/mobile). On responsive surfaces these
+   * drive the split image/text order per breakpoint via CSS `order`, so a
+   * different left/right per device is honored (e.g. text-on-top on mobile).
+   * Desktop layout always comes from `layout`.
+   */
+  layouts?: { tablet?: HeroLayout; mobile?: HeroLayout };
+  /**
    * Forces a specific device mode for preview surfaces (the segment editor's
    * device selector). When undefined, the component is fully responsive — it
    * reflows and swaps the mobile image via real CSS breakpoints / <picture>.
@@ -51,6 +58,7 @@ export function HeroSegment({
   style,
   ctaButton,
   layout,
+  layouts,
   imageUrl,
   imageMobileUrl,
   imageAlt,
@@ -206,6 +214,7 @@ export function HeroSegment({
 
   // ── Split: image + copy sized to content, centered as an adjacent pair. ──
   const imageOnLeft = layout === "split-image-left";
+  const responsive = !deviceMode;
 
   // Forced previews stack/align by deviceMode (a fixed-width box can't trigger
   // viewport breakpoints); responsive surfaces use `md` as the stack boundary.
@@ -216,10 +225,30 @@ export function HeroSegment({
         ? "flex-row"
         : "flex-col md:flex-row";
 
+  // On responsive surfaces, honor the per-device left/right choice via CSS
+  // `order`: mobile (<md) stacks, tablet (md) and desktop (lg) sit side-by-side,
+  // each ordered by that device's chosen side. "right" ⇒ text first → image
+  // below on mobile (text-on-top scroll flow). Literal classes so Tailwind JIT
+  // keeps them. Forced previews skip this — they pass the device's own layout.
+  const imgOrder = (l: HeroLayout): 1 | 2 => (l === "split-image-right" ? 2 : 1);
+  const flip = (n: 1 | 2): 1 | 2 => (n === 1 ? 2 : 1);
+  const IMG = { 1: "order-1", 2: "order-2" } as const;
+  const IMG_MD = { 1: "md:order-1", 2: "md:order-2" } as const;
+  const IMG_LG = { 1: "lg:order-1", 2: "lg:order-2" } as const;
+  const imM = imgOrder(layouts?.mobile ?? layout);
+  const imT = imgOrder(layouts?.tablet ?? layout);
+  const imD = imgOrder(layout);
+  const imageOrderCls = responsive
+    ? `${IMG[imM]} ${IMG_MD[imT]} ${IMG_LG[imD]}`
+    : "";
+  const textOrderCls = responsive
+    ? `${IMG[flip(imM)]} ${IMG_MD[flip(imT)]} ${IMG_LG[flip(imD)]}`
+    : "";
+
   const imageBlock = (
     <div
       key="image"
-      className="flex w-full items-center justify-center md:w-auto"
+      className={`flex w-full items-center justify-center md:w-auto ${imageOrderCls}`}
     >
       {baseImage ? (
         renderImage("max-h-[440px] w-full rounded-lg object-contain md:max-w-xl")
@@ -232,7 +261,7 @@ export function HeroSegment({
   const textBlock = (
     <div
       key="text"
-      className="flex w-full max-w-xl flex-col items-center text-center md:w-auto md:max-w-md"
+      className={`flex w-full max-w-xl flex-col items-center text-center md:w-auto md:max-w-md ${textOrderCls}`}
     >
       {copyInner}
     </div>
@@ -243,7 +272,11 @@ export function HeroSegment({
       <div
         className={`mx-auto flex w-full max-w-5xl items-center justify-center gap-8 px-6 py-10 md:gap-10 md:px-10 md:py-14 ${splitDirection}`}
       >
-        {imageOnLeft ? [imageBlock, textBlock] : [textBlock, imageBlock]}
+        {responsive
+          ? [imageBlock, textBlock]
+          : imageOnLeft
+            ? [imageBlock, textBlock]
+            : [textBlock, imageBlock]}
       </div>
     </section>
   );
