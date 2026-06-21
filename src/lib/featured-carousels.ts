@@ -74,6 +74,25 @@ export async function renameCarousel(id: string, name: string): Promise<void> {
   });
 }
 
+/** Set a carousel's pagination-dot color (hex). */
+export async function setCarouselDotColor(
+  id: string,
+  dotColor: string,
+): Promise<void> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, doc, updateDoc, serverTimestamp } = await import(
+    "firebase/firestore"
+  );
+
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+
+  await updateDoc(doc(db, CAROUSELS_COLLECTION, id), {
+    dotColor,
+    updatedAt: serverTimestamp(),
+  });
+}
+
 export async function deleteCarousel(id: string): Promise<void> {
   const { initializeFirebase } = await import("./firebase");
   const { getFirestore, doc, deleteDoc } = await import("firebase/firestore");

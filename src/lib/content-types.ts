@@ -391,6 +391,8 @@ export type JMPageUpdate = Partial<Omit<JMPage, "id" | "creatorId" | "createdAt"
 export interface JMFeaturedCarousel {
   id: string;
   name: string;
+  /** Pagination-dot color (hex). Absent ⇒ brand pink. */
+  dotColor?: string;
   creatorId: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -398,6 +400,7 @@ export interface JMFeaturedCarousel {
 
 export interface JMFeaturedCarouselInput {
   name: string;
+  dotColor?: string;
 }
 
 /**

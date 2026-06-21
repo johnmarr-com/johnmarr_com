@@ -7,6 +7,10 @@ import { EffectCoverflow, Autoplay, Navigation } from "swiper/modules";
 import type { Swiper as SwiperType } from "swiper";
 import { useJMStyle } from "@/JMStyle";
 import { ChevronLeft, ChevronRight, Play } from "lucide-react";
+import {
+  DEFAULT_BUTTON_STYLE,
+  type ResolvedButtonStyle,
+} from "@/lib/button-styles";
 
 // Import Swiper styles
 import "swiper/css";
@@ -23,23 +27,31 @@ export interface FeaturedItem {
   contentType: "show" | "story" | "card" | "game" | "artist" | "auction";
   slug?: string;  // For artists, auctions - used for navigation
   engineSlug?: string;
+  /** Resolved CTA pill colors. Absent ⇒ Pink-Purple default. */
+  ctaButton?: ResolvedButtonStyle;
 }
 
 interface JMFeaturedCarouselProps {
   items: FeaturedItem[];
   onItemClick?: (item: FeaturedItem) => void;
   autoplayDelay?: number;  // ms between slides
+  /** Pagination-dot color. Absent ⇒ brand pink. */
+  dotColor?: string;
 }
 
-export function JMFeaturedCarousel({ 
-  items, 
+export function JMFeaturedCarousel({
+  items,
   onItemClick,
-  autoplayDelay = 6000 
+  autoplayDelay = 6000,
+  dotColor,
 }: JMFeaturedCarouselProps) {
   const { theme } = useJMStyle();
   const [swiperRef, setSwiperRef] = useState<SwiperType | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
+
+  // Dots default to the brand pink; a carousel may override per CMS.
+  const dotPaint = dotColor ?? theme.accents.neonPink;
 
   // Pause autoplay on hover
   useEffect(() => {
@@ -162,12 +174,15 @@ export function JMFeaturedCarousel({
                       </p>
                     )}
                     
-                    {/* Play/View button */}
+                    {/* Play/View button — brand gradient pill (Pink-Purple default) */}
                     <button
-                      className="inline-flex items-center gap-1 sm:gap-2 rounded-full px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 lg:px-6 text-xs sm:text-sm font-semibold transition-all duration-200 hover:scale-105"
+                      className="inline-flex items-center gap-1 sm:gap-2 rounded-full px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 lg:px-6 text-xs sm:text-sm font-semibold shadow-lg transition-all duration-200 hover:scale-105"
                       style={{
-                        backgroundColor: theme.accents.goldenGlow,
-                        color: theme.surfaces.base,
+                        background: (() => {
+                          const b = item.ctaButton ?? DEFAULT_BUTTON_STYLE;
+                          return `linear-gradient(${b.angle}deg, ${b.from}, ${b.to})`;
+                        })(),
+                        color: (item.ctaButton ?? DEFAULT_BUTTON_STYLE).textColor,
                         pointerEvents: isActive ? "auto" : "none",
                       }}
                       onClick={(e) => {
@@ -226,8 +241,8 @@ export function JMFeaturedCarousel({
               className="h-1.5 sm:h-2 rounded-full transition-all duration-300"
               style={{
                 width: index === activeIndex ? "16px" : "6px",
-                backgroundColor: index === activeIndex 
-                  ? theme.accents.goldenGlow 
+                backgroundColor: index === activeIndex
+                  ? dotPaint
                   : theme.text.tertiary,
                 opacity: index === activeIndex ? 1 : 0.5,
               }}

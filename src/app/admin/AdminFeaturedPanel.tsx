@@ -24,8 +24,10 @@ import {
   createCarousel,
   renameCarousel,
   deleteCarousel,
+  setCarouselDotColor,
 } from "@/lib/featured-carousels";
 import type { JMFeaturedCarousel } from "@/lib/content-types";
+import { ButtonStylePicker } from "@/components/ButtonStylePicker";
 import { 
   Plus, Trash2, GripVertical, Eye, EyeOff, Pencil,
   ChevronDown, Loader2, AlertCircle, X,
@@ -73,6 +75,7 @@ export function AdminFeaturedPanel() {
   const [editSubtitle, setEditSubtitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editBackdropURL, setEditBackdropURL] = useState("");
+  const [editCtaStyleId, setEditCtaStyleId] = useState("");
   
   // Content selection
   const [availableContent, setAvailableContent] = useState<ContentOption[]>([]);
@@ -124,6 +127,12 @@ export function AdminFeaturedPanel() {
     const name = window.prompt("Rename carousel:", c.name);
     if (!name?.trim()) return;
     await renameCarousel(c.id, name.trim());
+    await refreshCarousels();
+  };
+
+  const handleDotColor = async (color: string) => {
+    if (!carouselId) return;
+    await setCarouselDotColor(carouselId, color);
     await refreshCarousels();
   };
 
@@ -281,6 +290,7 @@ export function AdminFeaturedPanel() {
     setEditSubtitle(item.subtitle || "");
     setEditDescription(item.description || "");
     setEditBackdropURL(item.backdropURL);
+    setEditCtaStyleId(item.ctaButtonStyleId || "");
   };
 
   const handleBackdropUpload = async (file: File): Promise<string> => {
@@ -297,6 +307,7 @@ export function AdminFeaturedPanel() {
       const updates: Record<string, string> = {
         title: editTitle,
         backdropURL: editBackdropURL,
+        ctaButtonStyleId: editCtaStyleId,
       };
       if (editSubtitle) updates["subtitle"] = editSubtitle;
       if (editDescription) updates["description"] = editDescription;
@@ -422,6 +433,22 @@ export function AdminFeaturedPanel() {
             >
               Delete
             </button>
+            <label
+              className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm"
+              style={{ borderColor: theme.surfaces.elevated2, color: theme.text.secondary }}
+            >
+              Dots
+              <input
+                type="color"
+                value={
+                  carousels.find((c) => c.id === carouselId)?.dotColor ??
+                  theme.accents.neonPink
+                }
+                onChange={(e) => handleDotColor(e.target.value)}
+                className="h-7 w-9 cursor-pointer rounded border-0 bg-transparent p-0"
+                aria-label="Carousel pagination dot color"
+              />
+            </label>
           </>
         )}
       </div>
@@ -583,7 +610,7 @@ export function AdminFeaturedPanel() {
 
       {/* Edit Modal */}
       {editingItem && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
           <div
             className="absolute inset-0"
             style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
@@ -672,6 +699,12 @@ export function AdminFeaturedPanel() {
                 previewSize={300}
                 maxWidth={1920}
               />
+
+              {/* CTA button style — same picker as the ScrollyFox editor */}
+              <ButtonStylePicker
+                value={editCtaStyleId}
+                onChange={setEditCtaStyleId}
+              />
             </div>
 
             <div className="flex justify-end gap-3 mt-6">
@@ -701,7 +734,7 @@ export function AdminFeaturedPanel() {
 
       {/* Add Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
           <div 
             className="absolute inset-0"
             style={{ backgroundColor: "rgba(0,0,0,0.7)" }}

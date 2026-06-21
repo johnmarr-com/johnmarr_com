@@ -1164,6 +1164,8 @@ export interface JMFeaturedItem {
   isActive: boolean;
   /** Owning carousel. Absent ⇒ the home default carousel. */
   carouselId?: string;
+  /** Named CTA button style. Absent ⇒ Pink-Purple default. */
+  ctaButtonStyleId?: string;
   createdAt: import("firebase/firestore").Timestamp;
   updatedAt: import("firebase/firestore").Timestamp;
 }
@@ -1179,6 +1181,7 @@ export interface JMFeaturedInput {
   order: number;
   isActive?: boolean;
   carouselId?: string;
+  ctaButtonStyleId?: string;
 }
 
 interface FeaturedContentResult {

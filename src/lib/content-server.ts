@@ -20,8 +20,8 @@ import type { DeviceStyleLayers, ResolvedStyle } from "./scrollyfox-style";
 import type { ScrollyFoxSegment } from "./scrollyfox";
 import type { HeroContent } from "@/app/scrollyfox/segments/HeroSegment";
 import {
-  DEFAULT_BUTTON_STYLE,
   resolveButtonStyle,
+  resolveBuiltinStyle,
   type ResolvedButtonStyle,
 } from "./button-styles";
 
@@ -42,6 +42,8 @@ export interface HomeFeatured {
   contentType: string;
   slug?: string;
   engineSlug?: string;
+  /** Resolved CTA pill colors (Pink-Purple default). */
+  ctaButton: ResolvedButtonStyle;
 }
 
 export interface HomeRowItem {
@@ -110,6 +112,28 @@ function storyToItem(id: string, s: DocumentData): HomeRowItem {
 }
 
 /** Featured carousel items (published/active) for a carousel, game slugs resolved. */
+/**
+ * A per-request resolver from a CTA button-style id to its pill colors.
+ * Built-ins ("" / "pink-purple" / "gold") resolve without a read; saved-doc
+ * ids are fetched once and cached for the rest of the request.
+ */
+function makeButtonResolver(
+  db: Firestore,
+): (id: string | undefined) => Promise<ResolvedButtonStyle> {
+  const cache = new Map<string, ResolvedButtonStyle>();
+  return async (id) => {
+    const builtin = resolveBuiltinStyle(id ?? "");
+    if (builtin) return builtin;
+    const key = id as string;
+    const cached = cache.get(key);
+    if (cached) return cached;
+    const bs = await db.doc(`buttonStyles/${key}`).get();
+    const resolved = resolveButtonStyle(bs.exists ? bs.data() : null);
+    cache.set(key, resolved);
+    return resolved;
+  };
+}
+
 export async function getFeaturedContentServer(
   carouselId = "",
 ): Promise<HomeFeatured[]> {
@@ -120,29 +144,36 @@ export async function getFeaturedContentServer(
     .orderBy("order", "asc")
     .get();
 
-  const rows: HomeFeatured[] = snap.docs
-    .filter((doc) => {
-      // Absent carouselId ⇒ the home default carousel.
-      const c = doc.data()["carouselId"];
-      return (typeof c === "string" ? c : "") === carouselId;
-    })
-    .map((doc) => {
-    const d = doc.data();
-    const r: HomeFeatured = {
-      id: doc.id,
-      title: str(d["title"]),
-      backdropURL: str(d["backdropURL"]),
-      contentId: str(d["contentId"]),
-      contentType: str(d["contentType"]),
-    };
-    const sub = optStr(d["subtitle"]);
-    if (sub) r.subtitle = sub;
-    const desc = optStr(d["description"]);
-    if (desc) r.description = desc;
-    const slug = optStr(d["slug"]);
-    if (slug) r.slug = slug;
-    return r;
+  const docs = snap.docs.filter((doc) => {
+    // Absent carouselId ⇒ the home default carousel.
+    const c = doc.data()["carouselId"];
+    return (typeof c === "string" ? c : "") === carouselId;
   });
+
+  const resolveBtn = makeButtonResolver(db);
+
+  const rows: HomeFeatured[] = await Promise.all(
+    docs.map(async (doc) => {
+      const d = doc.data();
+      const styleId =
+        typeof d["ctaButtonStyleId"] === "string" ? d["ctaButtonStyleId"] : "";
+      const r: HomeFeatured = {
+        id: doc.id,
+        title: str(d["title"]),
+        backdropURL: str(d["backdropURL"]),
+        contentId: str(d["contentId"]),
+        contentType: str(d["contentType"]),
+        ctaButton: await resolveBtn(styleId),
+      };
+      const sub = optStr(d["subtitle"]);
+      if (sub) r.subtitle = sub;
+      const desc = optStr(d["description"]);
+      if (desc) r.description = desc;
+      const slug = optStr(d["slug"]);
+      if (slug) r.slug = slug;
+      return r;
+    }),
+  );
 
   await Promise.all(
     rows.map(async (row) => {
@@ -312,7 +343,7 @@ export interface PageMeta {
 
 /** A page segment resolved to its render data. */
 export type ResolvedSegment =
-  | { type: "carousel"; id: string; featured: HomeFeatured[] }
+  | { type: "carousel"; id: string; featured: HomeFeatured[]; dotColor?: string }
   | { type: "rows"; id: string; rows: HomeRow[] }
   | {
       type: "scrollyfox";
@@ -368,13 +399,33 @@ export async function getPageContent(slug: string): Promise<PageContent | null> 
   return { page, segments: await resolveSegments(page) };
 }
 
+/** Pagination-dot color for a named carousel ("" / unknown ⇒ undefined). */
+async function getCarouselDotColor(
+  carouselId: string,
+): Promise<string | undefined> {
+  if (!carouselId) return undefined;
+  const db = getAdminFirestore();
+  const c = await db.doc(`featuredCarousels/${carouselId}`).get();
+  const v = c.exists ? c.data()?.["dotColor"] : undefined;
+  return typeof v === "string" ? v : undefined;
+}
+
 /** Resolve a page's segment stack, or synthesize the legacy [carousel?, rows]. */
 async function resolveSegments(page: PageMeta): Promise<ResolvedSegment[]> {
   if (page.segments && page.segments.length > 0) {
     const resolved = await Promise.all(
       page.segments.map(async (seg): Promise<ResolvedSegment | null> => {
         if (seg.type === "carousel") {
-          return { type: "carousel", id: seg.id, featured: await getFeaturedContentServer(seg.refId) };
+          const [featured, dotColor] = await Promise.all([
+            getFeaturedContentServer(seg.refId),
+            getCarouselDotColor(seg.refId),
+          ]);
+          return {
+            type: "carousel",
+            id: seg.id,
+            featured,
+            ...(dotColor ? { dotColor } : {}),
+          };
         }
         if (seg.type === "rows") {
           return { type: "rows", id: seg.id, rows: await getRowsForCollectionServer(seg.refId) };
@@ -390,19 +441,7 @@ async function resolveSegments(page: PageMeta): Promise<ResolvedSegment[]> {
             : [];
 
           // Resolve CTA pill styles once per distinct id (heroes often share one).
-          const btnCache = new Map<string, ResolvedButtonStyle>();
-          const resolveBtn = async (
-            id: string | undefined,
-          ): Promise<ResolvedButtonStyle> => {
-            if (!id) return DEFAULT_BUTTON_STYLE;
-            const cached = btnCache.get(id);
-            if (cached) return cached;
-            const bs = await db.doc(`buttonStyles/${id}`).get();
-            const resolved = resolveButtonStyle(bs.exists ? bs.data() : null);
-            btnCache.set(id, resolved);
-            return resolved;
-          };
-
+          const resolveBtn = makeButtonResolver(db);
           const heroes = await Promise.all(
             sfSegs.map(async (s) => ({
               content: s.content,
@@ -421,10 +460,12 @@ async function resolveSegments(page: PageMeta): Promise<ResolvedSegment[]> {
   // Legacy fallback: synthesize [carousel?, rows] from the old page fields.
   const out: ResolvedSegment[] = [];
   if (page.featuredCarouselId) {
+    const dotColor = await getCarouselDotColor(page.featuredCarouselId);
     out.push({
       type: "carousel",
       id: "legacy-carousel",
       featured: await getFeaturedContentServer(page.featuredCarouselId),
+      ...(dotColor ? { dotColor } : {}),
     });
   }
   out.push({ type: "rows", id: "legacy-rows", rows: await getHomeRowsServer(page.id) });

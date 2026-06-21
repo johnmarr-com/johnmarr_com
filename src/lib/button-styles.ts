@@ -26,6 +26,32 @@ export const DEFAULT_BUTTON_STYLE: ResolvedButtonStyle = {
   textColor: "#FFFFFF",
 };
 
+/** Built-in gold pill (the classic feature-banner look) — solid gold, dark label. */
+export const GOLD_BUTTON_STYLE: ResolvedButtonStyle = {
+  from: "#FFD700",
+  to: "#FFD700",
+  angle: 135,
+  textColor: "#000000",
+};
+
+/**
+ * Sentinel ids for the built-in styles (not Firestore docs). "" / "pink-purple"
+ * resolve to the Pink-Purple default; "gold" to the gold pill. Anything else is
+ * a saved /buttonStyles doc id. There is a single source of truth per built-in,
+ * so adjusting a constant updates every CTA that references it.
+ */
+export const BUILTIN_BUTTON_OPTIONS: { id: string; name: string }[] = [
+  { id: "", name: "Pink-Purple (default)" },
+  { id: "gold", name: "Gold" },
+];
+
+/** Resolve a built-in id to its pill colors, or null if it's a saved-doc id. */
+export function resolveBuiltinStyle(id: string): ResolvedButtonStyle | null {
+  if (!id || id === "pink-purple") return DEFAULT_BUTTON_STYLE;
+  if (id === "gold") return GOLD_BUTTON_STYLE;
+  return null;
+}
+
 /** Resolve a raw button-style doc (or nothing) into concrete render values. */
 export function resolveButtonStyle(
   data:
@@ -43,6 +69,19 @@ export function resolveButtonStyle(
         ? data.textColor
         : DEFAULT_BUTTON_STYLE.textColor,
   };
+}
+
+/**
+ * Resolve an id to pill colors using an already-loaded list (client preview):
+ * built-in first, then a saved doc, else the Pink-Purple default.
+ */
+export function resolveStyleFromList(
+  id: string,
+  styles: JMButtonStyle[],
+): ResolvedButtonStyle {
+  const builtin = resolveBuiltinStyle(id);
+  if (builtin) return builtin;
+  return resolveButtonStyle(styles.find((s) => s.id === id) ?? null);
 }
 
 export async function listButtonStyles(): Promise<JMButtonStyle[]> {

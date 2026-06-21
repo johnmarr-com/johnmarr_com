@@ -94,6 +94,7 @@ export function PageSegments({ segments }: { segments: ResolvedSegment[] }) {
                 items={seg.featured as FeaturedItem[]}
                 onItemClick={goFeatured}
                 autoplayDelay={6000}
+                {...(seg.dotColor ? { dotColor: seg.dotColor } : {})}
               />
             </section>
           );
