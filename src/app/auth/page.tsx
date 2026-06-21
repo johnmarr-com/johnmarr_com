@@ -485,24 +485,24 @@ function AuthContent() {
             {isLoginMode ? (
               <p className="text-sm" style={{ color: theme.text.secondary }}>
                 Don&apos;t have an account?{" "}
-                <a
+                <Link
                   href="/auth"
                   className="font-medium hover:underline"
                   style={{ color: theme.accents.neonPink }}
                 >
                   Sign up
-                </a>
+                </Link>
               </p>
             ) : (
               <p className="text-sm" style={{ color: theme.text.secondary }}>
                 Already have an account?{" "}
-                <a
+                <Link
                   href="/auth?login=true"
                   className="font-medium hover:underline"
                   style={{ color: theme.accents.neonPink }}
                 >
                   Sign in
-                </a>
+                </Link>
               </p>
             )}
           </div>
