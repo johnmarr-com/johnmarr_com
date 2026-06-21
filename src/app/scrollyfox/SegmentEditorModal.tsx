@@ -1,9 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Settings, Trash2, X } from "lucide-react";
 import { JMImageUpload, JMModal } from "@/JMKit";
 import { useJMStyle } from "@/JMStyle";
+import { useAuth } from "@/lib/AuthProvider";
+import {
+  createButtonStyle,
+  listButtonStyles,
+  resolveButtonStyle,
+  DEFAULT_BUTTON_STYLE,
+  type ResolvedButtonStyle,
+} from "@/lib/button-styles";
+import type { JMButtonStyle } from "@/lib/content-types";
 import {
   newSegmentId,
   uploadSegmentImage,
@@ -72,6 +81,7 @@ export function SegmentEditorModal({
   onClose,
 }: SegmentEditorModalProps) {
   const { theme } = useJMStyle();
+  const { user } = useAuth();
   const [segmentId] = useState(() => initialSegment?.id ?? newSegmentId());
   const [type, setType] = useState<SegmentType>(initialSegment?.type ?? "hero");
   const [content, setContent] = useState<HeroContent>(
@@ -87,7 +97,73 @@ export function SegmentEditorModal({
   const [deviceMode, setDeviceMode] = useState<DeviceMode>("desktop");
   const [settingsOpen, setSettingsOpen] = useState(false);
 
+  // Saved CTA pill styles + the inline "create a new style" form.
+  const [buttonStyles, setButtonStyles] = useState<JMButtonStyle[]>([]);
+  const [creatingStyle, setCreatingStyle] = useState(false);
+  const [savingStyle, setSavingStyle] = useState(false);
+  const [styleDraft, setStyleDraft] = useState({
+    name: "",
+    from: DEFAULT_BUTTON_STYLE.from,
+    to: DEFAULT_BUTTON_STYLE.to,
+    textColor: DEFAULT_BUTTON_STYLE.textColor,
+    angle: DEFAULT_BUTTON_STYLE.angle,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    listButtonStyles()
+      .then((styles) => {
+        if (!cancelled) setButtonStyles(styles);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const ctas = content.ctas ?? [];
+
+  // Resolved pill colors for the live preview: the selected saved style, or the
+  // built-in Pink-Purple default when none is chosen (or it hasn't loaded yet).
+  const selectedStyle = content.ctaButtonStyleId
+    ? buttonStyles.find((s) => s.id === content.ctaButtonStyleId)
+    : undefined;
+  const previewBtn: ResolvedButtonStyle = resolveButtonStyle(
+    selectedStyle ?? null,
+  );
+
+  const handleCreateStyle = async () => {
+    if (!user?.uid || !styleDraft.name.trim()) return;
+    setSavingStyle(true);
+    try {
+      const created = await createButtonStyle(
+        {
+          name: styleDraft.name.trim(),
+          from: styleDraft.from,
+          to: styleDraft.to,
+          textColor: styleDraft.textColor,
+          angle: styleDraft.angle,
+        },
+        user.uid,
+      );
+      setButtonStyles((prev) =>
+        [...prev, created].sort((a, b) => a.name.localeCompare(b.name)),
+      );
+      updateContent("ctaButtonStyleId", created.id);
+      setCreatingStyle(false);
+      setStyleDraft({
+        name: "",
+        from: DEFAULT_BUTTON_STYLE.from,
+        to: DEFAULT_BUTTON_STYLE.to,
+        textColor: DEFAULT_BUTTON_STYLE.textColor,
+        angle: DEFAULT_BUTTON_STYLE.angle,
+      });
+    } catch (e) {
+      console.error("Failed to save button style", e);
+    } finally {
+      setSavingStyle(false);
+    }
+  };
 
   const updateContent = <K extends keyof HeroContent>(
     key: K,
@@ -382,6 +458,163 @@ export function SegmentEditorModal({
 
             {/* CTAs */}
             <div className="md:col-span-2">
+              {/* Button style — gradient pill applied to every CTA below */}
+              <div className="mb-4">
+                <label
+                  className="mb-2 block text-sm font-semibold"
+                  style={{ color: theme.text.primary }}
+                >
+                  Button style
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={content.ctaButtonStyleId ?? ""}
+                    onChange={(e) =>
+                      updateContent("ctaButtonStyleId", e.target.value)
+                    }
+                    className="rounded-lg border-2 px-3 py-2 text-sm"
+                    style={{
+                      borderColor: theme.surfaces.elevated2,
+                      backgroundColor: theme.surfaces.elevated1,
+                      color: theme.text.primary,
+                    }}
+                    aria-label="CTA button style"
+                  >
+                    <option value="">Pink-Purple (default)</option>
+                    {buttonStyles.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                  {/* Swatch of the selected style */}
+                  <span
+                    className="inline-flex items-center rounded-full px-4 py-2 text-xs font-semibold"
+                    style={{
+                      background: `linear-gradient(${previewBtn.angle}deg, ${previewBtn.from}, ${previewBtn.to})`,
+                      color: previewBtn.textColor,
+                    }}
+                  >
+                    Button
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCreatingStyle((v) => !v)}
+                    className="flex items-center gap-1 rounded-md px-2 py-1 text-xs"
+                    style={{ color: theme.accents.neonPink }}
+                  >
+                    <Plus size={14} /> New style
+                  </button>
+                </div>
+
+                {creatingStyle && (
+                  <div
+                    className="mt-3 flex flex-col gap-3 rounded-lg border-2 p-3"
+                    style={{ borderColor: theme.surfaces.elevated2 }}
+                  >
+                    <input
+                      type="text"
+                      placeholder="Style name (e.g. Sunset)"
+                      value={styleDraft.name}
+                      onChange={(e) =>
+                        setStyleDraft((p) => ({ ...p, name: e.target.value }))
+                      }
+                      className="w-full rounded-lg border-2 px-3 py-2 text-sm"
+                      style={{
+                        borderColor: theme.surfaces.elevated2,
+                        backgroundColor: theme.surfaces.elevated1,
+                        color: theme.text.primary,
+                      }}
+                    />
+                    <div className="flex flex-wrap gap-4">
+                      {(
+                        [
+                          { key: "from", label: "From" },
+                          { key: "to", label: "To" },
+                          { key: "textColor", label: "Text" },
+                        ] as const
+                      ).map(({ key, label }) => (
+                        <label
+                          key={key}
+                          className="flex items-center gap-2 text-xs"
+                          style={{ color: theme.text.secondary }}
+                        >
+                          {label}
+                          <input
+                            type="color"
+                            value={styleDraft[key]}
+                            onChange={(e) =>
+                              setStyleDraft((p) => ({
+                                ...p,
+                                [key]: e.target.value,
+                              }))
+                            }
+                            className="h-8 w-10 cursor-pointer rounded border-0 bg-transparent p-0"
+                            aria-label={`${label} color`}
+                          />
+                        </label>
+                      ))}
+                      <label
+                        className="flex items-center gap-2 text-xs"
+                        style={{ color: theme.text.secondary }}
+                      >
+                        Angle
+                        <input
+                          type="number"
+                          value={styleDraft.angle}
+                          onChange={(e) =>
+                            setStyleDraft((p) => ({
+                              ...p,
+                              angle: Number(e.target.value) || 0,
+                            }))
+                          }
+                          className="w-16 rounded-lg border-2 px-2 py-1 text-sm"
+                          style={{
+                            borderColor: theme.surfaces.elevated2,
+                            backgroundColor: theme.surfaces.elevated1,
+                            color: theme.text.primary,
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span
+                        className="inline-flex items-center rounded-full px-5 py-2 text-sm font-semibold"
+                        style={{
+                          background: `linear-gradient(${styleDraft.angle}deg, ${styleDraft.from}, ${styleDraft.to})`,
+                          color: styleDraft.textColor,
+                        }}
+                      >
+                        {styleDraft.name.trim() || "Preview"}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setCreatingStyle(false)}
+                          className="rounded-lg px-3 py-1.5 text-xs"
+                          style={{ color: theme.text.secondary }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCreateStyle}
+                          disabled={savingStyle || !styleDraft.name.trim()}
+                          className="rounded-lg border-2 px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
+                          style={{
+                            borderColor: theme.accents.neonPink,
+                            color: theme.accents.neonPink,
+                            backgroundColor: "transparent",
+                          }}
+                        >
+                          {savingStyle ? "Saving…" : "Save style"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="mb-2 flex items-center justify-between">
                 <label
                   className="text-sm font-semibold"
@@ -471,6 +704,7 @@ export function SegmentEditorModal({
               {...content}
               layout={activeLayout}
               style={resolved}
+              ctaButton={previewBtn}
               deviceMode={deviceMode}
             />
           </div>
