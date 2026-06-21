@@ -55,6 +55,8 @@ const SEGMENT_TYPES: { value: SegmentType; label: string }[] = [
 const LAYOUT_OPTIONS: { value: HeroLayout; label: string }[] = [
   { value: "split-image-left", label: "Image left" },
   { value: "split-image-right", label: "Image right" },
+  { value: "centered", label: "Centered" },
+  { value: "overlay", label: "Overlay" },
 ];
 
 const DEVICE_OPTIONS: { value: DeviceMode; label: string; widthPx: number | null }[] = [
@@ -219,7 +221,7 @@ export function SegmentEditorModal({
               >
                 Layout
               </label>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {LAYOUT_OPTIONS.map((opt) => {
                   const active = content.layout === opt.value;
                   return (
