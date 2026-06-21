@@ -352,11 +352,14 @@ export function AdminPagesPanel() {
               type="button"
               onClick={() => togglePublish(page)}
               className="rounded-md p-2"
-              style={{ color: theme.text.secondary }}
-              aria-label={page.isPublished ? "Unpublish" : "Publish"}
-              title={page.isPublished ? "Unpublish" : "Publish"}
+              aria-label={page.isPublished ? "Published — click to unpublish" : "Draft — click to publish"}
+              title={page.isPublished ? "Published — click to unpublish" : "Draft — click to publish"}
             >
-              {page.isPublished ? <EyeOff size={16} /> : <Eye size={16} />}
+              {page.isPublished ? (
+                <Eye size={16} style={{ color: theme.accents.goldenGlow }} />
+              ) : (
+                <EyeOff size={16} style={{ color: theme.text.tertiary }} />
+              )}
             </button>
             <button
               type="button"

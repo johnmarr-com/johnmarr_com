@@ -252,10 +252,15 @@ export async function getHomeRowsServer(pageId = "home"): Promise<HomeRow[]> {
  */
 export const getHomeContent = unstable_cache(
   async (): Promise<{ featured: HomeFeatured[]; rows: HomeRow[] }> => {
+    // Prefer the "home" Page (its carousel + rows). Fall back to the legacy
+    // implicit home (default carousel + unscoped rows) if no published home
+    // page exists, so `/` is never empty during the transition.
+    const home = await getPageContent("home");
+    if (home) return { featured: home.featured, rows: home.rows };
     const [featured, rows] = await Promise.all([getFeaturedContentServer(), getHomeRowsServer()]);
     return { featured, rows };
   },
-  ["home-content-v1"],
+  ["home-content-v2"],
   { revalidate: 60, tags: [HOME_CONTENT_TAG] },
 );
 
