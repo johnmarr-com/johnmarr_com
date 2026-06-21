@@ -384,5 +384,20 @@ service firebase.storage {
       // Admins can clean up
       allow delete: if isAdmin();
     }
+
+    // ─────────────────────────────────────────────────────────────
+    // SCROLLYFOX (segment images — desktop/mobile variants + future assets)
+    // ─────────────────────────────────────────────────────────────
+
+    match /scrollyfox/{allPaths=**} {
+      // Anyone can read (rendered ScrollyFox pages are public)
+      allow read: if true;
+
+      // Only admins author ScrollyFoxes. Image under 10MB.
+      allow write: if isAdmin() && isImage() && maxSize(10);
+
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
   }
 }

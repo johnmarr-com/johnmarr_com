@@ -721,5 +721,16 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow create, update, delete: if false; // Admin SDK only
     }
+
+    // ─────────────────────────────────────────────────────────────
+    // SCROLLYFOX DOCUMENTS (admin-authored scroll experiences)
+    // Authored client-side in the admin-gated /scrollyfox editor.
+    // Read stays admin-only until a public reader + publish flag land.
+    // ─────────────────────────────────────────────────────────────
+
+    match /scrollyfoxes/{scrollyFoxId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
   }
 }
