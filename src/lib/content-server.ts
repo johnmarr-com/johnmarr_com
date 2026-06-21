@@ -13,6 +13,11 @@
 import type { Firestore, DocumentData } from "firebase-admin/firestore";
 import { unstable_cache } from "next/cache";
 import { getAdminFirestore } from "@/lib/firebase-admin";
+import { normalizePageSlug } from "./pages";
+
+/** A row/featured doc's owning page — absent pageId ⇒ the home page. */
+const pageOf = (d: DocumentData): string =>
+  (typeof d["pageId"] === "string" && d["pageId"]) || "home";
 
 /** Cache tag for the home content (bust via `revalidateTag` on CMS publish). */
 export const HOME_CONTENT_TAG = "home-content";
@@ -94,8 +99,10 @@ function storyToItem(id: string, s: DocumentData): HomeRowItem {
   return item;
 }
 
-/** Featured carousel items (published/active), with game slug+engineSlug resolved. */
-export async function getFeaturedContentServer(): Promise<HomeFeatured[]> {
+/** Featured carousel items (published/active) for a page, game slugs resolved. */
+export async function getFeaturedContentServer(
+  pageId = "home",
+): Promise<HomeFeatured[]> {
   const db = getAdminFirestore();
   const snap = await db
     .collection("featured")
@@ -103,7 +110,9 @@ export async function getFeaturedContentServer(): Promise<HomeFeatured[]> {
     .orderBy("order", "asc")
     .get();
 
-  const rows: HomeFeatured[] = snap.docs.map((doc) => {
+  const rows: HomeFeatured[] = snap.docs
+    .filter((doc) => pageOf(doc.data()) === pageId)
+    .map((doc) => {
     const d = doc.data();
     const r: HomeFeatured = {
       id: doc.id,
@@ -205,13 +214,14 @@ async function resolveRow(db: Firestore, exp: DocumentData): Promise<{ items: Ho
   return { items: [] };
 }
 
-/** All published experience rows with resolved content, for the home. */
-export async function getHomeRowsServer(): Promise<HomeRow[]> {
+/** Published experience rows with resolved content, scoped to a page (default home). */
+export async function getHomeRowsServer(pageId = "home"): Promise<HomeRow[]> {
   const db = getAdminFirestore();
   const expSnap = await db.collection("experiences").where("isPublished", "==", true).orderBy("order", "asc").get();
 
+  const docs = expSnap.docs.filter((doc) => pageOf(doc.data()) === pageId);
   return Promise.all(
-    expSnap.docs.map(async (doc) => {
+    docs.map(async (doc) => {
       const exp = doc.data();
       const { items, featureItem } = await resolveRow(db, exp);
       const row: HomeRow = {
@@ -244,3 +254,64 @@ export const getHomeContent = unstable_cache(
   ["home-content-v1"],
   { revalidate: 60, tags: [HOME_CONTENT_TAG] },
 );
+
+// ─────────────────────────────────────────────────────────────
+// STANDALONE PAGES (slug-addressed)
+// ─────────────────────────────────────────────────────────────
+
+/** Slim, JSON-serializable page metadata for the client renderer. */
+export interface PageMeta {
+  id: string;
+  slug: string;
+  title: string;
+  subtitle?: string;
+  hasFeatured: boolean;
+}
+
+export interface PageContent {
+  page: PageMeta;
+  featured: HomeFeatured[];
+  rows: HomeRow[];
+}
+
+/** Resolve a published page by its canonical slug (Admin SDK). */
+async function getPageBySlugServer(slug: string): Promise<PageMeta | null> {
+  const db = getAdminFirestore();
+  const snap = await db
+    .collection("pages")
+    .where("slug", "==", normalizePageSlug(slug))
+    .limit(1)
+    .get();
+
+  const doc = snap.docs[0];
+  if (!doc) return null;
+  const d = doc.data();
+  if (d["isPublished"] !== true) return null;
+
+  const page: PageMeta = {
+    id: doc.id,
+    slug: str(d["slug"]),
+    title: str(d["title"]),
+    hasFeatured: d["hasFeatured"] === true,
+  };
+  const sub = optStr(d["subtitle"]);
+  if (sub) page.subtitle = sub;
+  return page;
+}
+
+/**
+ * A published page's content (optional banner + rows), resolved server-side.
+ * Returns null when no published page exists at that slug.
+ */
+export async function getPageContent(slug: string): Promise<PageContent | null> {
+  const page = await getPageBySlugServer(slug);
+  if (!page) return null;
+
+  const [featured, rows] = await Promise.all([
+    page.hasFeatured
+      ? getFeaturedContentServer(page.id)
+      : Promise.resolve<HomeFeatured[]>([]),
+    getHomeRowsServer(page.id),
+  ]);
+  return { page, featured, rows };
+}
