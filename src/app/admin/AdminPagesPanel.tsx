@@ -1,10 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ChevronLeft, Eye, EyeOff, Layers, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronLeft,
+  Eye,
+  EyeOff,
+  Layers,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { useJMStyle } from "@/JMStyle";
 import { useAuth } from "@/lib/AuthProvider";
-import type { JMFeaturedCarousel, JMPage } from "@/lib/content-types";
+import type {
+  JMFeaturedCarousel,
+  JMPage,
+  JMRowCollection,
+  PageSegment,
+  PageSegmentType,
+} from "@/lib/content-types";
 import {
   createPage,
   deletePage,
@@ -14,7 +30,18 @@ import {
   updatePage,
 } from "@/lib/pages";
 import { listCarousels } from "@/lib/featured-carousels";
-import { AdminHomeRowsPanel } from "./AdminHomeRowsPanel";
+import { listRowCollections } from "@/lib/row-collections";
+import { listScrollyFoxes, type ScrollyFoxListItem } from "@/lib/scrollyfox";
+
+const SEGMENT_TYPES: { value: PageSegmentType; label: string }[] = [
+  { value: "carousel", label: "Featured Carousel" },
+  { value: "rows", label: "Row Collection" },
+  { value: "scrollyfox", label: "ScrollyFox" },
+];
+
+function newSegId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 export function AdminPagesPanel() {
   const { theme } = useJMStyle();
@@ -30,11 +57,15 @@ export function AdminPagesPanel() {
   const [slug, setSlug] = useState("");
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
-  const [featuredCarouselId, setFeaturedCarouselId] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  // Row-management drill-in
-  const [managing, setManaging] = useState<JMPage | null>(null);
+  // Segment editor for one page
+  const [editingSegments, setEditingSegments] = useState<JMPage | null>(null);
+  const [segments, setSegments] = useState<PageSegment[]>([]);
+  const [rowCollections, setRowCollections] = useState<JMRowCollection[]>([]);
+  const [scrollyfoxes, setScrollyfoxes] = useState<ScrollyFoxListItem[]>([]);
+  const [addType, setAddType] = useState<PageSegmentType>("carousel");
+  const [addRefId, setAddRefId] = useState("");
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -62,7 +93,6 @@ export function AdminPagesPanel() {
     setSlug("");
     setTitle("");
     setSubtitle("");
-    setFeaturedCarouselId("");
   };
 
   const startEdit = (page: JMPage) => {
@@ -70,25 +100,15 @@ export function AdminPagesPanel() {
     setSlug(page.slug);
     setTitle(page.title);
     setSubtitle(page.subtitle ?? "");
-    setFeaturedCarouselId(page.featuredCarouselId ?? "");
     setError(null);
   };
 
   const handleSubmit = async () => {
     if (!user) return;
     setError(null);
-    if (!normalized) {
-      setError("Enter a slug (e.g. watch or watch/shows).");
-      return;
-    }
-    if (reserved) {
-      setError(`"${normalized.split("/")[0]}" is reserved — it collides with an existing route.`);
-      return;
-    }
-    if (!title.trim()) {
-      setError("Enter a title.");
-      return;
-    }
+    if (!normalized) return setError("Enter a slug (e.g. watch or watch/shows).");
+    if (reserved) return setError(`"${normalized.split("/")[0]}" is reserved — it collides with an existing route.`);
+    if (!title.trim()) return setError("Enter a title.");
     setIsSaving(true);
     try {
       if (editingId) {
@@ -96,7 +116,6 @@ export function AdminPagesPanel() {
           slug: normalized,
           title: title.trim(),
           subtitle: subtitle.trim(),
-          featuredCarouselId,
         });
       } else {
         await createPage(
@@ -104,7 +123,6 @@ export function AdminPagesPanel() {
             slug: normalized,
             title: title.trim(),
             ...(subtitle.trim() ? { subtitle: subtitle.trim() } : {}),
-            ...(featuredCarouselId ? { featuredCarouselId } : {}),
             isPublished: false,
           },
           user.uid,
@@ -131,7 +149,7 @@ export function AdminPagesPanel() {
   };
 
   const handleDelete = async (page: JMPage) => {
-    if (!window.confirm(`Delete page "${page.title}" (/${page.slug})? Its rows are not deleted.`)) {
+    if (!window.confirm(`Delete page "${page.title}" (/${page.slug})? Its segments' objects are not deleted.`)) {
       return;
     }
     try {
@@ -144,21 +162,60 @@ export function AdminPagesPanel() {
     }
   };
 
+  // ── Segment editor ──
+  const openSegments = async (page: JMPage) => {
+    setEditingSegments(page);
+    setSegments(page.segments ?? []);
+    setAddType("carousel");
+    setAddRefId("");
+    const [c, rc, sf] = await Promise.all([
+      listCarousels(),
+      listRowCollections(),
+      listScrollyFoxes(),
+    ]);
+    setCarousels(c);
+    setRowCollections(rc);
+    setScrollyfoxes(sf);
+  };
+
+  const persistSegments = async (page: JMPage, next: PageSegment[]) => {
+    setSegments(next);
+    try {
+      await updatePage(page.id, { segments: next });
+    } catch (err) {
+      console.error("Failed to save segments:", err);
+      setError("Failed to save segments.");
+    }
+  };
+
+  const optionsForType = (type: PageSegmentType): { id: string; label: string }[] => {
+    if (type === "carousel") return carousels.map((c) => ({ id: c.id, label: c.name }));
+    if (type === "rows") return rowCollections.map((c) => ({ id: c.id, label: c.name }));
+    return scrollyfoxes.map((s) => ({ id: s.id, label: s.title || "Untitled ScrollyFox" }));
+  };
+
+  const labelFor = (seg: PageSegment): string => {
+    const typeLabel = SEGMENT_TYPES.find((t) => t.value === seg.type)?.label ?? seg.type;
+    const opt = optionsForType(seg.type).find((o) => o.id === seg.refId);
+    return `${typeLabel}: ${opt?.label ?? "(missing — was it deleted?)"}`;
+  };
+
   const inputStyle = {
     borderColor: theme.surfaces.elevated2,
     backgroundColor: theme.surfaces.elevated1,
     color: theme.text.primary,
   };
 
-  // ── Row management for a single page ──
-  if (managing) {
+  if (editingSegments) {
+    const page = editingSegments;
+    const addOptions = optionsForType(addType);
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-5">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => {
-              setManaging(null);
+              setEditingSegments(null);
               void load();
             }}
             className="flex items-center gap-1 rounded-md px-2 py-1 text-sm"
@@ -167,12 +224,151 @@ export function AdminPagesPanel() {
             <ChevronLeft size={18} /> All pages
           </button>
           <span className="text-sm" style={{ color: theme.text.tertiary }}>
-            Managing rows for{" "}
-            <span style={{ color: theme.text.primary }}>{managing.title}</span> · /
-            {managing.slug}
+            Segments for <span style={{ color: theme.text.primary }}>{page.title}</span> · /{page.slug}
           </span>
         </div>
-        <AdminHomeRowsPanel pageId={managing.id} />
+
+        {error && (
+          <p className="text-sm" style={{ color: theme.semantic.error }}>
+            {error}
+          </p>
+        )}
+
+        {/* Segment stack */}
+        <div className="flex flex-col gap-2">
+          {segments.length === 0 && (
+            <p
+              className="rounded-xl border-2 border-dashed px-4 py-8 text-center text-sm"
+              style={{ borderColor: theme.surfaces.elevated2, color: theme.text.tertiary }}
+            >
+              No segments yet. Add one below — they stack top to bottom.
+            </p>
+          )}
+          {segments.map((seg, index) => (
+            <div
+              key={seg.id}
+              className="flex items-center gap-2 rounded-xl border-2 px-4 py-3"
+              style={{ borderColor: theme.surfaces.elevated2, backgroundColor: theme.surfaces.elevated1 }}
+            >
+              <span className="w-6 text-sm" style={{ color: theme.text.tertiary }}>
+                {index + 1}.
+              </span>
+              <span className="flex-1 truncate text-sm" style={{ color: theme.text.primary }}>
+                {labelFor(seg)}
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  index > 0 &&
+                  persistSegments(page, swap(segments, index, index - 1))
+                }
+                disabled={index === 0}
+                className="rounded-md p-1.5"
+                style={{ color: theme.text.secondary, opacity: index === 0 ? 0.3 : 1 }}
+                aria-label="Move up"
+              >
+                <ArrowUp size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  index < segments.length - 1 &&
+                  persistSegments(page, swap(segments, index, index + 1))
+                }
+                disabled={index === segments.length - 1}
+                className="rounded-md p-1.5"
+                style={{
+                  color: theme.text.secondary,
+                  opacity: index === segments.length - 1 ? 0.3 : 1,
+                }}
+                aria-label="Move down"
+              >
+                <ArrowDown size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={() => persistSegments(page, segments.filter((_, i) => i !== index))}
+                className="rounded-md p-1.5"
+                style={{ color: theme.text.tertiary }}
+                aria-label="Remove segment"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Add segment */}
+        <div
+          className="flex flex-wrap items-end gap-2 rounded-xl border-2 p-4"
+          style={{ borderColor: theme.surfaces.elevated2 }}
+        >
+          <div>
+            <label className="mb-1 block text-xs" style={{ color: theme.text.secondary }}>
+              Type
+            </label>
+            <select
+              value={addType}
+              onChange={(e) => {
+                setAddType(e.target.value as PageSegmentType);
+                setAddRefId("");
+              }}
+              className="rounded-lg border-2 px-3 py-2 text-sm"
+              style={inputStyle}
+            >
+              {SEGMENT_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="mb-1 block text-xs" style={{ color: theme.text.secondary }}>
+              Object
+            </label>
+            <select
+              value={addRefId}
+              onChange={(e) => setAddRefId(e.target.value)}
+              className="w-full rounded-lg border-2 px-3 py-2 text-sm"
+              style={inputStyle}
+            >
+              <option value="">— Select —</option>
+              {addOptions.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            type="button"
+            disabled={!addRefId}
+            onClick={() => {
+              if (!addRefId) return;
+              persistSegments(page, [
+                ...segments,
+                { id: newSegId(), type: addType, refId: addRefId },
+              ]);
+              setAddRefId("");
+            }}
+            className="flex items-center gap-2 rounded-lg border-2 px-4 py-2 text-sm font-semibold"
+            style={{
+              borderColor: theme.accents.neonPink,
+              color: theme.accents.neonPink,
+              backgroundColor: "transparent",
+              opacity: addRefId ? 1 : 0.5,
+            }}
+          >
+            <Plus size={16} /> Add Segment
+          </button>
+        </div>
+        {addOptions.length === 0 && (
+          <p className="text-xs" style={{ color: theme.text.tertiary }}>
+            No {SEGMENT_TYPES.find((t) => t.value === addType)?.label} objects yet — create one in
+            its editor (Featured / Row Collections / ScrollyFox).
+          </p>
+        )}
       </div>
     );
   }
@@ -198,21 +394,13 @@ export function AdminPagesPanel() {
       )}
 
       {/* Create / edit page */}
-      <div
-        className="flex flex-col gap-3 rounded-xl border-2 p-4"
-        style={{ borderColor: theme.surfaces.elevated2 }}
-      >
+      <div className="flex flex-col gap-3 rounded-xl border-2 p-4" style={{ borderColor: theme.surfaces.elevated2 }}>
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold" style={{ color: theme.text.primary }}>
             {editingId ? "Edit page" : "New page"}
           </h3>
           {editingId && (
-            <button
-              type="button"
-              onClick={resetForm}
-              className="text-xs"
-              style={{ color: theme.text.tertiary }}
-            >
+            <button type="button" onClick={resetForm} className="text-xs" style={{ color: theme.text.tertiary }}>
               Cancel edit
             </button>
           )}
@@ -230,10 +418,7 @@ export function AdminPagesPanel() {
               className="w-full rounded-lg border-2 px-3 py-2 text-sm"
               style={inputStyle}
             />
-            <p
-              className="mt-1 text-xs"
-              style={{ color: reserved ? theme.semantic.error : theme.text.tertiary }}
-            >
+            <p className="mt-1 text-xs" style={{ color: reserved ? theme.semantic.error : theme.text.tertiary }}>
               {normalized ? `→ /${normalized}` : "Lowercase, /-separated. e.g. /watch/shows"}
               {reserved && " — reserved, pick another"}
             </p>
@@ -250,7 +435,7 @@ export function AdminPagesPanel() {
               style={inputStyle}
             />
           </div>
-          <div>
+          <div className="sm:col-span-2">
             <label className="mb-1 block text-xs" style={{ color: theme.text.secondary }}>
               Subtitle (optional)
             </label>
@@ -261,24 +446,6 @@ export function AdminPagesPanel() {
               className="w-full rounded-lg border-2 px-3 py-2 text-sm"
               style={inputStyle}
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs" style={{ color: theme.text.secondary }}>
-              Featured carousel
-            </label>
-            <select
-              value={featuredCarouselId}
-              onChange={(e) => setFeaturedCarouselId(e.target.value)}
-              className="w-full rounded-lg border-2 px-3 py-2 text-sm"
-              style={inputStyle}
-            >
-              <option value="">Select (no carousel)</option>
-              {carousels.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
           </div>
         </div>
         <div className="flex items-center justify-end">
@@ -306,10 +473,7 @@ export function AdminPagesPanel() {
           <div
             key={page.id}
             className="flex items-center gap-3 rounded-xl border-2 px-4 py-3"
-            style={{
-              borderColor: theme.surfaces.elevated2,
-              backgroundColor: theme.surfaces.elevated1,
-            }}
+            style={{ borderColor: theme.surfaces.elevated2, backgroundColor: theme.surfaces.elevated1 }}
           >
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
@@ -342,11 +506,11 @@ export function AdminPagesPanel() {
             </button>
             <button
               type="button"
-              onClick={() => setManaging(page)}
+              onClick={() => openSegments(page)}
               className="rounded-lg border-2 px-3 py-1.5 text-xs font-semibold"
               style={{ borderColor: theme.surfaces.elevated2, color: theme.text.secondary }}
             >
-              Rows
+              Segments
             </button>
             <button
               type="button"
@@ -380,4 +544,15 @@ export function AdminPagesPanel() {
       </div>
     </div>
   );
+}
+
+/** Immutable swap of two array positions. */
+function swap<T>(arr: T[], a: number, b: number): T[] {
+  const next = [...arr];
+  const x = next[a];
+  const y = next[b];
+  if (x === undefined || y === undefined) return arr;
+  next[a] = y;
+  next[b] = x;
+  return next;
 }
