@@ -80,6 +80,10 @@ export function SegmentEditorModal({
   const [styleOverride, setStyleOverride] = useState<DeviceStyleLayers>(
     initialSegment?.style ?? {},
   );
+  const [layouts, setLayouts] = useState<{
+    tablet?: HeroLayout;
+    mobile?: HeroLayout;
+  }>(initialSegment?.layouts ?? {});
   const [deviceMode, setDeviceMode] = useState<DeviceMode>("desktop");
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -97,6 +101,21 @@ export function SegmentEditorModal({
     // Hero is the only type today, so content carries over unchanged. When more
     // segment types land, map shared fields (image, title, subtitle, CTAs) here.
     setType(next);
+  };
+
+  // Layout is per-device: desktop lives in content.layout; tablet/mobile are
+  // remembered overrides that inherit desktop until set.
+  const activeLayout: HeroLayout =
+    deviceMode === "tablet"
+      ? (layouts.tablet ?? content.layout)
+      : deviceMode === "mobile"
+        ? (layouts.mobile ?? content.layout)
+        : content.layout;
+
+  const setLayoutForDevice = (next: HeroLayout) => {
+    if (deviceMode === "tablet") setLayouts((p) => ({ ...p, tablet: next }));
+    else if (deviceMode === "mobile") setLayouts((p) => ({ ...p, mobile: next }));
+    else updateContent("layout", next);
   };
 
   const handleAddCta = () => {
@@ -122,6 +141,7 @@ export function SegmentEditorModal({
       id: segmentId,
       type,
       content,
+      ...(Object.keys(layouts).length ? { layouts } : {}),
       ...(Object.keys(styleOverride).length ? { style: styleOverride } : {}),
     });
     onClose();
@@ -213,37 +233,82 @@ export function SegmentEditorModal({
           style={{ borderColor: theme.surfaces.elevated2 }}
         >
           <div className="mx-auto grid w-full max-w-5xl gap-4 md:grid-cols-2">
-            {/* Layout toggle */}
-            <div className="md:col-span-2">
-              <label
-                className="mb-2 block text-sm font-semibold"
-                style={{ color: theme.text.primary }}
-              >
-                Layout
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {LAYOUT_OPTIONS.map((opt) => {
-                  const active = content.layout === opt.value;
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => updateContent("layout", opt.value)}
-                      className="rounded-lg border-2 px-4 py-2 text-sm transition-all"
-                      style={{
-                        borderColor: active
-                          ? theme.accents.neonPink
-                          : theme.surfaces.elevated2,
-                        color: active
-                          ? theme.accents.neonPink
-                          : theme.text.secondary,
-                        backgroundColor: "transparent",
-                      }}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })}
+            {/* Device (primary) + Layout (secondary, remembered per device) */}
+            <div className="md:col-span-2 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              {/* Device — primary selector (drives preview + which device you edit) */}
+              <div>
+                <label
+                  className="mb-2 block text-sm font-semibold"
+                  style={{ color: theme.text.primary }}
+                >
+                  Device
+                </label>
+                <div className="flex gap-1">
+                  {DEVICE_OPTIONS.map((opt) => {
+                    const active = deviceMode === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setDeviceMode(opt.value)}
+                        className="rounded-lg border-2 px-3 py-2 text-sm font-semibold transition-all"
+                        style={{
+                          borderColor: active
+                            ? theme.accents.neonPink
+                            : theme.surfaces.elevated2,
+                          color: active
+                            ? theme.surfaces.base
+                            : theme.text.secondary,
+                          backgroundColor: active
+                            ? theme.accents.neonPink
+                            : "transparent",
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Layout — secondary, stored for the selected device */}
+              <div className="sm:text-right">
+                <label
+                  className="mb-2 block text-sm font-semibold"
+                  style={{ color: theme.text.primary }}
+                >
+                  Layout
+                  <span
+                    className="ml-1 text-xs font-normal"
+                    style={{ color: theme.text.tertiary }}
+                  >
+                    · {activeDevice?.label}
+                  </span>
+                </label>
+                <div className="flex flex-wrap gap-2 sm:justify-end">
+                  {LAYOUT_OPTIONS.map((opt) => {
+                    const active = activeLayout === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setLayoutForDevice(opt.value)}
+                        className="rounded-lg border-2 px-4 py-2 text-sm transition-all"
+                        style={{
+                          borderColor: active
+                            ? theme.accents.neonPink
+                            : theme.surfaces.elevated2,
+                          color: active
+                            ? theme.accents.neonPink
+                            : theme.text.secondary,
+                          backgroundColor: "transparent",
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
@@ -390,27 +455,9 @@ export function SegmentEditorModal({
             >
               Preview
             </h3>
-            <div className="flex gap-1">
-              {DEVICE_OPTIONS.map((opt) => {
-                const active = deviceMode === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setDeviceMode(opt.value)}
-                    className="rounded-md px-3 py-1 text-xs"
-                    style={{
-                      backgroundColor: active
-                        ? theme.accents.neonPink
-                        : "transparent",
-                      color: active ? theme.surfaces.base : theme.text.secondary,
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
+            <span className="text-xs" style={{ color: theme.text.secondary }}>
+              {activeDevice?.label}
+            </span>
           </div>
           <div
             className="mx-auto overflow-hidden rounded-lg border-2"
@@ -420,7 +467,12 @@ export function SegmentEditorModal({
               borderColor: theme.surfaces.elevated2,
             }}
           >
-            <HeroSegment {...content} style={resolved} deviceMode={deviceMode} />
+            <HeroSegment
+              {...content}
+              layout={activeLayout}
+              style={resolved}
+              deviceMode={deviceMode}
+            />
           </div>
         </div>
       </div>

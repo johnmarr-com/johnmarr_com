@@ -7,7 +7,7 @@
  * to the `scrollyfoxes` collection, so it appears on the ScrollyFox home list.
  */
 
-import type { HeroContent } from "@/app/scrollyfox/segments/HeroSegment";
+import type { HeroContent, HeroLayout } from "@/app/scrollyfox/segments/HeroSegment";
 
 import { getPublicStorageUrl } from "./content";
 import type { DeviceStyleLayers } from "./scrollyfox-style";
@@ -23,6 +23,11 @@ export interface ScrollyFoxSegment {
   type: SegmentType;
   /** Widen to a discriminated union once more segment types land. */
   content: HeroContent;
+  /**
+   * Per-device layout. Desktop layout lives in `content.layout`; these are the
+   * tablet/mobile overrides (each remembered independently, inherit desktop).
+   */
+  layouts?: { tablet?: HeroLayout; mobile?: HeroLayout };
   /** Per-device style overrides on top of the ScrollyFox style. */
   style?: DeviceStyleLayers;
 }
@@ -79,6 +84,9 @@ function normalizeSegment(segment: ScrollyFoxSegment): ScrollyFoxSegment {
     type: segment.type,
     content: normalizeHeroContent(segment.content),
   };
+  if (segment.layouts && Object.keys(segment.layouts).length > 0) {
+    out.layouts = segment.layouts;
+  }
   // Only store an override object when it carries layers (keeps docs lean and
   // avoids writing an empty map).
   if (segment.style && Object.keys(segment.style).length > 0) {
