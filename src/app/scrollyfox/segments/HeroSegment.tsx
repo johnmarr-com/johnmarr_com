@@ -1,6 +1,6 @@
 "use client";
 
-import type { BrandObject } from "@/lib/brand";
+import type { ResolvedStyle } from "@/lib/scrollyfox-style";
 
 export type HeroLayout = "split-image-left" | "split-image-right";
 
@@ -25,7 +25,8 @@ export interface HeroContent {
 }
 
 interface HeroSegmentProps extends HeroContent {
-  brand: BrandObject;
+  /** Fully resolved style for the device this segment is rendering at. */
+  style: ResolvedStyle;
   /**
    * Forces a specific device mode for preview surfaces (editor, selector).
    * When undefined, the component uses real responsive behavior via Tailwind breakpoints.
@@ -41,7 +42,7 @@ interface HeroSegmentProps extends HeroContent {
 const IMAGE_INSET_PX = 15;
 
 export function HeroSegment({
-  brand,
+  style,
   layout,
   imageUrl,
   imageMobileUrl,
@@ -74,10 +75,12 @@ export function HeroSegment({
 
   return (
     <section
-      className={`flex w-full ${layoutDirection}`}
+      className={`flex w-full overflow-hidden ${layoutDirection}`}
       style={{
-        backgroundColor: brand.colors.bgPrimary,
-        fontFamily: brand.fonts.body,
+        backgroundColor: style.background,
+        border: style.border,
+        borderRadius: `${style.borderRadius}px`,
+        boxShadow: style.boxShadow,
       }}
     >
       {/* Text column */}
@@ -88,15 +91,23 @@ export function HeroSegment({
         style={{ padding: `${IMAGE_INSET_PX * 2}px` }}
       >
         <h1
-          className="mb-4 text-3xl font-bold leading-tight md:text-5xl"
-          style={{ color: brand.colors.primary, fontFamily: brand.fonts.title }}
+          className="mb-4 text-3xl leading-tight md:text-5xl"
+          style={{
+            color: style.title.color,
+            fontFamily: style.title.fontFamily,
+            fontWeight: style.title.fontWeight,
+          }}
         >
           {title}
         </h1>
         {subtitle && (
           <p
             className="mb-6 max-w-prose text-base md:text-lg"
-            style={{ color: brand.colors.secondary }}
+            style={{
+              color: style.subtitle.color,
+              fontFamily: style.subtitle.fontFamily,
+              fontWeight: style.subtitle.fontWeight,
+            }}
           >
             {subtitle}
           </p>
@@ -107,25 +118,21 @@ export function HeroSegment({
               <a
                 key={`${cta.label}-${idx}`}
                 href={cta.href ?? "#"}
-                className="inline-flex items-center rounded-xl border-2 px-5 py-3 text-base font-semibold transition-all duration-150"
+                className="inline-flex items-center rounded-xl border-2 px-5 py-3 text-sm transition-all duration-150"
                 style={{
-                  borderColor:
-                    idx === 0 ? brand.colors.primary : brand.colors.tertiary,
-                  color:
-                    idx === 0 ? brand.colors.primary : brand.colors.tertiary,
+                  borderColor: style.cta.color,
+                  color: style.cta.color,
+                  fontFamily: style.cta.fontFamily,
+                  fontWeight: style.cta.fontWeight,
                   backgroundColor: "transparent",
                 }}
                 onMouseEnter={(e) => {
-                  const accent =
-                    idx === 0 ? brand.colors.primary : brand.colors.tertiary;
-                  e.currentTarget.style.backgroundColor = accent;
-                  e.currentTarget.style.color = brand.colors.bgPrimary;
+                  e.currentTarget.style.backgroundColor = style.cta.color;
+                  e.currentTarget.style.color = style.background;
                 }}
                 onMouseLeave={(e) => {
-                  const accent =
-                    idx === 0 ? brand.colors.primary : brand.colors.tertiary;
                   e.currentTarget.style.backgroundColor = "transparent";
-                  e.currentTarget.style.color = accent;
+                  e.currentTarget.style.color = style.cta.color;
                 }}
               >
                 {cta.label}
@@ -140,10 +147,7 @@ export function HeroSegment({
         className={`flex items-center justify-center ${
           isForcedMobile ? "w-full" : "w-full md:w-1/2"
         }`}
-        style={{
-          padding: `${IMAGE_INSET_PX}px`,
-          backgroundColor: brand.colors.bgSecondary,
-        }}
+        style={{ padding: `${IMAGE_INSET_PX}px` }}
       >
         {resolvedImage ? (
           // eslint-disable-next-line @next/next/no-img-element -- dynamic author-supplied URL; intrinsic sizing
@@ -157,8 +161,9 @@ export function HeroSegment({
           <div
             className="flex aspect-video w-full items-center justify-center rounded-lg border-2 border-dashed text-sm"
             style={{
-              borderColor: brand.colors.tertiary,
-              color: brand.colors.tertiary,
+              borderColor: style.subtitle.color,
+              color: style.subtitle.color,
+              opacity: 0.5,
             }}
           >
             No image yet

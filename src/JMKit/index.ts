@@ -119,3 +119,5 @@ export {
   type JMAssetPickerTab,
   type JMAssetPickerColors,
 } from "./JMAssetPicker";
+export { JMModal, type JMModalProps } from "./JMModal";
+export { JMFontPicker, type JMFontPickerProps, type JMFontOption } from "./JMFontPicker";

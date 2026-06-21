@@ -7,13 +7,13 @@ import {
   ChevronLeft,
   Pencil,
   Plus,
+  Settings,
   Trash2,
 } from "lucide-react";
-import { JMAppHeader } from "@/JMKit";
+import { JMAppHeader, JMModal } from "@/JMKit";
 import { useJMStyle } from "@/JMStyle";
 import { AdminGate } from "@/lib/AdminGate";
 import { useAuth } from "@/lib/AuthProvider";
-import { DEFAULT_BRAND } from "@/lib/brand";
 import {
   emptyScrollyFox,
   listScrollyFoxes,
@@ -23,6 +23,8 @@ import {
   type ScrollyFoxListItem,
   type ScrollyFoxSegment,
 } from "@/lib/scrollyfox";
+import { DEFAULT_STYLE, resolveStyle, toCss } from "@/lib/scrollyfox-style";
+import { StyleSettings } from "./StyleSettings";
 import { HeroSegment } from "./segments/HeroSegment";
 import { SegmentEditorModal } from "./SegmentEditorModal";
 
@@ -40,6 +42,7 @@ function ScrollyFoxHomeContent() {
   } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [sfSettingsOpen, setSfSettingsOpen] = useState(false);
 
   const refreshList = useCallback(async () => {
     setListLoading(true);
@@ -141,6 +144,14 @@ function ScrollyFoxHomeContent() {
     if (currentDoc?.id) await persistDoc(currentDoc);
   };
 
+  const handleDocStyleApply = async (style: ScrollyFoxDoc["style"]) => {
+    if (!currentDoc) return;
+    const next: ScrollyFoxDoc = { ...currentDoc, style };
+    setCurrentDoc(next);
+    setSfSettingsOpen(false);
+    await persistDoc(next);
+  };
+
   const editingSegment =
     segmentEditor && segmentEditor.index !== null && currentDoc
       ? currentDoc.segments[segmentEditor.index]
@@ -189,6 +200,7 @@ function ScrollyFoxHomeContent() {
               onEditSegment={(index) => setSegmentEditor({ index })}
               onRemoveSegment={handleRemoveSegment}
               onMoveSegment={handleMoveSegment}
+              onOpenSettings={() => setSfSettingsOpen(true)}
             />
           )
         )}
@@ -198,9 +210,30 @@ function ScrollyFoxHomeContent() {
         <SegmentEditorModal
           key={segmentEditor.index === null ? "new" : `edit-${segmentEditor.index}`}
           {...(editingSegment ? { initialSegment: editingSegment } : {})}
+          docStyle={currentDoc.style}
           onSave={handleSegmentSave}
           onClose={() => setSegmentEditor(null)}
         />
+      )}
+
+      {currentDoc && (
+        <JMModal
+          isOpen={sfSettingsOpen}
+          onClose={() => setSfSettingsOpen(false)}
+          title="ScrollyFox style"
+          maxWidthClass="max-w-lg"
+        >
+          <StyleSettings
+            base={{
+              desktop: DEFAULT_STYLE,
+              tablet: DEFAULT_STYLE,
+              mobile: DEFAULT_STYLE,
+            }}
+            initialLayers={currentDoc.style}
+            onApply={handleDocStyleApply}
+            onCancel={() => setSfSettingsOpen(false)}
+          />
+        </JMModal>
       )}
     </div>
   );
@@ -286,6 +319,7 @@ function EditorView({
   onEditSegment,
   onRemoveSegment,
   onMoveSegment,
+  onOpenSettings,
 }: {
   doc: ScrollyFoxDoc;
   isSaving: boolean;
@@ -297,6 +331,7 @@ function EditorView({
   onEditSegment: (index: number) => void;
   onRemoveSegment: (index: number) => void;
   onMoveSegment: (index: number, dir: -1 | 1) => void;
+  onOpenSettings: () => void;
 }) {
   const { theme } = useJMStyle();
 
@@ -322,19 +357,34 @@ function EditorView({
         )}
       </div>
 
-      {/* Title */}
-      <input
-        type="text"
-        value={doc.title}
-        placeholder="Untitled ScrollyFox"
-        onChange={(e) => onTitleChange(e.target.value)}
-        onBlur={onTitleBlur}
-        className="w-full rounded-lg border-2 bg-transparent px-3 py-2 text-2xl font-bold"
-        style={{
-          borderColor: theme.surfaces.elevated2,
-          color: theme.text.primary,
-        }}
-      />
+      {/* Title + ScrollyFox-level settings */}
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          value={doc.title}
+          placeholder="Untitled ScrollyFox"
+          onChange={(e) => onTitleChange(e.target.value)}
+          onBlur={onTitleBlur}
+          className="min-w-0 flex-1 rounded-lg border-2 bg-transparent px-3 py-2 text-2xl font-bold"
+          style={{
+            borderColor: theme.surfaces.elevated2,
+            color: theme.text.primary,
+          }}
+        />
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          className="shrink-0 rounded-lg border-2 p-2.5"
+          style={{
+            borderColor: theme.surfaces.elevated2,
+            color: theme.text.secondary,
+          }}
+          aria-label="ScrollyFox style settings"
+          title="ScrollyFox style — applies to every segment"
+        >
+          <Settings size={20} />
+        </button>
+      </div>
 
       {/* Segment stack */}
       <div className="flex flex-col gap-4">
@@ -395,7 +445,10 @@ function EditorView({
             </div>
             {/* Live preview (non-interactive in the stack) */}
             <div className="pointer-events-none">
-              <HeroSegment {...segment.content} brand={DEFAULT_BRAND} />
+              <HeroSegment
+                {...segment.content}
+                style={toCss(resolveStyle(doc.style, segment.style, "desktop"))}
+              />
             </div>
           </div>
         ))}

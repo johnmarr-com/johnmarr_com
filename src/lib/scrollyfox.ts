@@ -10,6 +10,7 @@
 import type { HeroContent } from "@/app/scrollyfox/segments/HeroSegment";
 
 import { getPublicStorageUrl } from "./content";
+import type { DeviceStyleLayers } from "./scrollyfox-style";
 
 const DOCS_COLLECTION = "scrollyfoxes";
 
@@ -22,6 +23,8 @@ export interface ScrollyFoxSegment {
   type: SegmentType;
   /** Widen to a discriminated union once more segment types land. */
   content: HeroContent;
+  /** Per-device style overrides on top of the ScrollyFox style. */
+  style?: DeviceStyleLayers;
 }
 
 export interface ScrollyFoxDoc {
@@ -29,6 +32,8 @@ export interface ScrollyFoxDoc {
   id: string | null;
   title: string;
   segments: ScrollyFoxSegment[];
+  /** ScrollyFox-level style applied to every segment (per-device layers). */
+  style: DeviceStyleLayers;
 }
 
 export interface ScrollyFoxListItem {
@@ -46,7 +51,7 @@ export function newSegmentId(): string {
 
 /** A blank ScrollyFox draft (not yet persisted). */
 export function emptyScrollyFox(): ScrollyFoxDoc {
-  return { id: null, title: "", segments: [] };
+  return { id: null, title: "", segments: [], style: {} };
 }
 
 /**
@@ -69,11 +74,17 @@ function normalizeHeroContent(content: HeroContent): HeroContent {
 }
 
 function normalizeSegment(segment: ScrollyFoxSegment): ScrollyFoxSegment {
-  return {
+  const out: ScrollyFoxSegment = {
     id: segment.id,
     type: segment.type,
     content: normalizeHeroContent(segment.content),
   };
+  // Only store an override object when it carries layers (keeps docs lean and
+  // avoids writing an empty map).
+  if (segment.style && Object.keys(segment.style).length > 0) {
+    out.style = segment.style;
+  }
+  return out;
 }
 
 /**
@@ -124,11 +135,12 @@ export async function saveScrollyFox(
 
   const title = docData.title.trim() || "Untitled ScrollyFox";
   const segments = docData.segments.map(normalizeSegment);
+  const style = docData.style ?? {};
 
   if (docData.id) {
     await setDoc(
       doc(db, DOCS_COLLECTION, docData.id),
-      { title, segments, updatedAt: serverTimestamp() },
+      { title, segments, style, updatedAt: serverTimestamp() },
       { merge: true },
     );
     return docData.id;
@@ -137,6 +149,7 @@ export async function saveScrollyFox(
   const ref = await addDoc(collection(db, DOCS_COLLECTION), {
     title,
     segments,
+    style,
     createdBy,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -187,10 +200,12 @@ export async function loadScrollyFox(id: string): Promise<ScrollyFoxDoc | null> 
   const data = snap.data() as {
     title?: string;
     segments?: ScrollyFoxSegment[];
+    style?: DeviceStyleLayers;
   };
   return {
     id: snap.id,
     title: data.title || "",
     segments: Array.isArray(data.segments) ? data.segments : [],
+    style: data.style ?? {},
   };
 }

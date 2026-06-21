@@ -1,16 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, X } from "lucide-react";
-import { JMImageUpload } from "@/JMKit";
+import { Plus, Settings, Trash2, X } from "lucide-react";
+import { JMImageUpload, JMModal } from "@/JMKit";
 import { useJMStyle } from "@/JMStyle";
-import { DEFAULT_BRAND, type BrandObject } from "@/lib/brand";
 import {
   newSegmentId,
   uploadSegmentImage,
   type ScrollyFoxSegment,
   type SegmentType,
 } from "@/lib/scrollyfox";
+import {
+  resolveDocStyle,
+  resolveStyle,
+  toCss,
+  type DeviceMode,
+  type DeviceStyleLayers,
+  type ScrollyFoxStyle,
+} from "@/lib/scrollyfox-style";
+import { StyleSettings } from "./StyleSettings";
 import {
   HeroSegment,
   type HeroCTA,
@@ -21,12 +29,12 @@ import {
 interface SegmentEditorModalProps {
   /** Segment to edit. Omit to build a new one. */
   initialSegment?: ScrollyFoxSegment;
+  /** ScrollyFox-level style layers — the base this segment inherits + overrides. */
+  docStyle?: DeviceStyleLayers;
   /** Hand the finished segment back to the document editor. */
   onSave: (segment: ScrollyFoxSegment) => void;
   onClose: () => void;
 }
-
-type DeviceMode = "desktop" | "tablet" | "mobile";
 
 const DEFAULT_HERO: HeroContent = {
   layout: "split-image-left",
@@ -57,19 +65,21 @@ const DEVICE_OPTIONS: { value: DeviceMode; label: string; widthPx: number | null
 
 export function SegmentEditorModal({
   initialSegment,
+  docStyle,
   onSave,
   onClose,
 }: SegmentEditorModalProps) {
   const { theme } = useJMStyle();
   const [segmentId] = useState(() => initialSegment?.id ?? newSegmentId());
-  const [type, setType] = useState<SegmentType>(
-    initialSegment?.type ?? "hero",
-  );
+  const [type, setType] = useState<SegmentType>(initialSegment?.type ?? "hero");
   const [content, setContent] = useState<HeroContent>(
     initialSegment?.content ?? DEFAULT_HERO,
   );
+  const [styleOverride, setStyleOverride] = useState<DeviceStyleLayers>(
+    initialSegment?.style ?? {},
+  );
   const [deviceMode, setDeviceMode] = useState<DeviceMode>("desktop");
-  const brand: BrandObject = DEFAULT_BRAND;
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const ctas = content.ctas ?? [];
 
@@ -106,8 +116,23 @@ export function SegmentEditorModal({
   };
 
   const handleSave = () => {
-    onSave({ id: segmentId, type, content });
+    onSave({
+      id: segmentId,
+      type,
+      content,
+      ...(Object.keys(styleOverride).length ? { style: styleOverride } : {}),
+    });
     onClose();
+  };
+
+  // Resolved style for the live preview (segment override on top of the doc style).
+  const resolved = toCss(resolveStyle(docStyle, styleOverride, deviceMode));
+
+  // Inherited base per device for the per-segment settings panel.
+  const segmentBase: Record<DeviceMode, ScrollyFoxStyle> = {
+    desktop: resolveDocStyle(docStyle, "desktop"),
+    tablet: resolveDocStyle(docStyle, "tablet"),
+    mobile: resolveDocStyle(docStyle, "mobile"),
   };
 
   const activeDevice = DEVICE_OPTIONS.find((d) => d.value === deviceMode);
@@ -126,13 +151,20 @@ export function SegmentEditorModal({
         className="flex items-center justify-between gap-3 border-b px-4 py-3"
         style={{ borderColor: theme.surfaces.elevated2 }}
       >
-        <h2
-          className="text-lg font-bold"
-          style={{ color: theme.text.primary }}
-        >
+        <h2 className="text-lg font-bold" style={{ color: theme.text.primary }}>
           {initialSegment ? "Edit Segment" : "Add Segment"}
         </h2>
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            className="rounded-md p-2"
+            style={{ color: theme.text.secondary }}
+            aria-label="Segment style settings"
+            title="Segment style (overrides the ScrollyFox defaults)"
+          >
+            <Settings size={18} />
+          </button>
           {/* Segment-type / template selector */}
           <label className="flex items-center gap-2">
             <span
@@ -262,9 +294,7 @@ export function SegmentEditorModal({
                 {...(content.imageUrl ? { value: content.imageUrl } : {})}
                 aspectRatio="landscape"
                 previewSize={300}
-                onUpload={(file) =>
-                  uploadSegmentImage(file, "desktop", segmentId)
-                }
+                onUpload={(file) => uploadSegmentImage(file, "desktop", segmentId)}
                 onChange={(url) => updateContent("imageUrl", url)}
               />
             </div>
@@ -278,9 +308,7 @@ export function SegmentEditorModal({
                   : {})}
                 aspectRatio="portrait"
                 previewSize={200}
-                onUpload={(file) =>
-                  uploadSegmentImage(file, "mobile", segmentId)
-                }
+                onUpload={(file) => uploadSegmentImage(file, "mobile", segmentId)}
                 onChange={(url) => updateContent("imageMobileUrl", url)}
               />
             </div>
@@ -342,10 +370,7 @@ export function SegmentEditorModal({
                   </div>
                 ))}
                 {ctas.length === 0 && (
-                  <p
-                    className="text-xs"
-                    style={{ color: theme.text.tertiary }}
-                  >
+                  <p className="text-xs" style={{ color: theme.text.tertiary }}>
                     No CTAs. Add one with the button above.
                   </p>
                 )}
@@ -376,9 +401,7 @@ export function SegmentEditorModal({
                       backgroundColor: active
                         ? theme.accents.neonPink
                         : "transparent",
-                      color: active
-                        ? theme.surfaces.base
-                        : theme.text.secondary,
+                      color: active ? theme.surfaces.base : theme.text.secondary,
                     }}
                   >
                     {opt.label}
@@ -395,7 +418,7 @@ export function SegmentEditorModal({
               borderColor: theme.surfaces.elevated2,
             }}
           >
-            <HeroSegment {...content} brand={brand} deviceMode={deviceMode} />
+            <HeroSegment {...content} style={resolved} deviceMode={deviceMode} />
           </div>
         </div>
       </div>
@@ -426,6 +449,24 @@ export function SegmentEditorModal({
           Save
         </button>
       </div>
+
+      {/* Per-segment style settings */}
+      <JMModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        title="Segment style"
+        maxWidthClass="max-w-lg"
+      >
+        <StyleSettings
+          base={segmentBase}
+          initialLayers={styleOverride}
+          onApply={(layers) => {
+            setStyleOverride(layers);
+            setSettingsOpen(false);
+          }}
+          onCancel={() => setSettingsOpen(false)}
+        />
+      </JMModal>
     </div>
   );
 }
