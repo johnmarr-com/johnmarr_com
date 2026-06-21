@@ -16,6 +16,7 @@ import { useJMStyle } from "@/JMStyle";
 import { useAuth } from "@/lib/AuthProvider";
 import type {
   JMFeaturedCarousel,
+  JMGridCollection,
   JMPage,
   JMRowCollection,
   PageSegment,
@@ -31,11 +32,13 @@ import {
 } from "@/lib/pages";
 import { listCarousels } from "@/lib/featured-carousels";
 import { listRowCollections } from "@/lib/row-collections";
+import { listGridCollections } from "@/lib/grid-collections";
 import { listScrollyFoxes, type ScrollyFoxListItem } from "@/lib/scrollyfox";
 
 const SEGMENT_TYPES: { value: PageSegmentType; label: string }[] = [
   { value: "carousel", label: "Featured Carousel" },
   { value: "rows", label: "Row Collection" },
+  { value: "grid", label: "Grid Collection" },
   { value: "scrollyfox", label: "ScrollyFox" },
 ];
 
@@ -63,6 +66,7 @@ export function AdminPagesPanel() {
   const [editingSegments, setEditingSegments] = useState<JMPage | null>(null);
   const [segments, setSegments] = useState<PageSegment[]>([]);
   const [rowCollections, setRowCollections] = useState<JMRowCollection[]>([]);
+  const [gridCollections, setGridCollections] = useState<JMGridCollection[]>([]);
   const [scrollyfoxes, setScrollyfoxes] = useState<ScrollyFoxListItem[]>([]);
   const [addType, setAddType] = useState<PageSegmentType>("carousel");
   const [addRefId, setAddRefId] = useState("");
@@ -168,13 +172,15 @@ export function AdminPagesPanel() {
     setSegments(page.segments ?? []);
     setAddType("carousel");
     setAddRefId("");
-    const [c, rc, sf] = await Promise.all([
+    const [c, rc, gc, sf] = await Promise.all([
       listCarousels(),
       listRowCollections(),
+      listGridCollections(),
       listScrollyFoxes(),
     ]);
     setCarousels(c);
     setRowCollections(rc);
+    setGridCollections(gc);
     setScrollyfoxes(sf);
   };
 
@@ -191,6 +197,7 @@ export function AdminPagesPanel() {
   const optionsForType = (type: PageSegmentType): { id: string; label: string }[] => {
     if (type === "carousel") return carousels.map((c) => ({ id: c.id, label: c.name }));
     if (type === "rows") return rowCollections.map((c) => ({ id: c.id, label: c.name }));
+    if (type === "grid") return gridCollections.map((c) => ({ id: c.id, label: c.name }));
     return scrollyfoxes.map((s) => ({ id: s.id, label: s.title || "Untitled ScrollyFox" }));
   };
 

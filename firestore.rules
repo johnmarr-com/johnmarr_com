@@ -147,6 +147,16 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────────────────────
+    // GRID COLLECTIONS (named grids of content; shown as page segments)
+    // ─────────────────────────────────────────────────────────────
+
+    match /gridCollections/{gridId} {
+      // Managed in admin; page rendering resolves grid content server-side.
+      allow read: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // BUTTON STYLES (named, reusable CTA pill gradients)
     // ─────────────────────────────────────────────────────────────
 

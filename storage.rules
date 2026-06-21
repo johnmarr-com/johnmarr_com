@@ -49,15 +49,26 @@ service firebase.storage {
     match /content-images/{contentId}/{fileName} {
       // Anyone can read content images (they're public)
       allow read: if true;
-      
+
       // Only admins can upload content images
       // Must be an image under 10MB
       allow write: if isAdmin() && isImage() && maxSize(10);
-      
+
       // Only admins can delete
       allow delete: if isAdmin();
     }
-    
+
+    // ─────────────────────────────────────────────────────────────
+    // GRID CELL IMAGES (optional per-cell overrides for grid collections;
+    // cells normally use the linked content's cover)
+    // ─────────────────────────────────────────────────────────────
+
+    match /grid-cell-images/{gridId}/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin() && isImage() && maxSize(10);
+      allow delete: if isAdmin();
+    }
+
     // ─────────────────────────────────────────────────────────────
     // BRAND LOGOS
     // ─────────────────────────────────────────────────────────────

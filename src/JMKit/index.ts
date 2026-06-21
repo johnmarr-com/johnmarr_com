@@ -43,6 +43,7 @@ export { JMVideoUpload, type JMVideoUploadProps } from "./JMVideoUpload";
 export { JMAudioUpload, type JMAudioUploadProps } from "./JMAudioUpload";
 export { JMFeaturedCarousel, type FeaturedItem } from "./JMFeaturedCarousel";
 export { JMContentScroller, type ContentItem } from "./JMContentScroller";
+export { JMGrid, type JMGridItem } from "./JMGrid";
 export { JMFeatureRowBanner } from "./JMFeatureRowBanner";
 export { JMAuthModal } from "./JMAuthModal";
 export { JMEpubReader } from "./JMEpubReader";

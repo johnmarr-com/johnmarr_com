@@ -14,8 +14,13 @@ import type { Firestore, DocumentData, QueryDocumentSnapshot } from "firebase-ad
 import { unstable_cache } from "next/cache";
 import { getAdminFirestore } from "@/lib/firebase-admin";
 import { normalizePageSlug } from "./pages";
-import type { PageSegment } from "./content-types";
-import { resolveStyle, toCss } from "./scrollyfox-style";
+import type {
+  PageSegment,
+  GridCellAspect,
+  GridTextAlign,
+  GridColumns,
+} from "./content-types";
+import { resolveStyle, toCss, fontStack } from "./scrollyfox-style";
 import type { DeviceStyleLayers, ResolvedStyle } from "./scrollyfox-style";
 import type { ScrollyFoxSegment } from "./scrollyfox";
 import type { HeroContent, HeroLayout } from "@/app/scrollyfox/segments/HeroSegment";
@@ -49,6 +54,8 @@ export interface HomeFeatured {
 export interface HomeRowItem {
   id: string;
   name: string;
+  /** Optional secondary line (used by grid captions). */
+  subtitle?: string;
   coverURL: string;
   contentType: string;
   slug?: string;
@@ -85,6 +92,8 @@ function contentToItem(id: string, d: DocumentData): HomeRowItem {
     coverURL: str(d["coverURL"]),
     contentType: str(d["contentType"]),
   };
+  const subtitle = optStr(d["subtitle"]) ?? optStr(d["description"]);
+  if (subtitle) item.subtitle = subtitle;
   const slug = optStr(d["slug"]);
   if (slug) item.slug = slug;
   const eng = optStr(d["engineSlug"]);
@@ -94,6 +103,8 @@ function contentToItem(id: string, d: DocumentData): HomeRowItem {
 
 function artistToItem(id: string, a: DocumentData): HomeRowItem {
   const item: HomeRowItem = { id, name: str(a["name"]), coverURL: str(a["coverURL"]), contentType: "artist" };
+  const subtitle = optStr(a["description"]);
+  if (subtitle) item.subtitle = subtitle;
   const slug = optStr(a["slug"]);
   if (slug) item.slug = slug;
   return item;
@@ -106,6 +117,8 @@ function storyToItem(id: string, s: DocumentData): HomeRowItem {
     coverURL: optStr(s["coverThumbnailURL"]) ?? optStr(s["coverImageURL"]) ?? "",
     contentType: "story",
   };
+  const subtitle = optStr(s["subtitle"]) ?? optStr(s["description"]);
+  if (subtitle) item.subtitle = subtitle;
   const slug = optStr(s["slug"]);
   if (slug) item.slug = slug;
   return item;
@@ -208,6 +221,40 @@ async function resolveCurated(
   return items;
 }
 
+/**
+ * Resolve a content selection (contentType + auto/curated ids) into items —
+ * the shared model behind both content rows and grids. Published-only.
+ */
+async function resolveSelectionItems(
+  db: Firestore,
+  contentType: string,
+  autoPopulate: boolean,
+  contentIds: string[],
+): Promise<HomeRowItem[]> {
+  if (!contentType) return [];
+  if (autoPopulate) {
+    if (contentType === "artist") {
+      const snap = await db.collection("artists").where("isPublished", "==", true).orderBy("name", "asc").get();
+      return snap.docs.map((d) => artistToItem(d.id, d.data()));
+    }
+    if (contentType === "story") {
+      const snap = await db.collection("stories").where("isPublished", "==", true).orderBy("title", "asc").get();
+      return snap.docs.map((d) => storyToItem(d.id, d.data()));
+    }
+    const snap = await db
+      .collection("content")
+      .where("isPublished", "==", true)
+      .where("contentType", "==", contentType)
+      .where("parentId", "==", null)
+      .orderBy("order", "asc")
+      .get();
+    return snap.docs.map((d) => contentToItem(d.id, d.data()));
+  }
+  if (contentType === "artist") return resolveCurated(db, "artists", contentIds, artistToItem);
+  if (contentType === "story") return resolveCurated(db, "stories", contentIds, storyToItem);
+  return resolveCurated(db, "content", contentIds, contentToItem);
+}
+
 /** Resolve one experience's row content (mirrors getExperienceWithContent, published-only). */
 async function resolveRow(db: Firestore, exp: DocumentData): Promise<{ items: HomeRowItem[]; featureItem?: HomeFeatureItem }> {
   const contentType = str(exp["contentType"]);
@@ -292,6 +339,67 @@ export async function getHomeRowsServer(pageId = "home"): Promise<HomeRow[]> {
   return resolveExperienceDocs(db, docs);
 }
 
+/** A grid resolved to its items + render settings (fonts resolved to stacks). */
+export interface ResolvedGrid {
+  items: HomeRowItem[];
+  cellAspect: GridCellAspect;
+  textAlign: GridTextAlign;
+  showTitle: boolean;
+  showSubtitle: boolean;
+  title: { fontFamily: string; size: number };
+  subtitle: { fontFamily: string; size: number };
+  columns: GridColumns;
+}
+
+/** Resolve a named grid collection: its content items + display settings. */
+export async function getGridContentServer(
+  gridId: string,
+): Promise<ResolvedGrid | null> {
+  const db = getAdminFirestore();
+  const snap = await db.doc(`gridCollections/${gridId}`).get();
+  if (!snap.exists) return null;
+  const d = snap.data() ?? {};
+
+  const contentType = str(d["contentType"]);
+  const autoPopulate = d["autoPopulate"] === true;
+  const contentIds = Array.isArray(d["contentIds"]) ? (d["contentIds"] as string[]) : [];
+  const items = await resolveSelectionItems(db, contentType, autoPopulate, contentIds);
+
+  const aspect = d["cellAspect"];
+  const cellAspect: GridCellAspect =
+    aspect === "landscape" || aspect === "square" ? aspect : "portrait";
+  const align = d["textAlign"];
+  const textAlign: GridTextAlign =
+    align === "left" || align === "right" ? align : "center";
+
+  const titleRaw = (d["title"] ?? {}) as DocumentData;
+  const subRaw = (d["subtitle"] ?? {}) as DocumentData;
+  const colsRaw = (d["columns"] ?? {}) as DocumentData;
+  const num = (v: unknown, fallback: number): number =>
+    typeof v === "number" && v > 0 ? v : fallback;
+
+  return {
+    items,
+    cellAspect,
+    textAlign,
+    showTitle: d["showTitle"] !== false,
+    showSubtitle: d["showSubtitle"] === true,
+    title: {
+      fontFamily: fontStack(typeof titleRaw["fontId"] === "string" ? titleRaw["fontId"] : "helvetica"),
+      size: num(titleRaw["size"], 16),
+    },
+    subtitle: {
+      fontFamily: fontStack(typeof subRaw["fontId"] === "string" ? subRaw["fontId"] : "helvetica"),
+      size: num(subRaw["size"], 13),
+    },
+    columns: {
+      desktop: num(colsRaw["desktop"], 4),
+      tablet: num(colsRaw["tablet"], 3),
+      mobile: num(colsRaw["mobile"], 2),
+    },
+  };
+}
+
 /** Published rows scoped to a named row collection (segment model). */
 export async function getRowsForCollectionServer(rowCollectionId: string): Promise<HomeRow[]> {
   const db = getAdminFirestore();
@@ -345,6 +453,7 @@ export interface PageMeta {
 export type ResolvedSegment =
   | { type: "carousel"; id: string; featured: HomeFeatured[]; dotColor?: string }
   | { type: "rows"; id: string; rows: HomeRow[] }
+  | { type: "grid"; id: string; grid: ResolvedGrid }
   | {
       type: "scrollyfox";
       id: string;
@@ -434,6 +543,11 @@ async function resolveSegments(page: PageMeta): Promise<ResolvedSegment[]> {
         }
         if (seg.type === "rows") {
           return { type: "rows", id: seg.id, rows: await getRowsForCollectionServer(seg.refId) };
+        }
+        if (seg.type === "grid") {
+          const grid = await getGridContentServer(seg.refId);
+          if (!grid) return null;
+          return { type: "grid", id: seg.id, grid };
         }
         if (seg.type === "scrollyfox") {
           const db = getAdminFirestore();

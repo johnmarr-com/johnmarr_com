@@ -5,8 +5,9 @@ import {
   JMFeaturedCarousel,
   JMContentScroller,
   JMFeatureRowBanner,
+  JMGrid,
 } from "@/JMKit";
-import type { FeaturedItem, ContentItem } from "@/JMKit";
+import type { FeaturedItem, ContentItem, JMGridItem } from "@/JMKit";
 import { bgMusic } from "@/lib/BackgroundMusicPlayer";
 import { getGamePlayHref } from "@/lib/composite-game-slug";
 import type { HomeRow, ResolvedSegment } from "@/lib/content-server";
@@ -107,6 +108,27 @@ export function PageSegments({ segments }: { segments: ResolvedSegment[] }) {
             </section>
           );
         }
+        if (seg.type === "grid") {
+          if (seg.grid.items.length === 0) return null;
+          return (
+            <section
+              key={seg.id}
+              className="mt-4 px-4 py-2 sm:px-6 lg:px-8"
+            >
+              <JMGrid
+                items={seg.grid.items as JMGridItem[]}
+                cellAspect={seg.grid.cellAspect}
+                textAlign={seg.grid.textAlign}
+                showTitle={seg.grid.showTitle}
+                showSubtitle={seg.grid.showSubtitle}
+                title={seg.grid.title}
+                subtitle={seg.grid.subtitle}
+                columns={seg.grid.columns}
+                onItemClick={(item) => goContent(item as ContentItem)}
+              />
+            </section>
+          );
+        }
         if (seg.type === "scrollyfox") {
           if (seg.heroes.length === 0) return null;
           return (
@@ -135,6 +157,7 @@ export function segmentsHaveContent(segments: ResolvedSegment[]): boolean {
     (s) =>
       (s.type === "carousel" && s.featured.length > 0) ||
       (s.type === "rows" && s.rows.length > 0) ||
+      (s.type === "grid" && s.grid.items.length > 0) ||
       (s.type === "scrollyfox" && s.heroes.length > 0),
   );
 }

@@ -336,17 +336,79 @@ export interface JMExperienceInput {
  */
 export type JMExperienceUpdate = Partial<Omit<JMExperience, "id" | "creatorId" | "createdAt">>;
 
-/** Kinds of content segment a page can stack. More to come (grids, etc.). */
-export type PageSegmentType = "carousel" | "rows" | "scrollyfox";
+/** Kinds of content segment a page can stack. */
+export type PageSegmentType = "carousel" | "rows" | "scrollyfox" | "grid";
 
 /** A reference, within a page's ordered stack, to a named reusable object. */
 export interface PageSegment {
   /** Stable local id (React key / reorder). */
   id: string;
   type: PageSegmentType;
-  /** Id of the referenced object (carousel / row collection / scrollyfox). */
+  /** Id of the referenced object (carousel / row collection / scrollyfox / grid). */
   refId: string;
 }
+
+// ─────────────────────────────────────────────────────────────
+// GRID COLLECTIONS
+// ─────────────────────────────────────────────────────────────
+
+/** Cell aspect ratio for a grid: 16:9, 3:4, or 1:1. */
+export type GridCellAspect = "landscape" | "portrait" | "square";
+
+/** Caption alignment for a grid cell's title/subtitle. */
+export type GridTextAlign = "left" | "center" | "right";
+
+/** Font + size for a grid caption line. fontId references FONT_CATALOG. */
+export interface GridCaptionStyle {
+  fontId: string;
+  /** Font size in px. */
+  size: number;
+}
+
+/** Columns shown per device tier (saved independently). */
+export interface GridColumns {
+  desktop: number;
+  tablet: number;
+  mobile: number;
+}
+
+/**
+ * A named, reusable grid of content (shows/stories/games/cards/artists), shown
+ * as a segment on pages. Cells resolve to content and navigate to its page —
+ * the same content-selection model as a row (contentType + auto/curated).
+ * Stored in /gridCollections.
+ */
+export interface JMGridCollection {
+  id: string;
+  name: string;
+
+  // ─── Content selection (same model as a content row) ───
+  contentType?: JMContentType;
+  autoPopulate?: boolean;
+  contentIds: string[];
+
+  // ─── Display (top-layer settings) ───
+  cellAspect: GridCellAspect;
+  textAlign: GridTextAlign;
+  showTitle: boolean;
+  showSubtitle: boolean;
+  title: GridCaptionStyle;
+  subtitle: GridCaptionStyle;
+  /** Number of columns per device tier. */
+  columns: GridColumns;
+
+  creatorId: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface JMGridCollectionInput {
+  name: string;
+}
+
+export type JMGridCollectionUpdate = Partial<
+  Omit<JMGridCollection, "id" | "creatorId" | "createdAt">
+>;
 
 /**
  * A standalone Page: an ordered stack of segments (carousels, row collections,

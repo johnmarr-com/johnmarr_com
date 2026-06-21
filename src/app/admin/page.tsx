@@ -12,6 +12,7 @@ import { AdminFeaturedPanel } from "./AdminFeaturedPanel";
 import { AdminAlertsPanel } from "./AdminAlertsPanel";
 import { AdminBrandsPanel } from "./AdminBrandsPanel";
 import { AdminRowCollectionsPanel } from "./AdminRowCollectionsPanel";
+import { AdminGridCollectionsPanel } from "./AdminGridCollectionsPanel";
 import { AdminPagesPanel } from "./AdminPagesPanel";
 import { AdminArtistsPanel } from "./AdminArtistsPanel";
 import { AdminAuctionsPanel } from "./AdminAuctionsPanel";
@@ -71,6 +72,7 @@ function AdminContent() {
         {/* Content panels based on focus */}
         {focus === "featured" && <AdminFeaturedPanel />}
         {focus === "rowcollections" && <AdminRowCollectionsPanel />}
+        {focus === "gridcollections" && <AdminGridCollectionsPanel />}
         {focus === "pages" && <AdminPagesPanel />}
         {focus === "alert" && <AdminAlertsPanel />}
         {focus === "brands" && <AdminBrandsPanel />}
