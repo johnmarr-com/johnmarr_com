@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import {
   Plus,
@@ -634,9 +635,12 @@ export function AdminHomeRowsPanel({
         )}
       </div>
 
-      {/* Create/Edit Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
+      {/* Create/Edit Modal — portaled to body so it escapes the panel's
+          backdrop-blur stacking context (otherwise the sticky header covers it). */}
+      {showModal &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={closeModal} />
           <div
             className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl shadow-xl"
@@ -997,8 +1001,9 @@ export function AdminHomeRowsPanel({
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
     </div>
   );
 }
