@@ -1,6 +1,7 @@
 "use client";
 
 import type { ResolvedStyle } from "@/lib/scrollyfox-style";
+import { DEFAULT_BUTTON_STYLE, type ResolvedButtonStyle } from "@/lib/button-styles";
 
 export type HeroLayout =
   | "split-image-left"
@@ -26,11 +27,15 @@ export interface HeroContent {
   title: string;
   subtitle?: string;
   ctas?: HeroCTA[];
+  /** Named CTA button style (gradient pill). Absent ⇒ Pink-Purple default. */
+  ctaButtonStyleId?: string;
 }
 
 interface HeroSegmentProps extends HeroContent {
   /** Fully resolved style for the device this segment is rendering at. */
   style: ResolvedStyle;
+  /** Resolved CTA pill colors. Absent ⇒ Pink-Purple default. */
+  ctaButton?: ResolvedButtonStyle;
   /**
    * Forces a specific device mode for preview surfaces (the segment editor's
    * device selector). When undefined, the component is fully responsive — it
@@ -44,6 +49,7 @@ interface HeroSegmentProps extends HeroContent {
 
 export function HeroSegment({
   style,
+  ctaButton,
   layout,
   imageUrl,
   imageMobileUrl,
@@ -56,6 +62,7 @@ export function HeroSegment({
   const isForcedMobile = deviceMode === "mobile";
   const altText = imageAlt ?? title ?? "";
   const ctaList = ctas ?? [];
+  const btn = ctaButton ?? DEFAULT_BUTTON_STYLE;
 
   // Desktop-preferred source; forced-device previews pick a variant explicitly.
   const baseImage = imageUrl ?? imageMobileUrl ?? null;
@@ -126,21 +133,12 @@ export function HeroSegment({
             <a
               key={`${cta.label}-${idx}`}
               href={cta.href ?? "#"}
-              className="inline-flex items-center rounded-xl border-2 px-5 py-3 text-sm transition-all duration-150"
+              className="inline-flex items-center rounded-full px-6 py-3 text-sm shadow-lg transition-all duration-200 hover:scale-105"
               style={{
-                borderColor: style.cta.color,
-                color: style.cta.color,
+                background: `linear-gradient(${btn.angle}deg, ${btn.from}, ${btn.to})`,
+                color: btn.textColor,
                 fontFamily: style.cta.fontFamily,
                 fontWeight: style.cta.fontWeight,
-                backgroundColor: "transparent",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = style.cta.color;
-                e.currentTarget.style.color = style.background;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = "transparent";
-                e.currentTarget.style.color = style.cta.color;
               }}
             >
               {cta.label}

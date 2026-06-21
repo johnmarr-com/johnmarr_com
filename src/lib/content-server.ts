@@ -19,6 +19,11 @@ import { resolveStyle, toCss } from "./scrollyfox-style";
 import type { DeviceStyleLayers, ResolvedStyle } from "./scrollyfox-style";
 import type { ScrollyFoxSegment } from "./scrollyfox";
 import type { HeroContent } from "@/app/scrollyfox/segments/HeroSegment";
+import {
+  DEFAULT_BUTTON_STYLE,
+  resolveButtonStyle,
+  type ResolvedButtonStyle,
+} from "./button-styles";
 
 /** A row/featured doc's owning page — absent pageId ⇒ the home page. */
 const pageOf = (d: DocumentData): string =>
@@ -312,7 +317,11 @@ export type ResolvedSegment =
   | {
       type: "scrollyfox";
       id: string;
-      heroes: { content: HeroContent; style: ResolvedStyle }[];
+      heroes: {
+        content: HeroContent;
+        style: ResolvedStyle;
+        ctaButton: ResolvedButtonStyle;
+      }[];
     };
 
 export interface PageContent {
@@ -379,10 +388,28 @@ async function resolveSegments(page: PageMeta): Promise<ResolvedSegment[]> {
           const sfSegs = Array.isArray(data["segments"])
             ? (data["segments"] as ScrollyFoxSegment[])
             : [];
-          const heroes = sfSegs.map((s) => ({
-            content: s.content,
-            style: toCss(resolveStyle(docStyle, s.style, "desktop")),
-          }));
+
+          // Resolve CTA pill styles once per distinct id (heroes often share one).
+          const btnCache = new Map<string, ResolvedButtonStyle>();
+          const resolveBtn = async (
+            id: string | undefined,
+          ): Promise<ResolvedButtonStyle> => {
+            if (!id) return DEFAULT_BUTTON_STYLE;
+            const cached = btnCache.get(id);
+            if (cached) return cached;
+            const bs = await db.doc(`buttonStyles/${id}`).get();
+            const resolved = resolveButtonStyle(bs.exists ? bs.data() : null);
+            btnCache.set(id, resolved);
+            return resolved;
+          };
+
+          const heroes = await Promise.all(
+            sfSegs.map(async (s) => ({
+              content: s.content,
+              style: toCss(resolveStyle(docStyle, s.style, "desktop")),
+              ctaButton: await resolveBtn(s.content.ctaButtonStyleId),
+            })),
+          );
           return { type: "scrollyfox", id: seg.id, heroes };
         }
         return null;

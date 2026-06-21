@@ -111,7 +111,12 @@ export function PageSegments({ segments }: { segments: ResolvedSegment[] }) {
           return (
             <section key={seg.id} className="mt-4">
               {seg.heroes.map((h, i) => (
-                <HeroSegment key={i} {...h.content} style={h.style} />
+                <HeroSegment
+                  key={i}
+                  {...h.content}
+                  style={h.style}
+                  ctaButton={h.ctaButton}
+                />
               ))}
             </section>
           );

@@ -147,6 +147,16 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────────────────────
+    // BUTTON STYLES (named, reusable CTA pill gradients)
+    // ─────────────────────────────────────────────────────────────
+
+    match /buttonStyles/{styleId} {
+      // Managed in admin; CTA pills are resolved server-side at render time.
+      allow read: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // BRANDS COLLECTION
     // ─────────────────────────────────────────────────────────────
     

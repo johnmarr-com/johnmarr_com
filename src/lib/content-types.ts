@@ -417,6 +417,34 @@ export interface JMRowCollectionInput {
   name: string;
 }
 
+/**
+ * A named, reusable CTA button style — a gradient pill (Apple-esque). Referenced
+ * by id from ScrollyFox CTAs. The built-in "Pink-Purple" default is used when
+ * none is selected. Stored in /buttonStyles.
+ */
+export interface JMButtonStyle {
+  id: string;
+  name: string;
+  /** Gradient start / end colors (hex). */
+  from: string;
+  to: string;
+  /** Gradient angle in degrees (default 135). */
+  angle?: number;
+  /** Label color (hex). */
+  textColor: string;
+  creatorId: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface JMButtonStyleInput {
+  name: string;
+  from: string;
+  to: string;
+  angle?: number;
+  textColor: string;
+}
+
 // ─────────────────────────────────────────────────────────────
 // HELPER TYPES
 // ─────────────────────────────────────────────────────────────
