@@ -10,10 +10,11 @@
  * what the home renders. Mirrors the published-only read paths of
  * `content.ts:getFeaturedContent` / `getExperiencesWithContent`.
  */
-import type { Firestore, DocumentData } from "firebase-admin/firestore";
+import type { Firestore, DocumentData, QueryDocumentSnapshot } from "firebase-admin/firestore";
 import { unstable_cache } from "next/cache";
 import { getAdminFirestore } from "@/lib/firebase-admin";
 import { normalizePageSlug } from "./pages";
+import type { PageSegment } from "./content-types";
 
 /** A row/featured doc's owning page — absent pageId ⇒ the home page. */
 const pageOf = (d: DocumentData): string =>
@@ -218,12 +219,11 @@ async function resolveRow(db: Firestore, exp: DocumentData): Promise<{ items: Ho
   return { items: [] };
 }
 
-/** Published experience rows with resolved content, scoped to a page (default home). */
-export async function getHomeRowsServer(pageId = "home"): Promise<HomeRow[]> {
-  const db = getAdminFirestore();
-  const expSnap = await db.collection("experiences").where("isPublished", "==", true).orderBy("order", "asc").get();
-
-  const docs = expSnap.docs.filter((doc) => pageOf(doc.data()) === pageId);
+/** Resolve a set of experience docs (already filtered + order-sorted) into rows. */
+async function resolveExperienceDocs(
+  db: Firestore,
+  docs: QueryDocumentSnapshot[],
+): Promise<HomeRow[]> {
   return Promise.all(
     docs.map(async (doc) => {
       const exp = doc.data();
@@ -244,6 +244,25 @@ export async function getHomeRowsServer(pageId = "home"): Promise<HomeRow[]> {
   );
 }
 
+/** Published rows scoped to a page (legacy pageId scoping; default home). */
+export async function getHomeRowsServer(pageId = "home"): Promise<HomeRow[]> {
+  const db = getAdminFirestore();
+  const expSnap = await db.collection("experiences").where("isPublished", "==", true).orderBy("order", "asc").get();
+  const docs = expSnap.docs.filter((doc) => pageOf(doc.data()) === pageId);
+  return resolveExperienceDocs(db, docs);
+}
+
+/** Published rows scoped to a named row collection (segment model). */
+export async function getRowsForCollectionServer(rowCollectionId: string): Promise<HomeRow[]> {
+  const db = getAdminFirestore();
+  const expSnap = await db.collection("experiences").where("isPublished", "==", true).orderBy("order", "asc").get();
+  const docs = expSnap.docs.filter((doc) => {
+    const c = doc.data()["rowCollectionId"];
+    return (typeof c === "string" ? c : "") === rowCollectionId;
+  });
+  return resolveExperienceDocs(db, docs);
+}
+
 /**
  * The home's content (featured + rows), cached in the Next data cache for 60s
  * and tagged so a CMS publish can invalidate it on demand (`revalidateTag`).
@@ -256,7 +275,12 @@ export const getHomeContent = unstable_cache(
     // implicit home (default carousel + unscoped rows) if no published home
     // page exists, so `/` is never empty during the transition.
     const home = await getPageContent("home");
-    if (home) return { featured: home.featured, rows: home.rows };
+    if (home) {
+      // HomeClient renders one banner + a row list; flatten the segment stack.
+      const featured = home.segments.flatMap((s) => (s.type === "carousel" ? s.featured : []));
+      const rows = home.segments.flatMap((s) => (s.type === "rows" ? s.rows : []));
+      return { featured, rows };
+    }
     const [featured, rows] = await Promise.all([getFeaturedContentServer(), getHomeRowsServer()]);
     return { featured, rows };
   },
@@ -276,12 +300,18 @@ export interface PageMeta {
   subtitle?: string;
   featuredCarouselId?: string;
   hideHeader?: boolean;
+  segments?: PageSegment[];
 }
+
+/** A page segment resolved to its render data. */
+export type ResolvedSegment =
+  | { type: "carousel"; id: string; featured: HomeFeatured[] }
+  | { type: "rows"; id: string; rows: HomeRow[] }
+  | { type: "scrollyfox"; id: string; refId: string };
 
 export interface PageContent {
   page: PageMeta;
-  featured: HomeFeatured[];
-  rows: HomeRow[];
+  segments: ResolvedSegment[];
 }
 
 /** Resolve a published page by its canonical slug (Admin SDK). */
@@ -308,6 +338,8 @@ async function getPageBySlugServer(slug: string): Promise<PageMeta | null> {
   const car = optStr(d["featuredCarouselId"]);
   if (car) page.featuredCarouselId = car;
   if (d["hideHeader"] === true) page.hideHeader = true;
+  const segs = d["segments"];
+  if (Array.isArray(segs)) page.segments = segs as PageSegment[];
   return page;
 }
 
@@ -318,12 +350,38 @@ async function getPageBySlugServer(slug: string): Promise<PageMeta | null> {
 export async function getPageContent(slug: string): Promise<PageContent | null> {
   const page = await getPageBySlugServer(slug);
   if (!page) return null;
+  return { page, segments: await resolveSegments(page) };
+}
 
-  const [featured, rows] = await Promise.all([
-    page.featuredCarouselId
-      ? getFeaturedContentServer(page.featuredCarouselId)
-      : Promise.resolve<HomeFeatured[]>([]),
-    getHomeRowsServer(page.id),
-  ]);
-  return { page, featured, rows };
+/** Resolve a page's segment stack, or synthesize the legacy [carousel?, rows]. */
+async function resolveSegments(page: PageMeta): Promise<ResolvedSegment[]> {
+  if (page.segments && page.segments.length > 0) {
+    const resolved = await Promise.all(
+      page.segments.map(async (seg): Promise<ResolvedSegment | null> => {
+        if (seg.type === "carousel") {
+          return { type: "carousel", id: seg.id, featured: await getFeaturedContentServer(seg.refId) };
+        }
+        if (seg.type === "rows") {
+          return { type: "rows", id: seg.id, rows: await getRowsForCollectionServer(seg.refId) };
+        }
+        if (seg.type === "scrollyfox") {
+          return { type: "scrollyfox", id: seg.id, refId: seg.refId };
+        }
+        return null;
+      }),
+    );
+    return resolved.filter((s): s is ResolvedSegment => s !== null);
+  }
+
+  // Legacy fallback: synthesize [carousel?, rows] from the old page fields.
+  const out: ResolvedSegment[] = [];
+  if (page.featuredCarouselId) {
+    out.push({
+      type: "carousel",
+      id: "legacy-carousel",
+      featured: await getFeaturedContentServer(page.featuredCarouselId),
+    });
+  }
+  out.push({ type: "rows", id: "legacy-rows", rows: await getHomeRowsServer(page.id) });
+  return out;
 }

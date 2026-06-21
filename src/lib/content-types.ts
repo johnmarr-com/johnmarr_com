@@ -336,11 +336,22 @@ export interface JMExperienceInput {
  */
 export type JMExperienceUpdate = Partial<Omit<JMExperience, "id" | "creatorId" | "createdAt">>;
 
+/** Kinds of content segment a page can stack. More to come (grids, etc.). */
+export type PageSegmentType = "carousel" | "rows" | "scrollyfox";
+
+/** A reference, within a page's ordered stack, to a named reusable object. */
+export interface PageSegment {
+  /** Stable local id (React key / reorder). */
+  id: string;
+  type: PageSegmentType;
+  /** Id of the referenced object (carousel / row collection / scrollyfox). */
+  refId: string;
+}
+
 /**
- * A standalone Page: an optional feature banner + ordered rows, addressed by a
- * slug that IS its URL path (e.g. "watch", "watch/shows"). The home page is the
- * implicit page — rows with no `pageId` render there — so Pages are purely
- * additive. Stored in Firestore: /pages/{pageId}
+ * A standalone Page: an ordered stack of segments (carousels, row collections,
+ * scrollyfoxes, …), addressed by a slug that IS its URL path (e.g. "watch",
+ * "watch/shows"). Stored in Firestore: /pages/{pageId}
  */
 export interface JMPage {
   id: string;
@@ -352,6 +363,8 @@ export interface JMPage {
   featuredCarouselId?: string;
   /** When true, the page renders with no title/subtitle header (e.g. the home page). */
   hideHeader?: boolean;
+  /** Ordered content segments (the segment model). Absent ⇒ legacy rendering. */
+  segments?: PageSegment[];
   isPublished: boolean;
   creatorId: string;
   createdAt: Timestamp;

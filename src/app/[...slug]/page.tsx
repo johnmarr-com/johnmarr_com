@@ -22,13 +22,7 @@ export default async function CatchAllPage({
 
   const content = await getPageContent(path);
   if (content) {
-    return (
-      <PageClient
-        page={content.page}
-        featured={content.featured}
-        rows={content.rows}
-      />
-    );
+    return <PageClient page={content.page} segments={content.segments} />;
   }
 
   notFound();
