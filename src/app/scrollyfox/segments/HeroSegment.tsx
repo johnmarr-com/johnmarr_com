@@ -34,11 +34,6 @@ interface HeroSegmentProps extends HeroContent {
   /**
    * Forces a specific device mode for preview surfaces (editor, selector).
    * When undefined, the component uses real responsive behavior via Tailwind breakpoints.
-   *
-   * Breakpoint mapping (per ScrollyFox.md §2):
-   *  - desktop: 1070+
-   *  - tablet:  734–1069
-   *  - mobile:  320–733
    */
   deviceMode?: "desktop" | "tablet" | "mobile";
 }
@@ -55,7 +50,6 @@ export function HeroSegment({
   deviceMode,
 }: HeroSegmentProps) {
   const isForcedMobile = deviceMode === "mobile";
-  const isForcedHorizontal = deviceMode === "desktop" || deviceMode === "tablet";
 
   const resolvedImage =
     isForcedMobile && imageMobileUrl ? imageMobileUrl : imageUrl;
@@ -70,9 +64,10 @@ export function HeroSegment({
     boxShadow: style.boxShadow,
   } as const;
 
-  // Title / subtitle / CTAs — shared across every layout, always centered.
-  const copy = (
-    <div className="flex w-full max-w-xl flex-col items-center text-center">
+  // Title / subtitle / CTAs — shared across every layout. The wrapping element
+  // (per layout) owns width + alignment; this is just the content.
+  const copyInner = (
+    <>
       <h1
         className="mb-4 text-3xl leading-tight md:text-5xl"
         style={{
@@ -123,7 +118,7 @@ export function HeroSegment({
           ))}
         </div>
       )}
-    </div>
+    </>
   );
 
   const placeholder = (
@@ -163,8 +158,8 @@ export function HeroSegment({
             }}
           />
         )}
-        <div className="relative z-10 flex w-full max-w-2xl justify-center px-6 py-12">
-          {copy}
+        <div className="relative z-10 flex w-full max-w-2xl flex-col items-center px-6 py-12 text-center">
+          {copyInner}
         </div>
       </section>
     );
@@ -175,7 +170,9 @@ export function HeroSegment({
     return (
       <section className="w-full overflow-hidden" style={card}>
         <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-8 px-6 py-10 md:px-12 md:py-16">
-          {copy}
+          <div className="flex w-full max-w-2xl flex-col items-center text-center">
+            {copyInner}
+          </div>
           {resolvedImage ? (
             // eslint-disable-next-line @next/next/no-img-element -- dynamic author-supplied URL
             <img
@@ -191,48 +188,42 @@ export function HeroSegment({
     );
   }
 
-  // ── Split: two columns, content kept toward center via a capped, gapped row ──
-  const direction = isForcedMobile
-    ? "flex-col"
-    : isForcedHorizontal
-      ? layout === "split-image-right"
-        ? "flex-row-reverse"
-        : "flex-row"
-      : layout === "split-image-right"
-        ? "flex-col md:flex-row-reverse"
-        : "flex-col md:flex-row";
+  // ── Split: image + copy sized to content and centered as an adjacent pair.
+  // No 50/50 halves — that was leaving the copy stranded mid-half. Now both
+  // hug the center with a fixed gap between them. ──
+  const imageOnLeft = layout === "split-image-left";
+
+  const imageBlock = (
+    <div
+      key="image"
+      className="flex w-full items-center justify-center md:w-auto"
+    >
+      {resolvedImage ? (
+        // eslint-disable-next-line @next/next/no-img-element -- dynamic author-supplied URL
+        <img
+          src={resolvedImage}
+          alt={altText}
+          className="max-h-[440px] w-full rounded-lg object-contain md:max-w-xl"
+        />
+      ) : (
+        <div className="w-full max-w-md">{placeholder}</div>
+      )}
+    </div>
+  );
+
+  const textBlock = (
+    <div
+      key="text"
+      className="flex w-full max-w-xl flex-col items-center text-center md:w-auto md:max-w-md"
+    >
+      {copyInner}
+    </div>
+  );
 
   return (
     <section className="w-full overflow-hidden" style={card}>
-      <div
-        className={`mx-auto flex w-full max-w-6xl items-center gap-6 px-6 py-8 md:gap-12 md:px-10 md:py-12 ${direction}`}
-      >
-        {/* Text column */}
-        <div
-          className={`flex items-center justify-center ${
-            isForcedMobile ? "w-full" : "w-full md:w-1/2"
-          }`}
-        >
-          {copy}
-        </div>
-
-        {/* Image column */}
-        <div
-          className={`flex items-center justify-center ${
-            isForcedMobile ? "w-full" : "w-full md:w-1/2"
-          }`}
-        >
-          {resolvedImage ? (
-            // eslint-disable-next-line @next/next/no-img-element -- dynamic author-supplied URL
-            <img
-              src={resolvedImage}
-              alt={altText}
-              className="max-h-[440px] w-full rounded-lg object-contain"
-            />
-          ) : (
-            placeholder
-          )}
-        </div>
+      <div className="mx-auto flex w-full max-w-5xl flex-col items-center justify-center gap-8 px-6 py-10 md:flex-row md:gap-10 md:px-10 md:py-14">
+        {imageOnLeft ? [imageBlock, textBlock] : [textBlock, imageBlock]}
       </div>
     </section>
   );
