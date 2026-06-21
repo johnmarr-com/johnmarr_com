@@ -72,7 +72,9 @@ export async function createPage(
     slug: normalizePageSlug(input.slug),
     title: input.title,
     ...(input.subtitle !== undefined ? { subtitle: input.subtitle } : {}),
-    hasFeatured: input.hasFeatured ?? false,
+    ...(input.featuredCarouselId
+      ? { featuredCarouselId: input.featuredCarouselId }
+      : {}),
     isPublished: input.isPublished ?? false,
     creatorId,
     createdAt: serverTimestamp(),

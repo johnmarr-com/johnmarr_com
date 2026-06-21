@@ -19,6 +19,13 @@ import {
 import { JMImageUpload } from "@/JMKit";
 import type { JMFeaturedContentType } from "@/lib/content";
 import { getAllAuctions } from "@/lib/auction";
+import {
+  listCarousels,
+  createCarousel,
+  renameCarousel,
+  deleteCarousel,
+} from "@/lib/featured-carousels";
+import type { JMFeaturedCarousel } from "@/lib/content-types";
 import { 
   Plus, Trash2, GripVertical, Eye, EyeOff, Pencil,
   ChevronDown, Loader2, AlertCircle, X,
@@ -47,6 +54,10 @@ export function AdminFeaturedPanel() {
   const { theme } = useJMStyle();
   const { user } = useAuth();
   
+  // Carousels: "" = the Home (default) carousel; a named carousel otherwise.
+  const [carousels, setCarousels] = useState<JMFeaturedCarousel[]>([]);
+  const [carouselId, setCarouselId] = useState("");
+
   // Featured items state
   const [featuredItems, setFeaturedItems] = useState<JMFeaturedItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -77,7 +88,7 @@ export function AdminFeaturedPanel() {
     setIsLoading(true);
     setError(null);
     try {
-      const items = await getAllFeaturedItems();
+      const items = await getAllFeaturedItems(carouselId);
       setFeaturedItems(items);
     } catch (err) {
       console.error("Failed to load featured items:", err);
@@ -85,11 +96,51 @@ export function AdminFeaturedPanel() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [carouselId]);
 
   useEffect(() => {
     loadFeatured();
   }, [loadFeatured]);
+
+  // Load the named carousels for the selector.
+  useEffect(() => {
+    listCarousels().then(setCarousels).catch(() => {});
+  }, []);
+
+  const refreshCarousels = async () => setCarousels(await listCarousels());
+
+  const handleNewCarousel = async () => {
+    if (!user) return;
+    const name = window.prompt("New carousel name:");
+    if (!name?.trim()) return;
+    const c = await createCarousel({ name: name.trim() }, user.uid);
+    await refreshCarousels();
+    setCarouselId(c.id);
+  };
+
+  const handleRenameCarousel = async () => {
+    const c = carousels.find((x) => x.id === carouselId);
+    if (!c) return;
+    const name = window.prompt("Rename carousel:", c.name);
+    if (!name?.trim()) return;
+    await renameCarousel(c.id, name.trim());
+    await refreshCarousels();
+  };
+
+  const handleDeleteCarousel = async () => {
+    const c = carousels.find((x) => x.id === carouselId);
+    if (!c) return;
+    if (
+      !window.confirm(
+        `Delete carousel "${c.name}"? Its items keep their data but become unassigned.`,
+      )
+    ) {
+      return;
+    }
+    await deleteCarousel(c.id);
+    await refreshCarousels();
+    setCarouselId("");
+  };
 
   // Load available content when opening add modal
   const loadAvailableContent = useCallback(async (contentType: JMFeaturedContentType) => {
@@ -181,7 +232,11 @@ export function AdminFeaturedPanel() {
       if (contentOption.slug) {
         input.slug = contentOption.slug;
       }
-      
+      // Assign to the selected carousel ("" ⇒ Home default).
+      if (carouselId) {
+        input.carouselId = carouselId;
+      }
+
       await createFeaturedItem(input, user.uid);
       await loadFeatured();
       setShowAddModal(false);
@@ -305,13 +360,14 @@ export function AdminFeaturedPanel() {
             Featured Content
           </h2>
           <p style={{ color: theme.text.tertiary }} className="text-sm mt-1">
-            Manage the carousel on the home page. Drag to reorder.
+            Manage feature carousels. Home (default) is the home-page banner;
+            named carousels can be assigned to pages. Drag to reorder.
           </p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
           className="flex items-center gap-2 rounded-lg px-4 py-2 font-medium transition-colors"
-          style={{ 
+          style={{
             backgroundColor: theme.accents.goldenGlow,
             color: theme.surfaces.base,
           }}
@@ -319,6 +375,55 @@ export function AdminFeaturedPanel() {
           <Plus className="h-4 w-4" />
           Add Featured
         </button>
+      </div>
+
+      {/* Carousel selector */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm" style={{ color: theme.text.secondary }}>
+          Carousel:
+        </span>
+        <select
+          value={carouselId}
+          onChange={(e) => setCarouselId(e.target.value)}
+          className="rounded-lg border px-3 py-2 text-sm"
+          style={{
+            borderColor: theme.surfaces.elevated2,
+            backgroundColor: theme.surfaces.elevated1,
+            color: theme.text.primary,
+          }}
+        >
+          <option value="">Home (default)</option>
+          {carousels.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={handleNewCarousel}
+          className="rounded-lg border px-3 py-2 text-sm"
+          style={{ borderColor: theme.surfaces.elevated2, color: theme.text.secondary }}
+        >
+          + New
+        </button>
+        {carouselId && (
+          <>
+            <button
+              onClick={handleRenameCarousel}
+              className="rounded-lg border px-3 py-2 text-sm"
+              style={{ borderColor: theme.surfaces.elevated2, color: theme.text.secondary }}
+            >
+              Rename
+            </button>
+            <button
+              onClick={handleDeleteCarousel}
+              className="rounded-lg border px-3 py-2 text-sm"
+              style={{ borderColor: theme.surfaces.elevated2, color: theme.semantic.error }}
+            >
+              Delete
+            </button>
+          </>
+        )}
       </div>
 
       {/* Error */}

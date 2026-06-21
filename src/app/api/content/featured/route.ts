@@ -27,7 +27,13 @@ export async function GET() {
     .orderBy("order", "asc")
     .get();
 
-  const rows: FeaturedRow[] = snap.docs.map((d) => {
+  const rows: FeaturedRow[] = snap.docs
+    .filter((d) => {
+      // Home banner = the default carousel (items with no carouselId).
+      const c = d.data()["carouselId"];
+      return !(typeof c === "string" && c.length > 0);
+    })
+    .map((d) => {
     const data = d.data();
     const row: FeaturedRow = {
       id: d.id,

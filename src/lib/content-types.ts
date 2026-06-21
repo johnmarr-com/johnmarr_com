@@ -345,8 +345,8 @@ export interface JMPage {
   slug: string;
   title: string;
   subtitle?: string;
-  /** When true, the page renders its own feature carousel (featured by pageId). */
-  hasFeatured?: boolean;
+  /** Named featured carousel to show on this page. Absent/empty ⇒ no carousel. */
+  featuredCarouselId?: string;
   isPublished: boolean;
   creatorId: string;
   createdAt: Timestamp;
@@ -358,12 +358,29 @@ export interface JMPageInput {
   slug: string;
   title: string;
   subtitle?: string;
-  hasFeatured?: boolean;
+  featuredCarouselId?: string;
   isPublished?: boolean;
 }
 
 /** Input type for updating a page (all fields optional). */
 export type JMPageUpdate = Partial<Omit<JMPage, "id" | "creatorId" | "createdAt">>;
+
+/**
+ * A named featured carousel — an ordered set of `featured` items (joined by
+ * `carouselId`). The home banner is the implicit default carousel (items with
+ * no carouselId). Pages select a carousel by id. Stored in /featuredCarousels.
+ */
+export interface JMFeaturedCarousel {
+  id: string;
+  name: string;
+  creatorId: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface JMFeaturedCarouselInput {
+  name: string;
+}
 
 // ─────────────────────────────────────────────────────────────
 // HELPER TYPES

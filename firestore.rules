@@ -127,6 +127,16 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────────────────────
+    // FEATURED CAROUSELS (named feature banners; items live in /featured)
+    // ─────────────────────────────────────────────────────────────
+
+    match /featuredCarousels/{carouselId} {
+      // Managed in admin; page rendering reads featured items server-side.
+      allow read: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // BRANDS COLLECTION
     // ─────────────────────────────────────────────────────────────
     

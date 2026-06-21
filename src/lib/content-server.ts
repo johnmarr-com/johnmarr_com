@@ -99,9 +99,9 @@ function storyToItem(id: string, s: DocumentData): HomeRowItem {
   return item;
 }
 
-/** Featured carousel items (published/active) for a page, game slugs resolved. */
+/** Featured carousel items (published/active) for a carousel, game slugs resolved. */
 export async function getFeaturedContentServer(
-  pageId = "home",
+  carouselId = "",
 ): Promise<HomeFeatured[]> {
   const db = getAdminFirestore();
   const snap = await db
@@ -111,7 +111,11 @@ export async function getFeaturedContentServer(
     .get();
 
   const rows: HomeFeatured[] = snap.docs
-    .filter((doc) => pageOf(doc.data()) === pageId)
+    .filter((doc) => {
+      // Absent carouselId ⇒ the home default carousel.
+      const c = doc.data()["carouselId"];
+      return (typeof c === "string" ? c : "") === carouselId;
+    })
     .map((doc) => {
     const d = doc.data();
     const r: HomeFeatured = {
@@ -265,7 +269,7 @@ export interface PageMeta {
   slug: string;
   title: string;
   subtitle?: string;
-  hasFeatured: boolean;
+  featuredCarouselId?: string;
 }
 
 export interface PageContent {
@@ -292,10 +296,11 @@ async function getPageBySlugServer(slug: string): Promise<PageMeta | null> {
     id: doc.id,
     slug: str(d["slug"]),
     title: str(d["title"]),
-    hasFeatured: d["hasFeatured"] === true,
   };
   const sub = optStr(d["subtitle"]);
   if (sub) page.subtitle = sub;
+  const car = optStr(d["featuredCarouselId"]);
+  if (car) page.featuredCarouselId = car;
   return page;
 }
 
@@ -308,8 +313,8 @@ export async function getPageContent(slug: string): Promise<PageContent | null> 
   if (!page) return null;
 
   const [featured, rows] = await Promise.all([
-    page.hasFeatured
-      ? getFeaturedContentServer(page.id)
+    page.featuredCarouselId
+      ? getFeaturedContentServer(page.featuredCarouselId)
       : Promise.resolve<HomeFeatured[]>([]),
     getHomeRowsServer(page.id),
   ]);

@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ChevronLeft, Eye, EyeOff, Layers, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, Eye, EyeOff, Layers, Pencil, Plus, Trash2 } from "lucide-react";
 import { useJMStyle } from "@/JMStyle";
 import { useAuth } from "@/lib/AuthProvider";
-import type { JMPage } from "@/lib/content-types";
+import type { JMFeaturedCarousel, JMPage } from "@/lib/content-types";
 import {
   createPage,
   deletePage,
@@ -13,6 +13,7 @@ import {
   normalizePageSlug,
   updatePage,
 } from "@/lib/pages";
+import { listCarousels } from "@/lib/featured-carousels";
 import { AdminHomeRowsPanel } from "./AdminHomeRowsPanel";
 
 export function AdminPagesPanel() {
@@ -20,14 +21,16 @@ export function AdminPagesPanel() {
   const { user } = useAuth();
 
   const [pages, setPages] = useState<JMPage[]>([]);
+  const [carousels, setCarousels] = useState<JMFeaturedCarousel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // New-page form
+  // Page form (create + edit)
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [slug, setSlug] = useState("");
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
-  const [hasFeatured, setHasFeatured] = useState(false);
+  const [featuredCarouselId, setFeaturedCarouselId] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   // Row-management drill-in
@@ -36,7 +39,9 @@ export function AdminPagesPanel() {
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      setPages(await listPages());
+      const [p, c] = await Promise.all([listPages(), listCarousels()]);
+      setPages(p);
+      setCarousels(c);
     } catch (err) {
       console.error("Failed to load pages:", err);
       setError("Failed to load pages.");
@@ -52,7 +57,24 @@ export function AdminPagesPanel() {
   const normalized = normalizePageSlug(slug);
   const reserved = normalized !== "" && isReservedSlug(normalized);
 
-  const handleCreate = async () => {
+  const resetForm = () => {
+    setEditingId(null);
+    setSlug("");
+    setTitle("");
+    setSubtitle("");
+    setFeaturedCarouselId("");
+  };
+
+  const startEdit = (page: JMPage) => {
+    setEditingId(page.id);
+    setSlug(page.slug);
+    setTitle(page.title);
+    setSubtitle(page.subtitle ?? "");
+    setFeaturedCarouselId(page.featuredCarouselId ?? "");
+    setError(null);
+  };
+
+  const handleSubmit = async () => {
     if (!user) return;
     setError(null);
     if (!normalized) {
@@ -69,24 +91,30 @@ export function AdminPagesPanel() {
     }
     setIsSaving(true);
     try {
-      await createPage(
-        {
+      if (editingId) {
+        await updatePage(editingId, {
           slug: normalized,
           title: title.trim(),
-          ...(subtitle.trim() ? { subtitle: subtitle.trim() } : {}),
-          hasFeatured,
-          isPublished: false,
-        },
-        user.uid,
-      );
-      setSlug("");
-      setTitle("");
-      setSubtitle("");
-      setHasFeatured(false);
+          subtitle: subtitle.trim(),
+          featuredCarouselId,
+        });
+      } else {
+        await createPage(
+          {
+            slug: normalized,
+            title: title.trim(),
+            ...(subtitle.trim() ? { subtitle: subtitle.trim() } : {}),
+            ...(featuredCarouselId ? { featuredCarouselId } : {}),
+            isPublished: false,
+          },
+          user.uid,
+        );
+      }
+      resetForm();
       await load();
     } catch (err) {
-      console.error("Failed to create page:", err);
-      setError("Failed to create page.");
+      console.error("Failed to save page:", err);
+      setError("Failed to save page.");
     } finally {
       setIsSaving(false);
     }
@@ -108,6 +136,7 @@ export function AdminPagesPanel() {
     }
     try {
       await deletePage(page.id);
+      if (editingId === page.id) resetForm();
       await load();
     } catch (err) {
       console.error("Failed to delete page:", err);
@@ -168,14 +197,26 @@ export function AdminPagesPanel() {
         </p>
       )}
 
-      {/* New page */}
+      {/* Create / edit page */}
       <div
         className="flex flex-col gap-3 rounded-xl border-2 p-4"
         style={{ borderColor: theme.surfaces.elevated2 }}
       >
-        <h3 className="text-sm font-semibold" style={{ color: theme.text.primary }}>
-          New page
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold" style={{ color: theme.text.primary }}>
+            {editingId ? "Edit page" : "New page"}
+          </h3>
+          {editingId && (
+            <button
+              type="button"
+              onClick={resetForm}
+              className="text-xs"
+              style={{ color: theme.text.tertiary }}
+            >
+              Cancel edit
+            </button>
+          )}
+        </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label className="mb-1 block text-xs" style={{ color: theme.text.secondary }}>
@@ -189,7 +230,10 @@ export function AdminPagesPanel() {
               className="w-full rounded-lg border-2 px-3 py-2 text-sm"
               style={inputStyle}
             />
-            <p className="mt-1 text-xs" style={{ color: reserved ? theme.semantic.error : theme.text.tertiary }}>
+            <p
+              className="mt-1 text-xs"
+              style={{ color: reserved ? theme.semantic.error : theme.text.tertiary }}
+            >
               {normalized ? `→ /${normalized}` : "Lowercase, /-separated. e.g. /watch/shows"}
               {reserved && " — reserved, pick another"}
             </p>
@@ -206,7 +250,7 @@ export function AdminPagesPanel() {
               style={inputStyle}
             />
           </div>
-          <div className="sm:col-span-2">
+          <div>
             <label className="mb-1 block text-xs" style={{ color: theme.text.secondary }}>
               Subtitle (optional)
             </label>
@@ -218,19 +262,29 @@ export function AdminPagesPanel() {
               style={inputStyle}
             />
           </div>
+          <div>
+            <label className="mb-1 block text-xs" style={{ color: theme.text.secondary }}>
+              Featured carousel
+            </label>
+            <select
+              value={featuredCarouselId}
+              onChange={(e) => setFeaturedCarouselId(e.target.value)}
+              className="w-full rounded-lg border-2 px-3 py-2 text-sm"
+              style={inputStyle}
+            >
+              <option value="">Select (no carousel)</option>
+              {carousels.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-        <div className="flex items-center justify-between">
-          <label className="flex items-center gap-2 text-sm" style={{ color: theme.text.secondary }}>
-            <input
-              type="checkbox"
-              checked={hasFeatured}
-              onChange={(e) => setHasFeatured(e.target.checked)}
-            />
-            Feature banner on this page
-          </label>
+        <div className="flex items-center justify-end">
           <button
             type="button"
-            onClick={handleCreate}
+            onClick={handleSubmit}
             disabled={isSaving || reserved}
             className="flex items-center gap-2 rounded-lg border-2 px-4 py-2 text-sm font-semibold"
             style={{
@@ -240,7 +294,8 @@ export function AdminPagesPanel() {
               opacity: isSaving || reserved ? 0.5 : 1,
             }}
           >
-            <Plus size={16} /> {isSaving ? "Creating…" : "Create page"}
+            <Plus size={16} />
+            {isSaving ? "Saving…" : editingId ? "Save changes" : "Create page"}
           </button>
         </div>
       </div>
@@ -275,6 +330,16 @@ export function AdminPagesPanel() {
                 /{page.slug}
               </span>
             </div>
+            <button
+              type="button"
+              onClick={() => startEdit(page)}
+              className="rounded-md p-2"
+              style={{ color: theme.text.secondary }}
+              aria-label="Edit page details"
+              title="Edit page details"
+            >
+              <Pencil size={16} />
+            </button>
             <button
               type="button"
               onClick={() => setManaging(page)}

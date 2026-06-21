@@ -1162,6 +1162,8 @@ export interface JMFeaturedItem {
   slug?: string; // For artists, auctions - used for navigation
   order: number;
   isActive: boolean;
+  /** Owning carousel. Absent ⇒ the home default carousel. */
+  carouselId?: string;
   createdAt: import("firebase/firestore").Timestamp;
   updatedAt: import("firebase/firestore").Timestamp;
 }
@@ -1176,6 +1178,7 @@ export interface JMFeaturedInput {
   slug?: string; // For artists, auctions - used for navigation
   order: number;
   isActive?: boolean;
+  carouselId?: string;
 }
 
 interface FeaturedContentResult {
@@ -1210,22 +1213,24 @@ export async function getFeaturedContent(): Promise<FeaturedContentResult[]> {
 /**
  * Get all featured items for admin (including inactive)
  */
-export async function getAllFeaturedItems(): Promise<JMFeaturedItem[]> {
+export async function getAllFeaturedItems(
+  carouselId = "",
+): Promise<JMFeaturedItem[]> {
   const { initializeFirebase } = await import("./firebase");
   const { getFirestore, collection, query, orderBy, getDocs } = await import("firebase/firestore");
-  
+
   const { app } = await initializeFirebase();
   const db = getFirestore(app);
-  
+
   const featuredRef = collection(db, "featured");
   const q = query(featuredRef, orderBy("order", "asc"));
-  
+
   const snapshot = await getDocs(q);
-  
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-  } as JMFeaturedItem));
+
+  // Scope to a carousel (absent carouselId ⇒ the home default carousel).
+  return snapshot.docs
+    .map((doc) => ({ id: doc.id, ...doc.data() }) as JMFeaturedItem)
+    .filter((item) => (item.carouselId ?? "") === carouselId);
 }
 
 /**
