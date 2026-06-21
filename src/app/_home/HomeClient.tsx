@@ -5,21 +5,20 @@ import { useAuth } from "@/lib/AuthProvider";
 import { getAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { Play, ChevronRight, Trash2, Mail } from "lucide-react";
-import { JMAppHeader, JMWelcomeAvatarModal, JMFeaturedCarousel, JMContentScroller, JMFeatureRowBanner, JMLevelUpPopup, Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogDescription, JMCloseCircleButton } from "@/JMKit";
-import type { FeaturedItem, ContentItem } from "@/JMKit";
+import { JMAppHeader, JMWelcomeAvatarModal, JMLevelUpPopup, Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogDescription, JMCloseCircleButton } from "@/JMKit";
 import { useJMStyle } from "@/JMStyle";
 import { subscribeToPublishedAlert } from "@/lib/content";
 import type { JMAlert } from "@/lib/content-types";
 import { subscribeToMyInvites, removeInvite, type GameInvite } from "@/lib/game-invites";
 import { bgMusic } from "@/lib/BackgroundMusicPlayer";
-import { getGamePlayHref, getGamePlayHrefWithSession } from "@/lib/composite-game-slug";
-import type { HomeFeatured, HomeRow } from "@/lib/content-server";
+import { getGamePlayHrefWithSession } from "@/lib/composite-game-slug";
+import type { ResolvedSegment } from "@/lib/content-server";
+import { PageSegments, segmentsHaveContent } from "./PageSegments";
 
 interface HomeClientProps {
-  /** Featured + content rows, fetched on the SERVER (Admin SDK) — never a
-   *  client read, so the home is iOS-reliable. */
-  featured: HomeFeatured[];
-  rows: HomeRow[];
+  /** The home page's resolved segment stack, fetched on the SERVER (Admin SDK)
+   *  — never a client read, so the home is iOS-reliable. */
+  segments: ResolvedSegment[];
 }
 
 /**
@@ -27,7 +26,7 @@ interface HomeClientProps {
  * server component; this component owns auth/personalization (alert + invites
  * subscriptions, welcome/level-up modals) and all click handlers.
  */
-export default function HomeClient({ featured, rows }: HomeClientProps) {
+export default function HomeClient({ segments }: HomeClientProps) {
   const { user, isLoading, gamertag } = useAuth();
   const { theme } = useJMStyle();
   const router = useRouter();
@@ -136,35 +135,7 @@ export default function HomeClient({ featured, rows }: HomeClientProps) {
     );
   }, [router]);
 
-  const handleFeaturedClick = (item: FeaturedItem) => {
-    if (item.contentType === "game" && item.slug) {
-      bgMusic.play(`/music/${item.slug}.mp3`);
-      router.push(getGamePlayHref(item.slug, item.engineSlug));
-    } else if (item.contentType === "artist" && item.slug) {
-      router.push(`/artist/${item.slug}`);
-    } else if (item.contentType === "auction" && item.slug) {
-      router.push(`/auction/${item.slug}`);
-    } else if (item.contentType === "story" && item.slug) {
-      router.push(`/story/${item.slug}`);
-    } else {
-      router.push(`/${item.contentType}/${item.contentId}`);
-    }
-  };
-
-  const handleContentClick = (item: ContentItem) => {
-    if (item.contentType === "game" && item.slug) {
-      bgMusic.play(`/music/${item.slug}.mp3`);
-      router.push(getGamePlayHref(item.slug, item.engineSlug));
-    } else if (item.contentType === "artist" && item.slug) {
-      router.push(`/artist/${item.slug}`);
-    } else if (item.contentType === "story" && item.slug) {
-      router.push(`/story/${item.slug}`);
-    } else {
-      router.push(`/${item.contentType}/${item.id}`);
-    }
-  };
-
-  const hasAnyContent = rows.some((r) => r.items.length > 0);
+  const hasAnyContent = segmentsHaveContent(segments);
 
   return (
     <div
@@ -209,16 +180,11 @@ export default function HomeClient({ featured, rows }: HomeClientProps) {
           </button>
         )}
 
-        {/* Featured Carousel Section */}
-        <section className="relative mt-4">
-          {featured.length > 0 ? (
-            <JMFeaturedCarousel
-              items={featured as FeaturedItem[]}
-              onItemClick={handleFeaturedClick}
-              autoplayDelay={6000}
-            />
-          ) : !hasAnyContent ? (
-            // Empty state - only show if no featured AND no content rows
+        {/* The home's segment stack (carousels, rows, scrollyfoxes, …) */}
+        {hasAnyContent ? (
+          <PageSegments segments={segments} />
+        ) : (
+          <section className="relative mt-4">
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <h1
                 className="mb-4 text-4xl font-bold sm:text-5xl"
@@ -233,48 +199,6 @@ export default function HomeClient({ featured, rows }: HomeClientProps) {
                 Content coming soon. Check back for shows, stories, games, and more.
               </p>
             </div>
-          ) : null}
-        </section>
-
-        {/* Content Rows (from Experiences) */}
-        {rows.length > 0 && (
-          <section className="mt-4 sm:mt-6 space-y-6 sm:space-y-8">
-            {rows.map((experience) => {
-              // Feature row: single row-banner
-              if (experience.featureItem) {
-                const fi = experience.featureItem;
-                return (
-                  <div key={experience.id} className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-                    <JMFeatureRowBanner
-                      item={fi}
-                      rowScaleMobile={experience.rowScaleMobile}
-                      rowScaleDesktop={experience.rowScaleDesktop}
-                      onClick={() => {
-                        if (fi.contentType === "game" && fi.slug) {
-                          router.push(getGamePlayHref(fi.slug, fi.engineSlug));
-                        } else if (fi.contentType === "auction" && fi.slug) {
-                          router.push(`/auction/${fi.slug}`);
-                        }
-                      }}
-                    />
-                  </div>
-                );
-              }
-
-              if (experience.items.length === 0) return null;
-
-              return (
-                <JMContentScroller
-                  key={experience.id}
-                  title={experience.title}
-                  fastCasual={experience.fastCasual === true}
-                  items={experience.items as ContentItem[]}
-                  rowScaleMobile={experience.rowScaleMobile}
-                  rowScaleDesktop={experience.rowScaleDesktop}
-                  onItemClick={handleContentClick}
-                />
-              );
-            })}
           </section>
         )}
       </main>

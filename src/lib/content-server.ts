@@ -274,21 +274,19 @@ export async function getRowsForCollectionServer(rowCollectionId: string): Promi
  * across requests, so the experiences graph isn't re-read every load.
  */
 export const getHomeContent = unstable_cache(
-  async (): Promise<{ featured: HomeFeatured[]; rows: HomeRow[] }> => {
-    // Prefer the "home" Page (its carousel + rows). Fall back to the legacy
-    // implicit home (default carousel + unscoped rows) if no published home
-    // page exists, so `/` is never empty during the transition.
+  async (): Promise<{ segments: ResolvedSegment[] }> => {
+    // The home renders its full segment stack (carousels, rows, scrollyfoxes, …).
     const home = await getPageContent("home");
-    if (home) {
-      // HomeClient renders one banner + a row list; flatten the segment stack.
-      const featured = home.segments.flatMap((s) => (s.type === "carousel" ? s.featured : []));
-      const rows = home.segments.flatMap((s) => (s.type === "rows" ? s.rows : []));
-      return { featured, rows };
-    }
+    if (home) return { segments: home.segments };
+
+    // Fallback (no published home page): synthesize [carousel?, rows].
     const [featured, rows] = await Promise.all([getFeaturedContentServer(), getHomeRowsServer()]);
-    return { featured, rows };
+    const segments: ResolvedSegment[] = [];
+    if (featured.length > 0) segments.push({ type: "carousel", id: "home-carousel", featured });
+    segments.push({ type: "rows", id: "home-rows", rows });
+    return { segments };
   },
-  ["home-content-v2"],
+  ["home-content-v3"],
   { revalidate: 60, tags: [HOME_CONTENT_TAG] },
 );
 
