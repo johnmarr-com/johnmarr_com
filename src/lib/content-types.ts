@@ -306,6 +306,8 @@ export interface JMExperience {
   /** When true, home page shows a "Fast Casual" label before the row title. */
   fastCasual?: boolean;
   isPublished: boolean;           // Draft vs live
+  /** Owning page id. Absent ⇒ the home page (back-compat for existing rows). */
+  pageId?: string;
 }
 
 /**
@@ -323,12 +325,45 @@ export interface JMExperienceInput {
   rowScaleDesktop?: number;
   fastCasual?: boolean;
   isPublished?: boolean;
+  pageId?: string;
 }
 
 /**
  * Input type for updating existing experiences (all fields optional)
  */
 export type JMExperienceUpdate = Partial<Omit<JMExperience, "id" | "creatorId" | "createdAt">>;
+
+/**
+ * A standalone Page: an optional feature banner + ordered rows, addressed by a
+ * slug that IS its URL path (e.g. "watch", "watch/shows"). The home page is the
+ * implicit page — rows with no `pageId` render there — so Pages are purely
+ * additive. Stored in Firestore: /pages/{pageId}
+ */
+export interface JMPage {
+  id: string;
+  /** Canonical URL path, e.g. "watch" or "watch/shows". No leading slash. */
+  slug: string;
+  title: string;
+  subtitle?: string;
+  /** When true, the page renders its own feature carousel (featured by pageId). */
+  hasFeatured?: boolean;
+  isPublished: boolean;
+  creatorId: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/** Input type for creating a page (omits server-generated fields). */
+export interface JMPageInput {
+  slug: string;
+  title: string;
+  subtitle?: string;
+  hasFeatured?: boolean;
+  isPublished?: boolean;
+}
+
+/** Input type for updating a page (all fields optional). */
+export type JMPageUpdate = Partial<Omit<JMPage, "id" | "creatorId" | "createdAt">>;
 
 // ─────────────────────────────────────────────────────────────
 // HELPER TYPES

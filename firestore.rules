@@ -104,17 +104,28 @@ service cloud.firestore {
     match /experiences/{experienceId} {
       // Anyone can read published experiences, admins can read all
       allow read: if resource.data.isPublished == true || isAdmin();
-      
+
       // Only admins can create experiences
       allow create: if isAdmin();
-      
+
       // Only admins can update experiences
       allow update: if isAdmin();
-      
+
       // Only admins can delete experiences
       allow delete: if isAdmin();
     }
-    
+
+    // ─────────────────────────────────────────────────────────────
+    // PAGES COLLECTION (standalone slug-addressed pages)
+    // ─────────────────────────────────────────────────────────────
+
+    match /pages/{pageId} {
+      // Anyone can read published pages, admins can read all
+      allow read: if resource.data.isPublished == true || isAdmin();
+      // Only admins can author pages
+      allow create, update, delete: if isAdmin();
+    }
+
     // ─────────────────────────────────────────────────────────────
     // BRANDS COLLECTION
     // ─────────────────────────────────────────────────────────────
