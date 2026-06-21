@@ -11,7 +11,7 @@ import { AdminShowsPanel } from "./AdminShowsPanel";
 import { AdminFeaturedPanel } from "./AdminFeaturedPanel";
 import { AdminAlertsPanel } from "./AdminAlertsPanel";
 import { AdminBrandsPanel } from "./AdminBrandsPanel";
-import { AdminHomeRowsPanel } from "./AdminHomeRowsPanel";
+import { AdminRowCollectionsPanel } from "./AdminRowCollectionsPanel";
 import { AdminPagesPanel } from "./AdminPagesPanel";
 import { AdminArtistsPanel } from "./AdminArtistsPanel";
 import { AdminAuctionsPanel } from "./AdminAuctionsPanel";
@@ -70,7 +70,7 @@ function AdminContent() {
       <main className="relative mx-auto flex w-[80%] flex-col py-12">
         {/* Content panels based on focus */}
         {focus === "featured" && <AdminFeaturedPanel />}
-        {focus === "homerows" && <AdminHomeRowsPanel />}
+        {focus === "rowcollections" && <AdminRowCollectionsPanel />}
         {focus === "pages" && <AdminPagesPanel />}
         {focus === "alert" && <AdminAlertsPanel />}
         {focus === "brands" && <AdminBrandsPanel />}

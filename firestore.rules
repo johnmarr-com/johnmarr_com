@@ -137,6 +137,16 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────────────────────
+    // ROW COLLECTIONS (named bundles of rows; rows live in /experiences)
+    // ─────────────────────────────────────────────────────────────
+
+    match /rowCollections/{collectionId} {
+      // Managed in admin; page rendering reads experiences server-side.
+      allow read: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // BRANDS COLLECTION
     // ─────────────────────────────────────────────────────────────
     

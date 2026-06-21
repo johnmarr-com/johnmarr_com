@@ -306,8 +306,10 @@ export interface JMExperience {
   /** When true, home page shows a "Fast Casual" label before the row title. */
   fastCasual?: boolean;
   isPublished: boolean;           // Draft vs live
-  /** Owning page id. Absent ⇒ the home page (back-compat for existing rows). */
+  /** Owning page id. Absent ⇒ the home page (legacy per-page scoping). */
   pageId?: string;
+  /** Owning named row collection (the segment-based model). */
+  rowCollectionId?: string;
 }
 
 /**
@@ -326,6 +328,7 @@ export interface JMExperienceInput {
   fastCasual?: boolean;
   isPublished?: boolean;
   pageId?: string;
+  rowCollectionId?: string;
 }
 
 /**
@@ -381,6 +384,23 @@ export interface JMFeaturedCarousel {
 }
 
 export interface JMFeaturedCarouselInput {
+  name: string;
+}
+
+/**
+ * A named row collection — an ordered set of `experiences` (joined by
+ * `rowCollectionId`). Pages reference a collection by id via a "rows" segment.
+ * Stored in /rowCollections.
+ */
+export interface JMRowCollection {
+  id: string;
+  name: string;
+  creatorId: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface JMRowCollectionInput {
   name: string;
 }
 

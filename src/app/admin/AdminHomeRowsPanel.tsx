@@ -259,9 +259,12 @@ function SortableRowItem({ row, onEdit, onTogglePublish, onDelete }: SortableRow
 
 export function AdminHomeRowsPanel({
   pageId = "home",
+  rowCollectionId,
 }: {
-  /** Which page's rows to manage. "home" (default) = the home page. */
+  /** Legacy: which page's rows to manage. "home" (default) = the home page. */
   pageId?: string;
+  /** When set, manage a named row collection instead (segment model). */
+  rowCollectionId?: string;
 } = {}) {
   const { theme } = useJMStyle();
   const { user } = useAuth();
@@ -301,15 +304,21 @@ export function AdminHomeRowsPanel({
     setError(null);
     try {
       const fetchedRows = await getExperiences(false); // Include drafts
-      // Scope to this page (absent pageId ⇒ home).
-      setRows(fetchedRows.filter((r) => (r.pageId ?? "home") === pageId));
+      // Scope to a named row collection (segment model) or, legacy, to a page.
+      setRows(
+        fetchedRows.filter((r) =>
+          rowCollectionId
+            ? (r.rowCollectionId ?? "") === rowCollectionId
+            : (r.pageId ?? "home") === pageId,
+        ),
+      );
     } catch (err) {
       console.error("Failed to load rows:", err);
       setError("Failed to load home rows. Please try again.");
     } finally {
       setIsLoading(false);
     }
-  }, [pageId]);
+  }, [pageId, rowCollectionId]);
 
   useEffect(() => {
     loadRows();
@@ -489,7 +498,7 @@ export function AdminHomeRowsPanel({
           ...baseUpdate,
           order: rows.length,
           isPublished: false,
-          pageId,
+          ...(rowCollectionId ? { rowCollectionId } : { pageId }),
         } as Parameters<typeof createExperience>[0];
         await createExperience(createData, user.uid);
       }
@@ -565,7 +574,11 @@ export function AdminHomeRowsPanel({
           <Layers size={24} style={{ color: theme.accents.goldenGlow }} />
           <div>
             <h2 className="text-lg font-semibold" style={{ color: theme.text.primary }}>
-              {pageId === "home" ? "Home Rows" : "Page Rows"}
+              {rowCollectionId
+                ? "Collection Rows"
+                : pageId === "home"
+                  ? "Home Rows"
+                  : "Page Rows"}
             </h2>
             <p className="text-sm" style={{ color: theme.text.tertiary }}>
               {isLoading
