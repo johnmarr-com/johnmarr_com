@@ -177,14 +177,16 @@ function ScrollyFoxHomeContent() {
         </div>
       </div>
 
-      <main className="relative z-10 mx-auto flex w-full max-w-5xl flex-col px-[clamp(16px,5vw,50px)] py-8">
+      <main className="relative z-10 flex w-full flex-col px-[clamp(16px,5vw,50px)] py-8">
         {view === "list" ? (
-          <ListView
-            docs={docs}
-            loading={listLoading}
-            onCreate={openNewDoc}
-            onOpen={openExistingDoc}
-          />
+          <div className="mx-auto w-full max-w-5xl">
+            <ListView
+              docs={docs}
+              loading={listLoading}
+              onCreate={openNewDoc}
+              onOpen={openExistingDoc}
+            />
+          </div>
         ) : (
           currentDoc && (
             <EditorView
@@ -336,9 +338,9 @@ function EditorView({
   const { theme } = useJMStyle();
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex w-full flex-col gap-5">
       {/* Top bar */}
-      <div className="flex items-center gap-3">
+      <div className="mx-auto flex w-full max-w-5xl items-center gap-3">
         <button
           type="button"
           onClick={onBack}
@@ -358,7 +360,7 @@ function EditorView({
       </div>
 
       {/* Title + ScrollyFox-level settings */}
-      <div className="flex items-center gap-2">
+      <div className="mx-auto flex w-full max-w-5xl items-center gap-2">
         <input
           type="text"
           value={doc.title}
@@ -386,8 +388,9 @@ function EditorView({
         </button>
       </div>
 
-      {/* Segment stack */}
-      <div className="flex flex-col gap-4">
+      {/* Segment stack — full width so previews render at true desktop size
+          and reflow to tablet/mobile as the window narrows. */}
+      <div className="flex w-full flex-col gap-4">
         {doc.segments.length === 0 && (
           <p
             className="rounded-xl border-2 border-dashed px-4 py-10 text-center text-sm"
