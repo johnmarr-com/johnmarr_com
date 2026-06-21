@@ -270,6 +270,7 @@ export interface PageMeta {
   title: string;
   subtitle?: string;
   featuredCarouselId?: string;
+  hideHeader?: boolean;
 }
 
 export interface PageContent {
@@ -301,6 +302,7 @@ async function getPageBySlugServer(slug: string): Promise<PageMeta | null> {
   if (sub) page.subtitle = sub;
   const car = optStr(d["featuredCarouselId"]);
   if (car) page.featuredCarouselId = car;
+  if (d["hideHeader"] === true) page.hideHeader = true;
   return page;
 }
 

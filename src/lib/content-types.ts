@@ -347,6 +347,8 @@ export interface JMPage {
   subtitle?: string;
   /** Named featured carousel to show on this page. Absent/empty ⇒ no carousel. */
   featuredCarouselId?: string;
+  /** When true, the page renders with no title/subtitle header (e.g. the home page). */
+  hideHeader?: boolean;
   isPublished: boolean;
   creatorId: string;
   createdAt: Timestamp;

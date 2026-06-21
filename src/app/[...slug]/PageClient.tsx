@@ -68,20 +68,24 @@ export default function PageClient({ page, featured, rows }: PageClientProps) {
       <JMAppHeader />
 
       <main className="pb-12">
-        {/* Page header */}
-        <div className="px-4 pt-6 sm:px-6">
-          <h1
-            className="text-3xl font-bold sm:text-4xl"
-            style={{ color: theme.text.primary }}
-          >
-            {page.title}
-          </h1>
-          {page.subtitle && (
-            <p className="mt-1 text-base" style={{ color: theme.text.secondary }}>
-              {page.subtitle}
-            </p>
-          )}
-        </div>
+        {/* Page header — omitted for header-less pages (e.g. the home copy). */}
+        {!page.hideHeader && (page.title || page.subtitle) && (
+          <div className="px-4 pt-6 sm:px-6">
+            {page.title && (
+              <h1
+                className="text-3xl font-bold sm:text-4xl"
+                style={{ color: theme.text.primary }}
+              >
+                {page.title}
+              </h1>
+            )}
+            {page.subtitle && (
+              <p className="mt-1 text-base" style={{ color: theme.text.secondary }}>
+                {page.subtitle}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Featured carousel */}
         {featured.length > 0 && (
