@@ -24,8 +24,11 @@ import {
   type ScrollyFoxSegment,
 } from "@/lib/scrollyfox";
 import { DEFAULT_STYLE, resolveStyle, toCss } from "@/lib/scrollyfox-style";
+import { listButtonStyles, resolveStyleFromList } from "@/lib/button-styles";
+import type { JMButtonStyle } from "@/lib/content-types";
 import { StyleSettings } from "./StyleSettings";
-import { HeroSegment } from "./segments/HeroSegment";
+import { HeroResponsive } from "./segments/HeroResponsive";
+import { useDevicePreview, DeviceTabs } from "./DevicePreview";
 import { SegmentEditorModal } from "./SegmentEditorModal";
 
 function ScrollyFoxHomeContent() {
@@ -336,6 +339,21 @@ function EditorView({
   onOpenSettings: () => void;
 }) {
   const { theme } = useJMStyle();
+  const { device, setDevice, allowed, containerStyle } = useDevicePreview();
+
+  // CTA pill styles for faithful previews (built-ins resolve without this).
+  const [buttonStyles, setButtonStyles] = useState<JMButtonStyle[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    listButtonStyles()
+      .then((s) => {
+        if (!cancelled) setButtonStyles(s);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="flex w-full flex-col gap-5">
@@ -388,8 +406,18 @@ function EditorView({
         </button>
       </div>
 
-      {/* Segment stack — full width so previews render at true desktop size
-          and reflow to tablet/mobile as the window narrows. */}
+      {/* Device preview selector — sizes every segment preview below. */}
+      {doc.segments.length > 0 && (
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between">
+          <span className="text-xs" style={{ color: theme.text.tertiary }}>
+            Preview
+          </span>
+          <DeviceTabs device={device} setDevice={setDevice} allowed={allowed} />
+        </div>
+      )}
+
+      {/* Segment stack — previews are container-query driven, so they render
+          exactly like production at the selected device width. */}
       <div className="flex w-full flex-col gap-4">
         {doc.segments.length === 0 && (
           <p
@@ -446,11 +474,20 @@ function EditorView({
                 </IconBtn>
               </div>
             </div>
-            {/* Live preview (non-interactive in the stack) */}
-            <div className="pointer-events-none">
-              <HeroSegment
-                {...segment.content}
-                style={toCss(resolveStyle(doc.style, segment.style, "desktop"))}
+            {/* Live preview (non-interactive in the stack), sized by device. */}
+            <div className="pointer-events-none" style={containerStyle}>
+              <HeroResponsive
+                content={segment.content}
+                styles={{
+                  desktop: toCss(resolveStyle(doc.style, segment.style, "desktop")),
+                  tablet: toCss(resolveStyle(doc.style, segment.style, "tablet")),
+                  mobile: toCss(resolveStyle(doc.style, segment.style, "mobile")),
+                }}
+                ctaButton={resolveStyleFromList(
+                  segment.content.ctaButtonStyleId ?? "",
+                  buttonStyles,
+                )}
+                {...(segment.layouts ? { layouts: segment.layouts } : {})}
               />
             </div>
           </div>

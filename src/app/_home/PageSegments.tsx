@@ -10,7 +10,7 @@ import type { FeaturedItem, ContentItem } from "@/JMKit";
 import { bgMusic } from "@/lib/BackgroundMusicPlayer";
 import { getGamePlayHref } from "@/lib/composite-game-slug";
 import type { HomeRow, ResolvedSegment } from "@/lib/content-server";
-import { HeroSegment } from "@/app/scrollyfox/segments/HeroSegment";
+import { HeroResponsive } from "@/app/scrollyfox/segments/HeroResponsive";
 
 /**
  * Renders a page's ordered segment stack (carousels, row collections,
@@ -112,10 +112,10 @@ export function PageSegments({ segments }: { segments: ResolvedSegment[] }) {
           return (
             <section key={seg.id} className="mt-4">
               {seg.heroes.map((h, i) => (
-                <HeroSegment
+                <HeroResponsive
                   key={i}
-                  {...h.content}
-                  style={h.style}
+                  content={h.content}
+                  styles={h.styles}
                   ctaButton={h.ctaButton}
                   {...(h.layouts ? { layouts: h.layouts } : {})}
                 />

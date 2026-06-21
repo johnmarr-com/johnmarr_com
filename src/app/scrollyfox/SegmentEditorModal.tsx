@@ -24,8 +24,9 @@ import {
   type ScrollyFoxStyle,
 } from "@/lib/scrollyfox-style";
 import { StyleSettings } from "./StyleSettings";
+import { useDevicePreview, DeviceTabs } from "./DevicePreview";
+import { HeroResponsive, type DeviceStyles } from "./segments/HeroResponsive";
 import {
-  HeroSegment,
   type HeroCTA,
   type HeroContent,
   type HeroLayout,
@@ -64,12 +65,6 @@ const LAYOUT_OPTIONS: { value: HeroLayout; label: string }[] = [
   { value: "overlay", label: "Overlay" },
 ];
 
-const DEVICE_OPTIONS: { value: DeviceMode; label: string; widthPx: number | null }[] = [
-  { value: "desktop", label: "Desktop", widthPx: null },
-  { value: "tablet", label: "Tablet", widthPx: 900 },
-  { value: "mobile", label: "Mobile", widthPx: 360 },
-];
-
 export function SegmentEditorModal({
   initialSegment,
   docStyle,
@@ -89,8 +84,12 @@ export function SegmentEditorModal({
     tablet?: HeroLayout;
     mobile?: HeroLayout;
   }>(initialSegment?.layouts ?? {});
-  const [deviceMode, setDeviceMode] = useState<DeviceMode>("desktop");
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Device preview: the selected device is BOTH which tier you're editing and
+  // the preview's container width (auto-selected/constrained by screen width).
+  const { device, setDevice, allowed, containerStyle } = useDevicePreview();
+  const deviceLabel = device.charAt(0).toUpperCase() + device.slice(1);
 
   // Resolved CTA pill colors for the live preview (reported by the picker).
   const [previewBtn, setPreviewBtn] =
@@ -115,15 +114,15 @@ export function SegmentEditorModal({
   // Layout is per-device: desktop lives in content.layout; tablet/mobile are
   // remembered overrides that inherit desktop until set.
   const activeLayout: HeroLayout =
-    deviceMode === "tablet"
+    device === "tablet"
       ? (layouts.tablet ?? content.layout)
-      : deviceMode === "mobile"
+      : device === "mobile"
         ? (layouts.mobile ?? content.layout)
         : content.layout;
 
   const setLayoutForDevice = (next: HeroLayout) => {
-    if (deviceMode === "tablet") setLayouts((p) => ({ ...p, tablet: next }));
-    else if (deviceMode === "mobile") setLayouts((p) => ({ ...p, mobile: next }));
+    if (device === "tablet") setLayouts((p) => ({ ...p, tablet: next }));
+    else if (device === "mobile") setLayouts((p) => ({ ...p, mobile: next }));
     else updateContent("layout", next);
   };
 
@@ -156,8 +155,13 @@ export function SegmentEditorModal({
     onClose();
   };
 
-  // Resolved style for the live preview (segment override on top of the doc style).
-  const resolved = toCss(resolveStyle(docStyle, styleOverride, deviceMode));
+  // Resolved style per device for the live preview (segment override on the doc
+  // style). The container-query preview shows whichever matches its width.
+  const previewStyles: DeviceStyles = {
+    desktop: toCss(resolveStyle(docStyle, styleOverride, "desktop")),
+    tablet: toCss(resolveStyle(docStyle, styleOverride, "tablet")),
+    mobile: toCss(resolveStyle(docStyle, styleOverride, "mobile")),
+  };
 
   // Inherited base per device for the per-segment settings panel.
   const segmentBase: Record<DeviceMode, ScrollyFoxStyle> = {
@@ -165,9 +169,6 @@ export function SegmentEditorModal({
     tablet: resolveDocStyle(docStyle, "tablet"),
     mobile: resolveDocStyle(docStyle, "mobile"),
   };
-
-  const activeDevice = DEVICE_OPTIONS.find((d) => d.value === deviceMode);
-  const previewWidth = activeDevice?.widthPx;
 
   return (
     <div
@@ -252,32 +253,11 @@ export function SegmentEditorModal({
                 >
                   Device
                 </label>
-                <div className="flex gap-1">
-                  {DEVICE_OPTIONS.map((opt) => {
-                    const active = deviceMode === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setDeviceMode(opt.value)}
-                        className="rounded-lg border-2 px-3 py-2 text-sm font-semibold transition-all"
-                        style={{
-                          borderColor: active
-                            ? theme.accents.neonPink
-                            : theme.surfaces.elevated2,
-                          color: active
-                            ? theme.surfaces.base
-                            : theme.text.secondary,
-                          backgroundColor: active
-                            ? theme.accents.neonPink
-                            : "transparent",
-                        }}
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-                </div>
+                <DeviceTabs
+                  device={device}
+                  setDevice={setDevice}
+                  allowed={allowed}
+                />
               </div>
 
               {/* Layout — secondary, stored for the selected device */}
@@ -291,7 +271,7 @@ export function SegmentEditorModal({
                     className="ml-1 text-xs font-normal"
                     style={{ color: theme.text.tertiary }}
                   >
-                    · {activeDevice?.label}
+                    · {deviceLabel}
                   </span>
                 </label>
                 <div className="flex flex-wrap gap-2 sm:justify-end">
@@ -464,9 +444,10 @@ export function SegmentEditorModal({
           </div>
         </div>
 
-        {/* Preview */}
+        {/* Preview — container-query driven, identical to production. The device
+            tabs size this box; narrowing it reflows through the tiers. */}
         <div className="flex flex-col gap-3 p-4 lg:p-6">
-          <div className="mx-auto flex w-full max-w-5xl items-center justify-between">
+          <div className="flex w-full items-center justify-between">
             <h3
               className="text-sm font-semibold"
               style={{ color: theme.text.primary }}
@@ -474,23 +455,18 @@ export function SegmentEditorModal({
               Preview
             </h3>
             <span className="text-xs" style={{ color: theme.text.secondary }}>
-              {activeDevice?.label}
+              {deviceLabel}
             </span>
           </div>
           <div
-            className="mx-auto overflow-hidden rounded-lg border-2"
-            style={{
-              width: previewWidth ? `${previewWidth}px` : "100%",
-              maxWidth: "100%",
-              borderColor: theme.surfaces.elevated2,
-            }}
+            className="overflow-hidden rounded-lg border-2"
+            style={{ ...containerStyle, borderColor: theme.surfaces.elevated2 }}
           >
-            <HeroSegment
-              {...content}
-              layout={activeLayout}
-              style={resolved}
+            <HeroResponsive
+              content={content}
+              styles={previewStyles}
               ctaButton={previewBtn}
-              deviceMode={deviceMode}
+              {...(Object.keys(layouts).length ? { layouts } : {})}
             />
           </div>
         </div>

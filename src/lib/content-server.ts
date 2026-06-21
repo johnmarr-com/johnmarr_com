@@ -350,7 +350,11 @@ export type ResolvedSegment =
       id: string;
       heroes: {
         content: HeroContent;
-        style: ResolvedStyle;
+        styles: {
+          desktop: ResolvedStyle;
+          tablet: ResolvedStyle;
+          mobile: ResolvedStyle;
+        };
         ctaButton: ResolvedButtonStyle;
         layouts?: { tablet?: HeroLayout; mobile?: HeroLayout };
       }[];
@@ -446,7 +450,11 @@ async function resolveSegments(page: PageMeta): Promise<ResolvedSegment[]> {
           const heroes = await Promise.all(
             sfSegs.map(async (s) => ({
               content: s.content,
-              style: toCss(resolveStyle(docStyle, s.style, "desktop")),
+              styles: {
+                desktop: toCss(resolveStyle(docStyle, s.style, "desktop")),
+                tablet: toCss(resolveStyle(docStyle, s.style, "tablet")),
+                mobile: toCss(resolveStyle(docStyle, s.style, "mobile")),
+              },
               ctaButton: await resolveBtn(s.content.ctaButtonStyleId),
               ...(s.layouts ? { layouts: s.layouts } : {}),
             })),
