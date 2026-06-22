@@ -43,8 +43,12 @@ interface HeroSegmentProps extends HeroContent {
    * Desktop layout always comes from `layout`.
    */
   layouts?: { tablet?: HeroLayout; mobile?: HeroLayout };
-  /** Max content width in px (0 / absent ⇒ full width). Caps + centers the segment. */
+  /** Max content width in px (0 / absent ⇒ no px ceiling). Caps + centers. */
   maxWidth?: number;
+  /** Width as a % of available (capped by maxWidth). 0/100/absent ⇒ full. */
+  maxWidthPercent?: number;
+  /** Split image-column width % (rest is text). Default 50. */
+  splitRatio?: number;
   /**
    * Forces a specific device mode for preview surfaces (the segment editor's
    * device selector). When undefined, the component is fully responsive — it
@@ -62,6 +66,8 @@ export function HeroSegment({
   layout,
   layouts,
   maxWidth,
+  maxWidthPercent,
+  splitRatio,
   imageUrl,
   imageMobileUrl,
   imageAlt,
@@ -75,6 +81,10 @@ export function HeroSegment({
   const ctaList = ctas ?? [];
   const btn = ctaButton ?? DEFAULT_BUTTON_STYLE;
 
+  // Tapping the image follows the first CTA's link (if any).
+  const firstCta = ctaList[0];
+  const imageHref = firstCta?.href && firstCta.href !== "#" ? firstCta.href : null;
+
   // Desktop-preferred source; forced-device previews pick a variant explicitly.
   const baseImage = imageUrl ?? imageMobileUrl ?? null;
   const forcedImage =
@@ -83,44 +93,64 @@ export function HeroSegment({
   // Forced previews (device selector) pick the variant by deviceMode — a fixed
   // box width can't trigger viewport media queries. Responsive surfaces use
   // <picture> so the browser swaps to the mobile image as the window narrows.
+  // When the segment has a CTA, the image is wrapped in a link to it.
   const renderImage = (imgClassName: string) => {
-    if (deviceMode) {
-      return (
-        // eslint-disable-next-line @next/next/no-img-element -- dynamic author-supplied URL
-        <img
-          src={forcedImage ?? undefined}
-          alt={altText}
-          className={imgClassName}
-        />
-      );
-    }
-    return (
+    const cls = imageHref ? `${imgClassName} cursor-pointer` : imgClassName;
+    const img = deviceMode ? (
+      // eslint-disable-next-line @next/next/no-img-element -- dynamic author-supplied URL
+      <img src={forcedImage ?? undefined} alt={altText} className={cls} />
+    ) : (
       <picture className="contents">
         {imageMobileUrl && (
           <source media="(max-width: 767px)" srcSet={imageMobileUrl} />
         )}
-        <img src={baseImage ?? undefined} alt={altText} className={imgClassName} />
+        <img src={baseImage ?? undefined} alt={altText} className={cls} />
       </picture>
+    );
+    if (!imageHref) return img;
+    return (
+      <a
+        href={imageHref}
+        className="contents"
+        aria-label={firstCta?.label || altText || "Open"}
+      >
+        {img}
+      </a>
     );
   };
 
+  // Width controls: prefer the % of available width, capped by the px ceiling
+  // (CSS `width: N%` + `max-width: Mpx`). Applied here, inside the container-
+  // query variant, so it caps + centers without shifting the device tier.
+  const pct =
+    maxWidthPercent && maxWidthPercent > 0 && maxWidthPercent < 100
+      ? maxWidthPercent
+      : 0;
+  const px = maxWidth && maxWidth > 0 ? maxWidth : 0;
+  const widthCss = {
+    ...(pct > 0 ? { width: `${pct}%` } : {}),
+    ...(px > 0 ? { maxWidth: px } : {}),
+    ...(pct > 0 || px > 0 ? { marginInline: "auto" as const } : {}),
+  } as const;
+
   // The styled "card" — bg / border / radius / shadow live on the section.
-  // An optional maxWidth caps + centers the segment (applied here, inside the
-  // container-query variant, so it never shifts the device tier).
   const card = {
     backgroundColor: style.background,
     border: style.border,
     borderRadius: `${style.borderRadius}px`,
     boxShadow: style.boxShadow,
-    ...(maxWidth && maxWidth > 0
-      ? { maxWidth, marginInline: "auto" as const }
-      : {}),
+    ...widthCss,
   } as const;
 
-  // When a maxWidth is set, the segment caps + centers AND its inner content
-  // fills that width (the default max-w-* / per-block caps are relaxed so the
-  // setting actually widens or narrows the content, not just the outer band).
-  const capped = !!(maxWidth && maxWidth > 0);
+  // When width is bounded, the segment caps + centers AND its inner content
+  // fills that width (default max-w-* / per-block caps relaxed) so the setting
+  // actually widens/narrows the content. Split columns then honor splitRatio.
+  const capped = pct > 0 || px > 0;
+  const imgPct =
+    typeof splitRatio === "number" && splitRatio > 0 && splitRatio < 100
+      ? splitRatio
+      : 50;
+  const rowMode = deviceMode === "desktop" || deviceMode === "tablet";
 
   // Title / subtitle / CTAs — shared across every layout. The wrapping element
   // (per layout) owns width + alignment; this is just the content.
@@ -193,7 +223,7 @@ export function HeroSegment({
         {baseImage && renderImage("absolute inset-0 h-full w-full object-cover")}
         {baseImage && (
           <div
-            className="absolute inset-0"
+            className="pointer-events-none absolute inset-0"
             style={{
               background:
                 "linear-gradient(to bottom, rgba(0,0,0,0.25), rgba(0,0,0,0.6))",
@@ -269,7 +299,8 @@ export function HeroSegment({
   const imageBlock = (
     <div
       key="image"
-      className={`flex w-full items-center justify-center ${capped ? "md:min-w-0 md:flex-[1.3_1_0%]" : "md:w-auto"} ${imageOrderCls}`}
+      className={`flex w-full items-center justify-center ${capped ? "min-w-0" : "md:w-auto"} ${imageOrderCls}`}
+      style={capped && rowMode ? { flex: `${imgPct} 1 0%` } : undefined}
     >
       {baseImage ? (
         renderImage(
@@ -286,7 +317,8 @@ export function HeroSegment({
   const textBlock = (
     <div
       key="text"
-      className={`flex w-full flex-col items-center text-center ${capped ? "md:min-w-0 md:flex-1" : "max-w-xl md:w-auto md:max-w-md"} ${textOrderCls}`}
+      className={`flex w-full flex-col items-center text-center ${capped ? "min-w-0" : "max-w-xl md:w-auto md:max-w-md"} ${textOrderCls}`}
+      style={capped && rowMode ? { flex: `${100 - imgPct} 1 0%` } : undefined}
     >
       {copyInner}
     </div>

@@ -143,7 +143,11 @@ export function PageSegments({ segments }: { segments: ResolvedSegment[] }) {
                   styles={h.styles}
                   ctaButton={h.ctaButton}
                   {...(h.layouts ? { layouts: h.layouts } : {})}
+                  {...(h.splitRatio ? { splitRatio: h.splitRatio } : {})}
                   {...(seg.maxWidth ? { maxWidth: seg.maxWidth } : {})}
+                  {...(seg.maxWidthPercent
+                    ? { maxWidthPercent: seg.maxWidthPercent }
+                    : {})}
                 />
               ))}
             </section>

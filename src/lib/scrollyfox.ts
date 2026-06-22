@@ -30,6 +30,8 @@ export interface ScrollyFoxSegment {
   layouts?: { tablet?: HeroLayout; mobile?: HeroLayout };
   /** Per-device style overrides on top of the ScrollyFox style. */
   style?: DeviceStyleLayers;
+  /** Split layouts: the image column's width % (rest goes to text). Default 50. */
+  splitRatio?: number;
 }
 
 export interface ScrollyFoxDoc {
@@ -39,8 +41,10 @@ export interface ScrollyFoxDoc {
   segments: ScrollyFoxSegment[];
   /** ScrollyFox-level style applied to every segment (per-device layers). */
   style: DeviceStyleLayers;
-  /** Doc-wide max content width in px (0 / absent ⇒ full width). */
+  /** Doc-wide max content width in px (0 / absent ⇒ no px ceiling). */
   maxWidth?: number;
+  /** Doc-wide width as a % of available width (0 / 100 / absent ⇒ full). Capped by maxWidth. */
+  maxWidthPercent?: number;
 }
 
 export interface ScrollyFoxListItem {
@@ -93,6 +97,13 @@ function normalizeSegment(segment: ScrollyFoxSegment): ScrollyFoxSegment {
   // avoids writing an empty map).
   if (segment.style && Object.keys(segment.style).length > 0) {
     out.style = segment.style;
+  }
+  if (
+    typeof segment.splitRatio === "number" &&
+    segment.splitRatio > 0 &&
+    segment.splitRatio < 100
+  ) {
+    out.splitRatio = segment.splitRatio;
   }
   return out;
 }
@@ -149,11 +160,17 @@ export async function saveScrollyFox(
   const maxWidth = typeof docData.maxWidth === "number" && docData.maxWidth > 0
     ? docData.maxWidth
     : 0;
+  const maxWidthPercent =
+    typeof docData.maxWidthPercent === "number" &&
+    docData.maxWidthPercent > 0 &&
+    docData.maxWidthPercent < 100
+      ? docData.maxWidthPercent
+      : 0;
 
   if (docData.id) {
     await setDoc(
       doc(db, DOCS_COLLECTION, docData.id),
-      { title, segments, style, maxWidth, updatedAt: serverTimestamp() },
+      { title, segments, style, maxWidth, maxWidthPercent, updatedAt: serverTimestamp() },
       { merge: true },
     );
     return docData.id;
@@ -164,6 +181,7 @@ export async function saveScrollyFox(
     segments,
     style,
     maxWidth,
+    maxWidthPercent,
     createdBy,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -216,6 +234,7 @@ export async function loadScrollyFox(id: string): Promise<ScrollyFoxDoc | null> 
     segments?: ScrollyFoxSegment[];
     style?: DeviceStyleLayers;
     maxWidth?: number;
+    maxWidthPercent?: number;
   };
   return {
     id: snap.id,
@@ -224,6 +243,11 @@ export async function loadScrollyFox(id: string): Promise<ScrollyFoxDoc | null> 
     style: data.style ?? {},
     ...(typeof data.maxWidth === "number" && data.maxWidth > 0
       ? { maxWidth: data.maxWidth }
+      : {}),
+    ...(typeof data.maxWidthPercent === "number" &&
+    data.maxWidthPercent > 0 &&
+    data.maxWidthPercent < 100
+      ? { maxWidthPercent: data.maxWidthPercent }
       : {}),
   };
 }

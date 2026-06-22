@@ -159,6 +159,10 @@ function ScrollyFoxHomeContent() {
     setCurrentDoc((prev) => (prev ? { ...prev, maxWidth: value } : prev));
   };
 
+  const handleDocMaxWidthPercent = (value: number) => {
+    setCurrentDoc((prev) => (prev ? { ...prev, maxWidthPercent: value } : prev));
+  };
+
   const persistDocMaxWidth = async () => {
     if (currentDoc?.id) await persistDoc(currentDoc);
   };
@@ -225,6 +229,9 @@ function ScrollyFoxHomeContent() {
           {...(editingSegment ? { initialSegment: editingSegment } : {})}
           docStyle={currentDoc.style}
           {...(currentDoc.maxWidth ? { docMaxWidth: currentDoc.maxWidth } : {})}
+          {...(currentDoc.maxWidthPercent
+            ? { docMaxWidthPercent: currentDoc.maxWidthPercent }
+            : {})}
           onSave={handleSegmentSave}
           onClose={() => setSegmentEditor(null)}
         />
@@ -237,37 +244,70 @@ function ScrollyFoxHomeContent() {
           title="ScrollyFox style"
           maxWidthClass="max-w-lg"
         >
-          {/* Doc-wide max width (caps + centers every segment) */}
+          {/* Doc-wide width (caps + centers every segment). Width % is preferred,
+              capped by the px ceiling. */}
           <div
-            className="mb-4 flex items-center gap-3 border-b pb-4"
+            className="mb-4 flex flex-col gap-3 border-b pb-4"
             style={{ borderColor: theme.surfaces.elevated2 }}
           >
-            <label
-              className="text-sm font-semibold"
-              style={{ color: theme.text.primary }}
-            >
-              Max width
-            </label>
-            <input
-              type="number"
-              min={0}
-              max={2000}
-              step={20}
-              value={currentDoc.maxWidth ?? 0}
-              onChange={(e) =>
-                handleDocMaxWidth(Math.min(2000, Math.max(0, Number(e.target.value) || 0)))
-              }
-              onBlur={() => void persistDocMaxWidth()}
-              className="w-28 rounded-lg border-2 px-2 py-1.5 text-sm"
-              style={{
-                borderColor: theme.surfaces.elevated2,
-                backgroundColor: theme.surfaces.elevated1,
-                color: theme.text.primary,
-              }}
-            />
-            <span className="text-xs" style={{ color: theme.text.tertiary }}>
-              px · 0 = full width
-            </span>
+            <div className="flex items-center gap-3">
+              <label
+                className="w-24 text-sm font-semibold"
+                style={{ color: theme.text.primary }}
+              >
+                Max width %
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={5}
+                value={currentDoc.maxWidthPercent ?? 0}
+                onChange={(e) =>
+                  handleDocMaxWidthPercent(
+                    Math.min(100, Math.max(0, Number(e.target.value) || 0)),
+                  )
+                }
+                onBlur={() => void persistDocMaxWidth()}
+                className="w-28 rounded-lg border-2 px-2 py-1.5 text-sm"
+                style={{
+                  borderColor: theme.surfaces.elevated2,
+                  backgroundColor: theme.surfaces.elevated1,
+                  color: theme.text.primary,
+                }}
+              />
+              <span className="text-xs" style={{ color: theme.text.tertiary }}>
+                % of available · 0 = full
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <label
+                className="w-24 text-sm font-semibold"
+                style={{ color: theme.text.primary }}
+              >
+                Max width
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={2000}
+                step={20}
+                value={currentDoc.maxWidth ?? 0}
+                onChange={(e) =>
+                  handleDocMaxWidth(Math.min(2000, Math.max(0, Number(e.target.value) || 0)))
+                }
+                onBlur={() => void persistDocMaxWidth()}
+                className="w-28 rounded-lg border-2 px-2 py-1.5 text-sm"
+                style={{
+                  borderColor: theme.surfaces.elevated2,
+                  backgroundColor: theme.surfaces.elevated1,
+                  color: theme.text.primary,
+                }}
+              />
+              <span className="text-xs" style={{ color: theme.text.tertiary }}>
+                px ceiling · 0 = none
+              </span>
+            </div>
           </div>
           <StyleSettings
             base={{
@@ -529,7 +569,11 @@ function EditorView({
                   buttonStyles,
                 )}
                 {...(segment.layouts ? { layouts: segment.layouts } : {})}
+                {...(segment.splitRatio ? { splitRatio: segment.splitRatio } : {})}
                 {...(doc.maxWidth ? { maxWidth: doc.maxWidth } : {})}
+                {...(doc.maxWidthPercent
+                  ? { maxWidthPercent: doc.maxWidthPercent }
+                  : {})}
               />
             </div>
           </div>

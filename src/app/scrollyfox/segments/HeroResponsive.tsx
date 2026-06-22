@@ -15,8 +15,12 @@ interface HeroResponsiveProps {
   ctaButton?: ResolvedButtonStyle;
   /** Fully resolved style per device tier. */
   styles: DeviceStyles;
-  /** Max content width in px (0 / absent ⇒ full width). */
+  /** Max content width in px (0 / absent ⇒ no px ceiling). */
   maxWidth?: number;
+  /** Width as a % of available (capped by maxWidth). 0/100/absent ⇒ full. */
+  maxWidthPercent?: number;
+  /** Split image-column width % (rest is text). Default 50. */
+  splitRatio?: number;
 }
 
 /**
@@ -33,11 +37,20 @@ export function HeroResponsive({
   ctaButton,
   styles,
   maxWidth,
+  maxWidthPercent,
+  splitRatio,
 }: HeroResponsiveProps) {
   const tabletLayout = layouts?.tablet ?? content.layout;
   const mobileLayout = layouts?.mobile ?? content.layout;
   const btn = ctaButton ? { ctaButton } : {};
-  const max = maxWidth && maxWidth > 0 ? { maxWidth } : {};
+  // Width/ratio props applied to every device variant.
+  const sizing = {
+    ...(maxWidth && maxWidth > 0 ? { maxWidth } : {}),
+    ...(maxWidthPercent && maxWidthPercent > 0 && maxWidthPercent < 100
+      ? { maxWidthPercent }
+      : {}),
+    ...(splitRatio && splitRatio > 0 && splitRatio < 100 ? { splitRatio } : {}),
+  };
 
   return (
     <div className="@container w-full">
@@ -48,7 +61,7 @@ export function HeroResponsive({
           layout={mobileLayout}
           style={styles.mobile}
           deviceMode="mobile"
-          {...max}
+          {...sizing}
           {...btn}
         />
       </div>
@@ -59,7 +72,7 @@ export function HeroResponsive({
           layout={tabletLayout}
           style={styles.tablet}
           deviceMode="tablet"
-          {...max}
+          {...sizing}
           {...btn}
         />
       </div>
@@ -70,7 +83,7 @@ export function HeroResponsive({
           layout={content.layout}
           style={styles.desktop}
           deviceMode="desktop"
-          {...max}
+          {...sizing}
           {...btn}
         />
       </div>

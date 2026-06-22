@@ -39,6 +39,8 @@ interface SegmentEditorModalProps {
   docStyle?: DeviceStyleLayers;
   /** Doc-wide max content width in px (set in ScrollyFox settings) — preview only. */
   docMaxWidth?: number;
+  /** Doc-wide width % (set in ScrollyFox settings) — preview only. */
+  docMaxWidthPercent?: number;
   /** Hand the finished segment back to the document editor. */
   onSave: (segment: ScrollyFoxSegment) => void;
   onClose: () => void;
@@ -71,6 +73,7 @@ export function SegmentEditorModal({
   initialSegment,
   docStyle,
   docMaxWidth,
+  docMaxWidthPercent,
   onSave,
   onClose,
 }: SegmentEditorModalProps) {
@@ -87,6 +90,9 @@ export function SegmentEditorModal({
     tablet?: HeroLayout;
     mobile?: HeroLayout;
   }>(initialSegment?.layouts ?? {});
+  const [splitRatio, setSplitRatio] = useState<number>(
+    initialSegment?.splitRatio ?? 50,
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Device preview: the selected device is BOTH which tier you're editing and
@@ -154,6 +160,7 @@ export function SegmentEditorModal({
       content,
       ...(Object.keys(layouts).length ? { layouts } : {}),
       ...(Object.keys(styleOverride).length ? { style: styleOverride } : {}),
+      ...(splitRatio !== 50 ? { splitRatio } : {}),
     });
     onClose();
   };
@@ -301,6 +308,36 @@ export function SegmentEditorModal({
                     );
                   })}
                 </div>
+                {/* Split ratio (image width %) — applies to split layouts */}
+                {(activeLayout === "split-image-left" ||
+                  activeLayout === "split-image-right") && (
+                  <div className="mt-3 sm:flex sm:justify-end">
+                    <label
+                      className="flex items-center gap-2 text-xs"
+                      style={{ color: theme.text.secondary }}
+                    >
+                      Image width %
+                      <input
+                        type="number"
+                        min={10}
+                        max={90}
+                        step={5}
+                        value={splitRatio}
+                        onChange={(e) =>
+                          setSplitRatio(
+                            Math.min(90, Math.max(10, Number(e.target.value) || 50)),
+                          )
+                        }
+                        className="w-20 rounded-lg border-2 px-2 py-1.5 text-sm"
+                        style={{
+                          borderColor: theme.surfaces.elevated2,
+                          backgroundColor: theme.surfaces.elevated1,
+                          color: theme.text.primary,
+                        }}
+                      />
+                    </label>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -470,7 +507,11 @@ export function SegmentEditorModal({
               styles={previewStyles}
               ctaButton={previewBtn}
               {...(Object.keys(layouts).length ? { layouts } : {})}
+              {...(splitRatio !== 50 ? { splitRatio } : {})}
               {...(docMaxWidth && docMaxWidth > 0 ? { maxWidth: docMaxWidth } : {})}
+              {...(docMaxWidthPercent && docMaxWidthPercent > 0
+                ? { maxWidthPercent: docMaxWidthPercent }
+                : {})}
             />
           </div>
         </div>
