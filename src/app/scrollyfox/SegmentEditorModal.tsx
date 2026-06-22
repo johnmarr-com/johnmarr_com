@@ -84,6 +84,7 @@ export function SegmentEditorModal({
     tablet?: HeroLayout;
     mobile?: HeroLayout;
   }>(initialSegment?.layouts ?? {});
+  const [maxWidth, setMaxWidth] = useState<number>(initialSegment?.maxWidth ?? 0);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Device preview: the selected device is BOTH which tier you're editing and
@@ -151,6 +152,7 @@ export function SegmentEditorModal({
       content,
       ...(Object.keys(layouts).length ? { layouts } : {}),
       ...(Object.keys(styleOverride).length ? { style: styleOverride } : {}),
+      ...(maxWidth > 0 ? { maxWidth } : {}),
     });
     onClose();
   };
@@ -258,6 +260,33 @@ export function SegmentEditorModal({
                   setDevice={setDevice}
                   allowed={allowed}
                 />
+                <div className="mt-3">
+                  <label
+                    className="mb-1 block text-xs font-semibold"
+                    style={{ color: theme.text.secondary }}
+                  >
+                    Max width{" "}
+                    <span className="font-normal" style={{ color: theme.text.tertiary }}>
+                      (px, 0 = full)
+                    </span>
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={2000}
+                    step={20}
+                    value={maxWidth}
+                    onChange={(e) =>
+                      setMaxWidth(Math.min(2000, Math.max(0, Number(e.target.value) || 0)))
+                    }
+                    className="w-28 rounded-lg border-2 px-2 py-1.5 text-sm"
+                    style={{
+                      borderColor: theme.surfaces.elevated2,
+                      backgroundColor: theme.surfaces.elevated1,
+                      color: theme.text.primary,
+                    }}
+                  />
+                </div>
               </div>
 
               {/* Layout — secondary, stored for the selected device */}
@@ -467,6 +496,7 @@ export function SegmentEditorModal({
               styles={previewStyles}
               ctaButton={previewBtn}
               {...(Object.keys(layouts).length ? { layouts } : {})}
+              {...(maxWidth > 0 ? { maxWidth } : {})}
             />
           </div>
         </div>

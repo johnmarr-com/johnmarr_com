@@ -15,6 +15,8 @@ interface HeroResponsiveProps {
   ctaButton?: ResolvedButtonStyle;
   /** Fully resolved style per device tier. */
   styles: DeviceStyles;
+  /** Max content width in px (0 / absent ⇒ full width). */
+  maxWidth?: number;
 }
 
 /**
@@ -30,10 +32,12 @@ export function HeroResponsive({
   layouts,
   ctaButton,
   styles,
+  maxWidth,
 }: HeroResponsiveProps) {
   const tabletLayout = layouts?.tablet ?? content.layout;
   const mobileLayout = layouts?.mobile ?? content.layout;
   const btn = ctaButton ? { ctaButton } : {};
+  const max = maxWidth && maxWidth > 0 ? { maxWidth } : {};
 
   return (
     <div className="@container w-full">
@@ -44,6 +48,7 @@ export function HeroResponsive({
           layout={mobileLayout}
           style={styles.mobile}
           deviceMode="mobile"
+          {...max}
           {...btn}
         />
       </div>
@@ -54,6 +59,7 @@ export function HeroResponsive({
           layout={tabletLayout}
           style={styles.tablet}
           deviceMode="tablet"
+          {...max}
           {...btn}
         />
       </div>
@@ -64,6 +70,7 @@ export function HeroResponsive({
           layout={content.layout}
           style={styles.desktop}
           deviceMode="desktop"
+          {...max}
           {...btn}
         />
       </div>

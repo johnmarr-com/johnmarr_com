@@ -43,6 +43,8 @@ interface HeroSegmentProps extends HeroContent {
    * Desktop layout always comes from `layout`.
    */
   layouts?: { tablet?: HeroLayout; mobile?: HeroLayout };
+  /** Max content width in px (0 / absent ⇒ full width). Caps + centers the segment. */
+  maxWidth?: number;
   /**
    * Forces a specific device mode for preview surfaces (the segment editor's
    * device selector). When undefined, the component is fully responsive — it
@@ -59,6 +61,7 @@ export function HeroSegment({
   ctaButton,
   layout,
   layouts,
+  maxWidth,
   imageUrl,
   imageMobileUrl,
   imageAlt,
@@ -102,11 +105,16 @@ export function HeroSegment({
   };
 
   // The styled "card" — bg / border / radius / shadow live on the section.
+  // An optional maxWidth caps + centers the segment (applied here, inside the
+  // container-query variant, so it never shifts the device tier).
   const card = {
     backgroundColor: style.background,
     border: style.border,
     borderRadius: `${style.borderRadius}px`,
     boxShadow: style.boxShadow,
+    ...(maxWidth && maxWidth > 0
+      ? { maxWidth, marginInline: "auto" as const }
+      : {}),
   } as const;
 
   // Title / subtitle / CTAs — shared across every layout. The wrapping element

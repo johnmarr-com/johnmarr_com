@@ -507,6 +507,7 @@ export type ResolvedSegment =
         };
         ctaButton: ResolvedButtonStyle;
         layouts?: { tablet?: HeroLayout; mobile?: HeroLayout };
+        maxWidth?: number;
       }[];
     };
 
@@ -612,6 +613,9 @@ async function resolveSegments(page: PageMeta): Promise<ResolvedSegment[]> {
               },
               ctaButton: await resolveBtn(s.content.ctaButtonStyleId),
               ...(s.layouts ? { layouts: s.layouts } : {}),
+              ...(typeof s.maxWidth === "number" && s.maxWidth > 0
+                ? { maxWidth: s.maxWidth }
+                : {}),
             })),
           );
           return { type: "scrollyfox", id: seg.id, heroes };

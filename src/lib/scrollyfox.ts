@@ -30,6 +30,8 @@ export interface ScrollyFoxSegment {
   layouts?: { tablet?: HeroLayout; mobile?: HeroLayout };
   /** Per-device style overrides on top of the ScrollyFox style. */
   style?: DeviceStyleLayers;
+  /** Max content width in px (0 / absent ⇒ full width). */
+  maxWidth?: number;
 }
 
 export interface ScrollyFoxDoc {
@@ -91,6 +93,9 @@ function normalizeSegment(segment: ScrollyFoxSegment): ScrollyFoxSegment {
   // avoids writing an empty map).
   if (segment.style && Object.keys(segment.style).length > 0) {
     out.style = segment.style;
+  }
+  if (typeof segment.maxWidth === "number" && segment.maxWidth > 0) {
+    out.maxWidth = segment.maxWidth;
   }
   return out;
 }
