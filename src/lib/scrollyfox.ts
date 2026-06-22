@@ -30,8 +30,6 @@ export interface ScrollyFoxSegment {
   layouts?: { tablet?: HeroLayout; mobile?: HeroLayout };
   /** Per-device style overrides on top of the ScrollyFox style. */
   style?: DeviceStyleLayers;
-  /** Max content width in px (0 / absent ⇒ full width). */
-  maxWidth?: number;
 }
 
 export interface ScrollyFoxDoc {
@@ -41,6 +39,8 @@ export interface ScrollyFoxDoc {
   segments: ScrollyFoxSegment[];
   /** ScrollyFox-level style applied to every segment (per-device layers). */
   style: DeviceStyleLayers;
+  /** Doc-wide max content width in px (0 / absent ⇒ full width). */
+  maxWidth?: number;
 }
 
 export interface ScrollyFoxListItem {
@@ -94,9 +94,6 @@ function normalizeSegment(segment: ScrollyFoxSegment): ScrollyFoxSegment {
   if (segment.style && Object.keys(segment.style).length > 0) {
     out.style = segment.style;
   }
-  if (typeof segment.maxWidth === "number" && segment.maxWidth > 0) {
-    out.maxWidth = segment.maxWidth;
-  }
   return out;
 }
 
@@ -149,11 +146,14 @@ export async function saveScrollyFox(
   const title = docData.title.trim() || "Untitled ScrollyFox";
   const segments = docData.segments.map(normalizeSegment);
   const style = docData.style ?? {};
+  const maxWidth = typeof docData.maxWidth === "number" && docData.maxWidth > 0
+    ? docData.maxWidth
+    : 0;
 
   if (docData.id) {
     await setDoc(
       doc(db, DOCS_COLLECTION, docData.id),
-      { title, segments, style, updatedAt: serverTimestamp() },
+      { title, segments, style, maxWidth, updatedAt: serverTimestamp() },
       { merge: true },
     );
     return docData.id;
@@ -163,6 +163,7 @@ export async function saveScrollyFox(
     title,
     segments,
     style,
+    maxWidth,
     createdBy,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -214,11 +215,15 @@ export async function loadScrollyFox(id: string): Promise<ScrollyFoxDoc | null> 
     title?: string;
     segments?: ScrollyFoxSegment[];
     style?: DeviceStyleLayers;
+    maxWidth?: number;
   };
   return {
     id: snap.id,
     title: data.title || "",
     segments: Array.isArray(data.segments) ? data.segments : [],
     style: data.style ?? {},
+    ...(typeof data.maxWidth === "number" && data.maxWidth > 0
+      ? { maxWidth: data.maxWidth }
+      : {}),
   };
 }

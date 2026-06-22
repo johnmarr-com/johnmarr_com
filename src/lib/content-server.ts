@@ -507,8 +507,9 @@ export type ResolvedSegment =
         };
         ctaButton: ResolvedButtonStyle;
         layouts?: { tablet?: HeroLayout; mobile?: HeroLayout };
-        maxWidth?: number;
       }[];
+      /** Doc-wide max content width in px (caps + centers each hero). */
+      maxWidth?: number;
     };
 
 export interface PageContent {
@@ -613,12 +614,16 @@ async function resolveSegments(page: PageMeta): Promise<ResolvedSegment[]> {
               },
               ctaButton: await resolveBtn(s.content.ctaButtonStyleId),
               ...(s.layouts ? { layouts: s.layouts } : {}),
-              ...(typeof s.maxWidth === "number" && s.maxWidth > 0
-                ? { maxWidth: s.maxWidth }
-                : {}),
             })),
           );
-          return { type: "scrollyfox", id: seg.id, heroes };
+          const dw = data["maxWidth"];
+          const maxWidth = typeof dw === "number" && dw > 0 ? dw : 0;
+          return {
+            type: "scrollyfox",
+            id: seg.id,
+            heroes,
+            ...(maxWidth ? { maxWidth } : {}),
+          };
         }
         return null;
       }),
