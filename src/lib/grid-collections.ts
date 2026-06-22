@@ -32,6 +32,8 @@ export const DEFAULT_GRID: Omit<
   title: { fontId: "helvetica", size: 16 },
   subtitle: { fontId: "helvetica", size: 13 },
   columns: { desktop: 4, tablet: 3, mobile: 2 },
+  gap: 16,
+  maxWidth: 0,
 };
 
 export async function listGridCollections(): Promise<JMGridCollection[]> {

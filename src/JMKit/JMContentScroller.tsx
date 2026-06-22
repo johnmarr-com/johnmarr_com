@@ -12,6 +12,14 @@ export interface ContentItem {
   contentType: "show" | "story" | "card" | "game" | "artist";
   slug?: string | undefined;
   engineSlug?: string | undefined;
+  /** Optional attribution banner (bottom-right corner, slanted left edge). */
+  attribution?: {
+    title: string;
+    color: string;
+    textColor: string;
+    fontFamily: string;
+    size: number;
+  };
 }
 
 interface JMContentScrollerProps {
@@ -168,6 +176,11 @@ export function JMContentScroller({
               ? `${rowHeight * 0.2}px`
               : undefined;
 
+            // Attribution banner: bottom-right, left edge slanted 45° (lower-left
+            // juts further left). Sibling of the scaling image, so it stays put.
+            const attr = item.attribution;
+            const attrSlant = attr ? Math.round(attr.size * 1.25 + 8) : 0;
+
             const tile = (
               <div
                 className={`relative overflow-hidden ${isGame ? "" : "rounded-lg"}`}
@@ -212,6 +225,26 @@ export function JMContentScroller({
                     ) : (
                       <span className="text-2xl font-bold">{item.name.charAt(0)}</span>
                     )}
+                  </div>
+                )}
+                {attr && (
+                  <div
+                    className="absolute bottom-0 right-0 z-10 font-semibold"
+                    style={{
+                      backgroundColor: attr.color,
+                      color: attr.textColor,
+                      fontFamily: attr.fontFamily,
+                      fontSize: attr.size,
+                      lineHeight: 1.25,
+                      paddingTop: 4,
+                      paddingBottom: 4,
+                      paddingRight: 10,
+                      paddingLeft: attrSlant + 8,
+                      whiteSpace: "nowrap",
+                      clipPath: `polygon(${attrSlant}px 0, 100% 0, 100% 100%, 0 100%)`,
+                    }}
+                  >
+                    {attr.title}
                   </div>
                 )}
               </div>

@@ -23,6 +23,10 @@ interface JMGridProps {
   title: { fontFamily: string; size: number };
   subtitle: { fontFamily: string; size: number };
   columns: { desktop: number; tablet: number; mobile: number };
+  /** Gap between cells in px. */
+  gap: number;
+  /** Max overall grid width in px (0 ⇒ full width). */
+  maxWidth: number;
   onItemClick?: (item: JMGridItem) => void;
 }
 
@@ -67,6 +71,8 @@ export function JMGrid({
   title,
   subtitle,
   columns,
+  gap,
+  maxWidth,
   onItemClick,
 }: JMGridProps) {
   const { theme } = useJMStyle();
@@ -78,8 +84,11 @@ export function JMGrid({
   } ${COLS_LG[clampCols(columns.desktop)] ?? ""}`;
 
   return (
-    <div className="@container w-full">
-      <div className={`grid gap-3 sm:gap-4 ${cols}`}>
+    <div
+      className="@container mx-auto w-full"
+      style={maxWidth > 0 ? { maxWidth } : undefined}
+    >
+      <div className={`grid ${cols}`} style={{ gap }}>
         {items.map((item) => (
           <button
             key={item.id}

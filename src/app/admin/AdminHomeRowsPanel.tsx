@@ -17,6 +17,7 @@ import {
   List,
   Image as ImageIcon,
   Gauge,
+  Tag,
 } from "lucide-react";
 import {
   DndContext,
@@ -46,18 +47,30 @@ import {
   getAllArtists,
 } from "@/lib/content";
 import { getAllAuctions } from "@/lib/auction";
-import type { JMExperience, JMContent, JMContentType } from "@/lib/content-types";
+import type { JMExperience, JMContent, JMContentType, RowItemAttribution } from "@/lib/content-types";
 import type { JMAuction } from "@/lib/content-types";
 import { JMContentTypeLabels } from "@/lib/content-types";
+import { FONT_CATALOG, fontStack } from "@/lib/scrollyfox-style";
+
+/** Default attribution background — brand purple. */
+const ATTR_PURPLE = "#8B35FF";
 
 // Sortable content item for curated row editor
 interface SortableContentItemProps {
   content: JMContent;
   onRemove: () => void;
+  attribution: RowItemAttribution | undefined;
+  onAttributionChange: (next: RowItemAttribution | undefined) => void;
 }
 
-function SortableContentItem({ content, onRemove }: SortableContentItemProps) {
+function SortableContentItem({
+  content,
+  onRemove,
+  attribution,
+  onAttributionChange,
+}: SortableContentItemProps) {
   const { theme } = useJMStyle();
+  const [expanded, setExpanded] = useState(false);
   const {
     attributes,
     listeners,
@@ -73,40 +86,128 @@ function SortableContentItem({ content, onRemove }: SortableContentItemProps) {
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const attr: RowItemAttribution = attribution ?? { title: "" };
+  const patchAttr = (p: Partial<RowItemAttribution>) =>
+    onAttributionChange({ ...attr, ...p });
+  const hasAttr = !!attribution?.title?.trim();
+
+  const fieldStyle = {
+    borderColor: theme.surfaces.elevated2,
+    backgroundColor: theme.surfaces.base,
+    color: theme.text.primary,
+  };
+
   return (
     <div
       ref={setNodeRef}
       style={{ ...style, borderColor: theme.surfaces.elevated2 }}
-      className="flex items-center gap-2 p-2 border-b last:border-b-0"
+      className="flex flex-col border-b last:border-b-0"
     >
-      <div
-        {...attributes}
-        {...listeners}
-        className="cursor-grab active:cursor-grabbing touch-none p-1"
-        style={{ color: theme.text.tertiary }}
-      >
-        <GripVertical size={14} />
+      <div className="flex items-center gap-2 p-2">
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing touch-none p-1"
+          style={{ color: theme.text.tertiary }}
+        >
+          <GripVertical size={14} />
+        </div>
+        {content.coverURL && (
+          <div className="w-10 h-5 rounded overflow-hidden shrink-0">
+            <Image
+              src={content.coverURL}
+              alt=""
+              width={40}
+              height={20}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )}
+        <span className="flex-1 truncate text-sm" style={{ color: theme.text.primary }}>
+          {content.name}
+        </span>
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors hover:bg-white/5"
+          style={{ color: hasAttr ? theme.accents.neonPink : theme.text.tertiary }}
+          title="Attribution overlay"
+          type="button"
+        >
+          <Tag size={13} />
+          {hasAttr ? "Attribution" : "Add"}
+        </button>
+        <button
+          onClick={onRemove}
+          className="p-1 rounded hover:bg-red-500/20 transition-colors"
+          type="button"
+        >
+          <Trash2 size={14} style={{ color: "#EF4444" }} />
+        </button>
       </div>
-      {content.coverURL && (
-        <div className="w-10 h-5 rounded overflow-hidden shrink-0">
-          <Image
-            src={content.coverURL}
-            alt=""
-            width={40}
-            height={20}
-            className="w-full h-full object-cover"
+
+      {expanded && (
+        <div
+          className="flex flex-wrap items-center gap-2 px-3 pb-3"
+          style={{ color: theme.text.secondary }}
+        >
+          <input
+            type="text"
+            placeholder="Attribution title (blank = hidden)"
+            value={attr.title}
+            onChange={(e) => patchAttr({ title: e.target.value })}
+            className="flex-1 min-w-[160px] rounded-lg border px-2 py-1.5 text-sm"
+            style={fieldStyle}
           />
+          <label className="flex items-center gap-1 text-xs">
+            BG
+            <input
+              type="color"
+              value={attr.color ?? ATTR_PURPLE}
+              onChange={(e) => patchAttr({ color: e.target.value })}
+              className="h-7 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
+              aria-label="Attribution background color"
+            />
+          </label>
+          <label className="flex items-center gap-1 text-xs">
+            Text
+            <input
+              type="color"
+              value={attr.textColor ?? "#FFFFFF"}
+              onChange={(e) => patchAttr({ textColor: e.target.value })}
+              className="h-7 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
+              aria-label="Attribution text color"
+            />
+          </label>
+          <select
+            value={attr.fontId ?? "helvetica"}
+            onChange={(e) => patchAttr({ fontId: e.target.value })}
+            className="rounded-lg border px-2 py-1.5 text-xs"
+            style={{ ...fieldStyle, fontFamily: fontStack(attr.fontId ?? "helvetica") }}
+            aria-label="Attribution font"
+          >
+            {FONT_CATALOG.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+          <input
+            type="number"
+            min={8}
+            max={32}
+            value={attr.size ?? 12}
+            onChange={(e) =>
+              patchAttr({ size: Math.min(32, Math.max(8, Number(e.target.value) || 12)) })
+            }
+            className="w-16 rounded-lg border px-2 py-1.5 text-xs"
+            style={fieldStyle}
+            aria-label="Attribution font size"
+          />
+          <span className="text-xs" style={{ color: theme.text.tertiary }}>
+            px
+          </span>
         </div>
       )}
-      <span className="flex-1 truncate text-sm" style={{ color: theme.text.primary }}>
-        {content.name}
-      </span>
-      <button
-        onClick={onRemove}
-        className="p-1 rounded hover:bg-red-500/20 transition-colors"
-      >
-        <Trash2 size={14} style={{ color: "#EF4444" }} />
-      </button>
     </div>
   );
 }
@@ -287,6 +388,9 @@ export function AdminHomeRowsPanel({
   const [formRowScaleMobile, setFormRowScaleMobile] = useState<number>(1);
   const [formRowScaleDesktop, setFormRowScaleDesktop] = useState<number>(1);
   const [formFastCasual, setFormFastCasual] = useState(false);
+  const [formAttributions, setFormAttributions] = useState<
+    Record<string, RowItemAttribution>
+  >({});
 
   // Content picker state
   const [availableContent, setAvailableContent] = useState<JMContent[]>([]);
@@ -398,6 +502,7 @@ export function AdminHomeRowsPanel({
     setFormRowScaleMobile(1);
     setFormRowScaleDesktop(1);
     setFormFastCasual(false);
+    setFormAttributions({});
     setAvailableContent([]);
     setAvailableAuctions([]);
     setShowModal(true);
@@ -414,6 +519,7 @@ export function AdminHomeRowsPanel({
     setFormRowScaleMobile(row.rowScaleMobile || 1);
     setFormRowScaleDesktop(row.rowScaleDesktop || 1);
     setFormFastCasual(row.fastCasual === true);
+    setFormAttributions(row.attributions ?? {});
     if (isFeature) {
       loadAvailableAuctions();
     } else if (!row.autoPopulate) {
@@ -491,6 +597,17 @@ export function AdminHomeRowsPanel({
         fastCasual: formFastCasual,
       };
       if (formContentType) baseUpdate["contentType"] = formContentType;
+      // Persist attributions only for curated items with a real title.
+      if (formRowKind === "content" && !formAutoPopulate) {
+        const cleaned: Record<string, RowItemAttribution> = {};
+        for (const id of formContentIds) {
+          const a = formAttributions[id];
+          if (a && a.title.trim()) cleaned[id] = { ...a, title: a.title.trim() };
+        }
+        baseUpdate["attributions"] = cleaned;
+      } else {
+        baseUpdate["attributions"] = {};
+      }
       if (editingRow) {
         await updateExperience(editingRow.id, baseUpdate as Parameters<typeof updateExperience>[1]);
       } else {
@@ -925,6 +1042,15 @@ export function AdminHomeRowsPanel({
                                   key={contentId}
                                   content={content}
                                   onRemove={() => toggleContentItem(contentId)}
+                                  attribution={formAttributions[contentId]}
+                                  onAttributionChange={(next) =>
+                                    setFormAttributions((prev) => {
+                                      const updated = { ...prev };
+                                      if (next) updated[contentId] = next;
+                                      else delete updated[contentId];
+                                      return updated;
+                                    })
+                                  }
                                 />
                               );
                             })}

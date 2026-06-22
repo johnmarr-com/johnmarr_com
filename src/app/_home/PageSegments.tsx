@@ -125,6 +125,8 @@ export function PageSegments({ segments }: { segments: ResolvedSegment[] }) {
                 title={seg.grid.title}
                 subtitle={seg.grid.subtitle}
                 columns={seg.grid.columns}
+                gap={seg.grid.gap}
+                maxWidth={seg.grid.maxWidth}
                 onItemClick={(item) => goContent(item as ContentItem)}
               />
             </section>

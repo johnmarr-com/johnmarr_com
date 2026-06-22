@@ -60,6 +60,14 @@ export interface HomeRowItem {
   contentType: string;
   slug?: string;
   engineSlug?: string;
+  /** Optional resolved attribution banner (row items). */
+  attribution?: {
+    title: string;
+    color: string;
+    textColor: string;
+    fontFamily: string;
+    size: number;
+  };
 }
 
 export interface HomeFeatureItem {
@@ -255,6 +263,21 @@ async function resolveSelectionItems(
   return resolveCurated(db, "content", contentIds, contentToItem);
 }
 
+/** Resolve a raw attribution entry into render values, or undefined if no title. */
+function resolveAttribution(raw: unknown): HomeRowItem["attribution"] | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const a = raw as DocumentData;
+  const title = typeof a["title"] === "string" ? a["title"].trim() : "";
+  if (!title) return undefined; // hide when no title
+  return {
+    title,
+    color: typeof a["color"] === "string" ? a["color"] : "#8B35FF",
+    textColor: typeof a["textColor"] === "string" ? a["textColor"] : "#FFFFFF",
+    fontFamily: fontStack(typeof a["fontId"] === "string" ? a["fontId"] : "helvetica"),
+    size: typeof a["size"] === "number" && a["size"] > 0 ? a["size"] : 12,
+  };
+}
+
 /** Resolve one experience's row content (mirrors getExperienceWithContent, published-only). */
 async function resolveRow(db: Firestore, exp: DocumentData): Promise<{ items: HomeRowItem[]; featureItem?: HomeFeatureItem }> {
   const contentType = str(exp["contentType"]);
@@ -262,6 +285,14 @@ async function resolveRow(db: Firestore, exp: DocumentData): Promise<{ items: Ho
   const autoPopulate = exp["autoPopulate"] === true;
   const contentIds: string[] = Array.isArray(exp["contentIds"]) ? (exp["contentIds"] as string[]) : [];
   const firstId = contentIds[0];
+
+  // Per-item attribution overlays, keyed by contentId.
+  const attrMap = (exp["attributions"] ?? {}) as Record<string, unknown>;
+  const withAttr = (items: HomeRowItem[]): HomeRowItem[] =>
+    items.map((it) => {
+      const attribution = resolveAttribution(attrMap[it.id]);
+      return attribution ? { ...it, attribution } : it;
+    });
 
   // Feature row: auction row-banner.
   if (rowKind === "feature" && contentType === "auction" && firstId) {
@@ -283,11 +314,11 @@ async function resolveRow(db: Firestore, exp: DocumentData): Promise<{ items: Ho
   if (autoPopulate && contentType && contentType !== "auction") {
     if (contentType === "artist") {
       const snap = await db.collection("artists").where("isPublished", "==", true).orderBy("name", "asc").get();
-      return { items: snap.docs.map((d) => artistToItem(d.id, d.data())) };
+      return { items: withAttr(snap.docs.map((d) => artistToItem(d.id, d.data()))) };
     }
     if (contentType === "story") {
       const snap = await db.collection("stories").where("isPublished", "==", true).orderBy("title", "asc").get();
-      return { items: snap.docs.map((d) => storyToItem(d.id, d.data())) };
+      return { items: withAttr(snap.docs.map((d) => storyToItem(d.id, d.data()))) };
     }
     const snap = await db
       .collection("content")
@@ -296,13 +327,13 @@ async function resolveRow(db: Firestore, exp: DocumentData): Promise<{ items: Ho
       .where("parentId", "==", null)
       .orderBy("order", "asc")
       .get();
-    return { items: snap.docs.map((d) => contentToItem(d.id, d.data())) };
+    return { items: withAttr(snap.docs.map((d) => contentToItem(d.id, d.data()))) };
   }
 
   // Curated rows.
-  if (contentType === "artist") return { items: await resolveCurated(db, "artists", contentIds, artistToItem) };
-  if (contentType === "story") return { items: await resolveCurated(db, "stories", contentIds, storyToItem) };
-  if (contentType !== "auction") return { items: await resolveCurated(db, "content", contentIds, contentToItem) };
+  if (contentType === "artist") return { items: withAttr(await resolveCurated(db, "artists", contentIds, artistToItem)) };
+  if (contentType === "story") return { items: withAttr(await resolveCurated(db, "stories", contentIds, storyToItem)) };
+  if (contentType !== "auction") return { items: withAttr(await resolveCurated(db, "content", contentIds, contentToItem)) };
   return { items: [] };
 }
 
@@ -350,6 +381,8 @@ export interface ResolvedGrid {
   title: { fontFamily: string; size: number };
   subtitle: { fontFamily: string; size: number };
   columns: GridColumns;
+  gap: number;
+  maxWidth: number;
 }
 
 /** Resolve a named grid collection: its content items + display settings. */
@@ -403,6 +436,8 @@ export async function getGridContentServer(
       tablet: num(colsRaw["tablet"], 3),
       mobile: num(colsRaw["mobile"], 2),
     },
+    gap: typeof d["gap"] === "number" && d["gap"] >= 0 ? d["gap"] : 16,
+    maxWidth: typeof d["maxWidth"] === "number" && d["maxWidth"] >= 0 ? d["maxWidth"] : 0,
   };
 }
 

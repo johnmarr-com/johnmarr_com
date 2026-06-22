@@ -92,9 +92,12 @@ export function AdminGridCollectionsPanel() {
   useEffect(() => {
     const found = grids.find((g) => g.id === gridId);
     if (found) {
-      const cellRadius =
-        typeof found.cellRadius === "number" ? found.cellRadius : 12;
-      setDraft({ ...found, cellRadius });
+      setDraft({
+        ...found,
+        cellRadius: typeof found.cellRadius === "number" ? found.cellRadius : 12,
+        gap: typeof found.gap === "number" ? found.gap : 16,
+        maxWidth: typeof found.maxWidth === "number" ? found.maxWidth : 0,
+      });
     } else {
       setDraft(null);
     }
@@ -207,6 +210,8 @@ export function AdminGridCollectionsPanel() {
         title: draft.title,
         subtitle: draft.subtitle,
         columns: draft.columns,
+        gap: draft.gap,
+        maxWidth: draft.maxWidth,
       };
       if (draft.contentType) updates.contentType = draft.contentType;
       await updateGridCollection(draft.id, updates);
@@ -494,6 +499,35 @@ export function AdminGridCollectionsPanel() {
                   style={inputStyle}
                 />
               </label>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 text-sm" style={{ color: theme.text.secondary }}>
+                  Cell gap
+                  <input
+                    type="number"
+                    min={0}
+                    max={64}
+                    value={draft.gap}
+                    onChange={(e) => patch({ gap: Math.min(64, Math.max(0, Number(e.target.value) || 0)) })}
+                    className="w-20 rounded-lg border-2 px-2 py-1.5 text-sm"
+                    style={inputStyle}
+                  />
+                  <span className="text-xs" style={{ color: theme.text.tertiary }}>px</span>
+                </label>
+                <label className="flex items-center gap-2 text-sm" style={{ color: theme.text.secondary }}>
+                  Max width
+                  <input
+                    type="number"
+                    min={0}
+                    max={2000}
+                    step={20}
+                    value={draft.maxWidth}
+                    onChange={(e) => patch({ maxWidth: Math.min(2000, Math.max(0, Number(e.target.value) || 0)) })}
+                    className="w-24 rounded-lg border-2 px-2 py-1.5 text-sm"
+                    style={inputStyle}
+                  />
+                  <span className="text-xs" style={{ color: theme.text.tertiary }}>px (0 = full)</span>
+                </label>
+              </div>
             </section>
 
             <div className="flex items-center gap-3">
@@ -543,6 +577,8 @@ export function AdminGridCollectionsPanel() {
                   title={{ fontFamily: fontStack(draft.title.fontId), size: draft.title.size }}
                   subtitle={{ fontFamily: fontStack(draft.subtitle.fontId), size: draft.subtitle.size }}
                   columns={draft.columns}
+                  gap={draft.gap}
+                  maxWidth={draft.maxWidth}
                 />
               )}
             </div>

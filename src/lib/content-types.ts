@@ -285,6 +285,23 @@ export type JMContentUpdate = Partial<Omit<JMContent, "id" | "creatorId" | "crea
  * A curated collection of content displayed as a horizontal scroller row
  * Stored in Firestore: /experiences/{experienceId}
  */
+/**
+ * Optional per-item "Attribution" overlay on a row item — a small banner in the
+ * cell's bottom-right corner (slanted left edge). Shown only when `title` is set.
+ * Keyed by contentId on the owning experience's `attributions` map.
+ */
+export interface RowItemAttribution {
+  title: string;
+  /** Background color (hex). Absent ⇒ brand purple. */
+  color?: string;
+  /** Text color (hex). Absent ⇒ white. */
+  textColor?: string;
+  /** Font id (FONT_CATALOG). Absent ⇒ helvetica. */
+  fontId?: string;
+  /** Font size in px. Absent ⇒ 12. */
+  size?: number;
+}
+
 export interface JMExperience {
   id: string;
   title: string;                  // Row title: "Trending Shows", "New Stories"
@@ -298,6 +315,8 @@ export interface JMExperience {
   contentType?: JMContentType | "auction";  // For feature rows: "auction" (more types later)
   contentIds: string[];           // Ordered array of content IDs; for feature: [singleId]
   autoPopulate?: boolean;         // If true, auto-populate from contentType (content rows only)
+  /** Optional per-item attribution overlays, keyed by contentId. */
+  attributions?: Record<string, RowItemAttribution>;
   
   // ─── Display ──────────────────────────────────────────────
   order: number;                  // Position on homepage (lower = higher)
@@ -322,6 +341,7 @@ export interface JMExperienceInput {
   contentType?: JMContentType | "auction";
   contentIds?: string[];
   autoPopulate?: boolean;
+  attributions?: Record<string, RowItemAttribution>;
   order?: number;
   rowScaleMobile?: number;
   rowScaleDesktop?: number;
@@ -398,6 +418,10 @@ export interface JMGridCollection {
   subtitle: GridCaptionStyle;
   /** Number of columns per device tier. */
   columns: GridColumns;
+  /** Gap between cells in px. */
+  gap: number;
+  /** Max overall grid width in px (0 ⇒ full width). */
+  maxWidth: number;
 
   creatorId: string;
   createdAt: Timestamp;
