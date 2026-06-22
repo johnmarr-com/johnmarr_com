@@ -117,6 +117,11 @@ export function HeroSegment({
       : {}),
   } as const;
 
+  // When a maxWidth is set, the segment caps + centers AND its inner content
+  // fills that width (the default max-w-* / per-block caps are relaxed so the
+  // setting actually widens or narrows the content, not just the outer band).
+  const capped = !!(maxWidth && maxWidth > 0);
+
   // Title / subtitle / CTAs — shared across every layout. The wrapping element
   // (per layout) owns width + alignment; this is just the content.
   const copyInner = (
@@ -206,14 +211,18 @@ export function HeroSegment({
   if (layout === "centered") {
     return (
       <section className="w-full overflow-hidden" style={card}>
-        <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-8 px-6 py-10 md:px-12 md:py-16">
+        <div
+          className={`mx-auto flex w-full ${capped ? "" : "max-w-4xl"} flex-col items-center gap-8 px-6 py-10 md:px-12 md:py-16`}
+        >
           <div className="flex w-full max-w-2xl flex-col items-center text-center">
             {copyInner}
           </div>
           {baseImage ? (
-            renderImage("w-full max-w-3xl rounded-xl object-contain")
+            renderImage(
+              `w-full ${capped ? "" : "max-w-3xl"} rounded-xl object-contain`,
+            )
           ) : (
-            <div className="w-full max-w-3xl">{placeholder}</div>
+            <div className={`w-full ${capped ? "" : "max-w-3xl"}`}>{placeholder}</div>
           )}
         </div>
       </section>
@@ -256,10 +265,12 @@ export function HeroSegment({
   const imageBlock = (
     <div
       key="image"
-      className={`flex w-full items-center justify-center md:w-auto ${imageOrderCls}`}
+      className={`flex w-full items-center justify-center ${capped ? "md:flex-1" : "md:w-auto"} ${imageOrderCls}`}
     >
       {baseImage ? (
-        renderImage("max-h-[440px] w-full rounded-lg object-contain md:max-w-xl")
+        renderImage(
+          `max-h-[440px] w-full rounded-lg object-contain ${capped ? "" : "md:max-w-xl"}`,
+        )
       ) : (
         <div className="w-full max-w-md">{placeholder}</div>
       )}
@@ -269,7 +280,7 @@ export function HeroSegment({
   const textBlock = (
     <div
       key="text"
-      className={`flex w-full max-w-xl flex-col items-center text-center md:w-auto md:max-w-md ${textOrderCls}`}
+      className={`flex w-full flex-col items-center text-center ${capped ? "md:flex-1" : "max-w-xl md:w-auto md:max-w-md"} ${textOrderCls}`}
     >
       {copyInner}
     </div>
@@ -278,7 +289,7 @@ export function HeroSegment({
   return (
     <section className="w-full overflow-hidden" style={card}>
       <div
-        className={`mx-auto flex w-full max-w-5xl items-center justify-center gap-8 px-6 py-10 md:gap-10 md:px-10 md:py-14 ${splitDirection}`}
+        className={`mx-auto flex w-full ${capped ? "" : "max-w-5xl"} items-center justify-center gap-8 px-6 py-10 md:gap-10 md:px-10 md:py-14 ${splitDirection}`}
       >
         {responsive
           ? [imageBlock, textBlock]
