@@ -420,8 +420,10 @@ export interface JMGridCollection {
   columns: GridColumns;
   /** Gap between cells in px. */
   gap: number;
-  /** Max overall grid width in px (0 ⇒ full width). */
+  /** Max overall grid width in px (0 ⇒ no px ceiling). */
   maxWidth: number;
+  /** Grid width as a % of available width (0/100 ⇒ full). Capped by maxWidth. */
+  maxWidthPercent: number;
 
   creatorId: string;
   createdAt: Timestamp;

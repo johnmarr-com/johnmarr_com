@@ -383,6 +383,7 @@ export interface ResolvedGrid {
   columns: GridColumns;
   gap: number;
   maxWidth: number;
+  maxWidthPercent: number;
 }
 
 /** Resolve a named grid collection: its content items + display settings. */
@@ -438,6 +439,12 @@ export async function getGridContentServer(
     },
     gap: typeof d["gap"] === "number" && d["gap"] >= 0 ? d["gap"] : 16,
     maxWidth: typeof d["maxWidth"] === "number" && d["maxWidth"] >= 0 ? d["maxWidth"] : 0,
+    maxWidthPercent:
+      typeof d["maxWidthPercent"] === "number" &&
+      d["maxWidthPercent"] > 0 &&
+      d["maxWidthPercent"] < 100
+        ? d["maxWidthPercent"]
+        : 0,
   };
 }
 

@@ -34,6 +34,7 @@ export const DEFAULT_GRID: Omit<
   columns: { desktop: 4, tablet: 3, mobile: 2 },
   gap: 16,
   maxWidth: 0,
+  maxWidthPercent: 0,
 };
 
 export async function listGridCollections(): Promise<JMGridCollection[]> {

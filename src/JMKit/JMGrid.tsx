@@ -25,8 +25,10 @@ interface JMGridProps {
   columns: { desktop: number; tablet: number; mobile: number };
   /** Gap between cells in px. */
   gap: number;
-  /** Max overall grid width in px (0 ⇒ full width). */
+  /** Max overall grid width in px (0 ⇒ no px ceiling). */
   maxWidth: number;
+  /** Grid width as a % of available (0/100 ⇒ full). Capped by maxWidth. */
+  maxWidthPercent?: number;
   onItemClick?: (item: JMGridItem) => void;
 }
 
@@ -73,6 +75,7 @@ export function JMGrid({
   columns,
   gap,
   maxWidth,
+  maxWidthPercent,
   onItemClick,
 }: JMGridProps) {
   const { theme } = useJMStyle();
@@ -83,10 +86,21 @@ export function JMGrid({
     COLS_MD[clampCols(columns.tablet)] ?? ""
   } ${COLS_LG[clampCols(columns.desktop)] ?? ""}`;
 
+  // Prefer the % of available width, capped by the px ceiling (CSS
+  // width:N% + max-width:Mpx), centered. Mirrors ScrollyFox max width.
+  const pct =
+    maxWidthPercent && maxWidthPercent > 0 && maxWidthPercent < 100
+      ? maxWidthPercent
+      : 0;
+  const widthStyle = {
+    ...(pct > 0 ? { width: `${pct}%` } : {}),
+    ...(maxWidth > 0 ? { maxWidth } : {}),
+  };
+
   return (
     <div
       className="@container mx-auto w-full"
-      style={maxWidth > 0 ? { maxWidth } : undefined}
+      style={Object.keys(widthStyle).length ? widthStyle : undefined}
     >
       <div className={`grid ${cols}`} style={{ gap }}>
         {items.map((item) => (

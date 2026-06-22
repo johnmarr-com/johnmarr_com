@@ -97,6 +97,8 @@ export function AdminGridCollectionsPanel() {
         cellRadius: typeof found.cellRadius === "number" ? found.cellRadius : 12,
         gap: typeof found.gap === "number" ? found.gap : 16,
         maxWidth: typeof found.maxWidth === "number" ? found.maxWidth : 0,
+        maxWidthPercent:
+          typeof found.maxWidthPercent === "number" ? found.maxWidthPercent : 0,
       });
     } else {
       setDraft(null);
@@ -212,6 +214,7 @@ export function AdminGridCollectionsPanel() {
         columns: draft.columns,
         gap: draft.gap,
         maxWidth: draft.maxWidth,
+        maxWidthPercent: draft.maxWidthPercent,
       };
       if (draft.contentType) updates.contentType = draft.contentType;
       await updateGridCollection(draft.id, updates);
@@ -514,6 +517,20 @@ export function AdminGridCollectionsPanel() {
                   <span className="text-xs" style={{ color: theme.text.tertiary }}>px</span>
                 </label>
                 <label className="flex items-center gap-2 text-sm" style={{ color: theme.text.secondary }}>
+                  Max width %
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={5}
+                    value={draft.maxWidthPercent}
+                    onChange={(e) => patch({ maxWidthPercent: Math.min(100, Math.max(0, Number(e.target.value) || 0)) })}
+                    className="w-20 rounded-lg border-2 px-2 py-1.5 text-sm"
+                    style={inputStyle}
+                  />
+                  <span className="text-xs" style={{ color: theme.text.tertiary }}>% (0 = full)</span>
+                </label>
+                <label className="flex items-center gap-2 text-sm" style={{ color: theme.text.secondary }}>
                   Max width
                   <input
                     type="number"
@@ -525,7 +542,7 @@ export function AdminGridCollectionsPanel() {
                     className="w-24 rounded-lg border-2 px-2 py-1.5 text-sm"
                     style={inputStyle}
                   />
-                  <span className="text-xs" style={{ color: theme.text.tertiary }}>px (0 = full)</span>
+                  <span className="text-xs" style={{ color: theme.text.tertiary }}>px ceiling (0 = none)</span>
                 </label>
               </div>
             </section>
@@ -579,6 +596,7 @@ export function AdminGridCollectionsPanel() {
                   columns={draft.columns}
                   gap={draft.gap}
                   maxWidth={draft.maxWidth}
+                  maxWidthPercent={draft.maxWidthPercent}
                 />
               )}
             </div>
