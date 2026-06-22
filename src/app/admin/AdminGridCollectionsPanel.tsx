@@ -87,9 +87,17 @@ export function AdminGridCollectionsPanel() {
     void load();
   }, [load]);
 
-  // Sync the editable draft when the selection changes.
+  // Sync the editable draft when the selection changes. Coerce fields that may
+  // be absent on grids created before they existed (e.g. cellRadius).
   useEffect(() => {
-    setDraft(grids.find((g) => g.id === gridId) ?? null);
+    const found = grids.find((g) => g.id === gridId);
+    if (found) {
+      const cellRadius =
+        typeof found.cellRadius === "number" ? found.cellRadius : 12;
+      setDraft({ ...found, cellRadius });
+    } else {
+      setDraft(null);
+    }
     setSavedAt(false);
   }, [gridId, grids]);
 
@@ -192,6 +200,7 @@ export function AdminGridCollectionsPanel() {
         autoPopulate: draft.autoPopulate ?? false,
         contentIds: draft.contentIds,
         cellAspect: draft.cellAspect,
+        cellRadius: draft.cellRadius,
         textAlign: draft.textAlign,
         showTitle: draft.showTitle,
         showSubtitle: draft.showSubtitle,
@@ -415,6 +424,24 @@ export function AdminGridCollectionsPanel() {
                 value={draft.textAlign}
                 onChange={(v) => patch({ textAlign: v })}
               />
+              <label className="flex items-center gap-3 text-sm" style={{ color: theme.text.secondary }}>
+                <span className="w-14">Radius</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={48}
+                  value={draft.cellRadius}
+                  onChange={(e) =>
+                    patch({ cellRadius: Math.min(48, Math.max(0, Number(e.target.value) || 0)) })
+                  }
+                  className="w-20 rounded-lg border-2 px-2 py-1.5 text-sm"
+                  style={inputStyle}
+                  aria-label="Cell corner radius"
+                />
+                <span className="text-xs" style={{ color: theme.text.tertiary }}>
+                  px
+                </span>
+              </label>
             </section>
 
             {/* Title + subtitle captions */}
@@ -509,6 +536,7 @@ export function AdminGridCollectionsPanel() {
                 <JMGrid
                   items={previewItems}
                   cellAspect={draft.cellAspect}
+                  cellRadius={draft.cellRadius}
                   textAlign={draft.textAlign}
                   showTitle={draft.showTitle}
                   showSubtitle={draft.showSubtitle}

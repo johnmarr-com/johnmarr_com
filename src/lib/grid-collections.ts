@@ -25,6 +25,7 @@ export const DEFAULT_GRID: Omit<
   contentIds: [],
   autoPopulate: false,
   cellAspect: "portrait",
+  cellRadius: 12,
   textAlign: "center",
   showTitle: true,
   showSubtitle: false,

@@ -343,6 +343,7 @@ export async function getHomeRowsServer(pageId = "home"): Promise<HomeRow[]> {
 export interface ResolvedGrid {
   items: HomeRowItem[];
   cellAspect: GridCellAspect;
+  cellRadius: number;
   textAlign: GridTextAlign;
   showTitle: boolean;
   showSubtitle: boolean;
@@ -378,9 +379,14 @@ export async function getGridContentServer(
   const num = (v: unknown, fallback: number): number =>
     typeof v === "number" && v > 0 ? v : fallback;
 
+  const radiusRaw = d["cellRadius"];
+  const cellRadius =
+    typeof radiusRaw === "number" && radiusRaw >= 0 ? radiusRaw : 12;
+
   return {
     items,
     cellAspect,
+    cellRadius,
     textAlign,
     showTitle: d["showTitle"] !== false,
     showSubtitle: d["showSubtitle"] === true,

@@ -15,6 +15,8 @@ export interface JMGridItem {
 interface JMGridProps {
   items: JMGridItem[];
   cellAspect: "landscape" | "portrait" | "square";
+  /** Cell image corner radius in px. */
+  cellRadius: number;
   textAlign: "left" | "center" | "right";
   showTitle: boolean;
   showSubtitle: boolean;
@@ -58,6 +60,7 @@ const clampCols = (n: number): number => Math.min(8, Math.max(1, Math.round(n)))
 export function JMGrid({
   items,
   cellAspect,
+  cellRadius,
   textAlign,
   showTitle,
   showSubtitle,
@@ -85,8 +88,11 @@ export function JMGrid({
             className={`group flex flex-col gap-2 ${ALIGN[textAlign]}`}
           >
             <div
-              className={`w-full overflow-hidden rounded-xl ${ASPECT[cellAspect]}`}
-              style={{ backgroundColor: theme.surfaces.elevated1 }}
+              className={`w-full overflow-hidden ${ASPECT[cellAspect]}`}
+              style={{
+                backgroundColor: theme.surfaces.elevated1,
+                borderRadius: cellRadius,
+              }}
             >
               {item.coverURL && (
                 // eslint-disable-next-line @next/next/no-img-element -- dynamic content cover URL

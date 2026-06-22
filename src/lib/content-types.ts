@@ -389,6 +389,8 @@ export interface JMGridCollection {
 
   // ─── Display (top-layer settings) ───
   cellAspect: GridCellAspect;
+  /** Cell image corner radius in px (0 = square corners). */
+  cellRadius: number;
   textAlign: GridTextAlign;
   showTitle: boolean;
   showSubtitle: boolean;
