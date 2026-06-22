@@ -262,14 +262,20 @@ export function HeroSegment({
     ? `${IMG[flip(imM)]} ${IMG_MD[flip(imT)]} ${IMG_LG[flip(imD)]}`
     : "";
 
+  // Capped: image + text become proportional columns (~1.3 : 1, like the
+  // content-sized pair) that fill the chosen width, and the image is
+  // width-driven with AUTO height so it scales — no height cap, no letterbox
+  // gap. Uncapped: the original content-sized, tightly-centered pair.
   const imageBlock = (
     <div
       key="image"
-      className={`flex w-full items-center justify-center ${capped ? "md:flex-1" : "md:w-auto"} ${imageOrderCls}`}
+      className={`flex w-full items-center justify-center ${capped ? "md:min-w-0 md:flex-[1.3_1_0%]" : "md:w-auto"} ${imageOrderCls}`}
     >
       {baseImage ? (
         renderImage(
-          `max-h-[440px] w-full rounded-lg object-contain ${capped ? "" : "md:max-w-xl"}`,
+          capped
+            ? "h-auto w-full rounded-lg"
+            : "max-h-[440px] w-full rounded-lg object-contain md:max-w-xl",
         )
       ) : (
         <div className="w-full max-w-md">{placeholder}</div>
@@ -280,7 +286,7 @@ export function HeroSegment({
   const textBlock = (
     <div
       key="text"
-      className={`flex w-full flex-col items-center text-center ${capped ? "md:flex-1" : "max-w-xl md:w-auto md:max-w-md"} ${textOrderCls}`}
+      className={`flex w-full flex-col items-center text-center ${capped ? "md:min-w-0 md:flex-1" : "max-w-xl md:w-auto md:max-w-md"} ${textOrderCls}`}
     >
       {copyInner}
     </div>
