@@ -82,7 +82,10 @@ export function useLineupSession(
 
   const state: LineupState = {
     session,
-    luPhase: (data?.["luPhase"] as LineupPhase) ?? "collecting",
+    // Unset until the engine opens the game on Start → "lobby" (the waiting
+    // screen). The engine only ever writes a real phase once status is
+    // "playing", so an absent value always means "not started yet".
+    luPhase: (data?.["luPhase"] as LineupPhase) ?? "lobby",
     luSubmitted: (data?.["luSubmitted"] as Record<string, boolean>) ?? {},
     luCurrentIndex: (data?.["luCurrentIndex"] as number) ?? 0,
     luCurrentFact: (data?.["luCurrentFact"] as string) ?? "",

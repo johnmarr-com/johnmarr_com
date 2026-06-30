@@ -37,3 +37,10 @@ export async function submitVote(
 ): Promise<{ ok: boolean; error?: string }> {
   return luRequest({ action: "submit-vote", sessionId, votedForUid });
 }
+
+/** Host-only: advance the results phase immediately (the timer is the fallback). */
+export async function advanceResults(
+  sessionId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  return luRequest({ action: "advance", sessionId });
+}

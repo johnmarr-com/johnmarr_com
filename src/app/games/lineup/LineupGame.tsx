@@ -16,14 +16,14 @@ import { PointsManager, Activity } from "@/lib/points";
 import type { JMContent } from "@/lib/content-types";
 import type { GameEndResult } from "@/app/games/_gamecore/registry/types";
 import { useLineupSession } from "./useLineupSession";
-import { submitFact, submitVote } from "./lineupApi";
+import { submitFact, submitVote, advanceResults } from "./lineupApi";
 import SubmitFactScreen from "./screens/SubmitFactScreen";
 import VoteScreen from "./screens/VoteScreen";
 import ResultsScreen from "./screens/ResultsScreen";
 
-// Phase timer durations for the progress bar — keep in sync with the lineup
-// reducer (COLLECT_MS / VOTE_MS).
-const LU_COLLECT_MS = 90_000;
+// Voting progress-bar duration — keep in sync with the lineup reducer (VOTE_MS).
+// Collecting has no visible timer (silent server net) and results is driven by
+// the host's Advance + a server fallback, so neither needs a client duration.
 const LU_VOTE_MS = 40_000;
 
 interface LineupGameProps {
@@ -105,6 +105,11 @@ export default function LineupGame({
     [sessionId],
   );
 
+  const handleAdvance = useCallback(async () => {
+    const result = await advanceResults(sessionId);
+    if (!result.ok) throw new Error(result.error);
+  }, [sessionId]);
+
   // ─── Delegate to the composeGame result screen on final ─────
   const gameEndFiredRef = useRef(false);
   useEffect(() => {
@@ -145,12 +150,33 @@ export default function LineupGame({
         />
       )}
 
+      {/* Lobby / waiting — joined, waiting for the host to hit Start (the engine
+          hasn't opened the game yet). Mirrors the other games' waiting screen. */}
+      {luPhase === "lobby" && (
+        <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 px-6">
+          {gameLogoURL != null && gameLogoURL.length > 0 && (
+            <div className="motion-reduce:animate-none animate-[float_3s_ease-in-out_infinite]">
+              <Image
+                src={gameLogoURL}
+                alt=""
+                width={400}
+                height={200}
+                className="h-36 w-auto max-w-[min(400px,85vw)] object-contain drop-shadow-lg select-none sm:h-48"
+                priority={false}
+              />
+            </div>
+          )}
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-white border-t-transparent drop-shadow-lg" />
+          <p className="text-sm font-bold uppercase tracking-wider text-white drop-shadow-lg">
+            Waiting for game to start&hellip;
+          </p>
+        </div>
+      )}
+
       {/* Collecting phase — everyone writes a fact */}
       {luPhase === "collecting" && (
         <div className="relative z-10 flex min-h-0 flex-1 flex-col">
           <SubmitFactScreen
-            deadline={phaseDeadlineAt}
-            timerDurationMs={LU_COLLECT_MS}
             hasSubmitted={hasSubmitted}
             submissionCount={submissionCount}
             totalPlayers={players.length}
@@ -189,6 +215,8 @@ export default function LineupGame({
             votes={luVotes}
             players={players}
             scores={luScores}
+            isHost={isHost}
+            onAdvance={handleAdvance}
           />
         </div>
       )}
@@ -205,7 +233,7 @@ export default function LineupGame({
 
       {/* HUD: gamertag + logo */}
       <GameGamertagBadge />
-      {(luPhase === "collecting" || luPhase === "final") && (
+      {(luPhase === "lobby" || luPhase === "collecting" || luPhase === "final") && (
         <Link href="/" className="absolute left-3 top-3 z-60">
           <JMSimpleButton
             title="EXIT"
@@ -218,7 +246,7 @@ export default function LineupGame({
           </JMSimpleButton>
         </Link>
       )}
-      {gameLogoURL && luPhase !== "final" && (
+      {gameLogoURL && luPhase !== "final" && luPhase !== "lobby" && (
         <div className="pointer-events-none absolute right-[-8px] top-2 z-20 animate-[wk-slide-in-tr_0.6s_ease-out_both]">
           <Image
             src={gameLogoURL}

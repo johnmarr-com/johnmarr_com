@@ -2,11 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { useGameColors, PhaseTimerBar } from "@/app/games/_gamecore";
+import { useGameColors } from "@/app/games/_gamecore";
 
 interface SubmitFactScreenProps {
-  deadline: number;
-  timerDurationMs: number;
   hasSubmitted: boolean;
   submissionCount: number;
   totalPlayers: number;
@@ -17,8 +15,6 @@ const MAX = 200;
 const MIN = 2;
 
 export default function SubmitFactScreen({
-  deadline,
-  timerDurationMs,
   hasSubmitted,
   submissionCount,
   totalPlayers,
@@ -53,8 +49,6 @@ export default function SubmitFactScreen({
     <div className="flex min-h-0 flex-1 flex-col items-center gap-5 overflow-y-auto px-4 pb-6 pt-28">
       {!hasSubmitted ? (
         <div className="flex w-full max-w-md animate-[wk-fade-up_0.5s_ease-out_both] flex-col items-center gap-7">
-          <PhaseTimerBar deadline={deadline} durationMs={timerDurationMs} />
-
           <div className="w-full">
             <label className="mb-6 block text-center text-sm font-bold uppercase tracking-wider text-white drop-shadow-md">
               Share a <strong>fun fact</strong> about yourself

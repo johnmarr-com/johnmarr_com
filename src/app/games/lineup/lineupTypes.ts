@@ -11,6 +11,7 @@ import type { GameSession } from "@/lib/game-sessions";
 // ─── Phase ──────────────────────────────────────────────────
 
 export type LineupPhase =
+  | "lobby" // joined, waiting for the host to hit Start (engine hasn't opened the game yet)
   | "collecting" // everyone writes a fun fact about themselves
   | "voting" // one fact shown; everyone else guesses the author
   | "results" // author revealed, correct guessers scored

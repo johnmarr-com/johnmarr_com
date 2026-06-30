@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { JMAvatarView } from "@/JMKit";
 import { useGameColors } from "@/app/games/_gamecore";
 import type { GameSessionPlayer } from "@/lib/game-sessions";
@@ -15,6 +15,9 @@ interface ResultsScreenProps {
   players: GameSessionPlayer[];
   /** Cumulative scores. */
   scores: Record<string, number>;
+  /** Host-only "Advance" control — skip the results hold and move on now. */
+  isHost?: boolean;
+  onAdvance?: () => Promise<void>;
 }
 
 export default function ResultsScreen({
@@ -24,8 +27,21 @@ export default function ResultsScreen({
   votes,
   players,
   scores,
+  isHost = false,
+  onAdvance,
 }: ResultsScreenProps) {
   const { primary, secondary } = useGameColors();
+  const [advancing, setAdvancing] = useState(false);
+
+  const handleAdvanceClick = async () => {
+    if (advancing || !onAdvance) return;
+    setAdvancing(true);
+    try {
+      await onAdvance();
+    } catch {
+      setAdvancing(false); // re-enable on failure; the timer is still the fallback
+    }
+  };
 
   const playerMap = useMemo(() => {
     const m = new Map<string, GameSessionPlayer>();
@@ -138,10 +154,21 @@ export default function ResultsScreen({
         </div>
       </div>
 
-      {/* Server-authoritative: the engine advances after the results hold. */}
+      {/* Auto-advances after the hold; the host can skip ahead with Advance. */}
       <p className="mt-2 text-center text-sm font-semibold text-white">
         {factNumber < totalFacts ? "Next fact starting" : "Final results"}&hellip;
       </p>
+
+      {isHost && onAdvance && (
+        <button
+          onClick={handleAdvanceClick}
+          disabled={advancing}
+          className="mt-1 w-full max-w-md rounded-xl py-4 text-lg font-black uppercase tracking-wider text-black shadow-lg transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-60"
+          style={{ backgroundColor: primary, boxShadow: `0 10px 15px -3px ${primary}40` }}
+        >
+          {advancing ? "…" : factNumber < totalFacts ? "Advance ▸" : "Show Winner ▸"}
+        </button>
+      )}
     </div>
   );
 }

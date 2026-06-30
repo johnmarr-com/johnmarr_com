@@ -46,11 +46,13 @@ import {
 
 const ENGINE_KEY = "lineup";
 
-// Deadline durations (the no-show fallback; play advances instantly once
-// everyone has acted). Collect a fact 90s / vote on a fact 40s / results ~20s.
-const COLLECT_MS = 90_000;
+// Deadline durations. Collecting has NO visible timer — it's a silent no-show
+// net (generous, so writing a fun fact isn't rushed) and advances the instant
+// everyone has submitted. Results auto-advances as a fallback, but the host can
+// ADVANCE early (inbox.advance). Voting keeps a visible timer.
+const COLLECT_MS = 120_000;
 const VOTE_MS = 40_000;
-const RESULTS_MS = 20_000;
+const RESULTS_MS = 60_000;
 
 const ACTIVE_PHASES = new Set(["collecting", "voting", "results"]);
 
@@ -201,17 +203,26 @@ const lineupReducer: Reducer = {
       };
     }
 
-    // results → next fact or final: auto-advance when the results hold passes.
+    // results → next fact or final: auto-advance when the results hold passes,
+    // OR immediately when the host taps ADVANCE (inbox.advance, host-validated
+    // by the API route). The deadline remains the fallback if the host never taps.
     if (phase === "results") {
-      if (now < deadline) return null;
+      const advanceReq = Object.keys(s.inbox?.["advance"] ?? {}).length > 0;
+      if (now < deadline && !advanceReq) return null;
+      const clearAdvance: Record<string, unknown> = advanceReq
+        ? { "inbox.advance": FieldValue.delete() }
+        : {};
       const order = secret?.factOrder ?? [];
       const idx = (s["luCurrentIndex"] as number | undefined) ?? 0;
       if (idx + 1 < order.length) {
         const nextIdx = idx + 1;
         const nextAuthor = order[nextIdx]!;
-        logger.info(`[lineup] ${sid}: results → voting (fact ${nextIdx + 1}/${order.length})`);
+        logger.info(
+          `[lineup] ${sid}: results → voting (fact ${nextIdx + 1}/${order.length})${advanceReq ? " [host advance]" : ""}`,
+        );
         return {
           fields: {
+            ...clearAdvance,
             luCurrentIndex: nextIdx,
             luCurrentFact: factOf(nextAuthor),
             luVotes: {},
@@ -225,6 +236,7 @@ const lineupReducer: Reducer = {
       logger.info(`[lineup] ${sid}: results → final — winners=[${winners.join(",")}] pts=${points}`);
       return {
         fields: {
+          ...clearAdvance,
           luWinners: winners,
           luWinnerPoints: points,
           luPhase: "final",

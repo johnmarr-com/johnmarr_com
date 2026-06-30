@@ -73,6 +73,10 @@ export async function POST(request: NextRequest) {
       return handleSubmitVote(body, uid);
     }
 
+    if (action === "advance") {
+      return handleAdvance(body, uid);
+    }
+
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (err) {
     console.error(`[LINEUP] Error for uid=${uid}:`, err);
@@ -216,5 +220,45 @@ async function handleSubmitVote(body: unknown, uid: string): Promise<NextRespons
     updatedAt: FieldValue.serverTimestamp(),
   });
 
+  return NextResponse.json({ ok: true });
+}
+
+// ─── ADVANCE (host-only, results phase) ─────────────────────
+
+interface AdvanceBody {
+  action: "advance";
+  sessionId: string;
+}
+
+/**
+ * The host taps "Advance" on the results screen to move on early. Writes an
+ * `inbox.advance` event the engine consumes to advance immediately; the results
+ * deadline remains the fallback if the host never taps it.
+ */
+async function handleAdvance(body: unknown, uid: string): Promise<NextResponse> {
+  const { sessionId } = body as AdvanceBody;
+  if (!sessionId) {
+    return NextResponse.json({ error: "Missing sessionId" }, { status: 400 });
+  }
+
+  const db = getAdminFirestore();
+  const sessionRef = db.doc(`gameSessions/${sessionId}`);
+  const sessionSnap = await sessionRef.get();
+  if (!sessionSnap.exists) {
+    return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  }
+  const data = sessionSnap.data()!;
+
+  if (data["ownerId"] !== uid) {
+    return NextResponse.json({ error: "Only the host can advance" }, { status: 403 });
+  }
+  if (data["luPhase"] !== "results") {
+    return NextResponse.json({ error: "Can only advance from results" }, { status: 409 });
+  }
+
+  await sessionRef.update({
+    [`inbox.advance.${uid}`]: { eventId: `${uid}-${Date.now()}`, at: Date.now() },
+    updatedAt: FieldValue.serverTimestamp(),
+  });
   return NextResponse.json({ ok: true });
 }
