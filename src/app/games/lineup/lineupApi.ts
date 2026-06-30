@@ -30,12 +30,13 @@ export async function submitFact(
   return luRequest({ action: "submit-fact", sessionId, fact });
 }
 
-/** Guess who wrote the current fact. */
+/** Guess who wrote the current fact, with an optional wager (0 = None). */
 export async function submitVote(
   sessionId: string,
   votedForUid: string,
+  wager = 0,
 ): Promise<{ ok: boolean; error?: string }> {
-  return luRequest({ action: "submit-vote", sessionId, votedForUid });
+  return luRequest({ action: "submit-vote", sessionId, votedForUid, wager });
 }
 
 /** Host-only: advance the results phase immediately (the timer is the fallback). */

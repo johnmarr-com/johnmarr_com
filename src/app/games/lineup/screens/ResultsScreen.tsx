@@ -61,6 +61,7 @@ export default function ResultsScreen({
       voterUid,
       guessed: playerMap.get(guessedUid),
       correct: guessedUid === reveal.authorUid,
+      delta: reveal.roundDeltas[voterUid] ?? 0,
     }))
     .sort((a, b) => (a.correct === b.correct ? 0 : a.correct ? -1 : 1));
 
@@ -118,8 +119,11 @@ export default function ResultsScreen({
                 <span className="shrink-0 text-xs font-semibold text-white/50">
                   → {g.guessed?.gamertag ?? "—"}
                 </span>
-                <span className="ml-1 shrink-0 text-sm font-black tabular-nums" style={{ color: g.correct ? primary : "#ffffff40" }}>
-                  {g.correct ? "+1" : "✗"}
+                <span
+                  className="ml-1 shrink-0 text-sm font-black tabular-nums"
+                  style={{ color: g.delta > 0 ? primary : g.delta < 0 ? "#f87171" : "#ffffff60" }}
+                >
+                  {g.delta > 0 ? `+${g.delta}` : g.delta < 0 ? `${g.delta}` : "—"}
                 </span>
               </div>
             ))}

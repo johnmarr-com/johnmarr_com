@@ -6,6 +6,8 @@ import { useGameColors, PhaseTimerBar } from "@/app/games/_gamecore";
 import type { GameSessionPlayer } from "@/lib/game-sessions";
 import FactCard from "./FactCard";
 
+const WAGER_OPTIONS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50];
+
 interface VoteScreenProps {
   fact: string;
   factNumber: number;
@@ -19,7 +21,7 @@ interface VoteScreenProps {
   hasVoted: boolean;
   voteCount: number;
   totalVoters: number;
-  onVote: (votedForUid: string) => Promise<void>;
+  onVote: (votedForUid: string, wager: number) => Promise<void>;
 }
 
 export default function VoteScreen({
@@ -40,6 +42,8 @@ export default function VoteScreen({
   const [confirmTarget, setConfirmTarget] = useState<GameSessionPlayer | null>(null);
   const [dismissing, setDismissing] = useState(false);
   const [voting, setVoting] = useState(false);
+  const [wager, setWager] = useState(0);
+  const [showWager, setShowWager] = useState(false);
 
   const dismissModal = () => {
     setDismissing(true);
@@ -53,7 +57,7 @@ export default function VoteScreen({
     if (!confirmTarget || voting) return;
     setVoting(true);
     try {
-      await onVote(confirmTarget.uid);
+      await onVote(confirmTarget.uid, wager);
     } catch {
       setVoting(false);
     }
@@ -104,7 +108,11 @@ export default function VoteScreen({
             return (
               <button
                 key={p.uid}
-                onClick={() => setConfirmTarget(p)}
+                onClick={() => {
+                  setConfirmTarget(p);
+                  setWager(0);
+                  setShowWager(false);
+                }}
                 className="flex w-full items-center gap-3 rounded-xl border border-transparent px-4 py-3 text-left text-white transition-all hover:scale-[1.01] active:scale-95"
                 style={{
                   background: `linear-gradient(135deg, #0d9488 0%, ${tertiary} 50%, #0d9488 100%)`,
@@ -148,9 +156,42 @@ export default function VoteScreen({
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="mb-4 text-center text-lg font-bold text-white">
+            <p className="mb-3 text-center text-lg font-bold text-white">
               You think <strong>{confirmTarget.gamertag}</strong> wrote this?
             </p>
+
+            {/* Optional wager — risk points for a bigger payoff */}
+            <button
+              onClick={() => setShowWager((s) => !s)}
+              className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl border border-black/20 bg-black/30 py-2.5 text-sm font-bold uppercase tracking-wider text-white transition-all active:scale-95"
+            >
+              Wager: {wager === 0 ? "None" : wager}
+              <span className="text-white/60">{showWager ? "▴" : "▾"}</span>
+            </button>
+            {showWager && (
+              <div className="mb-2 flex flex-wrap justify-center gap-2">
+                {WAGER_OPTIONS.map((w) => (
+                  <button
+                    key={w}
+                    onClick={() => {
+                      setWager(w);
+                      setShowWager(false);
+                    }}
+                    className={`min-w-[44px] rounded-lg px-3 py-2 text-sm font-black tabular-nums transition-all active:scale-90 ${
+                      w === wager ? "text-black" : "bg-black/40 text-white"
+                    }`}
+                    style={w === wager ? { backgroundColor: primary } : undefined}
+                  >
+                    {w === 0 ? "None" : w}
+                  </button>
+                ))}
+              </div>
+            )}
+            <p className="mb-4 text-center text-xs font-semibold text-white/70">
+              Right <span className="font-black text-white">+{10 + 2 * wager}</span>
+              {"  ·  "}Wrong <span className="font-black text-white">-{5 + wager}</span>
+            </p>
+
             <div className="flex gap-3">
               <button
                 onClick={dismissModal}

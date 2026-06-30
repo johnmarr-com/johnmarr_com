@@ -169,12 +169,14 @@ interface SubmitVoteBody {
   action: "submit-vote";
   sessionId: string;
   votedForUid: string;
+  /** Optional wager: 0 ("None") or a multiple of 5 from 5–50. */
+  wager?: number;
 }
 
 /** Cast a guess for who wrote the current fact. The author doesn't vote on
  *  their own fact (the engine excludes them); a stray author vote is harmless. */
 async function handleSubmitVote(body: unknown, uid: string): Promise<NextResponse> {
-  const { sessionId, votedForUid } = body as SubmitVoteBody;
+  const { sessionId, votedForUid, wager } = body as SubmitVoteBody;
   if (!sessionId || typeof votedForUid !== "string" || !votedForUid) {
     return NextResponse.json({ error: "Missing sessionId or votedForUid" }, { status: 400 });
   }
@@ -215,8 +217,15 @@ async function handleSubmitVote(body: unknown, uid: string): Promise<NextRespons
     return NextResponse.json({ error: "Already voted" }, { status: 400 });
   }
 
+  // Optional wager: None (0) or a multiple of 5 from 5–50.
+  const w = typeof wager === "number" ? wager : 0;
+  if (!(w === 0 || (w >= 5 && w <= 50 && w % 5 === 0))) {
+    return NextResponse.json({ error: "Invalid wager" }, { status: 400 });
+  }
+
   await sessionRef.update({
     [`luVotes.${uid}`]: votedForUid,
+    [`luWagers.${uid}`]: w,
     updatedAt: FieldValue.serverTimestamp(),
   });
 

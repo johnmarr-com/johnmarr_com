@@ -98,8 +98,8 @@ export default function LineupGame({
   );
 
   const handleVote = useCallback(
-    async (votedForUid: string) => {
-      const result = await submitVote(sessionId, votedForUid);
+    async (votedForUid: string, wager: number) => {
+      const result = await submitVote(sessionId, votedForUid, wager);
       if (!result.ok) throw new Error(result.error);
     },
     [sessionId],

@@ -67,6 +67,7 @@ interface LineupReveal {
   authorGamertag: string;
   fact: string;
   correctVoterUids: string[];
+  roundDeltas: Record<string, number>;
 }
 
 const lineupReducer: Reducer = {
@@ -117,6 +118,7 @@ const lineupReducer: Reducer = {
             luScores: initScores(uids),
             luSubmitted: {},
             luVotes: {},
+            luWagers: {},
             luReveal: null,
             luCurrentIndex: 0,
             luCurrentFact: "",
@@ -163,6 +165,7 @@ const lineupReducer: Reducer = {
           luCurrentIndex: 0,
           luCurrentFact: factOf(firstAuthor),
           luVotes: {},
+          luWagers: {},
           luReveal: null,
           phaseDeadlineAt: now + VOTE_MS,
         },
@@ -182,15 +185,17 @@ const lineupReducer: Reducer = {
 
       const eligibleVoters = uids.filter((uid) => uid !== authorUid);
       const votes = (s["luVotes"] as StrMap | undefined) ?? {};
+      const wagers = (s["luWagers"] as NumMap | undefined) ?? {};
       const allVoted = eligibleVoters.every((uid) => votes[uid] != null);
       if (!allVoted && now < deadline) return null;
 
-      const { deltas, correctVoterUids } = scoreGuessRound(votes, authorUid, eligibleVoters);
+      const { deltas, correctVoterUids } = scoreGuessRound(votes, wagers, authorUid, eligibleVoters);
       const reveal: LineupReveal = {
         authorUid,
         authorGamertag: players.find((p) => p.uid === authorUid)?.gamertag ?? "Someone",
         fact: factOf(authorUid) || ((s["luCurrentFact"] as string) ?? ""),
         correctVoterUids,
+        roundDeltas: deltas,
       };
       logger.info(`[lineup] ${sid}: voting → results (fact ${idx + 1}/${order.length})`);
       return {
@@ -226,6 +231,7 @@ const lineupReducer: Reducer = {
             luCurrentIndex: nextIdx,
             luCurrentFact: factOf(nextAuthor),
             luVotes: {},
+            luWagers: {},
             luReveal: null,
             luPhase: "voting",
             phaseDeadlineAt: now + VOTE_MS,
