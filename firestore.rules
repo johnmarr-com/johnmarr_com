@@ -714,6 +714,22 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Lineup — per-player secret fun fact. A player may read their OWN fact (so
+    // their client knows when the on-screen fact is theirs and sits out the
+    // round); others' are NEVER readable, so authorship can't be peeked before
+    // the reveal. Admin-SDK writes only (the Lineup API route + gameEngine).
+    match /lineupFacts/{sessionId}/facts/{uid} {
+      allow read: if isAuthenticated() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // Lineup — the shuffled fact order (index → author), server-only so the
+    // mapping can't leak before the reveal. Written by gameEngine; never
+    // client-readable.
+    match /lineupSecret/{sessionId} {
+      allow read, write: if false;
+    }
+
     // Legacy sevyn collections — read-only for migration (remove after migration)
     match /sevynHeists/{heistId} {
       allow read: if true;
