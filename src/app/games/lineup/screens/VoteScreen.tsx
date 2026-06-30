@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { JMAvatarView } from "@/JMKit";
-import { useGameColors, PhaseTimerBar } from "@/app/games/_gamecore";
+import { useGameColors, PhaseTimerBar, toPickerColors } from "@/app/games/_gamecore";
 import type { GameSessionPlayer } from "@/lib/game-sessions";
 import FactCard from "./FactCard";
 
@@ -21,6 +21,8 @@ interface VoteScreenProps {
   hasVoted: boolean;
   voteCount: number;
   totalVoters: number;
+  /** Backdrop dim (0–100) from the game's CMS background-opacity setting. */
+  bgDim: number;
   onVote: (votedForUid: string, wager: number) => Promise<void>;
 }
 
@@ -36,9 +38,18 @@ export default function VoteScreen({
   hasVoted,
   voteCount,
   totalVoters,
+  bgDim,
   onVote,
 }: VoteScreenProps) {
-  const { primary, tertiary, danger } = useGameColors();
+  const { primary, tertiary, danger, modalBg, modalAccent, modalTab, modalBorder } = useGameColors();
+  // CMS-driven modal palette (background / highlight / border), same pattern as
+  // the pack pickers; falls back to the game's core colors when unset.
+  const mc = toPickerColors({
+    background: modalBg || danger,
+    accent: modalAccent || primary,
+    tab: modalTab || primary,
+    border: modalBorder || tertiary,
+  });
   const [confirmTarget, setConfirmTarget] = useState<GameSessionPlayer | null>(null);
   const [dismissing, setDismissing] = useState(false);
   const [voting, setVoting] = useState(false);
@@ -143,15 +154,15 @@ export default function VoteScreen({
           className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm"
           style={{
             animation: `${dismissing ? "wk-overlay-out" : "wk-overlay-in"} 0.2s ease-out both`,
-            backgroundColor: "rgba(0,0,0,0.7)",
+            backgroundColor: `rgba(0,0,0,${bgDim / 100})`,
           }}
           onClick={dismissModal}
         >
           <div
             className="mx-4 w-full max-w-sm rounded-2xl border-[6px] p-6"
             style={{
-              backgroundColor: danger,
-              borderColor: tertiary,
+              backgroundColor: mc.background,
+              borderColor: mc.border ?? tertiary,
               animation: `${dismissing ? "wk-modal-out" : "wk-modal-in"} 0.2s ease-out both`,
             }}
             onClick={(e) => e.stopPropagation()}
@@ -178,16 +189,16 @@ export default function VoteScreen({
                       setShowWager(false);
                     }}
                     className={`min-w-[44px] rounded-lg px-3 py-2 text-sm font-black tabular-nums transition-all active:scale-90 ${
-                      w === wager ? "text-black" : "bg-black/40 text-white"
+                      w === wager ? "" : "bg-black/40 text-white"
                     }`}
-                    style={w === wager ? { backgroundColor: primary } : undefined}
+                    style={w === wager ? { backgroundColor: mc.accent, color: mc.buttonText } : undefined}
                   >
                     {w === 0 ? "None" : w}
                   </button>
                 ))}
               </div>
             )}
-            <p className="mb-4 text-center text-xs font-semibold text-white/70">
+            <p className="mb-7 text-center text-xs font-semibold text-white/70">
               Right <span className="font-black text-white">+{10 + 2 * wager}</span>
               {"  ·  "}Wrong <span className="font-black text-white">-{5 + wager}</span>
             </p>
@@ -202,8 +213,8 @@ export default function VoteScreen({
               <button
                 onClick={handleConfirm}
                 disabled={voting}
-                className="flex-1 rounded-xl py-3 text-base font-bold uppercase tracking-wider text-black transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
-                style={{ backgroundColor: primary }}
+                className="flex-1 rounded-xl py-3 text-base font-bold uppercase tracking-wider transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
+                style={{ backgroundColor: mc.accent, color: mc.buttonText }}
               >
                 {voting ? "…" : "Lock it in"}
               </button>

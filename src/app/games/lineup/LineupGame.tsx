@@ -40,6 +40,7 @@ export default function LineupGame({
   sessionId,
   splashBgURL,
   gameLogoURL,
+  gameData,
   onGameEnd,
 }: LineupGameProps) {
   const { user } = useAuth();
@@ -67,6 +68,7 @@ export default function LineupGame({
   const players = useMemo(() => session?.players ?? [], [session?.players]);
   const playerUids = players.map((p) => p.uid);
   const kicked = session?.kickedUids?.includes(userId) ?? false;
+  const bgDim = gameData?.splashBgDim ?? 50;
 
   // Nudge the engine the instant a timed phase deadline passes, so it advances
   // without waiting for the 1-minute sweep.
@@ -200,6 +202,7 @@ export default function LineupGame({
             hasVoted={hasVoted}
             voteCount={voteCount}
             totalVoters={eligibleVoters}
+            bgDim={bgDim}
             onVote={handleVote}
           />
         </div>
