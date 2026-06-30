@@ -54,9 +54,6 @@ export interface LineupState {
   luWinnerPoints: number;
   /** Epoch ms — current phase deadline (0 = untimed). */
   phaseDeadlineAt: number;
-  /** This player's OWN submitted fact (from the owner-readable secret doc), so
-   *  the client can tell when the current fact is theirs without leaking it. */
-  myFact: string | null;
   isHost: boolean;
 }
 

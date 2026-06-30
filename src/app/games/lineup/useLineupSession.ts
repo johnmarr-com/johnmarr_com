@@ -13,9 +13,7 @@ export function useLineupSession(
   updateFields: (fields: Record<string, unknown>) => Promise<void>;
 } {
   const [session, setSession] = useState<GameSession | null>(null);
-  const [myFact, setMyFact] = useState<string | null>(null);
   const unsubRef = useRef<(() => void) | null>(null);
-  const factUnsubRef = useRef<(() => void) | null>(null);
 
   // Session: resilient read-to-render + poll-backed live push.
   useEffect(() => {
@@ -36,38 +34,6 @@ export function useLineupSession(
       unsubRef.current?.();
     };
   }, [sessionId]);
-
-  // This player's OWN secret fact doc (owner-readable). Lets the client know
-  // when the fact on screen is theirs — so the author sits out their own round
-  // — without ever exposing other players' facts.
-  useEffect(() => {
-    if (!sessionId || !userId) return;
-    let cancelled = false;
-    (async () => {
-      const { initializeFirebase } = await import("@/lib/firebase");
-      const { getFirestore, doc, onSnapshot } = await import("firebase/firestore");
-      const { app } = await initializeFirebase();
-      const db = getFirestore(app);
-      const ref = doc(db, "lineupFacts", sessionId, "facts", userId);
-      const unsub = onSnapshot(
-        ref,
-        (snap) => {
-          if (!cancelled) {
-            const fact = snap.exists() ? (snap.data()["fact"] as string) : null;
-            setMyFact(fact ?? null);
-          }
-        },
-        () => {}, // pre-submission: no doc — ignore
-      );
-      if (cancelled) unsub();
-      else factUnsubRef.current = unsub;
-    })();
-    return () => {
-      cancelled = true;
-      factUnsubRef.current?.();
-      factUnsubRef.current = null;
-    };
-  }, [sessionId, userId]);
 
   const updateFields = useCallback(
     async (fields: Record<string, unknown>) => {
@@ -96,7 +62,6 @@ export function useLineupSession(
     luWinners: (data?.["luWinners"] as string[]) ?? [],
     luWinnerPoints: (data?.["luWinnerPoints"] as number) ?? 0,
     phaseDeadlineAt: (data?.["phaseDeadlineAt"] as number) ?? 0,
-    myFact,
     isHost,
   };
 

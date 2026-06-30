@@ -14,8 +14,6 @@ interface VoteScreenProps {
   totalFacts: number;
   players: GameSessionPlayer[];
   currentUserId: string;
-  /** True when the fact on screen is the current player's own — they sit out. */
-  isMyFact: boolean;
   deadline: number;
   timerDurationMs: number;
   hasVoted: boolean;
@@ -32,7 +30,6 @@ export default function VoteScreen({
   totalFacts,
   players,
   currentUserId,
-  isMyFact,
   deadline,
   timerDurationMs,
   hasVoted,
@@ -75,27 +72,8 @@ export default function VoteScreen({
     dismissModal();
   };
 
-  // The fact's author never guesses their own fact.
-  if (isMyFact) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto px-4 py-6">
-        <FactCard fact={fact} factNumber={factNumber} totalFacts={totalFacts} compact />
-        <div className="mt-6 flex flex-col items-center gap-4 rounded-2xl border border-white/10 bg-black/50 px-6 py-7 text-center">
-          <p className="text-2xl">🤫</p>
-          <p className="text-lg font-black uppercase tracking-wider" style={{ color: primary }}>
-            This is your fact!
-          </p>
-          <p className="max-w-xs text-sm font-semibold text-white/70">
-            Sit tight while everyone else guesses who wrote it.
-          </p>
-          <div className="mt-1 text-xs font-bold uppercase tracking-wider text-white/40">
-            {voteCount}/{totalVoters} guessed
-          </div>
-        </div>
-      </div>
-    );
-  }
-
+  // Everyone votes the same way — including whoever wrote this fact. Their vote
+  // is discarded server-side; it only keeps them from being outed by abstaining.
   const options = players.filter((p) => p.uid !== currentUserId);
 
   return (

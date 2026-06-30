@@ -61,7 +61,6 @@ export default function LineupGame({
     luWinners,
     luWinnerPoints,
     phaseDeadlineAt,
-    myFact,
     isHost,
   } = state;
 
@@ -81,13 +80,6 @@ export default function LineupGame({
 
   const hasVoted = luVotes[userId] != null;
   const voteCount = Object.keys(luVotes).length;
-  // Everyone but the fact's author guesses, so one fewer than the room.
-  const eligibleVoters = Math.max(0, players.length - 1);
-  // The author sits out their own round — detected by matching the on-screen
-  // fact to this player's own (owner-readable) submission, never via authorship
-  // on the public doc.
-  const isMyFact =
-    myFact != null && luCurrentFact.trim().length > 0 && myFact.trim() === luCurrentFact.trim();
 
   // ─── Player actions (via API; engine owns all transitions) ──
 
@@ -196,12 +188,11 @@ export default function LineupGame({
             totalFacts={luTotalRounds}
             players={players}
             currentUserId={userId}
-            isMyFact={isMyFact}
             deadline={phaseDeadlineAt}
             timerDurationMs={LU_VOTE_MS}
             hasVoted={hasVoted}
             voteCount={voteCount}
-            totalVoters={eligibleVoters}
+            totalVoters={players.length}
             bgDim={bgDim}
             onVote={handleVote}
           />

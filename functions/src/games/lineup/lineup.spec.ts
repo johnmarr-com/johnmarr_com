@@ -183,10 +183,14 @@ const lineupReducer: Reducer = {
       const authorUid = order[idx];
       if (!authorUid) return null;
 
+      // EVERYONE votes — including the author of the current fact — so an
+      // abstention can't out them (the count reaches N/N like any other round).
+      // The author stays out of `eligibleVoters`, so their vote scores nothing;
+      // it exists purely to hide their identity.
       const eligibleVoters = uids.filter((uid) => uid !== authorUid);
       const votes = (s["luVotes"] as StrMap | undefined) ?? {};
       const wagers = (s["luWagers"] as NumMap | undefined) ?? {};
-      const allVoted = eligibleVoters.every((uid) => votes[uid] != null);
+      const allVoted = uids.every((uid) => votes[uid] != null);
       if (!allVoted && now < deadline) return null;
 
       const { deltas, correctVoterUids } = scoreGuessRound(votes, wagers, authorUid, eligibleVoters);
