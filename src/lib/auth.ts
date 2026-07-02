@@ -1,6 +1,7 @@
 "use client";
 
 import type { User, Auth } from "firebase/auth";
+import { buildInitialUserFields } from "./user-init";
 
 let auth: Auth | null = null;
 let authInitPromise: Promise<Auth> | null = null;
@@ -229,37 +230,20 @@ export async function saveUserProfile(user: User): Promise<void> {
       // run BEFORE this client write flushes on iOS / flaky networks. Merging
       // (and omitting gamertag/gamertagLower) means this init can never clobber a
       // gamertag the server already set, regardless of which write lands first.
-      await setDoc(userRef, {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-        photoURL: user.photoURL,
-        avatarName: null, // Lottie avatar filename
-        level: 1,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        // Subscription
-        tier: "free",
-        monthsPaid: 0,
-        // Gift access
-        giftMonthsStarted: null,
-        giftMonthsRemaining: 0,
-        lifetimeGift: false,
-        // Points & leveling
-        points: 0,
-        levelledUp: false,
-        // Activity tracking
-        showsWatched: 0,
-        storiesRead: 0,
-        gamesPlayed: 0,
-        gamesHosted: 0,
-        gamesWon: 0,
-        gamesLost: 0,
-        cardsViewed: 0,
-        cardsSent: 0,
-        shares: 0,
-        favorites: [],
-      }, { merge: true });
+      await setDoc(
+        userRef,
+        {
+          ...buildInitialUserFields({
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            photoURL: user.photoURL,
+          }),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
     }
   } catch (error) {
     console.error("Failed to save user profile to Firestore:", error);
