@@ -59,12 +59,21 @@ export async function PUT(request: NextRequest) {
       createdAt: FieldValue.serverTimestamp(),
     });
 
-    // Update user doc
-    batch.update(userRef, {
-      gamertag,
-      gamertagLower: lowerTag,
-      updatedAt: FieldValue.serverTimestamp(),
-    });
+    // Create-or-update the user doc — set + merge, NOT update. A brand-new
+    // user's `users/{uid}` doc is created by a CLIENT-side write
+    // (saveUserProfile) at sign-in, which can still be queued on iOS / flaky
+    // networks when they claim their gamertag (their /api/me even returns null).
+    // update() would throw NOT_FOUND → 500; set + merge is order-independent and
+    // works whether or not that client write has landed yet.
+    batch.set(
+      userRef,
+      {
+        gamertag,
+        gamertagLower: lowerTag,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
 
     await batch.commit();
 

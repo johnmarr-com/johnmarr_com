@@ -224,15 +224,17 @@ export async function saveUserProfile(user: User): Promise<void> {
         updatedAt: serverTimestamp(),
       }, { merge: true });
     } else {
-      // New user - initialize all fields
+      // New user — initialize fields with MERGE, and DON'T write the gamertag
+      // here. The gamertag is claimed via /api/user/gamertag (server), which can
+      // run BEFORE this client write flushes on iOS / flaky networks. Merging
+      // (and omitting gamertag/gamertagLower) means this init can never clobber a
+      // gamertag the server already set, regardless of which write lands first.
       await setDoc(userRef, {
         uid: user.uid,
         email: user.email,
         displayName: user.displayName,
         photoURL: user.photoURL,
         avatarName: null, // Lottie avatar filename
-        gamertag: null,
-        gamertagLower: null,
         level: 1,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -257,7 +259,7 @@ export async function saveUserProfile(user: User): Promise<void> {
         cardsSent: 0,
         shares: 0,
         favorites: [],
-      });
+      }, { merge: true });
     }
   } catch (error) {
     console.error("Failed to save user profile to Firestore:", error);
