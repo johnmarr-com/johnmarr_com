@@ -26,15 +26,6 @@ efforts.
 | [`AI-PLAY-PLAN.md`](./AI-PLAY-PLAN.md) | Hybrid AI-opponent architecture (algorithms vs LLM) + audited per-game status table. |
 | [`SCROLLYFOX.md`](./SCROLLYFOX.md) | ScrollyFox product spec. Partially implemented — see its status banner. |
 
-## Historical design specs (rationale, not how-to)
-
-`BOATY-BUILD-SPEC.md` · `WORDONKULOUS-BUILD-SPEC.md` · `BLARF-BUILD-SPEC.md`
-· `BLUFF-BOX-BUILD-GUIDE.md` · `FYVE_build_spec_v2.md`
-
-Each carries a banner: game rules/scoring/phase design are still valid; the
-implementation guidance predates the server-authority engine. Some games also
-keep a local doc next to their code (e.g. `src/app/games/bluffbox/BLUFFBOX.md`).
-
 ## Parked (paused efforts)
 
 | Doc | What it covers |
@@ -49,3 +40,9 @@ keep a local doc next to their code (e.g. `src/app/games/bluffbox/BLUFFBOX.md`).
   (the pilot plan that became the engine).
 - `GAMES-IMPROVEMENT-PLAN.md` → completed items deleted; open items live in
   `SYSTEM-REVIEW.md`.
+- The per-game build specs (`BOATY-BUILD-SPEC`, `WORDONKULOUS-BUILD-SPEC`,
+  `BLARF-BUILD-SPEC`, `BLUFF-BOX-BUILD-GUIDE`, `FYVE_build_spec_v2`) →
+  deleted once the games shipped; the code + `GAME-DEVELOPMENT-GUIDE.md` are
+  canonical, rules rationale lives in git history, and a game that needs a
+  living design doc keeps it next to its code (pattern:
+  `src/app/games/bluffbox/BLUFFBOX.md`).
