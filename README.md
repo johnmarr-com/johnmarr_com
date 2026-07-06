@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# johnmarr.com
 
-## Getting Started
+A mobile-first social entertainment platform under the "J" umbrella brand:
+CMS-composed pages routing into shows (short-form video), music, EPUB
+stories, ScrollyFox scroll-experiences, and real-time multiplayer games —
+tied together by one identity (Firebase Auth + gamertag + avatar) and one
+gamification spine (points → 10 levels).
 
-First, run the development server:
+**Strategy:** shows and content are shared on social channels to drive
+traffic to the free site; the site trades fun for emails; the email list
+later powers marketing for a Kickstarter and/or a paid Pro tier.
+
+## Stack
+
+- **Frontend:** Next.js 15 (App Router) + React 19 + Tailwind v4, deployed on
+  Firebase App Hosting (Cloud Run).
+- **Backend:** Firebase — Auth, Firestore, Storage, Cloud Functions
+  (`functions/` — the server-authority game engine + cleanup). Neon Postgres
+  for trivia/funnel analytics.
+- **AI:** Anthropic Claude (game AI, LLM judging), Ideogram/Replicate
+  (image gen).
+
+## Getting started
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev        # http://localhost:3000
+npm run check      # type-check + lint (warnings are errors; pre-commit enforced)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Where things live
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Area | Path |
+|---|---|
+| Experience surfaces | `src/app/` (`_home`, `show`, `artist`, `story`, `scrollyfox`, `games`, `[...slug]` CMS pages) |
+| Game factory (client) | `src/app/games/_gamecore/` |
+| Server-authority game engine | `functions/src/engine/` + `functions/src/games/` |
+| Shared UI kit / theme | `src/JMKit/`, `src/JMStyle/` |
+| Data + content model | `src/lib/` (`content-types.ts`, `content-server.ts`, `game-sessions.ts`, `AuthProvider.tsx`) |
+| Admin CMS ("Inventing.Studio") | `src/app/admin/` |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Documentation
 
-## Learn More
+**[`docs/README.md`](./docs/README.md)** is the index. Start with:
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [`docs/GAME-DEVELOPMENT-GUIDE.md`](./docs/GAME-DEVELOPMENT-GUIDE.md) — build/maintain games
+- [`docs/SERVER-AUTHORITY-ENGINE.md`](./docs/SERVER-AUTHORITY-ENGINE.md) — how multiplayer state works
+- [`docs/DATA-ACCESS.md`](./docs/DATA-ACCESS.md) — the site-wide data-access rule (read before adding any feature)
+- [`docs/SYSTEM-REVIEW.md`](./docs/SYSTEM-REVIEW.md) — prioritized backlog of known gaps

@@ -29,7 +29,7 @@ interface HeroResponsiveProps {
  * every fixed-width preview box. Each device tier gets its full layout + style
  * + image; only the one matching the container width is shown.
  *
- * Tiers (per ScrollyFox.md): mobile <734, tablet 734–1069, desktop 1070+.
+ * Tiers (per docs/SCROLLYFOX.md): mobile <734, tablet 734–1069, desktop 1070+.
  */
 export function HeroResponsive({
   content,

@@ -159,25 +159,33 @@ Legend:
 - ❌ outstanding work — real red-flag TODO
 - 🟡 intentionally n/a for this game (no work planned)
 
+> **Status audited 2026-07-05** against the code: `aiSkillDice` gated-history
+> tiering is imported **only by TapSmashArena**. `allowAI` is currently
+> **false** for BluffBox and Wordonkulous (AI seats disabled in the
+> server-authority migration), so their LLM-native rows below are dormant
+> design, not live behavior. Boaty's AI turns now run **server-side in its
+> reducer** (`functions/src/games/boaty`), not in the client component.
+
 | Game | AI opponents | Engine | Skill tiers | Post-game comments | Self-play verified |
 |---|---|---|---|---|---|
-| **Boaty** | ✅ | ✅ procedural (basic/standard/sharp + style bias) | ✅ L1-3 / L4-7 / L8+ | ✅ shared `generatePostGameComments` helper | ✅ **1000× per pairing** |
+| **Boaty** | ✅ (reducer-side) | ✅ procedural (basic/standard/sharp + style bias) | ✅ L1-3 / L4-7 / L8+ | ✅ shared `generatePostGameComments` helper | ✅ **1000× per pairing** |
 | **Fyve** | 🟡 no AI by design | 🟡 | 🟡 | 🟡 | 🟡 |
-| **BluffBox** | ✅ | ✅ LLM-native (truth/lie share + guess) | ✅ gated history via `aiSkillDice` | 🟡 not needed — the bluff interaction IS the content | 🟡 generative |
-| **MegaSketchy** | 🟡 no AI opponents by design | 🟡 humans draw | 🟡 | ✅ LLM in judge role only (Mad Libs + Scoring commentary) | 🟡 |
-| **SweepTheLeg** | ✅ | ✅ LLM-native (LLM picks + narrates each move) | ✅ gated history via `aiSkillDice` | ✅ inline transcript + post-game line | 🟡 generative |
+| **BluffBox** | ❌ seats disabled (`allowAI: false`); AI-share phases still in flow | ✅ LLM-native design (truth/lie share + guess) | ❌ not wired | 🟡 not needed — the bluff interaction IS the content | 🟡 generative |
+| **MegaSketchy** | 🟡 no AI opponents by design | 🟡 humans draw | 🟡 | ✅ LLM in judge role only (engine effects: Mad Libs + scoring) | 🟡 |
+| **SweepTheLeg** | ✅ | ✅ LLM-native (LLM picks + narrates each move) | ❌ not wired (no `aiSkillDice` import) | ✅ inline transcript + post-game line | 🟡 generative |
 | **TapSmashArena** | ✅ | ✅ LLM-native (same pattern as SweepTheLeg) | ✅ gated history via `aiSkillDice` | ✅ inline transcript + post-game line | 🟡 generative |
-| **Wordonkulous** | ✅ | ✅ LLM-native (AI invents definitions) | ❌ prompt tiering TBD | 🟡 not needed — definitions ARE the content | 🟡 generative |
+| **Wordonkulous** | ❌ seats disabled (`allowAI: false`) | ✅ LLM-native design (AI invents definitions) | ❌ prompt tiering TBD | 🟡 not needed — definitions ARE the content | 🟡 generative |
 | **Blarf** | 🟡 no AI by design | 🟡 | 🟡 | 🟡 | 🟡 |
+| **Lineup** | 🟡 no AI | 🟡 | 🟡 | 🟡 | 🟡 |
 
 ### The remaining red X's
 
-1. **Skill-level prompt tiering in Wordonkulous.** It's the last LLM-native
-   game still running tier-blind — definitions all read at the same skill
-   level regardless of `persona.skillLevel`. Phase 3 work: wire it through
-   `aiSkillDice` (gated history of prior rounds + framing directive) so
-   Enthusiast / Champion / Game Master tiers feel genuinely different.
-   **BluffBox, SweepTheLeg, and TapSmashArena are already wired.**
+1. **Re-enable + wire AI seats where the design wants them** — BluffBox and
+   Wordonkulous have LLM-native designs but `allowAI: false` today; decide
+   per game whether to re-enable via reducer/effect-driven AI turns.
+2. **Gated-history skill tiering** — only TapSmashArena is wired through
+   `aiSkillDice`; SweepTheLeg and (if re-enabled) BluffBox/Wordonkulous
+   still play tier-blind.
 
 Everything else is either shipped (green) or intentionally out of scope
 (yellow).
@@ -313,7 +321,7 @@ below by a meaningful margin:
 | standard:creative | — | 80% | 10pp |
 
 Harness pattern: `scripts/{game}SelfPlay.ts`. Boaty's already at
-[scripts/boatySelfPlay.ts](scripts/boatySelfPlay.ts).
+[scripts/boatySelfPlay.ts](../scripts/boatySelfPlay.ts).
 
 ## How to add a new game's AI
 

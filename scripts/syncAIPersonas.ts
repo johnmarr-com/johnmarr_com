@@ -1,4 +1,4 @@
-// Seed / sync the AI persona roster from AI-PERSONA-MAP.md into Firestore.
+// Seed / sync the AI persona roster from docs/AI-PERSONA-MAP.md into Firestore.
 //
 // Matches existing personas by case-insensitive name; updates their prompt /
 // voice / playStyle / skillLevel / description. Creates any missing personas

@@ -5,7 +5,7 @@
 >
 > This is site-wide infrastructure guidance (auth, profile, friends, lobby, games),
 > not just a games concern. New features must follow it. Related:
-> [`GAME-SYNC-RESILIENCE-PLAN.md`](./GAME-SYNC-RESILIENCE-PLAN.md) (server-authority
+> [`SERVER-AUTHORITY-ENGINE.md`](./SERVER-AUTHORITY-ENGINE.md) (server-authority
 > engine), [`GAMECORE-ARCHITECTURE.md`](./GAMECORE-ARCHITECTURE.md).
 
 ## Why this exists
@@ -54,7 +54,7 @@ depending on that stream for anything that must not hang.
   for converting other load-time reads (friends, sessions) to HTTPS.
 - **Server-authority engine** (`functions/src/engine`) — Firestore-triggered reducers
   own all game progression; clients submit intents via API routes and render state.
-  (See [`GAME-SYNC-RESILIENCE-PLAN.md`](./GAME-SYNC-RESILIENCE-PLAN.md).)
+  (See [`SERVER-AUTHORITY-ENGINE.md`](./SERVER-AUTHORITY-ENGINE.md).)
 
 ## Checklist when adding a feature
 

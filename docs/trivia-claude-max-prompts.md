@@ -1,3 +1,6 @@
+> **PARKED** with the rest of the trivia effort (see
+> [`fast-casual-trivia-STATUS.md`](./fast-casual-trivia-STATUS.md)).
+
 # Trivia — Claude Max Prompts for Remaining 6 Verticals
 
 For verticals where no clean public ranked dataset exists. Each prompt produces a JSON array that gets pasted into the **Or paste JSON directly** textarea on the AI Agents panel.

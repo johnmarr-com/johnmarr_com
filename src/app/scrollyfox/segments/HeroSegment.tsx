@@ -54,7 +54,7 @@ interface HeroSegmentProps extends HeroContent {
    * device selector). When undefined, the component is fully responsive — it
    * reflows and swaps the mobile image via real CSS breakpoints / <picture>.
    *
-   * Breakpoint mapping (per ScrollyFox.md §2): desktop 1070+, tablet 734–1069,
+   * Breakpoint mapping (per docs/SCROLLYFOX.md §2): desktop 1070+, tablet 734–1069,
    * mobile 320–733. Reflow uses Tailwind `md` (768) as the stack boundary.
    */
   deviceMode?: "desktop" | "tablet" | "mobile";

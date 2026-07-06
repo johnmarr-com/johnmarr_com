@@ -1,3 +1,9 @@
+> **HISTORICAL DESIGN SPEC.** Kept for game-design rationale (rules, scoring,
+> phases). Implementation details here predate the server-authority engine —
+> the code plus [`GAME-DEVELOPMENT-GUIDE.md`](./GAME-DEVELOPMENT-GUIDE.md) and
+> [`SERVER-AUTHORITY-ENGINE.md`](./SERVER-AUTHORITY-ENGINE.md) are canonical
+> for how this game is built today.
+
 # FYVE — Game Build Specification v2
 ### A Social Digital PWA Party Game — Fyve.ai
 #### "Heists Are Us"

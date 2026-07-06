@@ -1,439 +1,344 @@
 # Game Development Guide
 
-Everything an AI agent (or human) needs to know to create, edit, and maintain games on this platform. Read this before touching any game code.
+Everything an AI agent (or human) needs to create, edit, and maintain games on
+this platform. Read this before touching any game code.
+
+**The three canonical docs** (this one is the how-to; the other two are the
+reference for each half):
+
+- [`GAMECORE-ARCHITECTURE.md`](./GAMECORE-ARCHITECTURE.md) — the client-side
+  game factory (`composeGame`, phase slots GC0–GC5, variant registry).
+- [`SERVER-AUTHORITY-ENGINE.md`](./SERVER-AUTHORITY-ENGINE.md) — the
+  server-side engine (reducers, inbox, seq, effects, deadlines, sync).
+- [`DATA-ACCESS.md`](./DATA-ACCESS.md) — the site-wide data-access rule
+  (read-to-render over HTTPS; poll-backed listeners; writes via API routes).
 
 ---
 
 ## Architecture Overview
 
-Games live at `src/app/games/{slug}/` and share a common toolkit at `src/app/games/_gamecore/`. Game **definitions** (metadata, splash art, player limits) are CMS documents in Firestore's `content` collection. Game **sessions** (live lobbies, match state) are separate Firestore documents in `gameSessions`.
+A game is four things:
+
+1. **A CMS document** — `contentType: "game"` in Firestore `/content`,
+   authored in the admin portal. Branding, art, music, colors, player limits.
+2. **A client page** — `src/app/games/{slug}/page.tsx`, a ~40-line
+   `composeGame()` call. The factory supplies splash/gate/lobby/result/replay;
+   the game supplies only the **GC3 game board**.
+3. **A server reducer** — `functions/src/games/{slug}/` registered under an
+   `engineKey`. Owns ALL game-state progression. Clients submit intents and
+   render snapshots; they never resolve outcomes.
+4. **An API route** — `src/app/api/games/{slug}/route.ts` that validates and
+   forwards client intents to Firestore via the Admin SDK.
 
 ```
 src/
 ├── app/games/
-│   ├── _gamecore/          ← shared hooks, components, AI bridge, music, types
-│   ├── tapsmasharena/      ← chaptered-video 1v1 (Rock/Paper/Scissors)
-│   ├── sweeptheleg/        ← chaptered-video 1v1 (High/Mid/Low)
-│   └── megasketchy/        ← party drawing game (custom session model)
+│   ├── _gamecore/            ← factory, registry, shared hooks/components, AI bridge
+│   └── {slug}/               ← page.tsx (factory call) + GC3 board + screens
+├── app/api/games/
+│   ├── {slug}/route.ts       ← per-game validated submit route
+│   ├── session-state/        ← HTTPS session read (heartbeat fallback)
+│   ├── engine-tick/          ← deadline nudge
+│   ├── ai/                   ← client-facing AI proxy (Anthropic/Replicate)
+│   ├── active-sessions/ known-players/ profiles/
 ├── lib/
-│   ├── game-sessions.ts    ← Firestore session CRUD, moves, rounds
-│   ├── game-invites.ts     ← direct player invite system
-│   ├── game-sketches.ts    ← Firebase Storage upload for sketches
-│   ├── ai-personas.ts      ← AI persona CRUD + stat recording (callable)
-│   ├── content-types.ts    ← JMContent type (game definition fields)
-│   └── content.ts          ← content CRUD (getContentBySlug, etc.)
-├── app/api/games/ai/       ← server-side AI proxy (Anthropic + Replicate)
-├── app/api/user/points/    ← points awarding API
-└── app/admin/              ← GameCreateModal, GameEditModal, AIPersonaEditModal
-functions/
-└── src/index.ts            ← Cloud Functions (cleanup scheduler, recordAIGameResult)
-firestore.rules             ← security rules for all game collections
+│   ├── game-sessions.ts      ← session CRUD, subscribeToSession
+│   ├── game-invites.ts       ← direct player invites
+│   ├── ai-personas.ts        ← persona CRUD + stat recording (callable)
+│   ├── content-types.ts      ← JMContent (game definition fields)
+│   └── content.ts            ← content CRUD (getContentBySlug, …)
+functions/src/
+├── engine/                   ← generic engine (see SERVER-AUTHORITY-ENGINE.md)
+├── games/{slug}/             ← per-game reducer + pure logic
+├── roundEngine/              ← legacy hml/rps specs (adapter-served)
+└── index.ts                  ← registration imports + exported functions
 ```
+
+### Games in production
+
+| Game | engineKey | Mode | AI opponents (`allowAI`) |
+|---|---|---|---|
+| Boaty | `boaty` | versus | ✅ procedural, reducer-side |
+| Wordonkulous | `wordonkulous` | party | ❌ off (LLM-native design exists; not wired post-migration) |
+| Blarf | `blarf` | party | ❌ none by design |
+| BluffBox | `bluffbox` | party | ❌ off (AI-sharer phases exist in the flow; seats disabled) |
+| FYVE | `fyve` | party/teams | ❌ none by design |
+| MegaSketchy | `megasketchy` | party | ❌ seats off; LLM as judge via engine effects |
+| Lineup | `lineup` | party | ❌ none |
+| SweepTheLeg | `resolverKey: "hml"` (legacy) | versus | ✅ LLM-native |
+| TapSmashArena | `resolverKey: "rps"` (legacy) | versus | ✅ LLM-native |
+
+`fast_casual_trivia` is a separate, currently **parked** effort
+(see `fast-casual-trivia-STATUS.md`).
 
 ---
 
 ## Game Definition (CMS Content)
 
-Each game is a document in Firestore `/content/{id}` with `contentType: "game"`. Created and edited via admin modals (`GameCreateModal.tsx`, `GameEditModal.tsx`).
+Each game is a `/content/{id}` doc with `contentType: "game"`, edited via
+`GameCreateModal.tsx` / `GameEditModal.tsx` in the admin portal.
 
-### Key fields on `JMContent` for games
+### Key `JMContent` fields for games
 
 | Field | Purpose |
 |-------|---------|
 | `slug` | URL path segment → `/games/{slug}` |
 | `title`, `subtitle`, `description` | Display text |
-| `splashBgURL`, `splashIconURL`, `splashLogoURL` | Landing page visuals |
-| `coverURL`, `bannerURL` | Thumbnails elsewhere in the site |
-| `backgroundMusicURL`, `backgroundMusicVolume`, `bgMusicLandingOnly` | Audio config |
+| `splashBgURL`, `splashIconURL`, `splashLogoURL` | Landing visuals |
+| `coverURL`, `bannerURL` | Thumbnails elsewhere on the site |
+| `backgroundMusicURL`, `backgroundMusicVolume`, `bgMusicLandingOnly` | Audio |
 | `minPlayers`, `maxPlayers` | Lobby constraints |
-| `trueSoloMode` | If true, solo play skips AI opponent selection |
-| `retentionDays` | 1 (daily) or 30 (monthly) — controls `expiresAt` on sessions |
-
-Game pages load this via `getContentBySlug("game", "slug")` on mount.
-
----
-
-## `_gamecore` — The Shared Toolkit
-
-Import from `@/app/games/_gamecore` (barrel at `index.ts`).
-
-### Landing & Lobby
-
-| Export | What it does |
-|--------|-------------|
-| `GameLandingPage` | Full-screen splash with Play button. Props control solo/AI/friends modes, music, side labels (versus) or party mode. |
-| `GameMultiplayerFlow` | Dialog flow: choose host/join/solo → host lobby with invite code/QR → player list → start game. Handles AI invites, known-player invites, side assignment (versus or party), kicked-user UX. |
-| `InviteKnownPlayersModal` | Select from previously played-with users and send invites. |
-| `InviteAIModal` | Add/remove AI opponents in lobby (for multiplayer with AI slots). |
-| `PickAIOpponentModal` | Solo-vs-AI: pick one AI opponent from the roster. |
-
-### Multiplayer Round Loop
-
-| Export | What it does |
-|--------|-------------|
-| `useMultiplayerRound` | Subscribes to a Firestore session, manages move submission, host-only round resolution, phase tracking. The game provides a `RoundResolver` function. |
-| `RoundResolver` | Type: `(session) => ResolverOutput`. Game-specific logic that reads `pendingMoves` and returns round result, winner, game-over flag. |
-| `MpPhase` | `"waiting"` \| `"submitted"` \| `"resolving"` \| `"animating"` |
-
-### AI Player Bridge
-
-| Export | What it does |
-|--------|-------------|
-| `simpleMove(prompt, opts?)` | POST to `/api/games/ai` with auth. Fires 2 parallel requests, takes first success. Parses `REASONING:` / `ACTION:` from response. |
-| `postGameComment(prompt, opts?)` | Same endpoint, returns narrative text for post-game transcripts. |
-| `getAIAuthHeaders()` | Builds `Authorization: Bearer <token>` headers for AI API calls. |
-
-### AI Persona Data
-
-| Export | What it does |
-|--------|-------------|
-| `AI_PERSONAS` | Static fallback roster (rarely used at runtime). |
-| `isAiPlayer(uid)` | Returns true if UID starts with `ai-`. |
-| `aiDisplayName(uid)` | Lookup display name from loaded personas. |
-| `getPersona(uid)` | Get full persona object by UID. |
-| `loadPersonasFromDB()` | Fetch active personas from Firestore, cache them, prefix IDs with `ai-`. |
-| `PLAY_STYLE_COLORS` | Tailwind class map by play style. |
-
-### UI Components
-
-| Export | What it does |
-|--------|-------------|
-| `GameSectionHeader` | Centered section title with optional eyebrow text. |
-| `GamePrimaryButton` | Full-width green CTA with loading spinner. |
-| `GameStatusMessage` | Centered status/waiting text with optional spinner. |
-| `GameGamertagBadge` | Fixed top-center banner showing current user's gamertag. |
-| `SketchCanvas` | Drawing canvas with color palette, eraser, undo, JPEG export. |
-
-### Music
-
-| Export | What it does |
-|--------|-------------|
-| `useGameMusic` | Hook to start/stop background music. Handles visibility/focus. |
-| `bgMusic` | Singleton Web Audio player. Can route `<video>` audio through it for iOS coexistence. |
-
----
-
-## Game Session Lifecycle
-
-All managed by `src/lib/game-sessions.ts`.
-
-### Session Document (`gameSessions/{id}`)
-
-```
-{
-  gameId, gameName, gameSlug, gameLogoURL,
-  hostUid, inviteCode,
-  maxPlayers,
-  players: [{ uid, gamertag, avatarName? }],
-  playerUids: ["uid1", "uid2", "ai-xxx"],   ← flat array for Firestore rules
-  pendingInviteUids: [...],
-  kickedUids: [...],
-  playerSides: { "uid1": "p1", "uid2": "p2" },  ← or "red"/"white", "player-1", etc.
-  status: "lobby" | "playing" | "finished",
-  pendingMoves: { "uid1": <move>, "uid2": <move> },
-  rounds: [{ moves: {...}, result: {...} }],
-  currentRound: 0,
-  transcript: [...],
-  winner: "uid" | null,
-  retentionDays: 1 | 30,
-  expiresAt: Timestamp,
-  createdAt, updatedAt
-}
-```
-
-### Flow
-
-1. **Create**: `createGameSession(input)` → writes session + invite code doc.
-2. **Join**: `joinGameSession(code, userId, gamertag)` → transaction adds player, can replace AI if full.
-3. **Start**: `startGame(sessionId, playerSides)` → sets status to `"playing"`, writes `playerSides`.
-4. **Submit Move**: `submitMove(sessionId, uid, move)` → dot-path write to `pendingMoves.{uid}`.
-5. **Resolve Round** (host only via `useMultiplayerRound`): `writeRoundResult(sessionId, result)` → appends to `rounds[]`, clears `pendingMoves`, increments `currentRound`.
-6. **Finish**: Resolver returns `gameOver: true, winner: uid` → session status set to `"finished"`.
-
-### AI Player Slots
-
-- AI UIDs: `ai-{firestorePersonaId}` (e.g., `ai-abc123`).
-- `addAIPlayerToSession(sessionId, aiId, aiName, avatarName)` — transaction, respects maxPlayers.
-- `removeAIPlayerFromSession(sessionId, aiId)` — transaction, silent removal.
-- When a human joins a full lobby, the last AI player is automatically evicted.
-
----
-
-## The Two Game Patterns
-
-### Pattern 1: Chaptered Video Game (Tap Smash Arena, Sweep the Leg)
-
-Best for: 1v1 turn-based games with video-driven animation.
-
-**Structure**: `page.tsx` + `{GameName}Game.tsx` (2 files).
-
-**How it works**:
-1. `page.tsx` loads CMS content, renders `GameLandingPage`, passes callbacks for solo/AI/friends modes.
-2. Game component receives `mode` ("ai" | "friends") + `sessionId` + optional `aiPersona`.
-3. Uses `useMultiplayerRound` with a custom `RoundResolver` for game logic.
-4. Uses `useGameMusic` + `bgMusic.connectVideo(videoRef)` for audio.
-5. Video element plays chapters by seeking to start time and stopping at end time via RAF loop.
-6. AI moves via `simpleMove()` with game-specific prompt.
-
-**Key conventions**:
-- `CHAPTERS` object maps chapter names to `{ start, end }` timestamps.
-- `playerSides` uses game-specific keys (`"p1"`/`"p2"` or `"red"`/`"white"`).
-- Resolver reads `pendingMoves`, computes winner, returns `{ roundEntry, gameOver, winner }`.
-- First to N points (configurable per game).
-
-### Pattern 2: Custom Session Model (Mega Sketchy)
-
-Best for: party games with complex multi-phase flows that don't fit the round/move model.
-
-**Structure**: Many files — game component, phase screens, chain engine, AI player module, session hook.
-
-**How it works**:
-1. `page.tsx` loads content, renders `GameLandingPage` with `multiplayerFlowMode="party"`.
-2. Uses `useMegaSketchySession` (custom hook) instead of `useMultiplayerRound`.
-3. Session doc has custom fields (`skPhase`, `chains`, `message`, `votes`, etc.).
-4. Host advances phases via `updateSessionFields` / `setPhase`.
-5. AI tasks processed by host via `processAiQueue` (vision API for guessing, sketch API for drawing).
-6. Sketches uploaded to Firebase Storage via `uploadSketch` from `src/lib/game-sketches.ts`.
-
-**Mega Sketchy phases**: `lobby` → `briefing` → `active` → `madlibs` → `reveal` → `scoring` → `voting` (advanced/expert) → `done` → `share`.
-
----
-
-## AI System
-
-### Architecture
-
-```
-Game Component
-    ↓ simpleMove(prompt, { persona, voice })
-_gamecore/AIPlayerManager.ts
-    ↓ POST /api/games/ai (with Firebase ID token)
-src/app/api/games/ai/route.ts
-    ↓ Anthropic (Claude Haiku) or Replicate (Flux)
-External APIs
-```
-
-### API Route (`/api/games/ai`)
-
-- **Auth**: Requires Firebase ID token via `Authorization: Bearer <token>`.
-- **Rate limit**: 30 requests per 60 seconds per UID (in-memory).
-- **Request types**:
-  - Default/text: `{ prompt, type?: "move" | "comment", maxTokens?, temperature? }` → Claude text response.
-  - `{ type: "vision", imageUrl, prompt? }` → Claude vision (image analysis).
-  - `{ type: "sketch", subject }` → Replicate Flux image generation.
-
-### AI Personas
-
-Stored in Firestore `aiPersonas/{id}`. Each has:
-- `name`, `avatarName`, `playStyle` ("aggressive" | "defensive" | "balanced" | "chaotic" | "adaptive")
-- `prompt` (personality/behavior instructions injected into AI calls)
-- `voice` (speech style descriptor)
-- `stats` (`wins`, `losses`, `gamesPlayed`, `tournamentBestRound`)
-- `avatarScale`, `order`, `isActive`
-
-### Recording AI Game Results
-
-`recordAIGameResult(personaId, won)` in `src/lib/ai-personas.ts` calls a **Cloud Function** (`functions/src/index.ts`) via `httpsCallable`. This is NOT a direct Firestore write — the `aiPersonas` collection is locked to admin-only updates in Firestore rules.
-
-All call sites use fire-and-forget:
-```typescript
-import("@/lib/ai-personas").then(({ recordAIGameResult }) => {
-  recordAIGameResult(docId, aiWon).catch(() => {});
-});
-```
-
-### AI in Chaptered Video Games
-
-1. Build a prompt describing the game state, valid moves, and AI personality.
-2. Call `simpleMove(prompt, { persona: aiPersona.prompt, voice: aiPersona.voice })`.
-3. Parse `ACTION:` from response to extract the move.
-4. Fallback to random valid move on parse failure.
-5. Prefetch next move after each round (before animation finishes) for responsiveness.
-6. After game ends, call `postGameComment()` for transcript flavor text.
-
-### AI in Mega Sketchy
-
-1. Host runs `processAiQueue` which iterates AI tasks from `getPlayerQueue`.
-2. For "guess" tasks: calls vision API to describe an image.
-3. For "draw" tasks: calls sketch API to generate an image, then `uploadSketch`.
-4. Results written to session `chains` via `appendChainEntry`.
-
----
-
-## Points & Leveling
-
-`POST /api/user/points` with `{ activityKey }` and Bearer token.
-
-Game-relevant keys: `"play_game"`, `"host_game"`. The API looks up the point value from `pointActivities/{key}` and increments the user's `points` field, checking for level-ups.
-
----
-
-## Firestore Security Rules (Game Collections)
-
-| Collection | read | create | update | delete |
-|------------|------|--------|--------|--------|
-| `aiPersonas` | authenticated | admin | admin only (stats via Cloud Function) | admin |
-| `gameSessions` | authenticated | authenticated | authenticated AND uid in post-update `playerUids` | admin |
-| `inviteCodes` | authenticated | authenticated | admin | admin |
-| `gameInvites` | sender or recipient | sender must be self | never | sender or recipient |
-| `megasketchyMissions` | official/shared: all authed; private: creator; admin: all | creator must match; "official" requires admin | creator or admin; "official" requires admin | creator or admin |
-| `cleanupLogs` | admin | never (Admin SDK only) | never | never |
-
-**Important**: `gameSessions` update rule checks `request.resource.data.playerUids` (the post-update state), not the pre-update state. This allows joining players to add themselves while still blocking non-participants.
-
----
-
-## Cloud Functions (`functions/src/index.ts`)
-
-| Function | Trigger | What it does |
-|----------|---------|-------------|
-| `scheduledGameCleanup` | Daily at 03:00 UTC | Deletes expired sessions (by `expiresAt` or legacy 24h), associated Storage sketches, invite codes, game invites. Writes to `cleanupLogs`. |
-| `recordAIGameResult` | Callable (authenticated) | Validates `{ personaId, won }`, increments persona stats via Admin SDK. |
-
----
-
-## Data Retention & Cleanup
-
-- Sessions get `expiresAt` based on `retentionDays` (1 = daily, 30 = monthly) set per game definition.
-- Legacy sessions without `expiresAt` are cleaned up after 24 hours.
-- Cleanup deletes: session doc, invite code doc, game invite docs, Storage files under `game-sketches/{sessionId}/`.
-- Admin can manually trigger cleanup via the Data Cleanup panel or `POST /api/admin/game-cleanup`.
+| `trueSoloMode` | Solo play skips AI-opponent selection |
+| `retentionDays` | 1 (daily) or 30 (monthly) → `expiresAt` on sessions |
+| `primaryColor`, `secondaryColor`, `tertiaryColor`, `dangerColor` | Game palette |
+| `modalBgColor`, `modalAccentColor`, `modalTabColor`, `modalBorderColor` | Picker/modal 4-role palette |
+| `assembly` | Per-slot variant selection (Game Assembly editor) |
+
+**Colors are CMS-driven, never hard-coded per game.** They flow
+`colorsFromGameData()` → `GameColorsProvider` → `useGameColors()`, and
+`toPickerColors()` maps the modal quartet onto pack/asset pickers. If you're
+writing a hex color inside a game folder, something is wrong.
 
 ---
 
 ## Creating a New Game — Step by Step
 
-### 1. Create the game definition in admin
+### 0. Design first
 
-Go to Admin → Games → Create Game. Set title, slug, splash art, player limits, retention, music.
+Answer these before code (the factory handles everything outside the board):
 
-### 2. Create the game directory
+game name + slug · player count · content packs? · round structure · internal
+phases (the GC3 state machine) · scoring model · AI players? · timers per
+phase · win condition · session fields (pick a unique 2–3 letter prefix) ·
+visual identity.
+
+### 1. CMS content
+
+Admin → Games → Create Game. Set title, slug, art, colors, player limits,
+retention, music. Defaults work for the assembly config.
+
+### 2. Server reducer (the authority)
 
 ```
-src/app/games/{slug}/
-├── page.tsx              ← Next.js page, loads content, renders landing
-└── {GameName}Game.tsx    ← main game component
+functions/src/games/{slug}/
+├── logic.ts        ← pure game logic (no Firebase imports)
+├── types.ts        ← session-field + event types
+└── {slug}.spec.ts  ← the Reducer + registerEngine("{slug}", reducer)
 ```
 
-### 3. Build `page.tsx`
+- Implement `shouldRun` (cheap gate: is there an unconsumed inbox event / an
+  AI turn / an expired deadline?), optional `secretRefs` (hidden docs to read
+  in-transaction), and pure `reduce(ctx) → StateUpdate | null`.
+- Return `null` whenever there is nothing to advance — this is what prevents
+  self-write loops.
+- Stamp `phaseDeadlineAt` (epoch ms) whenever you open a timed phase.
+- Consume inbox events by deleting the slot in the same `StateUpdate`.
+- Add the side-effect import to `functions/src/index.ts`:
+  `import "./games/{slug}/{slug}.spec";`
 
-Follow the pattern from existing games:
+The functions package is standalone (no `@/` alias). If the client needs the
+same logic (e.g. optimistic rendering), copy it and keep a parity test.
+
+### 3. API route (validated submits)
+
+`src/app/api/games/{slug}/route.ts`, following any existing game's route:
+
+1. `verifyIdToken` from the `Authorization: Bearer` header → 401 otherwise.
+2. Confirm the caller is in `playerUids` for the session.
+3. Rate-limit per UID.
+4. Validate the action server-side (never trust the client's math).
+5. Admin-SDK write: `inbox.{channel}.{uid} = { eventId, …payload }` and/or a
+   secret doc. The write fires the engine.
+
+The API route is the ONLY submit path — Firestore rules block client `inbox`
+writes on engine sessions. (`submitEvent` in `game-sessions.ts` is dead code
+slated for removal.)
+
+### 4. Client page — the factory call
 
 ```typescript
 "use client";
-import { useState, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { getContentBySlug } from "@/lib/content";
-import type { JMContent } from "@/lib/content-types";
-import type { CreateSessionInput } from "@/lib/game-sessions";
-import { GameLandingPage, type GameMode } from "@/app/games/_gamecore";
-import type { AIPersona } from "@/app/games/_gamecore";
-import { YourGame } from "./YourGame";
 
-export default function YourGamePage() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const [gameData, setGameData] = useState<JMContent | null>(null);
-  const [mode, setMode] = useState<GameMode | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [aiPersona, setAiPersona] = useState<AIPersona | null>(null);
+import { composeGame } from "../_gamecore";
+import YourGame from "./YourGame";
 
-  useEffect(() => {
-    getContentBySlug("game", "your-slug").then(setGameData);
-  }, []);
-
-  // Handle ?sessionId= for invite links
-  useEffect(() => {
-    const sid = searchParams.get("sessionId");
-    if (sid && !mode) {
-      // Auto-join logic here (see existing games)
-    }
-  }, [searchParams, mode]);
-
-  if (!gameData) return null;
-
-  if (mode && sessionId) {
-    return <YourGame mode={mode} sessionId={sessionId} aiPersona={aiPersona} />;
-  }
-
-  const multiplayerInput: CreateSessionInput = {
-    gameId: gameData.id,
-    gameName: gameData.title,
-    gameSlug: gameData.slug,
-    maxPlayers: gameData.maxPlayers ?? 2,
-    ...(gameData.retentionDays != null ? { retentionDays: gameData.retentionDays } : {}),
-  };
-
-  return (
-    <GameLandingPage
-      game={gameData}
-      multiplayerInput={multiplayerInput}
-      allowAI
-      onSoloVsAI={(sid, persona) => { setSessionId(sid); setAiPersona(persona); setMode("ai"); }}
-      onMultiplayerStart={(sid) => { setSessionId(sid); setMode("friends"); }}
-    />
-  );
-}
-```
-
-### 4. Build the game component
-
-**For a turn-based 1v1 game**, use `useMultiplayerRound`:
-
-```typescript
-const { session, phase, mpSubmitMove, markAnimationDone } = useMultiplayerRound({
-  sessionId,
-  userId: user.uid,
-  resolver: yourResolver,
-  onRoundResolved: (entry) => { /* play animation, update local score */ },
+export default composeGame({
+  slug: "yourgame",
+  GameComponent: YourGame,                       // GC3 — the only custom UI
+  authority: { engineKey: "yourgame" },          // server authority opt-in
+  allowAI: true,                                 // AI seats in the lobby
+  multiplayerFlowMode: "party",                  // or "versus" + sideLabels
+  lobbyExtra: ({ session }) => <YourPackPicker sessionId={session.id} />,
+  lobbyCanStart: ({ session }) => Boolean(session["ygLobbyPackId"]),
+  resultOptions: { showAIPostGameComments: true },
+  resetFields: () => ({                          // Play-Again reset shape
+    ygPhase: "setup",
+    ygScores: {},
+    // …every game field at its initial value
+  }),
 });
 ```
 
-Implement your `RoundResolver`:
+See `ComposeGameInput` in `src/app/games/_gamecore/registry/types.ts` for the
+full contract (including `contentSlugFromQueryParam` for skinnable engines,
+`landingExtra`, icon animation flags).
 
-```typescript
-const yourResolver: RoundResolver = (session) => {
-  const moves = session.pendingMoves;
-  // Your game logic here
-  return { roundEntry: { moves, result: { ... } }, gameOver: false, winner: null };
-};
-```
+**Remember the lobby/settings separation:** the lobby is invite + Start only.
+Pack, rounds, and other configuration belong AFTER Start, in the game's own
+setup phase / the Play-Again (GC5) picker.
 
-**For a party/complex game**, subscribe to the session directly via `subscribeToSession` and manage your own phase state (see Mega Sketchy for reference).
+### 5. The GC3 game board
 
-### 5. Add AI support
+Receives `GC3Props { sessionId, gameData, onGameEnd }`.
 
-For turn-based games:
-1. Build a prompt describing valid moves and game state.
-2. Call `simpleMove(prompt, { persona: aiPersona.prompt, voice: aiPersona.voice })`.
-3. Parse the `ACTION:` line from the response.
-4. Handle failures gracefully (random fallback move).
-5. Record results after game: `recordAIGameResult(personaId, won)`.
+- Subscribe with `subscribeToSession(sessionId, cb)` — never a bare
+  `onSnapshot` (you'd lose the seq fence and the iOS heartbeat).
+- Mount `useEngineDeadline(session)` so timed phases advance promptly.
+- Render purely from the latest snapshot. Keep the player's OWN pending
+  action optimistic/instant locally; the authoritative outcome always comes
+  from the server.
+- When the session shows the game is over, call `onGameEnd({ winners,
+  winnerPoints, allPlayers, scores })` — the factory transitions to GC4.
 
-### 6. Award points
+### 6. Firestore rules
 
-After a game completes, POST to `/api/user/points`:
-```typescript
-fetch("/api/user/points", {
-  method: "POST",
-  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-  body: JSON.stringify({ activityKey: "play_game" }),
-});
-```
+If clients write anything directly (packs, `submitEvent` inboxes), extend
+`firestore.rules`. On engine sessions, clients get lobby-shape updates plus
+the value-checked Play-Again reset only — never widen the server-owned field
+set (`rounds`, `winner`, `currentRound`, `seq`, `transcript`, `status`).
+Secret docs (hidden boards/roles/keys) get their own locked collection.
+
+### 7. Deploy & verify
+
+Deploy functions AND the App Hosting frontend, then **test with a freshly
+created session** — sessions created before the frontend rollout lack
+`engineKey`, so the engine silently ignores them (no logs, 400 submits).
+Two-device test matrix: airplane-toggle mid-turn, background/lock then
+resume, host offline mid-round (round must still resolve), duplicate submits
+(no double rounds).
 
 ---
 
-## TypeScript Conventions
+## Session Lifecycle
 
-- `exactOptionalPropertyTypes` is enabled. When spreading optional fields, use:
-  ```typescript
-  ...(value != null ? { field: value } : {})
-  ```
-  Do NOT assign `undefined` to optional properties.
+All in `src/lib/game-sessions.ts`.
 
-- All client-side Firebase imports are dynamic (`await import("firebase/firestore")`) for code splitting.
+### Session document (`gameSessions/{id}`)
 
-- Files that use browser APIs must have `"use client"` at the top.
+```
+{
+  gameId, gameName, gameSlug, gameLogoURL,
+  ownerId, inviteCode, maxPlayers,
+  players: [{ uid, gamertag, avatarName? }],
+  playerUids: [...],                    ← flat array for Firestore rules
+  pendingInviteUids, kickedUids,
+  playerSides: { uid: "red" | "p1" | ... },
+  status: "lobby" | "playing" | "finished",
+  engineKey,                            ← reducer routing (or resolverKey, legacy)
+  seq,                                  ← monotonic sync counter (0 = reset shape)
+  inbox: { channel: { uid: { eventId, ... } } },  ← client→server intents
+  phaseDeadlineAt,                      ← epoch ms; timed-phase deadline
+  winner, replayCount,
+  retentionDays, expiresAt, createdAt, updatedAt,
+  …game-specific prefixed fields (bt*, wk*, bf*, …)
+}
+```
+
+### Flow
+
+1. **Create** — `createGameSession(input)`: session (status `"lobby"`) +
+   `inviteCodes/{code}` doc; stamps `engineKey` from the factory config.
+2. **Join** — `joinGameSession(code, …)` / `joinGameSessionById(…)`:
+   transactional, capacity-checked; a full lobby evicts an AI seat for a
+   joining human. Invite docs cleaned up on join.
+3. **Start** — host-only; `startGame(sessionId, playerSides)` sets
+   `status:"playing"`, resets round state, and re-arms `seq: 0`.
+4. **Play** — clients submit via the API route / `submitEvent`; the engine
+   advances state; clients render snapshots (see
+   [`SERVER-AUTHORITY-ENGINE.md`](./SERVER-AUTHORITY-ENGINE.md)).
+5. **Finish** — the reducer returns `gameOver` → engine writes
+   `status:"finished"` + `winner`; GC3 calls `onGameEnd` → GC4 result.
+6. **Play Again** — GC4/GC5 host action applies `resetFields()` (the
+   value-checked `seq == 0` write shape allowed by rules) and re-enters.
+7. **Cleanup** — `scheduledGameCleanup` (daily 03:00 UTC) deletes expired
+   sessions + invite codes + invites + Storage sketches, logging to
+   `cleanupLogs`. Manual: admin Data Cleanup panel or
+   `POST /api/admin/game-cleanup`.
+
+---
+
+## AI System
+
+Two distinct AI surfaces — don't conflate them:
+
+### 1. Server-side (engine) AI — authoritative
+
+- **AI opponent turns in engine games** run inside the reducer (pure code,
+  e.g. Boaty's tiered targeting) or as post-commit **effects**. No client
+  device involved.
+- **LLM judging** (MegaSketchy verdicts/scoring) runs as effects calling
+  Anthropic; `ANTHROPIC_API_KEY` is bound to the `gameEngine` function.
+
+### 2. Client-facing AI proxy — flavor & LLM-native moves
+
+`POST /api/games/ai` (`src/app/api/games/ai/route.ts`): Firebase-token
+gated, per-UID rate-limited. Request types: text move/comment (Anthropic),
+`vision` (image analysis), `sketch` (Replicate image gen). Client bridge:
+`simpleMove(prompt, opts)` / `postGameComment(prompt, opts)` in
+`_gamecore/AIPlayerManager.ts` (fires 2 parallel requests, first success
+wins; retries once).
+
+### Personas & difficulty
+
+- Roster: 14 personas in a diamond (4 Enthusiast / 6 Champion / 4 Game
+  Master) — canonical prompts in
+  [`AI-PERSONA-MAP.md`](./AI-PERSONA-MAP.md); live state in Firestore
+  `/aiPersonas` (admin-editable, synced via `scripts/syncAIPersonas.ts`).
+- **Play Prompt** shapes decisions; **Voice Prompt** shapes language.
+- Skill: user levels 1–10 map to engine tiers via `aiEngineTierForLevel()`
+  (`basic`/`standard`/`sharp`) for procedural games, and to **gated history**
+  via `_gamecore/aiSkillDice.ts` for LLM-native games (lower tiers literally
+  see less history — no performative bad play).
+- Strategy doc: [`AI-PLAY-PLAN.md`](./AI-PLAY-PLAN.md) (hybrid
+  algorithm/LLM architecture + per-game status table).
+- Stats: `recordAIGameResult(personaId, won)` → callable Cloud Function
+  (`aiPersonas` is admin-only in rules). Fire-and-forget from game code.
+
+---
+
+## Points & Leveling
+
+`POST /api/user/points` with `{ activityKey }` + Bearer token. Game keys:
+`play_game`, `host_game`, `win_game`. Values live in
+`/pointActivities/{key}` (admin-editable); the route increments
+`users/{uid}.points`, recomputes level from `/levels`, and sets `levelledUp`
+(surfaced by `JMLevelUpPopup`).
+
+---
+
+## Firestore Security Rules (game collections)
+
+| Collection | Posture |
+|------------|---------|
+| `gameSessions` | Regime-aware: engine sessions allow lobby-shape client updates + value-checked `seq == 0` Play-Again reset; authoritative fields server-only. Legacy sessions use field-mask rules. |
+| `boatyBoards`, `blarfRoles`, `fyveKeys`, … | Secret docs — no client access; Admin SDK only. |
+| `aiPersonas` | Read authed; write admin (stats via callable). |
+| `inviteCodes` | Read/create authed; mutate admin. |
+| `gameInvites` | Sender/recipient only. |
+| `{game}Packs` / `megasketchyMissions` / `fyveHeists` … | Creator-owned; "official" requires admin. |
+
+---
+
+## TypeScript & Code Conventions
+
+- `exactOptionalPropertyTypes` is on: spread optionals as
+  `...(v != null ? { field: v } : {})`; never assign `undefined`.
+- Client Firebase imports are dynamic (`await import("firebase/firestore")`).
+- Browser-API files need `"use client"`.
+- Session fields are prefixed per game (`bt*`, `wk*`, `bf*`, `sk*`, …).
+- Max-strict TS + lint: warnings are errors; the pre-commit hook enforces
+  `npm run check` (type-check + eslint).
+- Mobile-first always: large tap targets, generous padding, readable text.
 
 ---
 
@@ -441,27 +346,29 @@ fetch("/api/user/points", {
 
 | File | Purpose |
 |------|---------|
-| `src/app/games/_gamecore/index.ts` | Barrel — all shared game exports |
-| `src/app/games/_gamecore/useMultiplayerRound.ts` | Round-based multiplayer hook |
-| `src/app/games/_gamecore/AIPlayerManager.ts` | AI move/comment bridge |
-| `src/app/games/_gamecore/GameLandingPage.tsx` | Shared landing page |
-| `src/app/games/_gamecore/GameMultiplayerFlow.tsx` | Lobby/join dialog flow |
-| `src/app/games/_gamecore/aiPersonas.ts` | Client-side persona cache and helpers |
-| `src/lib/game-sessions.ts` | Session CRUD, moves, rounds |
-| `src/lib/ai-personas.ts` | Persona CRUD + `recordAIGameResult` (callable) |
-| `src/lib/game-sketches.ts` | Storage upload for sketch images |
-| `src/lib/game-invites.ts` | Direct player invite system |
-| `src/lib/content-types.ts` | `JMContent` type definition |
-| `src/app/api/games/ai/route.ts` | Server-side AI proxy |
-| `functions/src/index.ts` | Cloud Functions (cleanup + stats) |
+| `src/app/games/_gamecore/composeGame.tsx` | The factory |
+| `src/app/games/_gamecore/registry/types.ts` | All slot + factory contracts |
+| `src/app/games/_gamecore/useGameFlow.ts` | Outer GC0–GC5 phase machine |
+| `src/app/games/_gamecore/useEngineDeadline.ts` | Deadline nudge hook |
+| `src/app/games/_gamecore/GameColorsProvider.tsx` | CMS color plumbing |
+| `src/app/games/_gamecore/AIPlayerManager.ts` | Client AI bridge |
+| `src/app/games/_gamecore/aiSkillDice.ts` | Gated-history skill tiers |
+| `src/lib/game-sessions.ts` | Sessions, subscribeToSession |
+| `functions/src/engine/*` | The server-authority engine |
+| `functions/src/games/{slug}/*` | Per-game reducers |
 | `firestore.rules` | Security rules |
-| `GAMES-IMPROVEMENT-PLAN.md` | Tracked improvement backlog |
+| `docs/SYSTEM-REVIEW.md` | Prioritized backlog of known issues |
 
 ---
 
-## Known Backlog
+## Legacy Paths (know they exist; don't build on them)
 
-See `GAMES-IMPROVEMENT-PLAN.md` for tracked items. Notable remaining work:
-
-- **Item 3**: Extract shared "chaptered video game" abstraction (`useChapteredVideo` hook) to reduce duplication between Tap Smash Arena and Sweep the Leg.
-- **Server-side security Phase 3**: Move lobby operations (`startGame`, `removePlayerFromSession`, `addAIPlayerToSession`) to callable Cloud Functions with host-only validation.
+- **`useMultiplayerRound` + client `RoundResolver`** — the pre-engine round
+  loop. Still mounted by SweepTheLeg/TapSmashArena, but host-side resolution
+  is skipped whenever `resolverKey` is set (i.e. always, for these games) —
+  the server's `simultaneousMoveAdapter` resolves. Do not use for new games.
+- **`pendingMoves`** — the legacy simultaneous-move field consumed by the
+  adapter; new games use the namespaced `inbox` instead.
+- **Chaptered-video duplication** — TapSmashArena and SweepTheLeg still carry
+  ~85%-identical video/round plumbing (`useChapteredVideo` extraction never
+  happened; tracked in `SYSTEM-REVIEW.md`).
