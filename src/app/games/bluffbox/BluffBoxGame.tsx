@@ -159,9 +159,9 @@ export default function BluffBoxGame({
         allPlayers: players,
         scores,
       });
-      PointsManager.award(Activity.PLAY_GAME);
-      if (isHost) PointsManager.award(Activity.HOST_GAME);
-      if (winners.includes(userId)) PointsManager.award(Activity.WIN_GAME);
+      PointsManager.award(Activity.PLAY_GAME, { sessionId });
+      if (isHost) PointsManager.award(Activity.HOST_GAME, { sessionId });
+      if (winners.includes(userId)) PointsManager.award(Activity.WIN_GAME, { sessionId });
       if (isHost) recordGameStats(playerUids, winners, session?.ownerId ?? "");
     }
     if (bbPhase !== "game-over") gameEndFiredRef.current = false;

@@ -118,9 +118,9 @@ export default function LineupGame({
       });
 
       // Each client awards its own points; the host records stats once.
-      PointsManager.award(Activity.PLAY_GAME);
-      if (isHost) PointsManager.award(Activity.HOST_GAME);
-      if (luWinners.includes(userId)) PointsManager.award(Activity.WIN_GAME);
+      PointsManager.award(Activity.PLAY_GAME, { sessionId });
+      if (isHost) PointsManager.award(Activity.HOST_GAME, { sessionId });
+      if (luWinners.includes(userId)) PointsManager.award(Activity.WIN_GAME, { sessionId });
       if (isHost) recordGameStats(playerUids, luWinners, session?.ownerId ?? "");
     }
     if (luPhase !== "final") {

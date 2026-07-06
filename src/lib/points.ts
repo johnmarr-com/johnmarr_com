@@ -136,8 +136,15 @@ export const PointsManager = {
    * Returns the number of points awarded and the user's new total,
    * or null if the request failed (user not logged in, etc.).
    * Automatically refreshes the auth context afterward.
+   *
+   * Game activities (play/host/win) should pass the sessionId — the server
+   * validates participation/win against the session and dedupes the award
+   * (host_game / win_game are rejected without one).
    */
-  async award(activity: ActivityKey): Promise<AwardResult | null> {
+  async award(
+    activity: ActivityKey,
+    opts?: { sessionId?: string },
+  ): Promise<AwardResult | null> {
     console.log("[PointsManager] award() called for:", activity);
     try {
       const { getAuth } = await import("./auth");
@@ -156,7 +163,10 @@ export const PointsManager = {
           Authorization: `Bearer ${idToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ activityKey: activity }),
+        body: JSON.stringify({
+          activityKey: activity,
+          ...(opts?.sessionId ? { sessionId: opts.sessionId } : {}),
+        }),
       });
 
       console.log("[PointsManager] API response status:", res.status);

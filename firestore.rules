@@ -376,11 +376,10 @@ service cloud.firestore {
       //   field; non-host players can only modify the whitelisted action/join
       //   fields. Unchanged behavior.
       //
-      // SERVER-AUTHORITATIVE (resolverKey set): the resolveRound Cloud Function
-      //   (Admin SDK, bypasses rules) owns the round-progress fields
-      //   (rounds / winner / currentRound / seq / transcript / status). No
-      //   client may advance them. Participants may write anything else (move
-      //   submissions, AI comments, lobby roster), and the host may reset to the
+      // SERVER-AUTHORITATIVE (resolverKey set): the gameEngine Cloud Function
+      //   (Admin SDK, bypasses rules) owns all round progression. Participants
+      //   may write only their own pendingMoves slot + roster fields (allowlist
+      //   below); the host may also drive AI slots / comments and reset to the
       //   start-of-game shape (startGame / Play Again).
       allow update: if isAuthenticated() && (
         // ENGINE (engineKey set): the generic gameEngine Cloud Function owns ALL
@@ -446,13 +445,29 @@ service cloud.firestore {
           ) )
           ||
           ( ('resolverKey' in resource.data) && (
-            // (1) Any participant may write fields OTHER than the server-owned
-            //     round-progress fields (covers move submission, AI post-game
-            //     comments, and lobby roster ops: join / add-AI / kick).
+            // (1) Participants may write ONLY: their own pendingMoves slot
+            //     (the host may also write AI slots — solo-vs-AI mode), the
+            //     host-authored AI post-game comments, and lobby roster ops
+            //     (join / add-AI / kick). Everything else — including other
+            //     players' moves — is server-owned. (Previously a denylist,
+            //     which let any participant forge opponents' pendingMoves.)
             ( request.auth.uid in request.resource.data.playerUids
-              && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-                'rounds', 'winner', 'currentRound', 'seq', 'transcript', 'status'
-              ]) )
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                'pendingMoves', 'aiPostGameComments',
+                'playerUids', 'players', 'playerCount',
+                'pendingInviteUids', 'kickedUids', 'updatedAt'
+              ])
+              // pendingMoves: non-hosts may only touch their own slot. The
+              // host may write other slots (it drives the AI's move in solo
+              // mode) — host-trust matches the legacy model for these games.
+              && ( resource.data.ownerId == request.auth.uid
+                   || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['pendingMoves'])
+                   || request.resource.data.get('pendingMoves', {})
+                        .diff(resource.data.get('pendingMoves', {}))
+                        .affectedKeys().hasOnly([request.auth.uid]) )
+              // AI post-game comments are host-authored.
+              && ( resource.data.ownerId == request.auth.uid
+                   || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['aiPostGameComments']) ) )
             ||
             // (2) Host reset to the start-of-game shape (startGame / Play Again).
             //     Value-checked, so it may also set seq / replayCount / other

@@ -283,6 +283,8 @@ const fyveReducer: Reducer = {
           logger.info(`[fyve] ${sid}: reveal ${result.cardType} → game-over (winner=${outcome.winningTeam})`);
           update.gameOver = true;
           update.winner = outcome.winningTeam;
+          // winner is a team name — record the member uids canonically.
+          update.winnerUids = teams?.[outcome.winningTeam]?.members ?? [];
         } else {
           logger.info(`[fyve] ${sid}: reveal ${result.cardType} → ${outcome.nextPhase} (active=${outcome.activeTeam})`);
         }

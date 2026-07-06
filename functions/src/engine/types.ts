@@ -75,9 +75,16 @@ export interface StateUpdate {
   docWrites?: DocWrite[];
   /** Post-commit side-effects (e.g. drive a pure-code AI turn). */
   effects?: EngineEffect[];
-  /** When true, the engine sets status:"finished" + winner. */
+  /** When true, the engine sets status:"finished" + winner + winnerUids. */
   gameOver?: boolean;
   winner?: string | null;
+  /**
+   * Canonical winning-player uids, written to the session at gameOver.
+   * Supply when winners ≠ [winner] (ties, teams, co-op); defaults to
+   * `[winner]`. Server consumers (e.g. the points API) validate win claims
+   * against this.
+   */
+  winnerUids?: string[];
 }
 
 export interface ReduceContext {

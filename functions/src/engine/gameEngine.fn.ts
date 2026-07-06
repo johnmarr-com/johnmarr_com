@@ -81,6 +81,8 @@ export const gameEngine = onDocumentUpdated(
         if (out.gameOver) {
           fields["status"] = "finished";
           fields["winner"] = out.winner ?? null;
+          // Canonical winner list — the server-validated source for win claims.
+          fields["winnerUids"] = out.winnerUids ?? (out.winner ? [out.winner] : []);
         }
         logger.info(`[engine] ${key} ${sessionId}: advance`, {
           fields: Object.keys(out.fields),

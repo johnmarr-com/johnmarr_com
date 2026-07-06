@@ -158,9 +158,9 @@ export default function BlarfGame({
         allPlayers: ps,
         scores: bfScores,
       });
-      PointsManager.award(Activity.PLAY_GAME);
-      if (isHost) PointsManager.award(Activity.HOST_GAME);
-      if (bfWinners.includes(userId)) PointsManager.award(Activity.WIN_GAME);
+      PointsManager.award(Activity.PLAY_GAME, { sessionId });
+      if (isHost) PointsManager.award(Activity.HOST_GAME, { sessionId });
+      if (bfWinners.includes(userId)) PointsManager.award(Activity.WIN_GAME, { sessionId });
       if (isHost) recordGameStats(playerUids, bfWinners, session?.ownerId ?? "");
     }
     if (bfPhase !== "final") gameEndFiredRef.current = false;

@@ -88,7 +88,10 @@ interface StateUpdate {
   docWrites?: DocWrite[];            // other docs, same transaction
   effects?: EngineEffect[];          // post-commit side-effects
   gameOver?: boolean;                // engine sets status:"finished" + winner
-  winner?: string | null;
+  winner?: string | null;            // uid, or a team/co-op sentinel
+  winnerUids?: string[];             // canonical winner uids (defaults [winner]);
+                                     // supply for ties/teams/co-op — the points
+                                     // API validates win claims against this
 }
 
 interface ReduceContext {

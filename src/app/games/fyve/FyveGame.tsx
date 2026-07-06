@@ -260,15 +260,15 @@ export default function FyveGame({
   useEffect(() => {
     if (svPhase === "game-over" && winningTeam && !gameEndFiredRef.current) {
       gameEndFiredRef.current = true;
-      PointsManager.award(Activity.PLAY_GAME);
+      PointsManager.award(Activity.PLAY_GAME, { sessionId });
       if (isHost) {
-        PointsManager.award(Activity.HOST_GAME);
+        PointsManager.award(Activity.HOST_GAME, { sessionId });
         const allUids = session?.playerUids ?? [];
         const winnerUids = svState.teams?.[winningTeam]?.members ?? [];
         recordGameStats(allUids, winnerUids, session?.ownerId ?? "");
       }
       const winnerUids = svState.teams?.[winningTeam]?.members ?? [];
-      if (winnerUids.includes(userId)) PointsManager.award(Activity.WIN_GAME);
+      if (winnerUids.includes(userId)) PointsManager.award(Activity.WIN_GAME, { sessionId });
     }
     if (svPhase !== "game-over") gameEndFiredRef.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fires once at game-over

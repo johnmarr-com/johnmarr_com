@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Crimson_Pro, JetBrains_Mono } from "next/font/google";
 import { jmJambo } from "@/fonts";
 import { Providers } from "./providers";
@@ -18,6 +18,10 @@ const jetbrainsMono = JetBrains_Mono({
 
 const SITE_URL = process.env["NEXT_PUBLIC_SITE_URL"] ?? "https://johnmarr.com";
 
+export const viewport: Viewport = {
+  themeColor: "#0f0f0f",
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
@@ -28,6 +32,12 @@ export const metadata: Metadata = {
     "Shows, games, music, and stories — a free entertainment universe by John Marr.",
   icons: {
     icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "John Marr",
   },
   openGraph: {
     siteName: "John Marr",

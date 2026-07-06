@@ -52,6 +52,11 @@ depending on that stream for anything that must not hang.
   server-authority phase deadlines fire without depending on the stream.
 - **`/api/me`** + the localStorage profile cache in `AuthProvider` — the template
   for converting other load-time reads (friends, sessions) to HTTPS.
+- **`src/lib/detail-server.ts`** — server-component reads for the public
+  content surfaces (show/story/artist): Admin SDK on the server, slim
+  JSON-serializable shapes, shared between `generateMetadata` and the page via
+  React `cache()`. The template for any new public detail page (it's also what
+  makes shared links unfurl).
 - **Server-authority engine** (`functions/src/engine`) — Firestore-triggered reducers
   own all game progression; clients submit intents via API routes and render state.
   (See [`SERVER-AUTHORITY-ENGINE.md`](./SERVER-AUTHORITY-ENGINE.md).)

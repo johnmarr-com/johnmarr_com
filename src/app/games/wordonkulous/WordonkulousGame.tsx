@@ -205,9 +205,9 @@ export default function WordonkulousGame({
 
       // Gamification (was the host's advanceFromResults; engine now owns the
       // transition, so each client awards its own points; host records stats once).
-      PointsManager.award(Activity.PLAY_GAME);
-      if (isHost) PointsManager.award(Activity.HOST_GAME);
-      if (wkWinners.includes(userId)) PointsManager.award(Activity.WIN_GAME);
+      PointsManager.award(Activity.PLAY_GAME, { sessionId });
+      if (isHost) PointsManager.award(Activity.HOST_GAME, { sessionId });
+      if (wkWinners.includes(userId)) PointsManager.award(Activity.WIN_GAME, { sessionId });
       if (isHost) recordGameStats(playerUids, wkWinners, session?.ownerId ?? "");
     }
     if (wkPhase !== "final") {

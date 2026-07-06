@@ -17,6 +17,17 @@ Legend: 🔴 P0 funnel-blocking · 🟠 P1 integrity/cost/trust · 🟡 P2 relia
 
 ## 🔴 P0 — The funnel is currently broken at the front door
 
+> **✅ P0 SHIPPED 2026-07-05** (commit `84be490`). Items 1–4 below are done as
+> specified; kept for the record. What landed: `src/lib/detail-server.ts`
+> (Admin-SDK serialized fetchers) + server shells with `generateMetadata` for
+> show/story/artist/CMS/home; `SignupGateModal` soft gate (one released
+> episode / full read as the anonymous taste, EPUB download sign-in-only,
+> `source=show_gate|story_gate` funnel attribution); consent checkbox on
+> /auth → `users/{uid}.marketingConsent` via `/api/user/consent`; CSV export
+> at `/api/admin/email-export`.
+> **Remaining follow-up:** existing users have no consent flag — only new
+> signups record one. A one-time in-app backfill prompt is an open sub-task.
+
 ### 1. Shared links don't unfurl — zero Open Graph/Twitter metadata in the app
 **Problem:** `src/app/layout.tsx` has the only metadata in the app (static
 "John Marr — Personal website of John Marr", favicon only). `generateMetadata`
@@ -71,6 +82,20 @@ backfill existing users as unconsented; add an admin-gated
 ---
 
 ## 🟠 P1 — Integrity, cost, and trust
+
+> **✅ P1 SHIPPED 2026-07-05.** Items 5–8 done: points route now validates
+> game awards against the session (`winnerUids` written by the engine at
+> gameOver; per-replay `pointsAwarded` dedup; media-key cooldowns;
+> `win_game` enabled — it was configured at 5 pts all along); legacy
+> resolverKey rules are an allowlist (own `pendingMoves` slot only for
+> non-hosts); `/api/games/ai` has a `max_tokens` ceiling, Firestore-backed
+> shared rate limits (text 30/min; images 30/hr + 150/day), and a
+> `persist-image` path allowlist (it previously accepted ANY storage path);
+> PWA manifest + apple-touch-icon shipped (placeholder icons in
+> `public/icons/` — swap the PNGs to rebrand).
+> **Deploy note:** the rules change needs `firebase deploy --only
+> firestore:rules`, and `winnerUids` needs `firebase deploy --only
+> functions` — until then the points route relies on its legacy fallbacks.
 
 ### 5. Points can be farmed, and `win_game` is silently dead
 **Problem:** `POST /api/user/points` awards on any authed call — no
@@ -203,11 +228,10 @@ Hard-coded `#0f0f0f`/`#e8c547`/rgba values in `story/[slug]/page.tsx` instead
 of `useJMStyle()` tokens — reads as a different product than show/artist.
 **Work order:** route story colors through the theme like the other surfaces.
 
-### 17. Deep-link "Back" dumps social visitors to Home
-`router.push("/")` on show/story back buttons; loading state on show omits
-the header while error state shows it.
-**Work order:** `router.back()` with home fallback; consistent header across
-loading/error/loaded.
+### 17. Deep-link "Back" dumps social visitors to Home — ✅ mostly done in P0
+Show/story back buttons now use `router.back()` with a home fallback, and the
+old headerless loading states are gone (pages server-render). Remaining:
+audit other surfaces for the same pattern.
 
 ### 18. Dead code from the engine migration
 `submitEvent` (no callers; rules would block it), `useMultiplayerRound`'s

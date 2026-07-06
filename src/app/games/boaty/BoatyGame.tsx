@@ -153,9 +153,9 @@ export default function BoatyGame({ sessionId, gameData, onGameEnd }: BoatyGameP
         scores,
       });
 
-      PointsManager.award(Activity.PLAY_GAME);
-      if (isHost) PointsManager.award(Activity.HOST_GAME);
-      if (btWinner === userId) PointsManager.award(Activity.WIN_GAME);
+      PointsManager.award(Activity.PLAY_GAME, { sessionId });
+      if (isHost) PointsManager.award(Activity.HOST_GAME, { sessionId });
+      if (btWinner === userId) PointsManager.award(Activity.WIN_GAME, { sessionId });
       recordGameStats(playerUids, btWinner ? [btWinner] : [], session?.ownerId ?? "");
 
       // Host generates the AI opponent's Post-Game Comment (one LLM call) and

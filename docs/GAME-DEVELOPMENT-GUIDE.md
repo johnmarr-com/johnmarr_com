@@ -308,11 +308,24 @@ wins; retries once).
 
 ## Points & Leveling
 
-`POST /api/user/points` with `{ activityKey }` + Bearer token. Game keys:
-`play_game`, `host_game`, `win_game`. Values live in
-`/pointActivities/{key}` (admin-editable); the route increments
-`users/{uid}.points`, recomputes level from `/levels`, and sets `levelledUp`
-(surfaced by `JMLevelUpPopup`).
+`POST /api/user/points` with `{ activityKey, sessionId? }` + Bearer token.
+Client helper: `PointsManager.award(activity, { sessionId })`.
+
+- **Game keys** (`play_game`, `host_game`, `win_game`) pass the `sessionId`:
+  the route verifies the caller is a session participant, `win_game`
+  additionally requires a finished session listing the caller in
+  **`winnerUids`** (written by the engine at gameOver — reducers with
+  ties/teams/co-op supply it in their `StateUpdate`), and each
+  (session, key, replay-generation, uid) awards at most once via a
+  `pointsAwarded` marker on the session. `host_game`/`win_game` are rejected
+  without a sessionId; sessionless `play_game` (true-solo) falls back to a
+  cooldown.
+- **Media keys** (`watch_video`, `listen_song`, `read_story`, …) are
+  rate-limited by per-key cooldown timestamps on the user doc.
+
+Values live in `/pointActivities/{key}` (admin-editable); the route
+increments `users/{uid}.points` (set+merge, transactional), recomputes level
+from `/levels`, and sets `levelledUp` (surfaced by `JMLevelUpPopup`).
 
 ---
 

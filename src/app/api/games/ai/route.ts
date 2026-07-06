@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import Replicate from "replicate";
 import { verifyIdToken, getAdminStorage } from "@/lib/firebase-admin";
+import { allowRequest, type RateLimitBucket } from "@/lib/server-rate-limit";
 import { coerceStyleTypeForIdeogramGenerate } from "@/app/games/bluffbox/packs/ideogramStyleRules";
 
 const AI_TIMEOUT_MS = 15_000;
+
+/** Hard ceiling on client-requested max_tokens (cost cap). */
+const MAX_TOKENS_CEILING = 1024;
 
 const anthropic = new Anthropic({
   apiKey: process.env["ANTHROPIC_API_KEY"],
@@ -16,31 +20,27 @@ const replicate = new Replicate({
   useFileOutput: false,
 });
 
-// ─── Per-UID rate limiting ──────────────────────────────────
-const RATE_WINDOW_MS = 60_000;
-const MAX_REQUESTS_PER_WINDOW = 30;
+// ─── Per-UID rate limiting (Firestore-backed, shared across instances) ──
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
 
-const requestLog = new Map<string, number[]>();
+/** Text/vision calls: cheap but chatty during gameplay. */
+const TEXT_BUCKETS: RateLimitBucket[] = [
+  { bucket: "ai-text", windowMs: MINUTE, max: 30 },
+];
+/** Image generation (Ideogram/Replicate): expensive — much stricter. */
+const IMAGE_BUCKETS: RateLimitBucket[] = [
+  { bucket: "ai-image-hour", windowMs: HOUR, max: 30 },
+  { bucket: "ai-image-day", windowMs: DAY, max: 150 },
+];
+/** Storage persists: cheap, but bound them too. */
+const PERSIST_BUCKETS: RateLimitBucket[] = [
+  { bucket: "ai-persist-hour", windowMs: HOUR, max: 60 },
+];
 
-function isRateLimited(uid: string): boolean {
-  const now = Date.now();
-  const timestamps = requestLog.get(uid) ?? [];
-  const recent = timestamps.filter((t) => now - t < RATE_WINDOW_MS);
-  if (recent.length >= MAX_REQUESTS_PER_WINDOW) return true;
-  recent.push(now);
-  requestLog.set(uid, recent);
-  return false;
-}
-
-// Periodically prune stale entries so the map doesn't grow forever
-setInterval(() => {
-  const now = Date.now();
-  for (const [uid, timestamps] of requestLog) {
-    const recent = timestamps.filter((t) => now - t < RATE_WINDOW_MS);
-    if (recent.length === 0) requestLog.delete(uid);
-    else requestLog.set(uid, recent);
-  }
-}, RATE_WINDOW_MS);
+/** Storage prefixes persist-image may write to (creator asset flows). */
+const PERSIST_PATH_PREFIXES = ["fyve-heists/", "fyve-bombs/"];
 
 export async function POST(request: NextRequest) {
   // ─── Authenticate ─────────────────────────────────────────
@@ -60,17 +60,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid auth token" }, { status: 401 });
   }
 
-  if (isRateLimited(uid)) {
-    return NextResponse.json(
-      { error: "Too many requests — try again shortly" },
-      { status: 429 },
-    );
-  }
-
   // ─── Handle request ───────────────────────────────────────
   try {
     const body = await request.json();
     const { type } = body as { type: string };
+
+    // Type-appropriate rate limiting (shared across instances).
+    const buckets =
+      type === "generate-image" || type === "sketch"
+        ? IMAGE_BUCKETS
+        : type === "persist-image"
+          ? PERSIST_BUCKETS
+          : TEXT_BUCKETS;
+    if (!(await allowRequest(uid, buckets))) {
+      return NextResponse.json(
+        { error: "Too many requests — try again shortly" },
+        { status: 429 },
+      );
+    }
 
     // ─── Vision: interpret a sketch image ───────────────────
     if (type === "vision") {
@@ -232,6 +239,14 @@ export async function POST(request: NextRequest) {
       if (!url || !storagePath) {
         return NextResponse.json({ error: "Missing url or storagePath" }, { status: 400 });
       }
+      // Only creator asset prefixes — an arbitrary path could overwrite any
+      // object in the bucket (content covers, avatars, …).
+      if (
+        storagePath.includes("..") ||
+        !PERSIST_PATH_PREFIXES.some((p) => storagePath.startsWith(p))
+      ) {
+        return NextResponse.json({ error: "Invalid storagePath" }, { status: 400 });
+      }
 
       try {
         const imgRes = await fetch(url);
@@ -330,8 +345,12 @@ export async function POST(request: NextRequest) {
 
     const response = await anthropic.messages.create({
       model: resolvedModel,
-      max_tokens: maxTokens ?? (type === "comment" ? 200 : 256),
-      temperature: temperature ?? (type === "comment" ? 0.7 : 0.3),
+      // Clamp client-supplied values — max_tokens is a direct cost knob.
+      max_tokens: Math.min(
+        Math.max(1, maxTokens ?? (type === "comment" ? 200 : 256)),
+        MAX_TOKENS_CEILING,
+      ),
+      temperature: Math.min(Math.max(temperature ?? (type === "comment" ? 0.7 : 0.3), 0), 1),
       messages: [{ role: "user", content: prompt }],
     });
 

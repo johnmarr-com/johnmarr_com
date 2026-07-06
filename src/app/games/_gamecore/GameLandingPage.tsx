@@ -292,7 +292,7 @@ export function GameLandingPage({
           }
           onGameStart={(sessionId) => {
             setMpOpen(false);
-            PointsManager.award(Activity.PLAY_GAME);
+            PointsManager.award(Activity.PLAY_GAME, { sessionId });
             onMultiplayerStart?.(sessionId);
           }}
         />

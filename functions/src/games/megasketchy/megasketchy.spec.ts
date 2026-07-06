@@ -251,10 +251,13 @@ const megaSketchyReducer: Reducer = {
         return { fields: { skPhase: "voting", "inbox.advance": FieldValue.delete() } };
       }
       logger.info(`[megasketchy] ${sid}: scoring → share (game over)`);
+      const scoringPassed = (s["scoringResult"] as { passed?: boolean } | null)?.passed === true;
       return {
         fields: { skPhase: "share", "inbox.advance": FieldValue.delete() },
         gameOver: true,
-        winner: (s["scoringResult"] as { passed?: boolean } | null)?.passed ? "agents" : null,
+        winner: scoringPassed ? "agents" : null,
+        // Co-op: a passed mission means every human player won.
+        winnerUids: scoringPassed ? ((s["playerUids"] as string[] | undefined) ?? []) : [],
       };
     }
 
@@ -276,10 +279,13 @@ const megaSketchyReducer: Reducer = {
       }
       if (adv && Object.keys(adv).length > 0) {
         logger.info(`[megasketchy] ${sid}: voting → share (game over)`);
+        const votingPassed = (s["scoringResult"] as { passed?: boolean } | null)?.passed === true;
         return {
           fields: { ...fields, skPhase: "share", "inbox.advance": FieldValue.delete() },
           gameOver: true,
-          winner: (s["scoringResult"] as { passed?: boolean } | null)?.passed ? "agents" : null,
+          winner: votingPassed ? "agents" : null,
+          // Co-op: a passed mission means every human player won.
+          winnerUids: votingPassed ? ((s["playerUids"] as string[] | undefined) ?? []) : [],
         };
       }
       return changed || Object.keys(fields).length > 0 ? { fields } : null;

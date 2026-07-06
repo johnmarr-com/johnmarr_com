@@ -119,10 +119,10 @@ export default function MegaSketchyGame({
     if (skState.skPhase === "share" && !gameEndFiredRef.current) {
       gameEndFiredRef.current = true;
       const passed = skState.scoringResult?.passed ?? false;
-      PointsManager.award(Activity.PLAY_GAME);
-      if (passed) PointsManager.award(Activity.WIN_GAME);
+      PointsManager.award(Activity.PLAY_GAME, { sessionId });
+      if (passed) PointsManager.award(Activity.WIN_GAME, { sessionId });
       if (isHost) {
-        PointsManager.award(Activity.HOST_GAME);
+        PointsManager.award(Activity.HOST_GAME, { sessionId });
         const allUids = session?.playerUids ?? [];
         recordGameStats(allUids, passed ? allUids : [], session?.ownerId ?? "");
       }

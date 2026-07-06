@@ -254,6 +254,7 @@ const lineupReducer: Reducer = {
         },
         gameOver: true,
         winner: winners[0] ?? null,
+        winnerUids: winners,
       };
     }
 
