@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { BookOpen, Download, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
+import { useJMStyle } from "@/JMStyle";
 import { JMEpubReader } from "@/JMKit/JMEpubReader";
 import {
   getStorySettings,
@@ -19,6 +20,7 @@ import { Activity } from "@/lib/points";
 
 export default function StoryClient({ story }: { story: StoryPageData }) {
   const router = useRouter();
+  const { theme } = useJMStyle();
   const { user } = useAuth();
 
   const [settings, setSettings] = useState<JMStorySettings>({ fontSize: 18, darkMode: true });
@@ -113,14 +115,14 @@ export default function StoryClient({ story }: { story: StoryPageData }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-[#0f0f0f]">
+    <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: theme.surfaces.base }}>
       <div className="min-h-full flex flex-col items-center px-6 py-12">
         {/* Back button */}
         <div className="w-full max-w-md mb-8">
           <button
             onClick={() => (window.history.length > 1 ? router.back() : router.push("/"))}
             className="flex items-center gap-2 text-sm transition-colors hover:opacity-80"
-            style={{ color: "rgba(255,255,255,0.5)" }}
+            style={{ color: theme.text.tertiary }}
           >
             <ArrowLeft size={16} />
             Back
@@ -143,24 +145,24 @@ export default function StoryClient({ story }: { story: StoryPageData }) {
         )}
 
         {/* Title & Author */}
-        <h1 className="text-2xl sm:text-3xl font-bold text-center text-white mb-1">
+        <h1 className="text-2xl sm:text-3xl font-bold text-center mb-1" style={{ color: theme.text.primary }}>
           {story.title}
         </h1>
         {story.subtitle && (
-          <p className="text-base text-white/40 text-center mb-2 italic">{story.subtitle}</p>
+          <p className="text-base text-center mb-2 italic" style={{ color: theme.text.tertiary }}>{story.subtitle}</p>
         )}
-        <p className="text-sm text-white/50 text-center mb-6">by {story.author}</p>
+        <p className="text-sm text-center mb-6" style={{ color: theme.text.secondary }}>by {story.author}</p>
 
         {/* Description */}
         {story.description && (
-          <p className="text-sm text-white/60 text-center max-w-md leading-relaxed mb-8">
+          <p className="text-sm text-center max-w-md leading-relaxed mb-8" style={{ color: theme.text.secondary }}>
             {story.description}
           </p>
         )}
 
         {/* Continue reading prompt */}
         {savedLocation && (
-          <p className="text-xs text-white/30 mb-4">You have saved progress in this book.</p>
+          <p className="text-xs mb-4" style={{ color: theme.text.tertiary }}>You have saved progress in this book.</p>
         )}
 
         {/* Actions */}
@@ -170,7 +172,7 @@ export default function StoryClient({ story }: { story: StoryPageData }) {
               <button
                 onClick={() => setIsReading(true)}
                 className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:scale-105"
-                style={{ backgroundColor: "#e8c547", color: "#0f0f0f" }}
+                style={{ backgroundColor: theme.accents.goldenGlow, color: theme.surfaces.base }}
               >
                 <BookOpen size={18} />
                 {savedLocation ? "Continue Reading" : "Read"}
@@ -181,9 +183,9 @@ export default function StoryClient({ story }: { story: StoryPageData }) {
                 onClick={handleDownload}
                 className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium transition-all hover:scale-105"
                 style={{
-                  backgroundColor: "rgba(255,255,255,0.08)",
-                  color: "rgba(255,255,255,0.7)",
-                  border: "1px solid rgba(255,255,255,0.1)",
+                  backgroundColor: theme.surfaces.elevated1,
+                  color: theme.text.secondary,
+                  border: `1px solid ${theme.surfaces.elevated2}`,
                 }}
               >
                 <Download size={18} />
@@ -191,7 +193,7 @@ export default function StoryClient({ story }: { story: StoryPageData }) {
               </a>
             </>
           ) : (
-            <p className="text-sm text-white/40">This story is not yet available for reading.</p>
+            <p className="text-sm" style={{ color: theme.text.tertiary }}>This story is not yet available for reading.</p>
           )}
         </div>
       </div>

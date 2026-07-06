@@ -248,8 +248,10 @@ Full walkthrough in [`GAME-DEVELOPMENT-GUIDE.md`](./GAME-DEVELOPMENT-GUIDE.md).
   400. After deploying a new engine game, always test a **fresh** session.
 - **Silent AI degradation:** if the deployed Anthropic key's **org** is out of
   credits, LLM effects/calls fail and games fall back to non-AI text without
-  an obvious error. Check Cloud Run / Functions logs and verify which org the
-  deployed key belongs to.
+  an obvious error. The hourly `aiHealthCheck` function probes Anthropic and
+  writes `system/aiHealth` (failures log at error level for alerting);
+  `GET /api/admin/ai-health` shows the last probe and `?live=1` re-probes
+  with the web app's own key — checking both deployed keys/orgs at once.
 - **Both engines must not run:** `gameEngine` fully replaces the old
   `resolveRound` trigger. The hml/rps specs are served through the adapter —
   never re-export a separate trigger for them or rounds double-resolve.

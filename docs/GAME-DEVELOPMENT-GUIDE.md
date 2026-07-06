@@ -395,6 +395,7 @@ timed phases or timeout behavior, add a reducer test.
   the server's `simultaneousMoveAdapter` resolves. Do not use for new games.
 - **`pendingMoves`** — the legacy simultaneous-move field consumed by the
   adapter; new games use the namespaced `inbox` instead.
-- **Chaptered-video duplication** — TapSmashArena and SweepTheLeg still carry
-  ~85%-identical video/round plumbing (`useChapteredVideo` extraction never
-  happened; tracked in `SYSTEM-REVIEW.md`).
+- **Chaptered-video toolkit** — the shared machinery now lives in
+  `_gamecore` (`useChapteredVideo`, `useSimpleAiOpponent`,
+  `useMatchAutoStart`, `versusHelpers`, `VersusOverlays`); both games are
+  thin consumers, and a future chaptered-video game reuses the same pieces.

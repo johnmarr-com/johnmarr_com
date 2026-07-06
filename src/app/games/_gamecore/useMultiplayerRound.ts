@@ -4,56 +4,42 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
   subscribeToSession,
   submitMove as firestoreSubmitMove,
-  writeRoundResult,
   type GameSession,
   type RoundResult,
-  type WriteRoundInput,
 } from "@/lib/game-sessions";
-import { isAiPlayer } from "./aiPersonas";
 import { useTrackKnownPlayers } from "./useTrackKnownPlayers";
 
 export type MpPhase = "waiting" | "submitted" | "resolving" | "animating";
 
-export interface ResolverOutput {
-  roundEntry: RoundResult;
-  transcriptLines: string[];
-  gameOver: boolean;
-  winner?: string | null;
-  extras?: Record<string, unknown>;
-}
-
-export type RoundResolver = (
-  moves: Record<string, string>,
-  session: GameSession,
-) => ResolverOutput;
-
 interface UseMultiplayerRoundOptions {
   sessionId: string | null;
   userId: string;
-  /** Omit for server-authoritative games (resolution done by a Cloud Function). */
-  resolver?: RoundResolver;
   onRoundResolved?: (result: RoundResult) => void;
 }
 
+/**
+ * Render-only round loop for the legacy simultaneous-move games (SweepTheLeg,
+ * TapSmashArena). Rounds are resolved SERVER-SIDE by the engine's
+ * simultaneous-move adapter (`resolverKey`); this hook subscribes, submits the
+ * player's own move, and dispatches resolved rounds to the game component.
+ * (The old client-side host-resolution path was removed once both consumers
+ * went server-authoritative — see docs/SERVER-AUTHORITY-ENGINE.md.)
+ */
 export function useMultiplayerRound({
   sessionId,
   userId,
-  resolver,
   onRoundResolved,
 }: UseMultiplayerRoundOptions) {
   const [session, setSession] = useState<GameSession | null>(null);
   const [animatingRound, setAnimatingRound] = useState(-1);
   const [localSubmitted, setLocalSubmitted] = useState(false);
 
-  const resolverRef = useRef(resolver);
   const onResolvedRef = useRef(onRoundResolved);
 
   useEffect(() => {
-    resolverRef.current = resolver;
     onResolvedRef.current = onRoundResolved;
   });
 
-  const resolvedRoundRef = useRef(-1);
   const dispatchedRoundRef = useRef(-1);
   const prevRoundsLenRef = useRef(0);
 
@@ -62,7 +48,6 @@ export function useMultiplayerRound({
     if (!session || session.status !== "playing") return;
     const roundsLen = session.rounds?.length ?? 0;
     if (roundsLen === 0 && prevRoundsLenRef.current > 0 && session.currentRound === 0) {
-      resolvedRoundRef.current = -1;
       dispatchedRoundRef.current = -1;
       requestAnimationFrame(() => {
         setAnimatingRound(-1);
@@ -97,54 +82,6 @@ export function useMultiplayerRound({
   useTrackKnownPlayers(session, userId || undefined);
 
   const isHost = !!session && session.ownerId === userId;
-
-  // Host resolves when all moves are in (only writes to Firestore, no local setState)
-  useEffect(() => {
-    if (!session || session.status !== "playing" || !session.pendingMoves) return;
-    if (!isHost) return;
-    // Server-authoritative games resolve via the resolveRound Cloud Function —
-    // the client never computes/writes a round. Also skip if no resolver given.
-    if (session.resolverKey) return;
-    const resolver = resolverRef.current;
-    if (!resolver) return;
-
-    const playerCount = session.players.length;
-    const moveCount = Object.keys(session.pendingMoves).length;
-    const allIn = moveCount >= playerCount && playerCount >= 2;
-    const currentRound = session.currentRound ?? 0;
-
-    if (allIn && resolvedRoundRef.current < currentRound) {
-      resolvedRoundRef.current = currentRound;
-
-      const output = resolver(session.pendingMoves, session);
-      const input: WriteRoundInput = {
-        roundEntry: output.roundEntry,
-        transcriptLines: output.transcriptLines,
-        nextRound: currentRound + 1,
-        gameOver: output.gameOver,
-        winner: output.winner ?? null,
-        ...(output.extras ? { extras: output.extras } : {}),
-      };
-
-      writeRoundResult(session.id, input)
-        .then(() => {
-          if (output.gameOver && output.winner) {
-            const aiPlayers = session.players.filter((p) => isAiPlayer(p.uid));
-            if (aiPlayers.length > 0) {
-              import("@/lib/ai-personas").then(({ recordAIGameResult }) => {
-                for (const ap of aiPlayers) {
-                  const personaDocId = ap.uid.replace(/^ai-/, "");
-                  recordAIGameResult(personaDocId, ap.uid === output.winner).catch(() => {});
-                }
-              });
-            }
-          }
-        })
-        .catch(() => {
-          resolvedRoundRef.current = currentRound - 1;
-        });
-    }
-  }, [session, isHost]);
 
   // Dispatch round results via callback (no setState — game component handles its own state)
   useEffect(() => {

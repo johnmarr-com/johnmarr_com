@@ -109,6 +109,10 @@ src/app/games/
 │   ├── AIPlayerManager.ts        # Client AI bridge (simpleMove, postGameComment)
 │   ├── aiPersonas.ts / aiSkillDice.ts / aiPostGameComments.ts
 │   ├── useMultiplayerRound.ts    # LEGACY round loop (hml/rps render-only)
+│   ├── useChapteredVideo.ts      # chaptered-video RAF/chapter driver
+│   ├── useSimpleAiOpponent.ts    # 1v1 LLM opponent orchestration
+│   ├── useMatchAutoStart.ts      # versus auto-start + join gesture gate
+│   ├── versusHelpers.ts / VersusOverlays.tsx  # shared 1v1 utils + overlays
 │   └── index.ts                  # Public exports
 │
 ├── boaty/ wordonkulous/ blarf/ bluffbox/ fyve/ megasketchy/ lineup/

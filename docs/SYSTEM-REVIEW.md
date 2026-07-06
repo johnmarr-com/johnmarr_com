@@ -238,6 +238,20 @@ credit exhaustion is visible before players feel it.
 
 ## ⚪ P3 — Hygiene, polish, product decisions
 
+> **✅ P3 SHIPPED 2026-07-05** (except the open product decision below).
+> Story surface themed through `useJMStyle` (16); back-button audit clean —
+> remaining `router.push("/")` in games are intentional exit-to-home actions
+> (17); dead code removed: `submitEvent`, `writeRoundResult`, the
+> never-executed client resolution branch in `useMultiplayerRound`, and the
+> duplicate bluffbox `GameBgUnderlay` (18); `useChapteredVideo` extracted and
+> both chaptered-video games refactored onto it (19); avatar dev endpoints
+> gated behind `requireAdmin` (21).
+>
+> **Still open — item 20 is a product decision, not a bug:** should BluffBox
+> and Wordonkulous get AI opponents back (engine-side, reducer/effect-driven)?
+> If yes, wire `aiSkillDice` tiering into each LLM-native game at the same
+> time (only TapSmashArena has it today; SweepTheLeg plays tier-blind).
+
 ### 16. Story surface ignores the theme system
 Hard-coded `#0f0f0f`/`#e8c547`/rgba values in `story/[slug]/page.tsx` instead
 of `useJMStyle()` tokens — reads as a different product than show/artist.

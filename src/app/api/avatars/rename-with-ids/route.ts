@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/admin-auth';
 import { readdir, rename } from 'fs/promises';
 import { join } from 'path';
 
@@ -105,7 +106,12 @@ const fileIdMap: Record<string, string> = {
   'crossed-fingers-5.json': 'F2G3H4',
 };
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  // Dev tooling that writes to the source tree — admin-only (and dead on
+  // Cloud Run's read-only filesystem, but it must not be publicly exposed).
+  const auth = await requireAdmin(request);
+  if ('status' in auth) return auth;
+
   try {
     const avatarsDir = join(process.cwd(), 'public', 'avatars');
     const files = await readdir(avatarsDir);

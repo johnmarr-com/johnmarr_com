@@ -1,6 +1,6 @@
 export { GameLandingPage, type GameLandingPageProps, type GameMode } from "./GameLandingPage";
 export { GameMultiplayerFlow } from "./GameMultiplayerFlow";
-export { useMultiplayerRound, type RoundResolver, type MpPhase, type ResolverOutput } from "./useMultiplayerRound";
+export { useMultiplayerRound, type MpPhase } from "./useMultiplayerRound";
 export { useEngineDeadline } from "./useEngineDeadline";
 export { PhaseTimerBar } from "./PhaseTimerBar";
 export { useTrackKnownPlayers } from "./useTrackKnownPlayers";
@@ -60,6 +60,23 @@ export {
   pickRandomTeams,
 } from "./teams";
 export { GameBgUnderlay, type GameBgUnderlayProps } from "./GameBgUnderlay";
+
+// ─── Chaptered-video 1v1 games (SweepTheLeg, TapSmashArena) ───
+export { useChapteredVideo, type VideoChapter } from "./useChapteredVideo";
+export {
+  useSimpleAiOpponent,
+  type AiMoveRecord,
+  type AiPromptContext,
+} from "./useSimpleAiOpponent";
+export { useMatchAutoStart } from "./useMatchAutoStart";
+export {
+  WIN_PHRASES,
+  pickRandom,
+  parseActionByPrefix,
+  getOpponentGamertag,
+  buildTwoSideGameEnd,
+} from "./versusHelpers";
+export { GameFinishedOverlay, JoinMatchButton } from "./VersusOverlays";
 export {
   type GameLengthPreset,
   resolvePreset,

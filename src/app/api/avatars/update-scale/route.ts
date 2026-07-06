@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/admin-auth';
 import { readFile, writeFile, rename } from 'fs/promises';
 import { join } from 'path';
 
@@ -33,6 +34,11 @@ async function getExistingIds(fileContent: string): Promise<Set<string>> {
 }
 
 export async function POST(request: NextRequest) {
+  // Dev tooling that writes to the source tree — admin-only (and dead on
+  // Cloud Run's read-only filesystem, but it must not be publicly exposed).
+  const auth = await requireAdmin(request);
+  if ('status' in auth) return auth;
+
   try {
     const { avatarId, scale, filename } = await request.json();
     
