@@ -120,7 +120,8 @@ Output ONLY a JSON object: { "facts": [...] }. Each fact:
 
 Up to ${factCap} facts. Quality over quantity. Begin with {, end with }.`;
 
-const COMPOSE_SYSTEM = (existingTagsJson) => `You compose T/PT/F (Truth / Partially True / False) triples for Fast Casual Trivia. The brand promise is STORIES, not data — each statement should read like a one-line story and make the reader feel the moment.
+// Kept for pipeline resume (parked): exported so lint sees it as used.
+export const COMPOSE_SYSTEM = (existingTagsJson) => `You compose T/PT/F (Truth / Partially True / False) triples for Fast Casual Trivia. The brand promise is STORIES, not data — each statement should read like a one-line story and make the reader feel the moment.
 
 DRAMATIC TRIVIA — the overarching philosophy:
 - Trivia with STAKES. Trivia that gives the player PAUSE.
@@ -335,7 +336,7 @@ async function setResearchStatus(subjectId, status, error = null) {
   );
 }
 
-async function loadExistingTags() {
+export async function loadExistingTags() {
   const r = await pgClient.query(`SELECT category, value FROM tags ORDER BY category, value`);
   const grouped = {};
   for (const row of r.rows) {
@@ -374,7 +375,7 @@ async function writeStoryFact(subjectId, fact) {
   return r.rows[0].id;
 }
 
-async function writeQuestionSet(subjectId, sourceFactId, qset, tags) {
+export async function writeQuestionSet(subjectId, sourceFactId, qset, tags) {
   // Server-side validation — flag (don't drop) suspicious sets so reviewer can see them.
   const tIdentical = qset.truth_text?.trim() === qset.partially_true_text?.trim();
   const rejection = tIdentical ? "identical_t_pt" : null;

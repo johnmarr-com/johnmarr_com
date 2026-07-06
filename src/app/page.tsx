@@ -1,5 +1,13 @@
+import type { Metadata } from "next";
 import HomeClient from "./_home/HomeClient";
 import { getHomeContent, type ResolvedSegment } from "@/lib/content-server";
+
+export const metadata: Metadata = {
+  // Override the layout's title template on the home page itself.
+  title: { absolute: "John Marr — Shows, Games, Music & Stories" },
+  description:
+    "Watch original shows, play games with friends, listen to music, and read stories — all free.",
+};
 
 // Render at runtime (where Admin creds exist on Cloud Run), not at build time.
 // The content itself is cached for 60s via unstable_cache (see getHomeContent)

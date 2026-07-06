@@ -14,6 +14,7 @@ import {
   logSourceVisit,
   logSignupAttempt,
 } from "@/lib/auth";
+import { setPendingConsent, flushPendingConsent } from "@/lib/consent";
 import { getArtistBySlug } from "@/lib/content";
 
 function AuthContent() {
@@ -85,6 +86,7 @@ function AuthContent() {
     fetchContentInfo();
   }, [contentType, contentSlug]);
   const [email, setEmail] = useState("");
+  const [marketingOptIn, setMarketingOptIn] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
@@ -111,6 +113,9 @@ function AuthContent() {
   // page reload with persisted auth, or any case where user is already signed in)
   useEffect(() => {
     if (user && !authLoading) {
+      // Persist any consent choice made before the sign-in round-trip
+      // (fire-and-forget — client-side nav doesn't cancel the request).
+      void flushPendingConsent();
       router.replace(redirectUrl);
     }
   }, [user, authLoading, router, redirectUrl]);
@@ -171,6 +176,7 @@ function AuthContent() {
     setIsLoading(true);
     setError(null);
     try {
+      setPendingConsent(marketingOptIn, sourceFromUrl ?? "direct");
       logSignupAttempt({ funnelId, method: "google" });
       const result = await signInWithGoogle(funnelId);
       if (result) {
@@ -198,6 +204,7 @@ function AuthContent() {
     setIsLoading(true);
     setError(null);
     try {
+      setPendingConsent(marketingOptIn, sourceFromUrl ?? "direct");
       // Log the signup attempt (email method with name and email) - may return new funnelId
       const currentFunnelId = await logSignupAttempt({
         funnelId,
@@ -474,6 +481,22 @@ function AuthContent() {
               We&apos;ll email you a magic link.<br />No password needed!
             </p>
           </form>
+
+          {/* Marketing opt-in — applies to whichever sign-in method is used */}
+          <label
+            className="mt-6 flex items-start gap-3 cursor-pointer select-none"
+            style={{ color: theme.text.tertiary }}
+          >
+            <input
+              type="checkbox"
+              checked={marketingOptIn}
+              onChange={(e) => setMarketingOptIn(e.target.checked)}
+              className="mt-0.5 h-5 w-5 shrink-0 accent-pink-500"
+            />
+            <span className="text-sm leading-snug">
+              Email me when new shows, games &amp; stories drop
+            </span>
+          </label>
 
           
           </div>

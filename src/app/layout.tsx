@@ -16,11 +16,30 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["400", "500"],
 });
 
+const SITE_URL = process.env["NEXT_PUBLIC_SITE_URL"] ?? "https://johnmarr.com";
+
 export const metadata: Metadata = {
-  title: "John Marr",
-  description: "Personal website of John Marr",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "John Marr",
+    template: "%s | John Marr",
+  },
+  description:
+    "Shows, games, music, and stories — a free entertainment universe by John Marr.",
   icons: {
     icon: "/favicon.ico",
+  },
+  openGraph: {
+    siteName: "John Marr",
+    type: "website",
+    url: "/",
+    title: "John Marr",
+    description:
+      "Shows, games, music, and stories — a free entertainment universe by John Marr.",
+    images: [{ url: "/images/bgs/BG-Signup.jpg", width: 1920, height: 1080 }],
+  },
+  twitter: {
+    card: "summary_large_image",
   },
 };
 

@@ -4,7 +4,6 @@
 // Usage: node scripts/test-rerun-false-10.mjs
 
 import pg from "pg";
-import Anthropic from "@anthropic-ai/sdk";
 import { readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 
