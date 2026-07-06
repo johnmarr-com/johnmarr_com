@@ -9,7 +9,7 @@ LLMs appear only where *the act of thinking out loud is itself the content*.
 1. **Classify the game type first.** Three kinds:
    - **Deterministic strategy** (Boaty). The move is a choice among
      defined options on a state. Algorithms dominate. LLM adds flavor only.
-   - **LLM-native** (Wordonkulous, SweepTheLeg, TapSmashArena). The LLM's
+   - **LLM-native** (SweepTheLeg, TapSmashArena). The LLM's
      output is part of the move itself — a fake definition, a combat
      narration, a bomb-disarm monologue. There is no "pure algorithm"
      alternative, because the text itself is what the player experiences.
@@ -25,7 +25,7 @@ LLMs appear only where *the act of thinking out loud is itself the content*.
    output is the UX — persona commentary in a transcript, in-character
    reactions to events, and optionally move-selection for play styles where
    "what they'd do" matters more than "what's optimal" (creative, chaotic).
-4. **LLMs are the product in LLM-native games.** Wordonkulous, SweepTheLeg,
+4. **LLMs are the product in LLM-native games.** SweepTheLeg and
    TapSmashArena — the AI's text output is what the player sees and reacts
    to. There is no algorithmic alternative, only prompt sophistication.
    "Sharp" and "Basic" tiers here map to prompt framing (richer vocabulary,
@@ -159,33 +159,29 @@ Legend:
 - ❌ outstanding work — real red-flag TODO
 - 🟡 intentionally n/a for this game (no work planned)
 
-> **Status audited 2026-07-05** against the code: `aiSkillDice` gated-history
-> tiering is imported **only by TapSmashArena**. `allowAI` is currently
-> **false** for BluffBox and Wordonkulous (AI seats disabled in the
-> server-authority migration), so their LLM-native rows below are dormant
-> design, not live behavior. Boaty's AI turns now run **server-side in its
-> reducer** (`functions/src/games/boaty`), not in the client component.
+> **POLICY (decided 2026-07-06): AI opponents exist ONLY in the three 1v1
+> games — Boaty, SweepTheLeg, TapSmashArena.** Group games (BluffBox,
+> Wordonkulous, Blarf, FYVE, MegaSketchy, Lineup) have no AI players, by
+> decision; the old BluffBox/Wordonkulous AI-opponent designs are retired
+> (the engine migration had already removed the code). MegaSketchy's LLM is
+> a **judge only** (engine effects: Mad Libs + scoring), never a player.
+> Group-vs-AI game concepts are planned as NEW games, not retrofits.
+> Boaty's AI turns run server-side in its reducer
+> (`functions/src/games/boaty`).
 
 | Game | AI opponents | Engine | Skill tiers | Post-game comments | Self-play verified |
 |---|---|---|---|---|---|
 | **Boaty** | ✅ (reducer-side) | ✅ procedural (basic/standard/sharp + style bias) | ✅ L1-3 / L4-7 / L8+ | ✅ shared `generatePostGameComments` helper | ✅ **1000× per pairing** |
-| **Fyve** | 🟡 no AI by design | 🟡 | 🟡 | 🟡 | 🟡 |
-| **BluffBox** | ❌ seats disabled (`allowAI: false`); AI-share phases still in flow | ✅ LLM-native design (truth/lie share + guess) | ❌ not wired | 🟡 not needed — the bluff interaction IS the content | 🟡 generative |
-| **MegaSketchy** | 🟡 no AI opponents by design | 🟡 humans draw | 🟡 | ✅ LLM in judge role only (engine effects: Mad Libs + scoring) | 🟡 |
 | **SweepTheLeg** | ✅ | ✅ LLM-native (LLM picks + narrates each move) | ❌ not wired (no `aiSkillDice` import) | ✅ inline transcript + post-game line | 🟡 generative |
 | **TapSmashArena** | ✅ | ✅ LLM-native (same pattern as SweepTheLeg) | ✅ gated history via `aiSkillDice` | ✅ inline transcript + post-game line | 🟡 generative |
-| **Wordonkulous** | ❌ seats disabled (`allowAI: false`) | ✅ LLM-native design (AI invents definitions) | ❌ prompt tiering TBD | 🟡 not needed — definitions ARE the content | 🟡 generative |
-| **Blarf** | 🟡 no AI by design | 🟡 | 🟡 | 🟡 | 🟡 |
-| **Lineup** | 🟡 no AI | 🟡 | 🟡 | 🟡 | 🟡 |
+| **BluffBox / Wordonkulous / Blarf / FYVE / Lineup** | 🟡 no AI, by decision | 🟡 | 🟡 | 🟡 | 🟡 |
+| **MegaSketchy** | 🟡 no AI players | 🟡 humans draw | 🟡 | ✅ LLM judge only (engine effects) | 🟡 |
 
-### The remaining red X's
+### The remaining red X
 
-1. **Re-enable + wire AI seats where the design wants them** — BluffBox and
-   Wordonkulous have LLM-native designs but `allowAI: false` today; decide
-   per game whether to re-enable via reducer/effect-driven AI turns.
-2. **Gated-history skill tiering** — only TapSmashArena is wired through
-   `aiSkillDice`; SweepTheLeg and (if re-enabled) BluffBox/Wordonkulous
-   still play tier-blind.
+1. **Gated-history skill tiering in SweepTheLeg** — the one LLM-native game
+   still playing tier-blind; wire it through `aiSkillDice` like
+   TapSmashArena.
 
 Everything else is either shipped (green) or intentionally out of scope
 (yellow).
@@ -194,17 +190,17 @@ Everything else is either shipped (green) or intentionally out of scope
 
 - **Deterministic strategy** (Boaty) — move space is discrete and
   evaluable; algorithms beat LLMs at strength. Four-layer hybrid applies.
-- **LLM-native with text output** (BluffBox, SweepTheLeg, TapSmashArena,
-  Wordonkulous) — the AI's text IS part of the move. No procedural
-  alternative exists; skill tier lives in the prompt, not the code.
+- **LLM-native with text output** (SweepTheLeg, TapSmashArena) — the AI's
+  text IS part of the move. No procedural alternative exists; skill tier
+  lives in the prompt, not the code.
+- **Group games, no AI players — by decision** (BluffBox, Wordonkulous,
+  Blarf, FYVE, Lineup) — interpersonal group games where an AI seat adds
+  management overhead without enough upside. Group-vs-AI is planned as a
+  category of NEW games, not a retrofit of these.
 - **Human-performance with LLM judge** (MegaSketchy) — sketches are drawn
   by humans; the game's joy depends on that. The LLM sits on the side as a
   judge / narrator for Mad Libs generation and post-round scoring
   commentary. No AI *players*.
-- **Human-performance, no AI** (Blarf, Fyve) — interpersonal team-based
-  games where AI on a human team adds management overhead without enough
-  upside. All-AI teams could be interesting but not interesting enough.
-  Intentionally out of scope.
 
 ## Phased roadmap
 
@@ -234,7 +230,7 @@ to `_gamecore/` so every future game is a drop-in.
 
 ### Phase 3 — LLM-native skill tiering via gated history
 
-BluffBox, SweepTheLeg, TapSmashArena, Wordonkulous all share a pattern:
+SweepTheLeg and TapSmashArena share a pattern:
 the AI's text IS the move. There's no cheaper algorithm to substitute in,
 so skill can't come from engine swaps. Instead:
 
@@ -261,8 +257,6 @@ Implementation lives in [`_gamecore/aiSkillDice.ts`](../src/app/games/_gamecore/
 
 Each game maps "history" to its own event type:
 
-- **BluffBox** — running log of `(player, sharedCard, truth|lie, votes)`
-- **Wordonkulous** — prior rounds of `(realWord, realDefinition, winners)`
 - **SweepTheLeg** — prior combat exchanges in the current fight
 - **TapSmashArena** — same shape as SweepTheLeg
 
@@ -357,7 +351,7 @@ Classify every game before applying this plan:
 
 1. **Deterministic strategy** (Boaty) →
    four-layer hybrid. Algorithms do the moves. LLM handles flavor. Cheap.
-2. **Generative content** (Wordonkulous) → full LLM each turn, no apology.
+2. **Generative content** (SweepTheLeg, TapSmashArena) → full LLM each turn, no apology.
    Skill tiers live in the prompt, not in an algorithm. Tokens are the game.
 3. **Human-performance** (Blarf, MegaSketchy, Fyve) → no AI players. Exclude.
 
@@ -371,5 +365,5 @@ Within category 1, the cheapest way to make every AI feel distinct:
 
 Boaty is the pilot (Layers 1 + 2 verified). Lift shared pieces into
 `_gamecore` next (Phase 2). Apply LLM-native prompt tiering to
-Wordonkulous / SweepTheLeg / TapSmashArena (Phase 3). Self-play verifies
+SweepTheLeg (Phase 3). Self-play verifies
 deterministic tiers; blind-tasting verifies LLM-native tiers.

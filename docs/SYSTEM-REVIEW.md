@@ -247,10 +247,12 @@ credit exhaustion is visible before players feel it.
 > both chaptered-video games refactored onto it (19); avatar dev endpoints
 > gated behind `requireAdmin` (21).
 >
-> **Still open — item 20 is a product decision, not a bug:** should BluffBox
-> and Wordonkulous get AI opponents back (engine-side, reducer/effect-driven)?
-> If yes, wire `aiSkillDice` tiering into each LLM-native game at the same
-> time (only TapSmashArena has it today; SweepTheLeg plays tier-blind).
+> **Item 20 DECIDED 2026-07-06:** AI opponents exist ONLY in the three 1v1
+> games (Boaty, SweepTheLeg, TapSmashArena). BluffBox/Wordonkulous AI designs
+> retired; FYVE/MegaSketchy/Blarf/Lineup stay human-only (MegaSketchy keeps
+> its LLM judge). Group-vs-AI will be NEW games. Docs + BLUFFBOX.md updated.
+> Remaining nice-to-have from this area: wire `aiSkillDice` tiering into
+> SweepTheLeg (TapSmashArena already has it).
 
 ### 16. Story surface ignores the theme system
 Hard-coded `#0f0f0f`/`#e8c547`/rgba values in `story/[slug]/page.tsx` instead

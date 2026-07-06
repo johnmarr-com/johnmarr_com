@@ -8,8 +8,11 @@ After a fixed number of rounds, the player(s) with the most points win.
 
 ## Game Flow
 
+Human players only — no AI opponents (product decision: AI opponents exist
+only in the 1v1 games).
+
 ```
-pack-select → round-intro → sharing → [human-to-ai-input] → guessing → result →
+pack-select → round-intro → sharing → guessing → result →
   ├─ next turn in round → sharing
   ├─ round complete, more rounds → round-intro
   └─ all rounds complete → game-over
@@ -22,9 +25,7 @@ pack-select → round-intro → sharing → [human-to-ai-input] → guessing →
 | `pack-select` | Host picks a bluff pack (card set). Can be pre-selected from lobby. |
 | `round-intro` | "ROUND X of Y" splash, 2.5s auto-advance. |
 | `sharing` | Current sharer sees card flip screen, picks Truth or Lie. Everyone else sees the main game view (single sharer panel + leaderboard). |
-| `ai-share-display` | AI sharer only — shows the AI's generated share text to the group, 6s timeout. |
-| `human-to-ai-input` | Human sharer + AI guessers in group — sharer types what they said so AI can process it. |
-| `guessing` | Popup appears for all non-sharers with Truth/Lie buttons. Each player submits independently and async. Host auto-runs AI guesses. |
+| `guessing` | Popup appears for all non-sharers with Truth/Lie buttons. Each player submits independently and async. |
 | `result` | Personalized result modal: sharer avatar, verdict, the actual card, and "+1 POINT!" or "YOU GOOFED!" per player. Scores already updated in Firestore before this phase. |
 | `game-over` | Winner screen with scaling layout. Host can replay. |
 
@@ -45,10 +46,9 @@ Tuned to produce a meaningful point spread:
 Each round, all players are shuffled into a random turn order. Every player shares exactly once per round. Within each turn:
 
 1. Sharer sees card, shares verbally with the group, picks Truth or Lie
-2. If AI guessers exist and sharer is human: sharer types what they said
-3. All non-sharers guess (Truth or Lie) independently
-4. Once all guesses are in: scores are calculated and written, result modal shown
-5. After ~4s (or host tap): advance to next turn
+2. All non-sharers guess (Truth or Lie) independently
+3. Once all guesses are in: scores are calculated and written, result modal shown
+4. After ~4s (or host tap): advance to next turn
 
 ## Scoring
 

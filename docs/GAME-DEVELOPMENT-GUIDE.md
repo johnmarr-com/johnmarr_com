@@ -59,14 +59,18 @@ functions/src/
 | Game | engineKey | Mode | AI opponents (`allowAI`) |
 |---|---|---|---|
 | Boaty | `boaty` | versus | ✅ procedural, reducer-side |
-| Wordonkulous | `wordonkulous` | party | ❌ off (LLM-native design exists; not wired post-migration) |
-| Blarf | `blarf` | party | ❌ none by design |
-| BluffBox | `bluffbox` | party | ❌ off (AI-sharer phases exist in the flow; seats disabled) |
-| FYVE | `fyve` | party/teams | ❌ none by design |
-| MegaSketchy | `megasketchy` | party | ❌ seats off; LLM as judge via engine effects |
-| Lineup | `lineup` | party | ❌ none |
+| Wordonkulous | `wordonkulous` | party | 🟡 no AI, by decision |
+| Blarf | `blarf` | party | 🟡 no AI, by decision |
+| BluffBox | `bluffbox` | party | 🟡 no AI, by decision |
+| FYVE | `fyve` | party/teams | 🟡 no AI, by decision |
+| MegaSketchy | `megasketchy` | party | 🟡 no AI players; LLM as judge via engine effects |
+| Lineup | `lineup` | party | 🟡 no AI, by decision |
 | SweepTheLeg | `resolverKey: "hml"` (legacy) | versus | ✅ LLM-native |
 | TapSmashArena | `resolverKey: "rps"` (legacy) | versus | ✅ LLM-native |
+
+**AI policy (decided 2026-07-06):** AI opponents exist only in the three 1v1
+games. Group games are human-only; group-vs-AI is a category of planned NEW
+games, not a retrofit. See [`AI-PLAY-PLAN.md`](./AI-PLAY-PLAN.md).
 
 `fast_casual_trivia` is a separate, currently **parked** effort
 (see `fast-casual-trivia-STATUS.md`).
