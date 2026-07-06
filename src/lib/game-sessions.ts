@@ -491,10 +491,13 @@ export async function joinGameSessionById(
  *     (Play-Again / startGame) and always passes, re-arming the watermark.
  *  3. HEARTBEAT (backstop): on flaky links the push stream can silently stall
  *     and strand a client on stale state — the "both players waiting" freeze.
- *     Every few seconds (while not finished) we force a SERVER read; if it is
- *     newer than what we've shown, the push was missed, so we apply it AND
- *     resubscribe the (wedged) listener so the fast-path recovers. As long as
- *     the server advanced `seq`, no client can stay stuck longer than one beat.
+ *     Every few seconds we force a SERVER read; if it is newer than what we've
+ *     shown, the push was missed, so we apply it AND resubscribe the (wedged)
+ *     listener so the fast-path recovers. As long as the server advanced
+ *     `seq`, no client can stay stuck longer than one beat. After `finished`
+ *     the beat slows (instead of stopping) and treats a polled `seq === 0` as
+ *     the Play-Again reset — otherwise a wedged client could never learn the
+ *     host restarted (SYSTEM-REVIEW item 10).
  */
 export async function subscribeToSession(
   sessionId: string,
@@ -558,8 +561,13 @@ export async function subscribeToSession(
   // best-effort kicks the SDK to revive its fast path. This is the hard
   // guarantee against the "frozen for 30+ seconds" stall.
   let probing = false;
+  let beat = 0;
   const tick = async (): Promise<void> => {
-    if (cancelled || lastStatus === "finished" || probing) return;
+    beat++;
+    // Finished games still need the beat (a Play-Again reset must reach a
+    // wedged client) — just much slower: every 5th beat (~15s).
+    if (cancelled || probing) return;
+    if (lastStatus === "finished" && beat % 5 !== 0) return;
     probing = true;
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), PROBE_TIMEOUT_MS);
@@ -578,9 +586,10 @@ export async function subscribeToSession(
         return;
       }
       const seq = data.seq ?? 0;
-      if (seq > appliedSeq) {
-        // Realtime listener stalled/missed it — render from the poll so play
-        // continues, and nudge the SDK to rebuild its (likely wedged) stream.
+      // Newer state, or a reset (seq re-armed to 0 by startGame / Play Again)
+      // that the wedged realtime path never delivered — mirror the realtime
+      // apply-gate here so the poll can carry a restart too.
+      if (seq > appliedSeq || (seq === 0 && appliedSeq > 0)) {
         apply(data, seq);
         void kickFirestoreConnection();
       }

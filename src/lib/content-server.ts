@@ -37,6 +37,9 @@ const pageOf = (d: DocumentData): string =>
 /** Cache tag for the home content (bust via `revalidateTag` on CMS publish). */
 export const HOME_CONTENT_TAG = "home-content";
 
+/** Cache tag for standalone CMS pages (bust via `revalidateTag` on publish). */
+export const PAGE_CONTENT_TAG = "page-content";
+
 export interface HomeFeatured {
   id: string;
   title: string;
@@ -560,11 +563,23 @@ async function getPageBySlugServer(slug: string): Promise<PageMeta | null> {
 /**
  * A published page's content (optional banner + rows), resolved server-side.
  * Returns null when no published page exists at that slug.
+ *
+ * Cached per slug for 60s in the Next data cache (the `[...slug]` catch-all is
+ * force-dynamic, so without this every hit on a CMS/landing page re-read the
+ * whole experiences graph — slow TTFB on exactly the pages campaigns land on).
+ * CMS publish busts the tag via /api/revalidate.
  */
 export async function getPageContent(slug: string): Promise<PageContent | null> {
-  const page = await getPageBySlugServer(slug);
-  if (!page) return null;
-  return { page, segments: await resolveSegments(page) };
+  const cached = unstable_cache(
+    async (): Promise<PageContent | null> => {
+      const page = await getPageBySlugServer(slug);
+      if (!page) return null;
+      return { page, segments: await resolveSegments(page) };
+    },
+    ["page-content-v1", slug],
+    { revalidate: 60, tags: [PAGE_CONTENT_TAG] },
+  );
+  return cached();
 }
 
 /** Pagination-dot color for a named carousel ("" / unknown ⇒ undefined). */

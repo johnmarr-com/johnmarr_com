@@ -19,7 +19,12 @@
  * Player moves arrive as inbox events (written by the route): `inbox.clue` (the
  * active boss's clue), `inbox.tap` (an active operative's card tap), `inbox.pass`
  * (pass the turn), and `inbox.startHeist` (host launches after picking bosses).
- * No turn timers (untimed, by design) — there are no phaseDeadlineAt writes.
+ *
+ * Liveness: every active phase carries a generous `phaseDeadlineAt` (self-armed
+ * for sessions/phases that lack one). Expiry auto-passes the turn to the other
+ * syndicate; `MAX_TIMEOUT_STREAK` consecutive timeouts ends the game for the
+ * score leader (setup abandonment just closes the session). Without this, one
+ * AFK boss/operative wedged the match forever (SYSTEM-REVIEW item 9).
  */
 
 import { FieldValue } from "firebase-admin/firestore";
@@ -44,6 +49,13 @@ const ENGINE_KEY = "fyve";
 
 // Only the live-game phases run the engine; the setup phases are route-driven.
 const ACTIVE_PHASES = new Set(["boss-select", "boss-clue", "operative-guess"]);
+
+// Turn deadlines. Generous — FYVE is a talk-it-out party game; these exist to
+// unwedge abandoned turns, not to pressure players. Expiry fires via the
+// clients' engine-tick nudge or the 1-minute sweepDeadlines pass.
+const BOSS_SELECT_MS = 30 * 60_000; // setup abandonment
+const TURN_MS = 4 * 60_000;         // boss-clue / operative-guess
+const MAX_TIMEOUT_STREAK = 4;       // consecutive timeouts → end for the leader
 
 const keyPath = (sid: string): string => `fyveKeys/${sid}`;
 const heistPath = (heistId: string): string => `fyveHeists/${heistId}`;
@@ -101,6 +113,69 @@ const fyveReducer: Reducer = {
     const heistId = s["selectedHeistId"] as string | null;
     const inbox = s.inbox ?? {};
 
+    // ── Liveness: self-arm a deadline for any active phase missing one
+    // (route-driven phase entries + sessions predating turn deadlines). ──
+    const deadline = (s["phaseDeadlineAt"] as number | undefined) ?? 0;
+    if (!deadline) {
+      const ms = phase === "boss-select" ? BOSS_SELECT_MS : TURN_MS;
+      return { fields: { phaseDeadlineAt: ctx.now + ms } };
+    }
+
+    // ── Deadline expired: auto-advance so an AFK player can't wedge the game. ──
+    if (ctx.now >= deadline) {
+      if (phase === "boss-select") {
+        // Abandoned during setup — close the session quietly (no winner).
+        logger.info(`[fyve] ${sid}: boss-select timed out → closing session`);
+        return {
+          fields: {
+            svPhase: "game-over",
+            winningTeam: null,
+            phaseDeadlineAt: FieldValue.delete(),
+          },
+          gameOver: true,
+          winner: null,
+          winnerUids: [],
+        };
+      }
+      const activeTeam = (s["activeTeam"] as FyveTeam | null) ?? "syndicate1";
+      const streak = ((s["svTimeoutStreak"] as number | undefined) ?? 0) + 1;
+      if (streak >= MAX_TIMEOUT_STREAK) {
+        // Both sides have gone quiet — end it for the score leader (tie goes
+        // to the team that did NOT just time out, so there's always a winner
+        // and the client's game-over flow runs).
+        const t1 = (s["t1Score"] as number | undefined) ?? 0;
+        const t2 = (s["t2Score"] as number | undefined) ?? 0;
+        const leader: FyveTeam =
+          t1 > t2 ? "syndicate1" : t2 > t1 ? "syndicate2" : otherTeam(activeTeam);
+        logger.info(`[fyve] ${sid}: ${streak} consecutive timeouts → game-over (winner=${leader})`);
+        return {
+          fields: {
+            svPhase: "game-over",
+            winningTeam: leader,
+            loseByBomb: false,
+            currentClue: null,
+            svTimeoutStreak: streak,
+            phaseDeadlineAt: FieldValue.delete(),
+          },
+          gameOver: true,
+          winner: leader,
+          winnerUids: teams?.[leader]?.members ?? [],
+        };
+      }
+      logger.info(`[fyve] ${sid}: ${phase} timed out → auto-pass (streak=${streak})`);
+      return {
+        fields: {
+          activeTeam: otherTeam(activeTeam),
+          currentClue: null,
+          guessesRemaining: 0,
+          guessesUsedThisTurn: 0,
+          svPhase: "boss-clue",
+          svTimeoutStreak: streak,
+          phaseDeadlineAt: ctx.now + TURN_MS,
+        },
+      };
+    }
+
     // ── boss-select → boss-clue: host launches (startHeist) once both bosses
     // are set. Generate the board + secret key, coin-flip the first team. ──
     if (phase === "boss-select") {
@@ -136,6 +211,8 @@ const fyveReducer: Reducer = {
           loseByBomb: false,
           bombRevealedBy: null,
           svPhase: "boss-clue",
+          svTimeoutStreak: 0,
+          phaseDeadlineAt: ctx.now + TURN_MS,
           "inbox.startHeist": FieldValue.delete(),
         },
         docWrites: [
@@ -177,6 +254,8 @@ const fyveReducer: Reducer = {
           guessesRemaining: number,
           guessesUsedThisTurn: 0,
           svPhase: "operative-guess",
+          svTimeoutStreak: 0,
+          phaseDeadlineAt: ctx.now + TURN_MS,
           "inbox.clue": FieldValue.delete(),
         },
       };
@@ -256,6 +335,9 @@ const fyveReducer: Reducer = {
           guessesRemaining: outcome.guessesRemaining,
           guessesUsedThisTurn: outcome.guessesUsedThisTurn,
           svPhase: outcome.nextPhase,
+          svTimeoutStreak: 0,
+          phaseDeadlineAt:
+            outcome.nextPhase === "game-over" ? FieldValue.delete() : ctx.now + TURN_MS,
           [`inbox.tap.${tapperUid}`]: FieldValue.delete(),
         };
         if (outcome.clearClue) fields["currentClue"] = null;
@@ -303,6 +385,8 @@ const fyveReducer: Reducer = {
             guessesRemaining: 0,
             guessesUsedThisTurn: 0,
             svPhase: "boss-clue",
+            svTimeoutStreak: 0,
+            phaseDeadlineAt: ctx.now + TURN_MS,
             "inbox.pass": FieldValue.delete(),
           },
         };

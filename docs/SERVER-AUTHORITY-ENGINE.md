@@ -155,8 +155,9 @@ retried write lands in the same slot; a replayed trigger sees the slot gone.
 `runEffects` (`functions/src/engine/effects.ts`). Handlers register with
 `registerEffect(kind, handler)`. Rules:
 
-- Effects **never block or fail a step** — a throwing effect is logged and
-  dropped; recovery is the deadline sweep plus idempotent re-issue.
+- Effects **never block or fail a step** — a throwing effect is retried
+  (3 attempts with backoff; handlers must be idempotent), then logged and
+  dropped; the deadline sweep is the last-resort recovery.
 - Effects that change state re-read the session, check it's still relevant
   (phase unchanged, verdict not already written), write via Admin SDK, and
   bump `seq` so clients reconcile.
@@ -195,10 +196,13 @@ read a session. Layers (see the block comment above it):
    Play Again) and always passes.
 3. **HTTPS HEARTBEAT** — every 3 s, a plain HTTPS `GET
    /api/games/session-state` (AbortController timeout 4 s). If the poll's
-   `seq` is ahead of the push, the stream has wedged: render from the poll
-   AND `kickFirestoreConnection()` (`src/lib/firebase.ts`,
+   `seq` is ahead of the push — or shows the `seq === 0` reset shape after a
+   Play Again — the stream has wedged: render from the poll AND
+   `kickFirestoreConnection()` (`src/lib/firebase.ts`,
    `disableNetwork → enableNetwork`) to rebuild it. Also kicked on
-   `visibilitychange` / `online`. Stops when `status === "finished"`.
+   `visibilitychange` / `online`. After `status === "finished"` the beat
+   slows to ~15 s (it must keep running so a wedged client can learn about a
+   restart).
 
 This is the game-specific application of the site-wide
 [`DATA-ACCESS.md`](./DATA-ACCESS.md) rule; it is why iOS devices no longer

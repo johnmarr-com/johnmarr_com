@@ -2,7 +2,7 @@
  * Boaty pure logic — server copy of the geometry/attack/AI functions from
  * `src/app/games/boaty/boatyLogic.ts`. Pure + deterministic-given-RNG; copied
  * because the functions package can't import the Next app's `src/`. Kept in
- * sync with a parity test (`boaty.logic.test.ts`). Animation constants and
+ * sync with a parity test (`tests/boaty-parity.test.ts`, repo root). Animation constants and
  * client-only helpers (tryRotate/findRaftAt/isRaftDestroyed) are intentionally
  * omitted.
  */

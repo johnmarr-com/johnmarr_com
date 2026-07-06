@@ -24,6 +24,7 @@ initializeApp();
 
 export { gameEngine } from "./engine/gameEngine.fn";
 export { sweepDeadlines } from "./engine/sweepDeadlines.fn";
+export { aiHealthCheck } from "./aiHealthCheck.fn";
 
 const LEGACY_RETENTION_MS = 24 * 60 * 60 * 1000;
 

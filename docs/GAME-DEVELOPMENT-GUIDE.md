@@ -342,6 +342,19 @@ from `/levels`, and sets `levelledUp` (surfaced by `JMLevelUpPopup`).
 
 ---
 
+## Testing
+
+`npm test` runs vitest in both packages: root (`tests/` — e.g.
+`boaty-parity.test.ts`, which locks the client and server copies of Boaty's
+pure logic together) and `functions/` (`functions/tests/` — reducer unit
+tests, e.g. FYVE's deadline behavior). Reducers are pure functions of
+`(session, now, secrets)`, so testing a phase transition is just building a
+session literal and asserting on the returned `StateUpdate`. When you copy
+client logic into `functions/src/games/*`, add a parity test; when you add
+timed phases or timeout behavior, add a reducer test.
+
+---
+
 ## TypeScript & Code Conventions
 
 - `exactOptionalPropertyTypes` is on: spread optionals as

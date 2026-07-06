@@ -3,7 +3,7 @@
  *
  * Mirrors the geometry/board types in
  * `src/app/games/boaty/boatyTypes.ts` (minus the client-only GameSession /
- * BoatyState shapes). Kept in sync with a parity test.
+ * BoatyState shapes). Kept in sync by `tests/boaty-parity.test.ts` (repo root).
  */
 
 export type RaftType = "square" | "lshape" | "shorty";

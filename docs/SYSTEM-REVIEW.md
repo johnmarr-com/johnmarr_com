@@ -93,9 +93,10 @@ backfill existing users as unconsented; add an admin-gated
 > `persist-image` path allowlist (it previously accepted ANY storage path);
 > PWA manifest + apple-touch-icon shipped (placeholder icons in
 > `public/icons/` — swap the PNGs to rebrand).
-> **Deploy note:** the rules change needs `firebase deploy --only
-> firestore:rules`, and `winnerUids` needs `firebase deploy --only
-> functions` — until then the points route relies on its legacy fallbacks.
+> **Deployed 2026-07-05:** firestore rules + all functions (gameEngine,
+> sweepDeadlines, scheduledGameCleanup, recordAIGameResult) released.
+> Worth a spot-check: one SweepTheLeg solo-vs-AI game on a fresh session
+> (the rules change touches the host-writes-AI-move path).
 
 ### 5. Points can be farmed, and `win_game` is silently dead
 **Problem:** `POST /api/user/points` awards on any authed call — no
@@ -149,6 +150,20 @@ install.
 ---
 
 ## 🟡 P2 — Game reliability & platform consistency
+
+> **✅ P2 SHIPPED 2026-07-05.** Items 9–15 done: FYVE now has self-arming
+> turn deadlines (4 min/turn, auto-pass; 4 consecutive timeouts end the game
+> for the score leader; 30-min setup abandonment closes the session); the
+> session heartbeat keeps beating after `finished` (slower) and treats a
+> polled `seq === 0` as the Play-Again reset; engine-session roster rules
+> now let non-hosts remove only themselves or one AI seat (kicks are
+> host-only); `runEffects` retries failed effects 3× with backoff;
+> `getPageContent` is cached per slug (60s, tag-busted on publish alongside
+> home); an hourly `aiHealthCheck` function probes Anthropic and writes
+> `system/aiHealth` (admin view: `GET /api/admin/ai-health`, `?live=1` for an
+> on-demand probe with the web key); and test infrastructure exists —
+> `npm test` runs vitest at root (boaty client/server **parity test**, the
+> long-promised one) + in `functions/` (FYVE deadline reducer tests).
 
 ### 9. FYVE has no deadlines — one AFK player wedges the game forever
 **Problem:** FYVE is untimed by design: no `phaseDeadlineAt` is ever written

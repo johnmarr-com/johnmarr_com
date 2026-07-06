@@ -367,6 +367,20 @@ service cloud.firestore {
     // ─────────────────────────────────────────────────────────────
     
     match /gameSessions/{sessionId} {
+      // Uids present before the update but not after (who this write removes).
+      function rosterRemovals() {
+        return resource.data.get('playerUids', [])
+          .removeAll(request.resource.data.get('playerUids', []));
+      }
+      // Non-host roster ops may remove at most ONE uid: themselves (leave) or
+      // an AI seat (join-evict). Removing another human is host/server-only.
+      function removesOnlySelfOrOneAI() {
+        return rosterRemovals().size() == 0
+          || (rosterRemovals().size() == 1
+              && (rosterRemovals()[0] == request.auth.uid
+                  || rosterRemovals()[0].matches('ai-.*')));
+      }
+
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
 
@@ -387,11 +401,19 @@ service cloud.firestore {
         // through the authenticated API route (Admin SDK, bypasses rules). The
         // host may start / reset to the value-checked start-of-game shape.
         ( ('engineKey' in resource.data) && (
-          ( request.auth.uid in request.resource.data.playerUids
+          ( ( request.auth.uid in request.resource.data.playerUids
+              || request.auth.uid in resource.data.playerUids )
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
               'playerUids', 'players', 'playerCount', 'pendingInviteUids',
               'kickedUids', 'updatedAt'
-            ]) )
+            ])
+            // Host manages the roster freely (kick / add-AI); everyone else
+            // may only join, leave, or replace one AI seat — and may not
+            // touch kickedUids (kicking is a host power).
+            && ( resource.data.ownerId == request.auth.uid
+                 || ( removesOnlySelfOrOneAI()
+                      && !request.resource.data.diff(resource.data)
+                           .affectedKeys().hasAny(['kickedUids']) ) ) )
           ||
           ( resource.data.ownerId == request.auth.uid
             && request.resource.data.engineKey == resource.data.engineKey
