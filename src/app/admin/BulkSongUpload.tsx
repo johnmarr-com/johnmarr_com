@@ -102,10 +102,10 @@ async function filesFromDrop(dt: DataTransfer): Promise<File[]> {
 
 /**
  * Bulk song intake for an album: drop a folder (or a stack of audio files),
- * and each file becomes a song — title from the filename, empty description,
- * track numbers appended in natural filename order ("folder order"). Files
- * upload one at a time with per-file status; reorder afterwards by dragging
- * the song rows as usual.
+ * and each file becomes a PUBLISHED song — title from the filename, empty
+ * description, track numbers appended in natural filename order ("folder
+ * order"). Files upload one at a time with per-file status; reorder
+ * afterwards by dragging the song rows as usual.
  */
 export function BulkSongUpload({
   albumId,
@@ -152,7 +152,9 @@ export function BulkSongUpload({
               audioURL,
               duration,
               trackNumber: existingCount + i + 1,
-              isPublished: false,
+              // Bulk-loaded tracks go live immediately — no click-to-publish
+              // pass afterwards (the album itself still gates visibility).
+              isPublished: true,
             },
             creatorId,
           );
