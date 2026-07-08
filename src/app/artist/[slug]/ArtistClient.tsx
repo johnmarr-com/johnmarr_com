@@ -273,8 +273,8 @@ export default function ArtistClient({ data }: { data: ArtistPageData }) {
                       className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-transform hover:scale-105"
                       style={{
                         backgroundColor: theme.surfaces.elevated1,
-                        color: theme.text.primary,
-                        border: `1px solid ${theme.surfaces.elevated2}`,
+                        color: theme.primary,
+                        border: `1px solid ${theme.primary}66`,
                       }}
                     >
                       <Download size={16} />
@@ -297,7 +297,7 @@ export default function ArtistClient({ data }: { data: ArtistPageData }) {
                     <button
                       onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
                       className="text-sm mt-2 hover:underline"
-                      style={{ color: theme.accents.goldenGlow }}
+                      style={{ color: theme.primary }}
                     >
                       {isDescriptionExpanded ? "Show Less" : "Read More"}
                     </button>
@@ -312,8 +312,8 @@ export default function ArtistClient({ data }: { data: ArtistPageData }) {
                 onClick={playAll}
                 className="flex items-center gap-2 px-6 py-3 rounded-full font-semibold transition-transform hover:scale-105"
                 style={{
-                  backgroundColor: theme.accents.goldenGlow,
-                  color: theme.surfaces.base,
+                  background: theme.gradient.css,
+                  color: theme.text.primary,
                 }}
               >
                 <Play size={20} fill="currentColor" />
@@ -347,15 +347,15 @@ export default function ArtistClient({ data }: { data: ArtistPageData }) {
                       <div className="flex items-center justify-center gap-0.5">
                         <span
                           className="w-1 h-3 rounded-full animate-pulse"
-                          style={{ backgroundColor: theme.accents.goldenGlow }}
+                          style={{ backgroundColor: theme.primary }}
                         />
                         <span
                           className="w-1 h-4 rounded-full animate-pulse"
-                          style={{ backgroundColor: theme.accents.goldenGlow, animationDelay: "0.1s" }}
+                          style={{ backgroundColor: theme.primary, animationDelay: "0.1s" }}
                         />
                         <span
                           className="w-1 h-2 rounded-full animate-pulse"
-                          style={{ backgroundColor: theme.accents.goldenGlow, animationDelay: "0.2s" }}
+                          style={{ backgroundColor: theme.primary, animationDelay: "0.2s" }}
                         />
                       </div>
                     ) : (
@@ -374,7 +374,7 @@ export default function ArtistClient({ data }: { data: ArtistPageData }) {
                       className={`font-medium truncate ${teased ? "opacity-50" : ""}`}
                       style={{
                         color: currentSongIndex === index
-                          ? theme.accents.goldenGlow
+                          ? theme.primary
                           : theme.text.primary,
                       }}
                     >
@@ -469,7 +469,7 @@ export default function ArtistClient({ data }: { data: ArtistPageData }) {
                         ) : (
                           <div
                             className="p-4 rounded-full"
-                            style={{ backgroundColor: `${theme.accents.goldenGlow}90` }}
+                            style={{ backgroundColor: `${theme.primary}cc` }}
                           >
                             <Play size={32} fill="white" style={{ color: "white" }} />
                           </div>
@@ -543,7 +543,7 @@ export default function ArtistClient({ data }: { data: ArtistPageData }) {
                 className="h-full rounded-full transition-all"
                 style={{
                   width: `${duration ? (currentTime / duration) * 100 : 0}%`,
-                  backgroundColor: theme.accents.goldenGlow,
+                  background: theme.gradient.css,
                 }}
               />
             </div>
@@ -579,8 +579,8 @@ export default function ArtistClient({ data }: { data: ArtistPageData }) {
                   onClick={togglePlayPause}
                   className="p-3 rounded-full transition-colors"
                   style={{
-                    backgroundColor: theme.accents.goldenGlow,
-                    color: theme.surfaces.base,
+                    background: theme.gradient.css,
+                    color: theme.text.primary,
                   }}
                 >
                   {isPlaying ? <Pause size={24} /> : <Play size={24} fill="currentColor" />}
