@@ -15,6 +15,7 @@ import { useAuth } from "@/lib/AuthProvider";
 import type {
   JMContent,
   JMContentType,
+  GridContentType,
   JMGridCollection,
   JMGridCollectionUpdate,
   GridCellAspect,
@@ -27,7 +28,7 @@ import {
   listGridCollections,
   updateGridCollection,
 } from "@/lib/grid-collections";
-import { getTopLevelContent, getAllArtists } from "@/lib/content";
+import { getTopLevelContent, getAllArtists, getAllAlbums } from "@/lib/content";
 import { FONT_CATALOG, fontStack } from "@/lib/scrollyfox-style";
 import { useDevicePreview, DeviceTabs } from "@/app/scrollyfox/DevicePreview";
 import { JMGrid, type JMGridItem } from "@/JMKit";
@@ -37,7 +38,9 @@ interface ContentOpt {
   name: string;
   subtitle?: string;
   coverURL: string;
-  contentType: JMContentType;
+  contentType: GridContentType;
+  /** Albums only: parent artist (drives the album-grid artist filter). */
+  artistId?: string;
 }
 
 const CONTENT_TYPES: JMContentType[] = ["show", "game", "story", "card", "artist"];
@@ -71,6 +74,8 @@ export function AdminGridCollectionsPanel() {
   const [gridId, setGridId] = useState("");
   const [draft, setDraft] = useState<JMGridCollection | null>(null);
   const [available, setAvailable] = useState<ContentOpt[]>([]);
+  /** Album grids: artist choices for the "whose albums" filter. */
+  const [artistOpts, setArtistOpts] = useState<{ id: string; name: string }[]>([]);
   const [loadingContent, setLoadingContent] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [savedAt, setSavedAt] = useState(false);
@@ -107,14 +112,46 @@ export function AdminGridCollectionsPanel() {
   }, [gridId, grids]);
 
   // Load the available content for the draft's content type (for picker + preview).
-  const loadContent = useCallback(async (contentType?: JMContentType) => {
+  const loadContent = useCallback(async (contentType?: GridContentType) => {
     if (!contentType) {
       setAvailable([]);
       return;
     }
     setLoadingContent(true);
     try {
-      if (contentType === "artist") {
+      if (contentType === "album") {
+        // Albums are always auto-listed, grouped by artist (name asc, then
+        // album order) — same ordering the server resolver produces.
+        const [artists, albums] = await Promise.all([
+          getAllArtists(false),
+          getAllAlbums(false),
+        ]);
+        const artistById = new Map(artists.map((a) => [a.id, a.name]));
+        setArtistOpts(
+          artists
+            .map((a) => ({ id: a.id, name: a.name }))
+            .sort((a, b) => a.name.localeCompare(b.name)),
+        );
+        setAvailable(
+          albums
+            .map((al) => ({
+              opt: {
+                id: al.id,
+                name: al.name,
+                subtitle: artistById.get(al.artistId) ?? "",
+                coverURL: al.coverImageURL,
+                contentType: "album" as const,
+                artistId: al.artistId,
+              },
+              order: al.order,
+            }))
+            .sort(
+              (a, b) =>
+                a.opt.subtitle.localeCompare(b.opt.subtitle) || a.order - b.order,
+            )
+            .map((entry) => entry.opt),
+        );
+      } else if (contentType === "artist") {
         const artists = await getAllArtists(false);
         setAvailable(
           artists.map((a) => ({
@@ -167,8 +204,10 @@ export function AdminGridCollectionsPanel() {
     setDraft((prev) => {
       if (!prev) return prev;
       const next: JMGridCollection = { ...prev, contentIds: [] };
-      if (value) next.contentType = value as JMContentType;
+      if (value) next.contentType = value as GridContentType;
       else delete next.contentType;
+      if (value === "album") next.albumArtistId = prev.albumArtistId ?? "";
+      else delete next.albumArtistId;
       return next;
     });
 
@@ -217,6 +256,11 @@ export function AdminGridCollectionsPanel() {
         maxWidthPercent: draft.maxWidthPercent,
       };
       if (draft.contentType) updates.contentType = draft.contentType;
+      if (draft.contentType === "album") {
+        // Album grids are always auto-listed; "" ⇒ all artists.
+        updates.autoPopulate = true;
+        updates.albumArtistId = draft.albumArtistId ?? "";
+      }
       await updateGridCollection(draft.id, updates);
       await load();
       setSavedAt(true);
@@ -236,12 +280,16 @@ export function AdminGridCollectionsPanel() {
   // Preview items derived from the loaded content + the draft's selection.
   const previewItems: JMGridItem[] = !draft
     ? []
-    : draft.autoPopulate
-      ? available.map((c) => toGridItem(c))
-      : draft.contentIds
-          .map((id) => available.find((c) => c.id === id))
-          .filter((c): c is ContentOpt => !!c)
-          .map((c) => toGridItem(c));
+    : draft.contentType === "album"
+      ? available
+          .filter((c) => !draft.albumArtistId || c.artistId === draft.albumArtistId)
+          .map((c) => toGridItem(c))
+      : draft.autoPopulate
+        ? available.map((c) => toGridItem(c))
+        : draft.contentIds
+            .map((id) => available.find((c) => c.id === id))
+            .filter((c): c is ContentOpt => !!c)
+            .map((c) => toGridItem(c));
 
   return (
     <div className="flex flex-col gap-5">
@@ -331,20 +379,46 @@ export function AdminGridCollectionsPanel() {
                       {JMContentTypeLabels[t]}
                     </option>
                   ))}
+                  <option value="album">Albums (music)</option>
                 </select>
-                <label className="flex items-center gap-2 text-sm" style={{ color: theme.text.secondary }}>
-                  <input
-                    type="checkbox"
-                    checked={draft.autoPopulate ?? false}
-                    onChange={(e) => patch({ autoPopulate: e.target.checked })}
-                    className="h-4 w-4"
-                  />
-                  Auto-populate all
-                </label>
+                {draft.contentType !== "album" && (
+                  <label className="flex items-center gap-2 text-sm" style={{ color: theme.text.secondary }}>
+                    <input
+                      type="checkbox"
+                      checked={draft.autoPopulate ?? false}
+                      onChange={(e) => patch({ autoPopulate: e.target.checked })}
+                      className="h-4 w-4"
+                    />
+                    Auto-populate all
+                  </label>
+                )}
               </div>
 
-              {/* Curated picker */}
-              {draft.contentType && !draft.autoPopulate && (
+              {/* Album grids: pick whose albums (always auto-listed, grouped
+                  by artist). Cells deep-link to /artist/{slug}?album={id}. */}
+              {draft.contentType === "album" && (
+                <div className="flex flex-wrap items-center gap-3">
+                  <select
+                    value={draft.albumArtistId ?? ""}
+                    onChange={(e) => patch({ albumArtistId: e.target.value })}
+                    className="rounded-lg border-2 px-3 py-2 text-sm"
+                    style={inputStyle}
+                  >
+                    <option value="">All artists (grouped by artist)</option>
+                    {artistOpts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-xs" style={{ color: theme.text.tertiary }}>
+                    Albums auto-populate — new albums appear here automatically.
+                  </span>
+                </div>
+              )}
+
+              {/* Curated picker (album grids are always auto-listed) */}
+              {draft.contentType && draft.contentType !== "album" && !draft.autoPopulate && (
                 <div className="flex flex-col gap-3">
                   {draft.contentIds.length > 0 && (
                     <div

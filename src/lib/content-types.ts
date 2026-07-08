@@ -398,14 +398,23 @@ export interface GridColumns {
  * the same content-selection model as a row (contentType + auto/curated).
  * Stored in /gridCollections.
  */
+/**
+ * What a grid can hold: any top-level content type, or "album" — a virtual
+ * type that auto-lists music albums (one artist's, or every artist's grouped
+ * by artist). Album grids are always auto-populated.
+ */
+export type GridContentType = JMContentType | "album";
+
 export interface JMGridCollection {
   id: string;
   name: string;
 
   // ─── Content selection (same model as a content row) ───
-  contentType?: JMContentType;
+  contentType?: GridContentType;
   autoPopulate?: boolean;
   contentIds: string[];
+  /** Album grids only: the artist whose albums to list ("" ⇒ all artists). */
+  albumArtistId?: string;
 
   // ─── Display (top-layer settings) ───
   cellAspect: GridCellAspect;
@@ -767,6 +776,8 @@ export interface JMAlbum {
   createdAt: Timestamp;
   updatedAt: Timestamp;
   isPublished: boolean;           // Draft vs live
+  /** Album page shows a "Download Songs" (zip) button. Defaults to false. */
+  downloadable?: boolean;
 }
 
 /**
@@ -780,6 +791,7 @@ export interface JMAlbumInput {
   coverVideoURL?: string;
   order?: number;
   isPublished?: boolean;
+  downloadable?: boolean;
 }
 
 /**

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { JMAppHeader, JMVimeoPlayer, getVimeoThumbnail } from "@/JMKit";
 import { useJMStyle } from "@/JMStyle";
@@ -12,18 +13,23 @@ import type {
 } from "@/lib/detail-server";
 import {
   Play, Pause, SkipForward, SkipBack,
-  FileText, X, Video,
+  FileText, X, Video, Download,
 } from "lucide-react";
 import { PointsManager, Activity } from "@/lib/points";
 
 export default function ArtistClient({ data }: { data: ArtistPageData }) {
   const { theme } = useJMStyle();
   const { user, isLoading: authLoading } = useAuth();
+  const searchParams = useSearchParams();
 
   const { artist, albums, musicVideos } = data;
 
-  // Current album (first one for now)
-  const currentAlbum = albums[0] || null;
+  // Current album: ?album={id} (album-grid deep links) selects it; else first.
+  const albumParam = searchParams.get("album");
+  const currentAlbum =
+    (albumParam ? albums.find((a) => a.id === albumParam) : undefined) ??
+    albums[0] ??
+    null;
 
   // Audio player state
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -247,12 +253,36 @@ export default function ArtistClient({ data }: { data: ArtistPageData }) {
 
             {/* Album Title & Description */}
             <div className="mb-8">
-              <h2
-                className="text-2xl font-bold mb-4"
-                style={{ color: theme.text.primary }}
-              >
-                {currentAlbum.name}
-              </h2>
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <h2
+                  className="text-2xl font-bold"
+                  style={{ color: theme.text.primary }}
+                >
+                  {currentAlbum.name}
+                </h2>
+                {currentAlbum.downloadable && (
+                  <div className="flex flex-col items-end shrink-0">
+                    <span
+                      className="text-[11px] mb-1 text-right"
+                      style={{ color: theme.text.tertiary }}
+                    >
+                      Free for personal and commercial use
+                    </span>
+                    <a
+                      href={`/api/music/download-album?albumId=${currentAlbum.id}`}
+                      className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-transform hover:scale-105"
+                      style={{
+                        backgroundColor: theme.surfaces.elevated1,
+                        color: theme.text.primary,
+                        border: `1px solid ${theme.surfaces.elevated2}`,
+                      }}
+                    >
+                      <Download size={16} />
+                      Download Songs
+                    </a>
+                  </div>
+                )}
+              </div>
               {currentAlbum.description && (
                 <div>
                   <p

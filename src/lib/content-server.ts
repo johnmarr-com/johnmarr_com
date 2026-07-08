@@ -233,6 +233,63 @@ async function resolveCurated(
 }
 
 /**
+ * Album-grid items: all published albums by one artist, or by every artist —
+ * grouped by artist (artist name asc, then album order). Item shape routes
+ * to `/artist/{slug}?album={albumId}` (see PageSegments), with the artist
+ * name as the subtitle.
+ */
+async function resolveAlbumItems(
+  db: Firestore,
+  albumArtistId: string,
+): Promise<HomeRowItem[]> {
+  // Published artists, keyed by id (also drives the grouping order).
+  const artistsSnap = await db
+    .collection("artists")
+    .where("isPublished", "==", true)
+    .orderBy("name", "asc")
+    .get();
+  const artists = new Map<string, { name: string; slug: string }>();
+  for (const doc of artistsSnap.docs) {
+    const a = doc.data();
+    artists.set(doc.id, { name: str(a["name"]), slug: str(a["slug"]) });
+  }
+
+  let albumsQuery = db
+    .collection("albums")
+    .where("isPublished", "==", true);
+  if (albumArtistId) {
+    albumsQuery = albumsQuery.where("artistId", "==", albumArtistId);
+  }
+  const albumsSnap = await albumsQuery.get();
+
+  const rows = albumsSnap.docs
+    .map((doc) => {
+      const d = doc.data();
+      const artist = artists.get(str(d["artistId"]));
+      if (!artist?.slug) return null; // unpublished/missing artist
+      const item: HomeRowItem = {
+        id: doc.id,
+        name: str(d["name"]),
+        subtitle: artist.name,
+        coverURL: str(d["coverImageURL"]),
+        contentType: "album",
+        slug: artist.slug,
+      };
+      return {
+        item,
+        artistName: artist.name,
+        order: typeof d["order"] === "number" ? d["order"] : 0,
+      };
+    })
+    .filter((r): r is NonNullable<typeof r> => r !== null);
+
+  rows.sort(
+    (a, b) => a.artistName.localeCompare(b.artistName) || a.order - b.order,
+  );
+  return rows.map((r) => r.item);
+}
+
+/**
  * Resolve a content selection (contentType + auto/curated ids) into items —
  * the shared model behind both content rows and grids. Published-only.
  */
@@ -241,8 +298,10 @@ async function resolveSelectionItems(
   contentType: string,
   autoPopulate: boolean,
   contentIds: string[],
+  albumArtistId = "",
 ): Promise<HomeRowItem[]> {
   if (!contentType) return [];
+  if (contentType === "album") return resolveAlbumItems(db, albumArtistId);
   if (autoPopulate) {
     if (contentType === "artist") {
       const snap = await db.collection("artists").where("isPublished", "==", true).orderBy("name", "asc").get();
@@ -401,7 +460,14 @@ export async function getGridContentServer(
   const contentType = str(d["contentType"]);
   const autoPopulate = d["autoPopulate"] === true;
   const contentIds = Array.isArray(d["contentIds"]) ? (d["contentIds"] as string[]) : [];
-  const items = await resolveSelectionItems(db, contentType, autoPopulate, contentIds);
+  const albumArtistId = str(d["albumArtistId"]);
+  const items = await resolveSelectionItems(
+    db,
+    contentType,
+    autoPopulate,
+    contentIds,
+    albumArtistId,
+  );
 
   const aspect = d["cellAspect"];
   const cellAspect: GridCellAspect =

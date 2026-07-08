@@ -42,6 +42,9 @@ export function PageSegments({ segments }: { segments: ResolvedSegment[] }) {
       router.push(getGamePlayHref(item.slug, item.engineSlug));
     } else if (item.contentType === "artist" && item.slug) {
       router.push(`/artist/${item.slug}`);
+    } else if (item.contentType === "album" && item.slug) {
+      // Album grid cell → the artist page presenting that album.
+      router.push(`/artist/${item.slug}?album=${item.id}`);
     } else if (item.contentType === "story" && item.slug) {
       router.push(`/story/${item.slug}`);
     } else {

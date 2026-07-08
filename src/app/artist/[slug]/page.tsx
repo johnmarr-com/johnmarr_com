@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getArtistServer } from "@/lib/detail-server";
 import ArtistClient from "./ArtistClient";
@@ -44,5 +45,10 @@ export default async function ArtistPage({ params }: RouteParams) {
   const { slug } = await params;
   const data = await getArtistServer(slug);
   if (!data) notFound();
-  return <ArtistClient data={data} />;
+  return (
+    // Suspense: ArtistClient reads ?album= via useSearchParams.
+    <Suspense fallback={null}>
+      <ArtistClient data={data} />
+    </Suspense>
+  );
 }

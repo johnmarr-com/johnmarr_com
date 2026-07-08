@@ -2012,6 +2012,32 @@ export async function getAlbum(albumId: string): Promise<JMAlbum | null> {
 /**
  * Get all albums for an artist
  */
+/**
+ * Every album in the app (admin grid-collection picker/preview). Client-side
+ * sort — no composite index needed.
+ */
+export async function getAllAlbums(
+  publishedOnly: boolean = true
+): Promise<JMAlbum[]> {
+  const { initializeFirebase } = await import("./firebase");
+  const { getFirestore, collection, query, where, getDocs } = await import("firebase/firestore");
+
+  const { app } = await initializeFirebase();
+  const db = getFirestore(app);
+
+  const q = publishedOnly
+    ? query(collection(db, "albums"), where("isPublished", "==", true))
+    : query(collection(db, "albums"));
+  const snapshot = await getDocs(q);
+
+  const albums = snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as JMAlbum[];
+  albums.sort((a, b) => a.order - b.order);
+  return albums;
+}
+
 export async function getAlbumsByArtist(
   artistId: string,
   publishedOnly: boolean = true

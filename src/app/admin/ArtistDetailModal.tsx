@@ -303,6 +303,7 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
     trackNumber: 1,
     order: 0,
     orientation: "landscape" as JMMusicVideoOrientation,
+    downloadable: false,
   });
   const [isFormSaving, setIsFormSaving] = useState(false);
 
@@ -492,6 +493,7 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
       coverImageURL: "",
       coverVideoURL: "",
       order: albums.length,
+      downloadable: false,
     });
     setView("add-album");
   };
@@ -505,6 +507,7 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
       coverImageURL: album.coverImageURL,
       coverVideoURL: album.coverVideoURL || "",
       order: album.order,
+      downloadable: album.downloadable === true,
     });
     setView("edit-album");
   };
@@ -528,9 +531,10 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
           coverImageURL: formState.coverImageURL,
           order: formState.order,
           isPublished: false,
+          downloadable: formState.downloadable,
         };
         if (formState.coverVideoURL) input.coverVideoURL = formState.coverVideoURL;
-        
+
         await createAlbum(input, user.uid);
       } else if (selectedAlbum) {
         const updates: Parameters<typeof updateAlbum>[1] = {
@@ -538,9 +542,10 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
           description: formState.description.trim(),
           coverImageURL: formState.coverImageURL,
           order: formState.order,
+          downloadable: formState.downloadable,
         };
         if (formState.coverVideoURL) updates.coverVideoURL = formState.coverVideoURL;
-        
+
         await updateAlbum(selectedAlbum.id, updates);
       }
       
@@ -1402,6 +1407,26 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
                 previewSize={150}
                 maxSizeMB={10}
               />
+
+              {/* Downloadable: shows the "Download Songs" (zip) button on the
+                  album page, labeled free for personal & commercial use. */}
+              <label className="flex items-start gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={formState.downloadable}
+                  onChange={(e) =>
+                    setFormState({ ...formState, downloadable: e.target.checked })
+                  }
+                  className="mt-0.5 h-5 w-5 shrink-0 accent-yellow-500"
+                />
+                <span className="text-sm leading-snug" style={{ color: theme.text.secondary }}>
+                  <span className="font-medium" style={{ color: theme.text.primary }}>
+                    Downloadable
+                  </span>
+                  {" — "}album page shows a “Download Songs” button (zip of all
+                  published tracks, marked free for personal &amp; commercial use)
+                </span>
+              </label>
 
               {error && (
                 <div 

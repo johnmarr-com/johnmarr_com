@@ -168,6 +168,8 @@ export interface ArtistAlbumData {
   description?: string;
   coverImageURL: string;
   coverVideoURL?: string;
+  /** Album page shows the "Download Songs" (zip) button. */
+  downloadable?: boolean;
   songs: ArtistSongData[];
 }
 
@@ -273,6 +275,7 @@ export const getArtistServer = cache(async (slug: string): Promise<ArtistPageDat
       if (albumDesc) album.description = albumDesc;
       const coverVideo = optStr(al["coverVideoURL"]);
       if (coverVideo) album.coverVideoURL = coverVideo;
+      if (al["downloadable"] === true) album.downloadable = true;
       return album;
     }),
   );

@@ -9,7 +9,7 @@ export interface ContentItem {
   id: string;
   name: string;
   coverURL: string;
-  contentType: "show" | "story" | "card" | "game" | "artist";
+  contentType: "show" | "story" | "card" | "game" | "artist" | "album";
   slug?: string | undefined;
   engineSlug?: string | undefined;
   /** Optional attribution banner (bottom-right corner, slanted left edge). */
@@ -40,6 +40,7 @@ function getAspectRatio(contentType: ContentItem["contentType"]): number {
     case "story":
       return 3 / 4;
     case "game":
+    case "album": // square cover art
       return 1 / 1;
     default:
       return 2 / 1;
