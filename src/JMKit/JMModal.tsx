@@ -19,6 +19,13 @@ export interface JMModalProps {
  * JMModal — a themed, centered modal shell. Overlay click and Escape close it;
  * the body scrolls when tall. Sits above in-page editors (z-80). A reusable
  * shell for settings panels, pickers, and confirmations.
+ *
+ * THE CANONICAL POPUP PATTERN — new popups should use this shell (or copy its
+ * anatomy exactly): fixed full-viewport wrapper, dark blurred backdrop, panel
+ * capped at max-h with an inner `overflow-y-auto` body. A panel without the
+ * height cap gets clipped at both ends on tall content with no way to scroll.
+ * Never render a `position: fixed` popup inside a `backdrop-blur`/`transform`
+ * container — that traps it (fixed becomes relative to the container).
  */
 export function JMModal({
   isOpen,
@@ -53,7 +60,7 @@ export function JMModal({
         type="button"
         aria-label="Close"
         onClick={onClose}
-        className="absolute inset-0 cursor-default"
+        className="absolute inset-0 cursor-default backdrop-blur-sm"
         style={{ backgroundColor: "rgba(0,0,0,0.65)" }}
       />
 

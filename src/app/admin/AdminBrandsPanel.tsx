@@ -321,13 +321,13 @@ export function AdminBrandsPanel() {
         <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/60"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={closeModal}
           />
 
           {/* Modal */}
           <div
-            className="relative w-full max-w-md rounded-2xl shadow-xl"
+            className="relative w-full max-w-md rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto"
             style={{
               backgroundColor: theme.surfaces.base,
               border: `1px solid ${theme.surfaces.elevated2}`,

@@ -108,15 +108,15 @@ export function ShowCreateModal({ onClose, onCreated }: ShowCreateModalProps) {
 
   return (
     <div 
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      className="fixed inset-0 z-100 flex items-center justify-center p-4"
     >
       {/* Backdrop - clicking does NOT close (only X button closes) */}
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
       
       {/* Modal */}
-      <div 
-        className="relative w-full max-w-lg rounded-2xl border-2 overflow-hidden"
-        style={{ 
+      <div
+        className="relative w-full max-w-lg rounded-2xl border-2 max-h-[90vh] overflow-y-auto"
+        style={{
           backgroundColor: "rgba(20, 20, 20, 1)",
           borderColor: "rgba(255, 255, 255, 0.2)",
         }}

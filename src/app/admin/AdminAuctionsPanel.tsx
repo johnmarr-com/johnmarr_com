@@ -531,9 +531,9 @@ function AuctionModal({
 
   return (
     <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div
-        className="relative w-full max-w-md rounded-xl p-6"
+        className="relative w-full max-w-md rounded-xl p-6 max-h-[90vh] overflow-y-auto"
         style={{ backgroundColor: theme.surfaces.elevated1 }}
       >
         <div className="flex items-center justify-between mb-4">
@@ -738,7 +738,7 @@ function AuctionItemModal({ auctionId, item, onClose }: AuctionItemModalProps) {
 
   return (
     <div className="fixed inset-0 z-100 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div
         className="relative w-full max-w-2xl rounded-xl p-6 max-h-[90vh] overflow-y-auto"
         style={{ backgroundColor: theme.surfaces.elevated1 }}

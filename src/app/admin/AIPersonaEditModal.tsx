@@ -225,12 +225,12 @@ export function AIPersonaEditModal({ personaId, onClose, onUpdated }: AIPersonaE
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" aria-hidden />
 
       {/* Avatar picker overlay — above everything */}
       {showAvatarPicker && avatars.length > 0 && (
-        <div className="fixed inset-0 z-[110] flex flex-col bg-black/95">
+        <div className="fixed inset-0 z-110 flex flex-col bg-black/95">
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 sm:px-6 sm:py-4">
             <h3 className="text-xl font-semibold text-white sm:text-lg">Choose Avatar</h3>
             <button

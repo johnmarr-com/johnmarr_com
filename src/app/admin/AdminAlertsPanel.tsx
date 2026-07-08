@@ -293,13 +293,13 @@ export function AdminAlertsPanel() {
       {/* Create/Edit Modal */}
       {(showCreateModal || editingAlert) && (
         <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
-          <div 
-            className="absolute inset-0"
+          <div
+            className="absolute inset-0 backdrop-blur-sm"
             style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
             onClick={closeModal}
           />
-          <div 
-            className="relative w-full max-w-lg rounded-xl p-6"
+          <div
+            className="relative w-full max-w-lg rounded-xl p-6 max-h-[90vh] overflow-y-auto"
             style={{ backgroundColor: theme.surfaces.elevated1 }}
           >
             {/* Modal header */}

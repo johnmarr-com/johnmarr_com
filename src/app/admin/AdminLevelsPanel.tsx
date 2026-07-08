@@ -147,7 +147,7 @@ function LevelEditModal({ level, onClose, onSaved }: LevelEditModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/70 pt-12 pb-12">
+    <div className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto bg-black/70 backdrop-blur-sm pt-12 pb-12">
       <div
         className="relative w-full max-w-lg rounded-2xl border backdrop-blur-md"
         style={{ backgroundColor: `${theme.surfaces.base}f8`, borderColor: theme.surfaces.elevated2 }}
@@ -293,7 +293,7 @@ function LevelUpTestPopup({ level, onClose }: { level: UserLevel; onClose: () =>
       <Dialog open onOpenChange={(v) => { if (!v) onClose(); }}>
         <DialogContent
           className="border-0 bg-transparent shadow-none max-w-md overflow-visible"
-          overlayClassName="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+          overlayClassName="fixed inset-0 z-100 bg-black/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
           hideCloseButton
         >
           <div className="relative flex flex-col items-center text-center py-8 px-4">

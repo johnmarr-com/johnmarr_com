@@ -612,12 +612,12 @@ export function AdminFeaturedPanel() {
       {editingItem && (
         <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
           <div
-            className="absolute inset-0"
+            className="absolute inset-0 backdrop-blur-sm"
             style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
             onClick={() => setEditingItem(null)}
           />
           <div
-            className="relative w-full max-w-lg rounded-xl p-6"
+            className="relative w-full max-w-lg rounded-xl p-6 max-h-[90vh] overflow-y-auto"
             style={{ backgroundColor: theme.surfaces.elevated1 }}
           >
             <div className="flex items-center justify-between mb-4">
@@ -735,12 +735,12 @@ export function AdminFeaturedPanel() {
       {/* Add Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
-          <div 
-            className="absolute inset-0"
+          <div
+            className="absolute inset-0 backdrop-blur-sm"
             style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
             onClick={() => setShowAddModal(false)}
           />
-          <div 
+          <div
             className="relative w-full max-w-lg rounded-xl p-6 max-h-[80vh] overflow-hidden flex flex-col"
             style={{ backgroundColor: theme.surfaces.elevated1 }}
           >

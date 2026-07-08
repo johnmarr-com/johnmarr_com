@@ -771,7 +771,7 @@ export function AdminHomeRowsPanel({
         typeof document !== "undefined" &&
         createPortal(
           <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60" onClick={closeModal} />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeModal} />
           <div
             className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl shadow-xl"
             style={{ backgroundColor: theme.surfaces.base, border: `1px solid ${theme.surfaces.elevated2}` }}

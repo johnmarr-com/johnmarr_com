@@ -451,7 +451,7 @@ export function ShowDetailModal({ showId, onClose, onUpdated }: ShowDetailModalP
 
   return (
     <div 
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 pt-20"
+      className="fixed inset-0 z-100 flex items-center justify-center p-4 pt-20"
     >
       {/* Backdrop - clicking does NOT close (only X button closes) */}
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
