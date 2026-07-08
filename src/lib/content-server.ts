@@ -435,6 +435,8 @@ export async function getHomeRowsServer(pageId = "home"): Promise<HomeRow[]> {
 /** A grid resolved to its items + render settings (fonts resolved to stacks). */
 export interface ResolvedGrid {
   items: HomeRowItem[];
+  /** Optional display title rendered top-left above the grid. */
+  heading?: string;
   cellAspect: GridCellAspect;
   cellRadius: number;
   textAlign: GridTextAlign;
@@ -443,6 +445,8 @@ export interface ResolvedGrid {
   title: { fontFamily: string; size: number };
   subtitle: { fontFamily: string; size: number };
   columns: GridColumns;
+  /** Vertical padding in px (top AND bottom) per device tier. */
+  paddingY: GridColumns;
   gap: number;
   maxWidth: number;
   maxWidthPercent: number;
@@ -479,8 +483,11 @@ export async function getGridContentServer(
   const titleRaw = (d["title"] ?? {}) as DocumentData;
   const subRaw = (d["subtitle"] ?? {}) as DocumentData;
   const colsRaw = (d["columns"] ?? {}) as DocumentData;
+  const padRaw = (d["paddingY"] ?? {}) as DocumentData;
   const num = (v: unknown, fallback: number): number =>
     typeof v === "number" && v > 0 ? v : fallback;
+  const pad = (v: unknown): number => (typeof v === "number" && v >= 0 ? v : 0);
+  const heading = optStr(d["heading"]);
 
   const radiusRaw = d["cellRadius"];
   const cellRadius =
@@ -506,6 +513,12 @@ export async function getGridContentServer(
       tablet: num(colsRaw["tablet"], 3),
       mobile: num(colsRaw["mobile"], 2),
     },
+    paddingY: {
+      desktop: pad(padRaw["desktop"]),
+      tablet: pad(padRaw["tablet"]),
+      mobile: pad(padRaw["mobile"]),
+    },
+    ...(heading ? { heading } : {}),
     gap: typeof d["gap"] === "number" && d["gap"] >= 0 ? d["gap"] : 16,
     maxWidth: typeof d["maxWidth"] === "number" && d["maxWidth"] >= 0 ? d["maxWidth"] : 0,
     maxWidthPercent:

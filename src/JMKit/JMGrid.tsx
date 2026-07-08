@@ -14,6 +14,8 @@ export interface JMGridItem {
 
 interface JMGridProps {
   items: JMGridItem[];
+  /** Optional display title rendered top-left above the grid (row-title style). */
+  heading?: string;
   cellAspect: "landscape" | "portrait" | "square";
   /** Cell image corner radius in px. */
   cellRadius: number;
@@ -23,6 +25,8 @@ interface JMGridProps {
   title: { fontFamily: string; size: number };
   subtitle: { fontFamily: string; size: number };
   columns: { desktop: number; tablet: number; mobile: number };
+  /** Vertical padding in px (applied top AND bottom) per device tier. */
+  paddingY?: { desktop: number; tablet: number; mobile: number };
   /** Gap between cells in px. */
   gap: number;
   /** Max overall grid width in px (0 ⇒ no px ceiling). */
@@ -65,6 +69,7 @@ const clampCols = (n: number): number => Math.min(8, Math.max(1, Math.round(n)))
 
 export function JMGrid({
   items,
+  heading,
   cellAspect,
   cellRadius,
   textAlign,
@@ -73,6 +78,7 @@ export function JMGrid({
   title,
   subtitle,
   columns,
+  paddingY,
   gap,
   maxWidth,
   maxWidthPercent,
@@ -97,11 +103,31 @@ export function JMGrid({
     ...(maxWidth > 0 ? { maxWidth } : {}),
   };
 
+  // Per-device vertical padding rides the same container-query breakpoints as
+  // the column counts: literal utility classes read CSS vars set per tier.
+  const padStyle = {
+    "--gpad-m": `${Math.max(0, paddingY?.mobile ?? 0)}px`,
+    "--gpad-t": `${Math.max(0, paddingY?.tablet ?? 0)}px`,
+    "--gpad-d": `${Math.max(0, paddingY?.desktop ?? 0)}px`,
+  } as React.CSSProperties;
+
   return (
     <div
       className="@container mx-auto w-full"
       style={Object.keys(widthStyle).length ? widthStyle : undefined}
     >
+      <div
+        className="pt-(--gpad-m) pb-(--gpad-m) @min-[734px]:pt-(--gpad-t) @min-[734px]:pb-(--gpad-t) @min-[1070px]:pt-(--gpad-d) @min-[1070px]:pb-(--gpad-d)"
+        style={padStyle}
+      >
+      {heading && (
+        <h2
+          className="mb-3 sm:mb-4 text-lg sm:text-xl md:text-2xl font-semibold"
+          style={{ color: theme.text.primary }}
+        >
+          {heading}
+        </h2>
+      )}
       <div className={`grid ${cols}`} style={{ gap }}>
         {items.map((item) => (
           <button
@@ -156,6 +182,7 @@ export function JMGrid({
             )}
           </button>
         ))}
+      </div>
       </div>
     </div>
   );

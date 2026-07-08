@@ -408,6 +408,8 @@ export type GridContentType = JMContentType | "album";
 export interface JMGridCollection {
   id: string;
   name: string;
+  /** Optional display title rendered top-left above the grid (like row titles). */
+  heading?: string;
 
   // ─── Content selection (same model as a content row) ───
   contentType?: GridContentType;
@@ -427,6 +429,8 @@ export interface JMGridCollection {
   subtitle: GridCaptionStyle;
   /** Number of columns per device tier. */
   columns: GridColumns;
+  /** Vertical padding in px (applied top AND bottom) per device tier. */
+  paddingY?: GridColumns;
   /** Gap between cells in px. */
   gap: number;
   /** Max overall grid width in px (0 ⇒ no px ceiling). */

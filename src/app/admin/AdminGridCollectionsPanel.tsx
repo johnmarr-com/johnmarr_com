@@ -104,6 +104,7 @@ export function AdminGridCollectionsPanel() {
         maxWidth: typeof found.maxWidth === "number" ? found.maxWidth : 0,
         maxWidthPercent:
           typeof found.maxWidthPercent === "number" ? found.maxWidthPercent : 0,
+        paddingY: found.paddingY ?? { desktop: 0, tablet: 0, mobile: 0 },
       });
     } else {
       setDraft(null);
@@ -243,6 +244,8 @@ export function AdminGridCollectionsPanel() {
       const updates: JMGridCollectionUpdate = {
         autoPopulate: draft.autoPopulate ?? false,
         contentIds: draft.contentIds,
+        heading: draft.heading?.trim() ?? "",
+        paddingY: draft.paddingY ?? { desktop: 0, tablet: 0, mobile: 0 },
         cellAspect: draft.cellAspect,
         cellRadius: draft.cellRadius,
         textAlign: draft.textAlign,
@@ -366,6 +369,17 @@ export function AdminGridCollectionsPanel() {
               <h3 className="text-sm font-semibold" style={{ color: theme.text.primary }}>
                 Content
               </h3>
+              <label className="flex items-center gap-3 text-sm" style={{ color: theme.text.secondary }}>
+                Grid title
+                <input
+                  type="text"
+                  value={draft.heading ?? ""}
+                  onChange={(e) => patch({ heading: e.target.value })}
+                  placeholder="Optional — shown top-left, like a row title"
+                  className="flex-1 rounded-lg border-2 px-3 py-1.5 text-sm"
+                  style={inputStyle}
+                />
+              </label>
               <div className="flex flex-wrap items-center gap-3">
                 <select
                   value={draft.contentType ?? ""}
@@ -551,10 +565,10 @@ export function AdminGridCollectionsPanel() {
               />
             </section>
 
-            {/* Columns per device */}
+            {/* Per-device layout (columns + vertical padding) */}
             <section className="flex flex-col gap-3 rounded-xl border-2 p-4" style={{ borderColor: theme.surfaces.elevated2 }}>
               <h3 className="text-sm font-semibold" style={{ color: theme.text.primary }}>
-                Columns per device
+                Per-device layout
               </h3>
               <DeviceTabs device={device} setDevice={setDevice} allowed={allowed} />
               <label className="flex items-center gap-3 text-sm" style={{ color: theme.text.secondary }}>
@@ -575,6 +589,29 @@ export function AdminGridCollectionsPanel() {
                   className="w-20 rounded-lg border-2 px-2 py-1.5 text-sm"
                   style={inputStyle}
                 />
+              </label>
+              <label className="flex items-center gap-3 text-sm" style={{ color: theme.text.secondary }}>
+                {device[0]?.toUpperCase() + device.slice(1)} vertical padding
+                <input
+                  type="number"
+                  min={0}
+                  max={400}
+                  step={4}
+                  value={(draft.paddingY ?? { desktop: 0, tablet: 0, mobile: 0 })[device]}
+                  onChange={(e) =>
+                    patch({
+                      paddingY: {
+                        ...(draft.paddingY ?? { desktop: 0, tablet: 0, mobile: 0 }),
+                        [device]: Math.min(400, Math.max(0, Number(e.target.value) || 0)),
+                      },
+                    })
+                  }
+                  className="w-20 rounded-lg border-2 px-2 py-1.5 text-sm"
+                  style={inputStyle}
+                />
+                <span className="text-xs" style={{ color: theme.text.tertiary }}>
+                  px top &amp; bottom
+                </span>
               </label>
               <div className="flex flex-wrap gap-4">
                 <label className="flex items-center gap-2 text-sm" style={{ color: theme.text.secondary }}>
@@ -660,6 +697,8 @@ export function AdminGridCollectionsPanel() {
               ) : (
                 <JMGrid
                   items={previewItems}
+                  {...(draft.heading?.trim() ? { heading: draft.heading.trim() } : {})}
+                  paddingY={draft.paddingY ?? { desktop: 0, tablet: 0, mobile: 0 }}
                   cellAspect={draft.cellAspect}
                   cellRadius={draft.cellRadius}
                   textAlign={draft.textAlign}

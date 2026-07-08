@@ -120,6 +120,8 @@ export function PageSegments({ segments }: { segments: ResolvedSegment[] }) {
             >
               <JMGrid
                 items={seg.grid.items as JMGridItem[]}
+                {...(seg.grid.heading ? { heading: seg.grid.heading } : {})}
+                paddingY={seg.grid.paddingY}
                 cellAspect={seg.grid.cellAspect}
                 cellRadius={seg.grid.cellRadius}
                 textAlign={seg.grid.textAlign}
