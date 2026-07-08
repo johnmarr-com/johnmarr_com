@@ -48,6 +48,8 @@ export interface JMTheme {
     neonPink: string;
     electricBlue: string;
     goldenGlow: string;
+    /** Pink–purple blend — the brand's highlight/now-playing accent. */
+    brandPink: string;
   };
   
   // Semantic colors (functional states)
@@ -111,6 +113,7 @@ export const johnmarrTheme: JMTheme = {
     neonPink: "#FF36AB",
     electricBlue: "#00D9FF",
     goldenGlow: "#FFD700",
+    brandPink: "#CE3993",   // Pink–purple blend (highlight / now-playing)
   },
   
   // Semantic colors
