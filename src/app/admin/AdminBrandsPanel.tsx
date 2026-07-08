@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import { Plus, Trash2, Eye, EyeOff, Pencil, Loader2, X, ImageIcon } from "lucide-react";
 import { useJMStyle } from "@/JMStyle";
@@ -317,7 +318,11 @@ export function AdminBrandsPanel() {
       </div>
 
       {/* Create/Edit Modal */}
-      {showModal && (
+      {/* Portaled to <body>: this panel's root has backdrop-blur + a persisted
+          entrance transform, which would trap the modal's position:fixed. */}
+      {showModal &&
+        typeof document !== "undefined" &&
+        createPortal(
         <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
           {/* Backdrop */}
           <div
@@ -474,7 +479,8 @@ export function AdminBrandsPanel() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

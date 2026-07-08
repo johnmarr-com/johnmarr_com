@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   X, Save, Trash2, Plus, ChevronRight, ChevronDown,
   Music, Video, Check, Loader2, ArrowLeft,
@@ -938,7 +939,11 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
     }
   };
 
-  return (
+  // Portaled to <body>: the Artists panel root has backdrop-blur + a
+  // persisted entrance transform, either of which would trap this modal's
+  // `position: fixed` inside the page card (it scrolled WITH the page).
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div className="fixed inset-0 z-100 flex items-center justify-center p-4 pt-20">
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
@@ -1703,7 +1708,8 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
           ) : null}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

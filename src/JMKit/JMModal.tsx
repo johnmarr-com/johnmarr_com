@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useJMStyle } from "@/JMStyle";
 
@@ -21,11 +22,14 @@ export interface JMModalProps {
  * shell for settings panels, pickers, and confirmations.
  *
  * THE CANONICAL POPUP PATTERN — new popups should use this shell (or copy its
- * anatomy exactly): fixed full-viewport wrapper, dark blurred backdrop, panel
- * capped at max-h with an inner `overflow-y-auto` body. A panel without the
- * height cap gets clipped at both ends on tall content with no way to scroll.
- * Never render a `position: fixed` popup inside a `backdrop-blur`/`transform`
- * container — that traps it (fixed becomes relative to the container).
+ * anatomy exactly): PORTALED to <body>, fixed full-viewport wrapper, dark
+ * blurred backdrop, panel capped at max-h with an inner `overflow-y-auto`
+ * body. A panel without the height cap gets clipped at both ends on tall
+ * content with no way to scroll. The portal matters: a `backdrop-blur`,
+ * `filter`, or any transform on an ancestor — INCLUDING the persisted final
+ * frame of a `forwards` entrance animation — becomes the containing block for
+ * `position: fixed`, pinning the popup inside the page card so it scrolls
+ * with the document (the admin panels' glassy cards do exactly this).
  */
 export function JMModal({
   isOpen,
@@ -47,8 +51,9 @@ export function JMModal({
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
+  if (typeof document === "undefined") return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-80 flex items-center justify-center p-4"
       role="dialog"
@@ -101,6 +106,7 @@ export function JMModal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

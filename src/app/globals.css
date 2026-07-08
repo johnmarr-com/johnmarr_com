@@ -83,6 +83,11 @@ select:focus-visible {
 }
 
 /* Animation keyframes */
+/* NOTE: the `to` frame must NOT declare a transform — with `forwards` fill it
+   would persist forever, making every animated container a containing block
+   that traps position:fixed popups rendered inside it (they scroll with the
+   page instead of floating above it). Ending transform-free releases that
+   trap once the entrance finishes. */
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -90,7 +95,6 @@ select:focus-visible {
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
