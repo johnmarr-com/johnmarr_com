@@ -27,6 +27,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useJMStyle } from "@/JMStyle";
 import { JMImageUpload, JMVideoUpload, JMAudioUpload } from "@/JMKit";
+import { BulkSongUpload } from "./BulkSongUpload";
 import { useAuth } from "@/lib/AuthProvider";
 import {
   getArtist,
@@ -1294,6 +1295,20 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
                                   <Plus size={14} />
                                   Add song
                                 </button>
+
+                                {/* Bulk add: drop a folder of tracks */}
+                                {user?.uid && (
+                                  <BulkSongUpload
+                                    albumId={album.id}
+                                    existingCount={album.songs.length}
+                                    creatorId={user.uid}
+                                    theme={theme}
+                                    onComplete={() => {
+                                      void fetchArtist();
+                                      onUpdated();
+                                    }}
+                                  />
+                                )}
                               </div>
                             )}
                           </div>
