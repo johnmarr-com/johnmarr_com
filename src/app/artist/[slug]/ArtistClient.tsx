@@ -273,8 +273,8 @@ export default function ArtistClient({ data }: { data: ArtistPageData }) {
                       className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-transform hover:scale-105"
                       style={{
                         backgroundColor: theme.surfaces.elevated1,
-                        color: theme.primary,
-                        border: `1px solid ${theme.primary}66`,
+                        color: theme.gradient.start,
+                        border: `1px solid ${theme.gradient.start}66`,
                       }}
                     >
                       <Download size={16} />
@@ -347,15 +347,15 @@ export default function ArtistClient({ data }: { data: ArtistPageData }) {
                       <div className="flex items-center justify-center gap-0.5">
                         <span
                           className="w-1 h-3 rounded-full animate-pulse"
-                          style={{ backgroundColor: theme.primary }}
+                          style={{ backgroundColor: theme.gradient.start }}
                         />
                         <span
                           className="w-1 h-4 rounded-full animate-pulse"
-                          style={{ backgroundColor: theme.primary, animationDelay: "0.1s" }}
+                          style={{ backgroundColor: theme.gradient.start, animationDelay: "0.1s" }}
                         />
                         <span
                           className="w-1 h-2 rounded-full animate-pulse"
-                          style={{ backgroundColor: theme.primary, animationDelay: "0.2s" }}
+                          style={{ backgroundColor: theme.gradient.start, animationDelay: "0.2s" }}
                         />
                       </div>
                     ) : (
@@ -374,7 +374,7 @@ export default function ArtistClient({ data }: { data: ArtistPageData }) {
                       className={`font-medium truncate ${teased ? "opacity-50" : ""}`}
                       style={{
                         color: currentSongIndex === index
-                          ? theme.primary
+                          ? theme.gradient.start
                           : theme.text.primary,
                       }}
                     >
