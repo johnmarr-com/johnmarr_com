@@ -83,6 +83,8 @@ function SortableVideoRow({
   onToggleTease,
   onEdit,
   onDelete,
+  publishPending,
+  teasePending,
 }: {
   video: JMMusicVideo;
   theme: ReturnType<typeof useJMStyle>["theme"];
@@ -90,6 +92,8 @@ function SortableVideoRow({
   onToggleTease: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  publishPending?: boolean;
+  teasePending?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: video.id,
@@ -129,18 +133,26 @@ function SortableVideoRow({
       </span>
       <button
         onClick={onTogglePublish}
+        disabled={publishPending}
         className="p-1 rounded hover:bg-white/10 transition-colors"
         style={{ color: video.isPublished ? theme.semantic.success : theme.text.tertiary }}
       >
-        {video.isPublished ? <Eye size={14} /> : <EyeOff size={14} />}
+        {publishPending ? (
+          <Loader2 size={14} className="animate-spin" />
+        ) : video.isPublished ? (
+          <Eye size={14} />
+        ) : (
+          <EyeOff size={14} />
+        )}
       </button>
       <button
         onClick={onToggleTease}
+        disabled={teasePending}
         title={video.tease ? "Teased — greyed out & disabled for viewers" : "Available — tap to tease"}
         className="p-1 rounded hover:bg-white/10 transition-colors"
         style={{ color: video.tease ? theme.accents.goldenGlow : theme.text.tertiary }}
       >
-        <Clock size={14} />
+        {teasePending ? <Loader2 size={14} className="animate-spin" /> : <Clock size={14} />}
       </button>
       <button
         onClick={onEdit}
@@ -167,6 +179,8 @@ function SortableSongRow({
   onToggleTease,
   onEdit,
   onDelete,
+  publishPending,
+  teasePending,
 }: {
   song: JMSong;
   theme: ReturnType<typeof useJMStyle>["theme"];
@@ -174,6 +188,8 @@ function SortableSongRow({
   onToggleTease: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  publishPending?: boolean;
+  teasePending?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: song.id,
@@ -219,18 +235,26 @@ function SortableSongRow({
       </span>
       <button
         onClick={onTogglePublish}
+        disabled={publishPending}
         className="p-1 rounded hover:bg-white/10 transition-colors"
         style={{ color: song.isPublished ? theme.semantic.success : theme.text.tertiary }}
       >
-        {song.isPublished ? <Eye size={12} /> : <EyeOff size={12} />}
+        {publishPending ? (
+          <Loader2 size={12} className="animate-spin" />
+        ) : song.isPublished ? (
+          <Eye size={12} />
+        ) : (
+          <EyeOff size={12} />
+        )}
       </button>
       <button
         onClick={onToggleTease}
+        disabled={teasePending}
         title={song.tease ? "Teased — greyed out & unplayable for listeners" : "Available — tap to tease"}
         className="p-1 rounded hover:bg-white/10 transition-colors"
         style={{ color: song.tease ? theme.accents.goldenGlow : theme.text.tertiary }}
       >
-        <Clock size={12} />
+        {teasePending ? <Loader2 size={12} className="animate-spin" /> : <Clock size={12} />}
       </button>
       <button
         onClick={onEdit}
@@ -308,6 +332,30 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
     downloadable: false,
   });
   const [isFormSaving, setIsFormSaving] = useState(false);
+
+  // In-flight publish/tease toggles, keyed "{kind}:{id}". Each eye shows its
+  // own inline spinner and settles in place — never the global loading state,
+  // which unmounted the modal body and reset its scroll. Multiple toggles can
+  // run at once; state is patched locally (no refetch) after each save.
+  const [pendingToggles, setPendingToggles] = useState<Set<string>>(new Set());
+  const isTogglePending = (key: string) => pendingToggles.has(key);
+  const runToggle = async (key: string, action: () => Promise<void>) => {
+    if (pendingToggles.has(key)) return;
+    setPendingToggles((prev) => new Set(prev).add(key));
+    try {
+      await action();
+      onUpdated();
+    } catch (err) {
+      console.error(`Failed to toggle ${key}:`, err);
+      setError(err instanceof Error ? err.message : "Failed to save change");
+    } finally {
+      setPendingToggles((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
+  };
 
   // Fetch artist data
   const fetchArtist = useCallback(async () => {
@@ -576,15 +624,14 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
     }
   };
 
-  const handleToggleAlbumPublish = async (album: JMAlbum) => {
-    try {
-      await updateAlbum(album.id, { isPublished: !album.isPublished });
-      await fetchArtist();
-      onUpdated();
-    } catch (err) {
-      console.error("Failed to toggle album publish:", err);
-    }
-  };
+  const handleToggleAlbumPublish = (album: JMAlbum) =>
+    runToggle(`album-pub:${album.id}`, async () => {
+      const next = !album.isPublished;
+      await updateAlbum(album.id, { isPublished: next });
+      setAlbums((prev) =>
+        prev.map((a) => (a.id === album.id ? { ...a, isPublished: next } : a)),
+      );
+    });
 
   // Song handlers
   const startAddSong = (albumId: string) => {
@@ -720,25 +767,28 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
     }
   };
 
-  const handleToggleSongPublish = async (song: JMSong) => {
-    try {
-      await updateSong(song.id, { isPublished: !song.isPublished });
-      await fetchArtist();
-      onUpdated();
-    } catch (err) {
-      console.error("Failed to toggle song publish:", err);
-    }
-  };
+  const patchSong = (albumId: string, songId: string, patch: Partial<JMSong>) =>
+    setAlbums((prev) =>
+      prev.map((a) =>
+        a.id === albumId
+          ? { ...a, songs: a.songs.map((s) => (s.id === songId ? { ...s, ...patch } : s)) }
+          : a,
+      ),
+    );
 
-  const handleToggleSongTease = async (song: JMSong) => {
-    try {
-      await updateSong(song.id, { tease: !song.tease });
-      await fetchArtist();
-      onUpdated();
-    } catch (err) {
-      console.error("Failed to toggle song tease:", err);
-    }
-  };
+  const handleToggleSongPublish = (song: JMSong) =>
+    runToggle(`song-pub:${song.id}`, async () => {
+      const next = !song.isPublished;
+      await updateSong(song.id, { isPublished: next });
+      patchSong(song.albumId, song.id, { isPublished: next });
+    });
+
+  const handleToggleSongTease = (song: JMSong) =>
+    runToggle(`song-tease:${song.id}`, async () => {
+      const next = !song.tease;
+      await updateSong(song.id, { tease: next });
+      patchSong(song.albumId, song.id, { tease: next });
+    });
 
   // Music Video handlers
   const startAddVideo = () => {
@@ -830,25 +880,23 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
     }
   };
 
-  const handleToggleVideoPublish = async (video: JMMusicVideo) => {
-    try {
-      await updateMusicVideo(video.id, { isPublished: !video.isPublished });
-      await fetchArtist();
-      onUpdated();
-    } catch (err) {
-      console.error("Failed to toggle video publish:", err);
-    }
-  };
+  const handleToggleVideoPublish = (video: JMMusicVideo) =>
+    runToggle(`video-pub:${video.id}`, async () => {
+      const next = !video.isPublished;
+      await updateMusicVideo(video.id, { isPublished: next });
+      setMusicVideos((prev) =>
+        prev.map((v) => (v.id === video.id ? { ...v, isPublished: next } : v)),
+      );
+    });
 
-  const handleToggleVideoTease = async (video: JMMusicVideo) => {
-    try {
-      await updateMusicVideo(video.id, { tease: !video.tease });
-      await fetchArtist();
-      onUpdated();
-    } catch (err) {
-      console.error("Failed to toggle video tease:", err);
-    }
-  };
+  const handleToggleVideoTease = (video: JMMusicVideo) =>
+    runToggle(`video-tease:${video.id}`, async () => {
+      const next = !video.tease;
+      await updateMusicVideo(video.id, { tease: next });
+      setMusicVideos((prev) =>
+        prev.map((v) => (v.id === video.id ? { ...v, tease: next } : v)),
+      );
+    });
 
   const videoSensors = useSensors(
     useSensor(PointerSensor),
@@ -1231,12 +1279,19 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleToggleAlbumPublish(album);
+                                  void handleToggleAlbumPublish(album);
                                 }}
+                                disabled={isTogglePending(`album-pub:${album.id}`)}
                                 className="p-1 rounded hover:bg-white/10 transition-colors"
                                 style={{ color: album.isPublished ? theme.semantic.success : theme.text.tertiary }}
                               >
-                                {album.isPublished ? <Eye size={14} /> : <EyeOff size={14} />}
+                                {isTogglePending(`album-pub:${album.id}`) ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : album.isPublished ? (
+                                  <Eye size={14} />
+                                ) : (
+                                  <EyeOff size={14} />
+                                )}
                               </button>
                               <button
                                 onClick={(e) => {
@@ -1277,10 +1332,12 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
                                         key={song.id}
                                         song={song}
                                         theme={theme}
-                                        onTogglePublish={() => handleToggleSongPublish(song)}
-                                        onToggleTease={() => handleToggleSongTease(song)}
+                                        onTogglePublish={() => void handleToggleSongPublish(song)}
+                                        onToggleTease={() => void handleToggleSongTease(song)}
                                         onEdit={() => startEditSong(song)}
                                         onDelete={() => handleDeleteSong(song)}
+                                        publishPending={isTogglePending(`song-pub:${song.id}`)}
+                                        teasePending={isTogglePending(`song-tease:${song.id}`)}
                                       />
                                     ))}
                                   </SortableContext>
@@ -1357,10 +1414,12 @@ export function ArtistDetailModal({ artistId, onClose, onCreated, onUpdated }: A
                                 key={video.id}
                                 video={video}
                                 theme={theme}
-                                onTogglePublish={() => handleToggleVideoPublish(video)}
-                                onToggleTease={() => handleToggleVideoTease(video)}
+                                onTogglePublish={() => void handleToggleVideoPublish(video)}
+                                onToggleTease={() => void handleToggleVideoTease(video)}
                                 onEdit={() => startEditVideo(video)}
                                 onDelete={() => handleDeleteVideo(video)}
+                                publishPending={isTogglePending(`video-pub:${video.id}`)}
+                                teasePending={isTogglePending(`video-tease:${video.id}`)}
                               />
                             ))}
                           </div>
