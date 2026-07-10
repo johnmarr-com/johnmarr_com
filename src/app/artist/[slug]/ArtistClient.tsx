@@ -256,7 +256,7 @@ export default function ArtistClient({ data }: { data: ArtistPageData }) {
                   More albums
                 </p>
                 <div
-                  className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1"
+                  className="flex gap-3.75 overflow-x-auto pb-2 -mx-1 px-1"
                   style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}
                 >
                   {otherAlbums.map((album) => (
@@ -264,7 +264,7 @@ export default function ArtistClient({ data }: { data: ArtistPageData }) {
                       key={album.id}
                       type="button"
                       onClick={() => selectAlbum(album.id)}
-                      className="group w-24 shrink-0 text-left sm:w-28"
+                      className="group w-30 shrink-0 text-left sm:w-35"
                     >
                       <div
                         className="relative aspect-square w-full overflow-hidden rounded-xl shadow-lg"
@@ -274,7 +274,7 @@ export default function ArtistClient({ data }: { data: ArtistPageData }) {
                           src={album.coverImageURL}
                           alt={album.name}
                           fill
-                          sizes="112px"
+                          sizes="140px"
                           className="object-cover transition-transform duration-300 group-hover:scale-105"
                         />
                       </div>
