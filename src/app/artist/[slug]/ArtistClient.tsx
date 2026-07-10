@@ -58,6 +58,7 @@ export default function ArtistClient({ data }: { data: ArtistPageData }) {
   // highlight the wrong row.
   const selectAlbum = useCallback(
     (albumId: string) => {
+      if (albumId === currentAlbum?.id) return; // re-tap: keep playback going
       const audio = audioRef.current;
       if (audio) {
         audio.pause();
@@ -71,10 +72,8 @@ export default function ArtistClient({ data }: { data: ArtistPageData }) {
       setIsDescriptionExpanded(false);
       router.replace(`/artist/${artist.slug}?album=${albumId}`, { scroll: false });
     },
-    [artist.slug, router],
+    [artist.slug, router, currentAlbum?.id],
   );
-
-  const otherAlbums = albums.filter((a) => a.id !== currentAlbum?.id);
 
   // Auth gate: when the artist is NOT open-access and there's no user, send
   // them to /auth (same query params AuthGate used to set before the artist
@@ -245,47 +244,62 @@ export default function ArtistClient({ data }: { data: ArtistPageData }) {
         {/* Album Section */}
         {currentAlbum && (
           <div className="mb-12">
-            {/* Other albums — tap a cover to present that album below. Hidden
-                for single-album artists; the current album never lists here. */}
-            {otherAlbums.length > 0 && (
+            {/* Album selector — every album, stable order; the selected one is
+                highlighted (never swapped out). Hidden for single-album artists. */}
+            {albums.length > 1 && (
               <div className="mb-6">
                 <p
                   className="mb-2 text-xs font-semibold uppercase tracking-wider"
                   style={{ color: theme.text.tertiary }}
                 >
-                  More albums
+                  Albums
                 </p>
                 <div
                   className="flex gap-3.75 overflow-x-auto pb-2 -mx-1 px-1"
                   style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}
                 >
-                  {otherAlbums.map((album) => (
-                    <button
-                      key={album.id}
-                      type="button"
-                      onClick={() => selectAlbum(album.id)}
-                      className="group w-30 shrink-0 text-left sm:w-35"
-                    >
-                      <div
-                        className="relative aspect-square w-full overflow-hidden rounded-xl shadow-lg"
-                        style={{ backgroundColor: theme.surfaces.elevated1 }}
+                  {albums.map((album) => {
+                    const isCurrent = album.id === currentAlbum.id;
+                    return (
+                      <button
+                        key={album.id}
+                        type="button"
+                        onClick={() => selectAlbum(album.id)}
+                        className="group w-30 shrink-0 text-left sm:w-35"
+                        aria-pressed={isCurrent}
                       >
-                        <Image
-                          src={album.coverImageURL}
-                          alt={album.name}
-                          fill
-                          sizes="140px"
-                          className="object-cover transition-transform duration-300 group-hover:scale-105"
-                        />
-                      </div>
-                      <p
-                        className="mt-1.5 truncate text-xs font-medium"
-                        style={{ color: theme.text.secondary }}
-                      >
-                        {album.name}
-                      </p>
-                    </button>
-                  ))}
+                        <div
+                          className="relative aspect-square w-full overflow-hidden rounded-xl shadow-lg"
+                          style={{
+                            backgroundColor: theme.surfaces.elevated1,
+                            boxShadow: isCurrent
+                              ? `0 0 0 2px ${theme.accents.brandPink}`
+                              : undefined,
+                          }}
+                        >
+                          <Image
+                            src={album.coverImageURL}
+                            alt={album.name}
+                            fill
+                            sizes="140px"
+                            className={`object-cover transition-transform duration-300 ${
+                              isCurrent ? "" : "group-hover:scale-105"
+                            }`}
+                          />
+                        </div>
+                        <p
+                          className="mt-1.5 truncate text-xs font-medium"
+                          style={{
+                            color: isCurrent
+                              ? theme.accents.brandPink
+                              : theme.text.secondary,
+                          }}
+                        >
+                          {album.name}
+                        </p>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
