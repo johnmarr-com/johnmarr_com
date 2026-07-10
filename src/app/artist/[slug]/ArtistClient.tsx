@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { JMAppHeader, JMVimeoPlayer, getVimeoThumbnail } from "@/JMKit";
 import { useJMStyle } from "@/JMStyle";
@@ -20,6 +20,7 @@ import { PointsManager, Activity } from "@/lib/points";
 export default function ArtistClient({ data }: { data: ArtistPageData }) {
   const { theme } = useJMStyle();
   const { user, isLoading: authLoading } = useAuth();
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   const { artist, albums, musicVideos } = data;
@@ -50,6 +51,30 @@ export default function ArtistClient({ data }: { data: ArtistPageData }) {
 
   // Album description expansion
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+
+  // Switch the presented album (drives ?album= so grid deep links, the
+  // scroller, and refreshes all agree). Stops playback first — the player
+  // indexes into the NEW album's song list, so a carried-over track would
+  // highlight the wrong row.
+  const selectAlbum = useCallback(
+    (albumId: string) => {
+      const audio = audioRef.current;
+      if (audio) {
+        audio.pause();
+        audio.removeAttribute("src");
+      }
+      setIsPlaying(false);
+      setCurrentSongIndex(null);
+      setCurrentTime(0);
+      setDuration(0);
+      setCoverVideoLoaded(false);
+      setIsDescriptionExpanded(false);
+      router.replace(`/artist/${artist.slug}?album=${albumId}`, { scroll: false });
+    },
+    [artist.slug, router],
+  );
+
+  const otherAlbums = albums.filter((a) => a.id !== currentAlbum?.id);
 
   // Auth gate: when the artist is NOT open-access and there's no user, send
   // them to /auth (same query params AuthGate used to set before the artist
@@ -217,14 +242,60 @@ export default function ArtistClient({ data }: { data: ArtistPageData }) {
 
       {/* Main content */}
       <main className="max-w-2xl mx-auto px-4 pt-20 sm:pt-24 pb-32">
-        {/* Album Section - placeholder div for future album picker */}
+        {/* Album Section */}
         {currentAlbum && (
           <div className="mb-12">
+            {/* Other albums — tap a cover to present that album below. Hidden
+                for single-album artists; the current album never lists here. */}
+            {otherAlbums.length > 0 && (
+              <div className="mb-6">
+                <p
+                  className="mb-2 text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: theme.text.tertiary }}
+                >
+                  More albums
+                </p>
+                <div
+                  className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1"
+                  style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}
+                >
+                  {otherAlbums.map((album) => (
+                    <button
+                      key={album.id}
+                      type="button"
+                      onClick={() => selectAlbum(album.id)}
+                      className="group w-24 shrink-0 text-left sm:w-28"
+                    >
+                      <div
+                        className="relative aspect-square w-full overflow-hidden rounded-xl shadow-lg"
+                        style={{ backgroundColor: theme.surfaces.elevated1 }}
+                      >
+                        <Image
+                          src={album.coverImageURL}
+                          alt={album.name}
+                          fill
+                          sizes="112px"
+                          className="object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                      </div>
+                      <p
+                        className="mt-1.5 truncate text-xs font-medium"
+                        style={{ color: theme.text.secondary }}
+                      >
+                        {album.name}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Album Cover with Video */}
             <div className="relative aspect-square w-full mb-10 rounded-2xl overflow-hidden shadow-2xl">
               {/* Video background (if exists) */}
               {currentAlbum.coverVideoURL && (
                 <video
+                  key={currentAlbum.id}
                   ref={coverVideoRef}
                   src={currentAlbum.coverVideoURL}
                   className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
