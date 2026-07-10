@@ -255,7 +255,10 @@ export default function ArtistClient({ data }: { data: ArtistPageData }) {
                   Albums
                 </p>
                 <div
-                  className="flex gap-3.75 overflow-x-auto pb-2 -mx-1 px-1"
+                  // Scroll containers clip at their padding edge — pad all
+                  // sides so the selection ring/shadow isn't sheared, and
+                  // cancel with negative margins so layout doesn't shift.
+                  className="flex gap-3.75 overflow-x-auto -mx-2 -mt-2 px-2 pt-2 pb-2"
                   style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}
                 >
                   {albums.map((album) => {
