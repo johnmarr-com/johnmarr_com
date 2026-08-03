@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { subscribeToSession, type GameSession } from "@/lib/game-sessions";
 import { updateSessionFields } from "@/app/games/_gamecore/sessionHelpers";
 import { useGameColors, GamePrimaryButton, GameStatusMessage } from "@/app/games/_gamecore";
@@ -194,22 +194,31 @@ export default function BullshiitakeGame({ sessionId }: GC3Props) {
           />
 
           {!bsRevealed ? (
-            /* Reveal — host only; everyone else watches */
-            isHost && (
-              <GamePrimaryButton
-                onClick={handleReveal}
-                bgColor={gc.primary || "#F97316"}
-                textColor="#FFFFFF"
-                loading={busy}
-              >
-                Reveal
-              </GamePrimaryButton>
-            )
+            <div>
+              {/* The question — everyone sees it; hidden once revealed */}
+              <p className="mb-6 whitespace-nowrap text-center text-lg font-bold sm:text-2xl md:text-3xl">
+                <span className="text-white">True, Partly True, or </span>
+                <span style={{ color: gc.primary || "#F97316" }}>Bull Shiitake</span>
+                <span className="text-white">?</span>
+              </p>
+
+              {/* Reveal — host only; everyone else watches */}
+              {isHost && (
+                <GamePrimaryButton
+                  onClick={handleReveal}
+                  bgColor={gc.primary || "#F97316"}
+                  textColor="#FFFFFF"
+                  loading={busy}
+                >
+                  Reveal
+                </GamePrimaryButton>
+              )}
+            </div>
           ) : (
             <div>
               {/* BS-Type verdict */}
               <h2
-                className="text-center text-5xl font-black uppercase tracking-wide sm:text-6xl"
+                className="text-center text-6xl font-black uppercase tracking-wide sm:text-8xl"
                 style={{ color: revealColor, textShadow: "0 4px 24px rgba(0,0,0,0.6)" }}
               >
                 {REVEAL_LABEL[bsItem.bsType]}
@@ -222,17 +231,18 @@ export default function BullshiitakeGame({ sessionId }: GC3Props) {
                 </p>
               )}
 
-              {/* Next — host only, smaller, right-aligned */}
+              {/* Next — host only: circular orange arrow, right-aligned */}
               {isHost && (
                 <div className="mt-8 flex justify-end">
                   <button
                     type="button"
                     onClick={handleNext}
                     disabled={busy}
-                    className="rounded-full px-8 py-3 text-sm font-bold uppercase tracking-wider text-black transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+                    aria-label="Next story"
+                    className="flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg transition-all hover:scale-110 active:scale-95 disabled:opacity-50"
                     style={{ backgroundColor: gc.primary || "#F97316" }}
                   >
-                    Next
+                    <ArrowRight className="h-7 w-7" />
                   </button>
                 </div>
               )}
