@@ -351,6 +351,16 @@ service firebase.storage {
     }
 
     // ─────────────────────────────────────────────────────────────
+    // BULL SHIITAKE (Pack icons under packs/, item banners under items/)
+    // ─────────────────────────────────────────────────────────────
+
+    match /bullshiitake/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isImage() && maxSize(5);
+      allow delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // FYVE HEISTS (Heist images + per-element bomb sound effects)
     // ─────────────────────────────────────────────────────────────
 

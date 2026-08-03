@@ -709,6 +709,46 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────────────────────
+    // BULL SHIITAKE PACKS (Story packs for Bull Shiitake game)
+    // ─────────────────────────────────────────────────────────────
+
+    match /bullshiitakePacks/{packId} {
+      // No visibility tiers (yet) — any authenticated user can read packs
+      allow read: if isAuthenticated();
+
+      // Authenticated users can create packs (pro/admin gating is client-side).
+      // creatorId must match the requesting user.
+      allow create: if isAuthenticated()
+        && request.resource.data.creatorId == request.auth.uid;
+
+      // Creator can update their own packs, admins can update any
+      allow update: if (isAuthenticated() && resource.data.creatorId == request.auth.uid) || isAdmin();
+
+      // Creator can delete their own packs, admins can delete any
+      allow delete: if (isAuthenticated() && resource.data.creatorId == request.auth.uid) || isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // BULL SHIITAKE ITEMS (Top-level story items, reference packId)
+    // ─────────────────────────────────────────────────────────────
+
+    match /bullshiitake/{itemId} {
+      // Any authenticated user can read items
+      allow read: if isAuthenticated();
+
+      // Authenticated users can create items (pro/admin gating is client-side).
+      // creatorId must match the requesting user.
+      allow create: if isAuthenticated()
+        && request.resource.data.creatorId == request.auth.uid;
+
+      // Creator can update their own items, admins can update any
+      allow update: if (isAuthenticated() && resource.data.creatorId == request.auth.uid) || isAdmin();
+
+      // Creator can delete their own items, admins can delete any
+      allow delete: if (isAuthenticated() && resource.data.creatorId == request.auth.uid) || isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // FYVE KEYS (Server-only secret key assignments)
     // ─────────────────────────────────────────────────────────────
 

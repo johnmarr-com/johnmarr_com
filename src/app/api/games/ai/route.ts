@@ -40,7 +40,7 @@ const PERSIST_BUCKETS: RateLimitBucket[] = [
 ];
 
 /** Storage prefixes persist-image may write to (creator asset flows). */
-const PERSIST_PATH_PREFIXES = ["fyve-heists/", "fyve-bombs/"];
+const PERSIST_PATH_PREFIXES = ["fyve-heists/", "fyve-bombs/", "bullshiitake/"];
 
 export async function POST(request: NextRequest) {
   // ─── Authenticate ─────────────────────────────────────────
