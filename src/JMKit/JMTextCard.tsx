@@ -20,6 +20,10 @@ export interface JMTextCardProps {
   className?: string;
   /** Optional content rendered after the text (badges, buttons, etc.). */
   footer?: ReactNode;
+  /** Text alignment (default "center"). Long-form stories read better left. */
+  align?: "center" | "left";
+  /** Preserve line breaks / blank-line paragraphs in `text`. */
+  preserveWhitespace?: boolean;
   /**
    * Use a heavier curled-paper drop shadow. Useful when the card sits over
    * a darkened background (e.g. trivia game board) where the default subtle
@@ -57,6 +61,8 @@ export function JMTextCard({
   className,
   footer,
   darkShadow = false,
+  align = "center",
+  preserveWhitespace = false,
 }: JMTextCardProps) {
   const size = fontSize ?? autoSize(text);
   const shadowFilter = darkShadow
@@ -81,7 +87,9 @@ export function JMTextCard({
         )}
         <p
           className={cn(
-            "text-center font-bold leading-relaxed text-gray-900",
+            "font-bold leading-relaxed text-gray-900",
+            align === "left" ? "text-left" : "text-center",
+            preserveWhitespace && "whitespace-pre-wrap",
             SIZE_CLASS[size],
           )}
         >

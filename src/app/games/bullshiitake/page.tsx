@@ -11,8 +11,14 @@ export default composeGame({
   allowAI: false,
   multiplayerFlowMode: "party",
   landingExtra: <BullshiitakeCreatePacksButton />,
-  // NOTE: no `authority: { engineKey: … }` yet — the server reducer ships
-  // with the real game build. Until then GC3 renders a "Pending" placeholder
-  // and the session only carries the `bs`-prefixed setup phase below.
-  resetFields: () => ({ bsPhase: "setup" }),
+  // Host-presented viewer game — deliberately NO engineKey: the host IS the
+  // presenter and writes presentation state directly (legacy owner-writes
+  // regime); there is no scoring, no timers, and no game end to referee.
+  resetFields: () => ({
+    bsPhase: "setup",
+    bsItem: null,
+    bsRevealed: false,
+    bsPackId: null,
+    bsSeenIds: [],
+  }),
 });
