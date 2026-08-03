@@ -198,8 +198,7 @@ export default function BullshiitakeGame({ sessionId }: GC3Props) {
               {/* The question — everyone sees it; hidden once revealed */}
               <p className="mb-6 whitespace-nowrap text-center text-lg font-bold sm:text-2xl md:text-3xl">
                 <span className="text-white">True, Partly True, or </span>
-                <span style={{ color: gc.primary || "#F97316" }}>Bull Shiitake</span>
-                <span className="text-white">?</span>
+                <span style={{ color: gc.primary || "#F97316" }}>Bull Shiitake?</span>
               </p>
 
               {/* Reveal — host only; everyone else watches */}
