@@ -53,9 +53,11 @@ export async function POST(request: NextRequest) {
   }
 
   let uid: string;
+  let isAdmin = false;
   try {
     const decoded = await verifyIdToken(authHeader.substring(7));
     uid = decoded.uid;
+    isAdmin = decoded["admin"] === true;
   } catch {
     return NextResponse.json({ error: "Invalid auth token" }, { status: 401 });
   }
@@ -65,18 +67,22 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { type } = body as { type: string };
 
-    // Type-appropriate rate limiting (shared across instances).
-    const buckets =
-      type === "generate-image" || type === "sketch"
-        ? IMAGE_BUCKETS
-        : type === "persist-image"
-          ? PERSIST_BUCKETS
-          : TEXT_BUCKETS;
-    if (!(await allowRequest(uid, buckets))) {
-      return NextResponse.json(
-        { error: "Too many requests — try again shortly" },
-        { status: 429 },
-      );
+    // Type-appropriate rate limiting (shared across instances). Admins are
+    // exempt — the caps guard provider spend against ordinary authed users,
+    // not the owner batch-authoring pack content (which trips 30 images/hr).
+    if (!isAdmin) {
+      const buckets =
+        type === "generate-image" || type === "sketch"
+          ? IMAGE_BUCKETS
+          : type === "persist-image"
+            ? PERSIST_BUCKETS
+            : TEXT_BUCKETS;
+      if (!(await allowRequest(uid, buckets))) {
+        return NextResponse.json(
+          { error: "Too many requests — try again shortly" },
+          { status: 429 },
+        );
+      }
     }
 
     // ─── Vision: interpret a sketch image ───────────────────
