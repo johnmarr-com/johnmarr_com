@@ -188,6 +188,7 @@ export default function BullshiitakeGame({ sessionId }: GC3Props) {
             text={bsItem.storyText}
             align="left"
             preserveWhitespace
+            roomy
             darkShadow
             className="mb-8"
           />
@@ -195,7 +196,12 @@ export default function BullshiitakeGame({ sessionId }: GC3Props) {
           {!bsRevealed ? (
             /* Reveal — host only; everyone else watches */
             isHost && (
-              <GamePrimaryButton onClick={handleReveal} variant="white" loading={busy}>
+              <GamePrimaryButton
+                onClick={handleReveal}
+                bgColor={gc.primary || "#F97316"}
+                textColor="#FFFFFF"
+                loading={busy}
+              >
                 Reveal
               </GamePrimaryButton>
             )

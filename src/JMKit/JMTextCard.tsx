@@ -16,6 +16,8 @@ export interface JMTextCardProps {
   headerColor?: string;
   /** Smaller padding for tighter layouts. */
   compact?: boolean;
+  /** Extra-generous padding (long-form reading, e.g. story cards). */
+  roomy?: boolean;
   /** Extra classes on the outer wrapper. */
   className?: string;
   /** Optional content rendered after the text (badges, buttons, etc.). */
@@ -58,6 +60,7 @@ export function JMTextCard({
   header,
   headerColor,
   compact = false,
+  roomy = false,
   className,
   footer,
   darkShadow = false,
@@ -74,7 +77,7 @@ export function JMTextCard({
       <div
         className={cn(
           "relative z-10 overflow-hidden rounded-2xl border border-gray-200 bg-linear-to-br from-gray-200 via-white to-gray-200",
-          compact ? "p-4" : "p-6",
+          compact ? "p-4" : roomy ? "p-8 sm:p-12" : "p-6",
         )}
       >
         {header && (

@@ -8,6 +8,9 @@ interface GamePrimaryButtonProps {
   disabled?: boolean;
   loading?: boolean;
   variant?: "green" | "white";
+  /** Explicit colors (e.g. the game's CMS primary) — overrides `variant`. */
+  bgColor?: string;
+  textColor?: string;
   className?: string;
 }
 
@@ -17,12 +20,15 @@ export function GamePrimaryButton({
   disabled = false,
   loading = false,
   variant = "green",
+  bgColor,
+  textColor,
   className = "",
 }: GamePrimaryButtonProps) {
   const isDisabled = disabled || loading;
   const base = "w-full rounded-xl py-4 text-lg font-bold uppercase tracking-wider transition-all";
-  const colorClass =
-    variant === "green"
+  const colorClass = bgColor
+    ? "shadow-lg"
+    : variant === "green"
       ? "bg-green-500 text-black shadow-lg shadow-green-500/20"
       : "bg-white text-black shadow-lg shadow-white/20";
   const interactiveClass = isDisabled
@@ -34,6 +40,9 @@ export function GamePrimaryButton({
       onClick={onClick}
       disabled={isDisabled}
       className={`${base} ${colorClass} ${interactiveClass} ${className}`}
+      {...(bgColor
+        ? { style: { backgroundColor: bgColor, color: textColor ?? "#FFFFFF" } }
+        : {})}
     >
       {loading ? <Loader2 className="mx-auto h-6 w-6 animate-spin" /> : children}
     </button>
