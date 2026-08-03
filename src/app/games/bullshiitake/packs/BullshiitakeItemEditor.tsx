@@ -35,11 +35,16 @@ interface BullshiitakeItemEditorProps {
 
 const BS_TYPES: BSType[] = ["true", "partlytrue", "bullshiitake"];
 
-/** Banner prompt = wide-format lead-in + subject + the user's saved format prompt. */
+/** Banner prompt = house-style lead-in + subject + the user's saved format
+ * prompt. Bull Shiitake banners are isometric cartoon (matches the backfill
+ * script's style — photo-realism read wrong for the game). */
 function buildBannerPrompt(subject: string, addedFormatPrompt: string): string {
   const s = subject.trim();
   const ins = addedFormatPrompt.trim();
-  const head = `Wide 2:1 banner illustration: ${s}.`;
+  const head =
+    `Isometric cartoon illustration, wide 2:1 banner: ${s}. ` +
+    "Playful flat-shaded cartoon style, isometric perspective, clean bold " +
+    "outlines, vibrant colors, minimal background, no text or lettering.";
   if (!ins) return head;
   return `${head} ${ins}`;
 }

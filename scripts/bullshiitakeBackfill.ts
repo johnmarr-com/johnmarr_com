@@ -34,13 +34,13 @@ interface Row {
   imageURL?: string;
 }
 
-/** Mirrors the editor's buildBannerPrompt, with a banner-tuned format tail
- * (the app's default tail says "square format" — wrong for 2:1). */
+/** Mirrors the editor's buildBannerPrompt. Bull Shiitake house style:
+ * isometric cartoon (photo-realism read wrong for the game). */
 function bannerPrompt(subject: string): string {
   return (
-    `Wide 2:1 banner illustration: ${subject.trim()}. ` +
-    "Subject shot with minimal background, minimal clutter, excellent lighting, " +
-    "vibrant colors, cinematic composition, wide banner format."
+    `Isometric cartoon illustration, wide 2:1 banner: ${subject.trim()}. ` +
+    "Playful flat-shaded cartoon style, isometric perspective, clean bold " +
+    "outlines, vibrant colors, minimal background, no text or lettering."
   );
 }
 
@@ -148,7 +148,9 @@ async function ideogramGenerate(prompt: string): Promise<string | null> {
   form.append("prompt", prompt);
   form.append("aspect_ratio", "2x1");
   form.append("rendering_speed", "QUALITY");
-  form.append("style_type", "REALISTIC");
+  // GENERAL (not REALISTIC): the house style is isometric cartoon — the
+  // style lives in the prompt; REALISTIC fights it with photo-realism.
+  form.append("style_type", "GENERAL");
   form.append("magic_prompt", "ON");
   form.append("num_images", "1");
   const res = await fetch("https://api.ideogram.ai/v1/ideogram-v3/generate", {
@@ -213,10 +215,23 @@ async function phaseImages(db: FirebaseFirestore.Firestore, rows: Row[]): Promis
   console.log(`[images] done — ${done} generated, ${failed} failed (re-run to retry failures)`);
 }
 
+/** --clear-images: unlink every banner so --images regenerates all (style change). */
+async function phaseClearImages(db: FirebaseFirestore.Firestore, rows: Row[]): Promise<void> {
+  const have = rows.filter((r) => r.imageURL);
+  const batch = db.batch();
+  for (const row of have) {
+    batch.update(db.doc(`bullshiitake/${row.id}`), { imageURL: FieldValue.delete() });
+    delete row.imageURL;
+  }
+  await batch.commit();
+  console.log(`[clear-images] unlinked ${have.length} banners (storage files will be overwritten on regen)`);
+}
+
 async function main(): Promise<void> {
   const db = getAdminFirestore();
   const { rows } = await loadRows(db);
   console.log(`Pack "${PACK_NAME}": ${rows.length} items`);
+  if (flags.includes("--clear-images")) await phaseClearImages(db, rows);
   if (run("--ids")) await phaseIds(db, rows);
   if (run("--prompts")) await phasePrompts(db, rows);
   if (run("--images")) await phaseImages(db, rows);
