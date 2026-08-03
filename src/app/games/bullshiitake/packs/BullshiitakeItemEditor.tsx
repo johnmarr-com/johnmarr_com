@@ -22,6 +22,7 @@ import { BluffAiSettingsButton } from "@/app/games/bluffbox/packs/BluffAiSetting
 import {
   postGenerateBullshiitakeImage,
   persistBullshiitakeBanner,
+  generateBannerPromptFromStory,
 } from "./postGenerateBullshiitakeImage";
 
 interface BullshiitakeItemEditorProps {
@@ -69,12 +70,14 @@ export default function BullshiitakeItemEditor({
   const imageURL = existingItem?.imageURL ?? "";
   const [tempURL, setTempURL] = useState<string | null>(null);
   const localFileBlobRef = useRef<Blob | null>(null);
-  const [imagePrompt, setImagePrompt] = useState("");
+  const [imagePrompt, setImagePrompt] = useState(existingItem?.imagePrompt ?? "");
   const [generating, setGenerating] = useState(false);
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
   const imageFileInputRef = useRef<HTMLInputElement>(null);
 
   const [saving, setSaving] = useState(false);
+  /** Non-null while Save is auto-generating the banner ("no image" path). */
+  const [savingStage, setSavingStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   /** Doc id fixed up-front so the banner can land at `bullshiitake/items/{itemId}/…`. */
@@ -164,6 +167,35 @@ export default function BullshiitakeItemEditor({
         finalImageURL = persisted;
       }
 
+      // No image at all → auto-generate one: author's prompt if present,
+      // otherwise derive a prompt from the story first. Failures don't block
+      // the save — the story just lands without a banner.
+      let effectivePrompt = imagePrompt.trim();
+      if (!finalImageURL) {
+        if (!effectivePrompt) {
+          setSavingStage("Writing image prompt…");
+          effectivePrompt =
+            (await generateBannerPromptFromStory(title.trim(), storyText)) ?? "";
+          if (effectivePrompt) setImagePrompt(effectivePrompt);
+        }
+        if (effectivePrompt) {
+          setSavingStage("Generating banner…");
+          const fullPrompt = buildBannerPrompt(
+            effectivePrompt,
+            aiImageGenSettings.addedFormatPrompt,
+          );
+          const ephemeral = await postGenerateBullshiitakeImage(
+            fullPrompt,
+            aiImageGenSettings.ideogram,
+          );
+          if (ephemeral) {
+            const persisted = await persistBullshiitakeBanner(ephemeral, itemId);
+            if (persisted) finalImageURL = persisted;
+          }
+        }
+        setSavingStage(null);
+      }
+
       const fields: BullshiitakeItemFields = {
         title: title.trim(),
         bsType,
@@ -171,6 +203,7 @@ export default function BullshiitakeItemEditor({
         ...(citations.length ? { citations } : {}),
         ...(correction.trim() ? { correction: correction.trim() } : {}),
         ...(finalImageURL ? { imageURL: finalImageURL } : {}),
+        ...(effectivePrompt ? { imagePrompt: effectivePrompt } : {}),
         ...(videoURL.trim() ? { videoURL: videoURL.trim() } : {}),
       };
 
@@ -203,6 +236,8 @@ export default function BullshiitakeItemEditor({
     correction,
     videoURL,
     imageURL,
+    imagePrompt,
+    aiImageGenSettings,
     tempURL,
     existingItem,
     packId,
@@ -225,9 +260,19 @@ export default function BullshiitakeItemEditor({
       >
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 py-4">
-          <h3 className="text-lg font-bold text-white">
-            {existingItem ? "Edit Story" : "Add Story"}
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-bold text-white">
+              {existingItem ? "Edit Story" : "Add Story"}
+            </h3>
+            {existingItem?.searchID != null && (
+              <span
+                className="rounded-full border border-white/15 px-2 py-0.5 font-mono text-xs text-white/50"
+                title="Search ID — auto-assigned, not editable"
+              >
+                #{existingItem.searchID}
+              </span>
+            )}
+          </div>
           <button
             type="button"
             onClick={onCancel}
@@ -428,6 +473,11 @@ export default function BullshiitakeItemEditor({
                 <Upload className="h-4 w-4" />
                 Upload custom image
               </button>
+              <p className="text-[10px] text-white/30">
+                The prompt is saved with the story. If you save without an
+                image, a banner is generated automatically — from your prompt,
+                or from an AI-written one when the field is empty.
+              </p>
             </div>
 
             {/* Video URL */}
@@ -467,7 +517,10 @@ export default function BullshiitakeItemEditor({
             className="min-w-0 flex-1 rounded-xl bg-lime-500 py-3 text-sm font-bold uppercase tracking-wider text-black transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
           >
             {saving ? (
-              <Loader2 className="mx-auto h-5 w-5 animate-spin" />
+              <span className="flex items-center justify-center gap-2 normal-case tracking-normal">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                {savingStage ?? "Saving…"}
+              </span>
             ) : existingItem ? (
               "Save Changes"
             ) : (

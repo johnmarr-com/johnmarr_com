@@ -155,7 +155,14 @@ export default function BullshiitakePackDetailView({
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-white">{item.title}</p>
+                      <p className="truncate text-sm font-bold text-white">
+                        {item.searchID != null && (
+                          <span className="mr-1.5 font-mono text-xs font-normal text-white/35">
+                            #{item.searchID}
+                          </span>
+                        )}
+                        {item.title}
+                      </p>
                       <div className="mt-1 flex flex-wrap items-center gap-1.5">
                         <span
                           className={`rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${BS_TYPE_BADGE[item.bsType]}`}

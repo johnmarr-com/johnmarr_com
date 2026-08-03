@@ -28,6 +28,9 @@ export interface BullshiitakePack {
 export interface BullshiitakeItem {
   id: string;
   packId: string;
+  /** Human-readable per-pack index (1..N, assigned in random order at import;
+   * new items get max-in-pack + 1). Read-only in the editor. */
+  searchID?: number;
   title: string;
   bsType: BSType;
   storyText: string;
@@ -36,6 +39,10 @@ export interface BullshiitakeItem {
   correction?: string;
   /** 2:1 banner image. */
   imageURL?: string;
+  /** AI prompt used to (re)generate the banner. When an item is created with
+   * no image, a banner is auto-generated from this (or from an AI-derived
+   * prompt when this is empty too). */
+  imagePrompt?: string;
   /** Vimeo link (portrait orientation). */
   videoURL?: string;
   creatorId: string;
@@ -56,6 +63,7 @@ export interface BullshiitakeItemFields {
   citations?: string[];
   correction?: string;
   imageURL?: string;
+  imagePrompt?: string;
   videoURL?: string;
 }
 
@@ -213,6 +221,7 @@ async function itemFieldsData(
     ["citations", fields.citations?.length ? fields.citations : undefined],
     ["correction", fields.correction?.trim() ? fields.correction.trim() : undefined],
     ["imageURL", fields.imageURL ? fields.imageURL : undefined],
+    ["imagePrompt", fields.imagePrompt?.trim() ? fields.imagePrompt.trim() : undefined],
     ["videoURL", fields.videoURL?.trim() ? fields.videoURL.trim() : undefined],
   ];
   for (const [key, value] of optionals) {
@@ -234,9 +243,15 @@ export async function createBullshiitakeItem(
     ? doc(db, "bullshiitake", input.id)
     : doc(collection(db, "bullshiitake"));
 
+  // Auto-assign the human-readable searchID: highest in the pack + 1.
+  const siblings = await listItemsForPack(input.packId);
+  const searchID =
+    siblings.reduce((max: number, s: BullshiitakeItem) => Math.max(max, s.searchID ?? 0), 0) + 1;
+
   const data = {
     ...(await itemFieldsData(input, false)),
     packId: input.packId,
+    searchID,
     creatorId: userId,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),

@@ -2,6 +2,33 @@ import { getAIAuthHeaders } from "@/app/games/_gamecore/getAIAuthHeaders";
 import type { IdeogramImageOptions } from "@/app/games/bluffbox/packs/ideogramImageTypes";
 
 /**
+ * Derive a banner image prompt from a story (used when an item is saved with
+ * neither an image nor an author-written prompt). One vivid scene, no
+ * text-in-image. Returns null on failure — banner generation is skipped then.
+ */
+export async function generateBannerPromptFromStory(
+  title: string,
+  storyText: string,
+): Promise<string | null> {
+  const headers = await getAIAuthHeaders();
+  const res = await fetch("/api/games/ai", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      type: "comment",
+      maxTokens: 120,
+      temperature: 0.5,
+      prompt:
+        `Write ONE image-generation prompt (a single sentence, max 30 words) depicting the most striking visual moment of this story. Concrete scene, subjects, setting, era. No words/text/lettering in the image. Respond with only the prompt.\n\nTitle: ${title}\nStory: ${storyText.slice(0, 600)}`,
+    }),
+  });
+  if (!res.ok) return null;
+  const data = (await res.json()) as { text?: string };
+  const prompt = data.text?.trim().replace(/^["']|["']$/g, "");
+  return prompt || null;
+}
+
+/**
  * POST `/api/games/ai` `type: generate-image` with the shared Ideogram knobs.
  * Same flow as bluffbox, but Bull Shiitake item banners are 2:1 — the user's
  * saved `aspect_ratio` (pinned to 1x1 for bluffbox) is overridden here.
