@@ -274,7 +274,10 @@ export async function POST(request: NextRequest) {
         });
         // Build permanent public URL
         const bucketName = bucket.name;
-        const permanentUrl = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(storagePath)}?alt=media`;
+        // Cache-buster: re-persisting to the same path must yield a NEW URL
+        // string, or the doc update is a no-op and browsers keep serving the
+        // year-cached old image (same convention as uploadSongAudio).
+        const permanentUrl = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(storagePath)}?alt=media&t=${Date.now()}`;
         return NextResponse.json({ imageUrl: permanentUrl });
       } catch (err) {
         console.error("[Persist Image]", err);

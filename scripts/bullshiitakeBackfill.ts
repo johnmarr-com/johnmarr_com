@@ -196,7 +196,9 @@ async function phaseImages(db: FirebaseFirestore.Firestore, rows: Row[]): Promis
       await bucket.file(storagePath).save(buffer, {
         metadata: { contentType: "image/jpeg", cacheControl: "public, max-age=31536000" },
       });
-      const imageURL = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(storagePath)}?alt=media`;
+      // &t cache-buster: regenerating to the same path must change the URL
+      // string or clients keep serving the year-cached previous banner.
+      const imageURL = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(storagePath)}?alt=media&t=${Date.now()}`;
 
       await db.doc(`bullshiitake/${row.id}`).update({
         imageURL,

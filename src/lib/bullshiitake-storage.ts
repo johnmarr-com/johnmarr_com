@@ -46,7 +46,9 @@ async function uploadToPath(path: string, blob: Blob): Promise<string> {
 
   await uploadBytes(storageRef, blob, { contentType: "image/jpeg" });
 
-  return getPublicStorageUrl(firebaseConfig.storageBucket, path);
+  // Cache-buster: re-uploads to the same path must yield a NEW URL string,
+  // or the doc update is a no-op and browsers keep the cached old image.
+  return `${getPublicStorageUrl(firebaseConfig.storageBucket, path)}&t=${Date.now()}`;
 }
 
 /**
