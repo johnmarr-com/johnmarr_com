@@ -6,6 +6,8 @@ import { useAuth } from "@/lib/AuthProvider";
 import {
   createBullshiitakePack,
   updateBullshiitakePack,
+  setPackSearchPrefix,
+  normalizeSearchPrefix,
   type BullshiitakePack,
 } from "@/lib/bullshiitake-packs";
 import {
@@ -38,6 +40,8 @@ export default function BullshiitakePackEditor({
   const { user } = useAuth();
 
   const [name, setName] = useState(existingPack?.name ?? "");
+  /** Physical-card prefix (max 2 chars): cards read <prefix>-<searchID>, e.g. B-35. */
+  const [searchPrefix, setSearchPrefix] = useState(existingPack?.searchPrefix ?? "");
   const iconURL = existingPack?.iconURL ?? "";
   /** Increment after new icon bytes so the preview reloads when the Storage URL string is unchanged. */
   const [iconPreviewBust, setIconPreviewBust] = useState(0);
@@ -85,6 +89,7 @@ export default function BullshiitakePackEditor({
     setError(null);
 
     try {
+      const prefix = normalizeSearchPrefix(searchPrefix);
       if (existingPack) {
         let finalIconURL = iconURL;
         if (pendingIconBlob) {
@@ -95,13 +100,21 @@ export default function BullshiitakePackEditor({
           name: name.trim(),
           ...(finalIconURL ? { iconURL: finalIconURL } : {}),
         });
+        // Prefix changes restamp every card in the pack (B-12 stays findable).
+        if (prefix !== (existingPack.searchPrefix ?? "")) {
+          await setPackSearchPrefix(existingPack.id, prefix);
+        }
         onSaved({
           ...existingPack,
           name: name.trim(),
+          searchPrefix: prefix,
           ...(finalIconURL ? { iconURL: finalIconURL } : {}),
         });
       } else {
-        const pack = await createBullshiitakePack({ name: name.trim() }, user.uid);
+        const pack = await createBullshiitakePack(
+          { name: name.trim(), ...(prefix ? { searchPrefix: prefix } : {}) },
+          user.uid,
+        );
         if (pendingIconBlob) {
           const url = await uploadBullshiitakePackIcon(pack.id, pendingIconBlob);
           await updateBullshiitakePack(pack.id, { iconURL: url });
@@ -114,20 +127,34 @@ export default function BullshiitakePackEditor({
     } finally {
       setSaving(false);
     }
-  }, [user, name, iconURL, pendingIconBlob, existingPack, onSaved]);
+  }, [user, name, searchPrefix, iconURL, pendingIconBlob, existingPack, onSaved]);
 
   const previewURL = pendingIconPreview ?? withImageCacheBust(iconURL, iconPreviewBust);
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Pack Name */}
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Pack name..."
-        className="w-full rounded-lg border border-white/20 bg-white/5 px-4 py-3 text-lg font-bold text-white placeholder-white/30 outline-none focus:border-lime-400/50"
-      />
+      {/* Pack Name + card prefix */}
+      <div className="flex gap-3">
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Pack name..."
+          className="min-w-0 flex-1 rounded-lg border border-white/20 bg-white/5 px-4 py-3 text-lg font-bold text-white placeholder-white/30 outline-none focus:border-lime-400/50"
+        />
+        <input
+          type="text"
+          value={searchPrefix}
+          onChange={(e) => setSearchPrefix(e.target.value.toUpperCase().slice(0, 2))}
+          placeholder="B"
+          maxLength={2}
+          title="Card prefix — physical cards read prefix-number, e.g. B-35"
+          className="w-20 rounded-lg border border-white/20 bg-white/5 px-2 py-3 text-center text-lg font-bold uppercase text-white placeholder-white/30 outline-none focus:border-lime-400/50"
+        />
+      </div>
+      <p className="-mt-3 text-right text-[10px] text-white/30">
+        Card prefix (max 2) — physical cards look up as prefix-number, e.g. B-35
+      </p>
 
       {/* Icon upload + preview */}
       <div className="space-y-3">

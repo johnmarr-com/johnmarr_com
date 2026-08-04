@@ -8,6 +8,7 @@ import {
   createBullshiitakeItem,
   updateBullshiitakeItem,
   setBullshiitakeItemApproved,
+  cardLabel,
   BS_TYPE_LABELS,
   type BullshiitakeItem,
   type BullshiitakeItemFields,
@@ -29,12 +30,25 @@ import {
 interface BullshiitakeItemEditorProps {
   /** Set automatically from the open pack. */
   packId: string;
+  /** The pack's card prefix — shown in the header badge (e.g. B-35). */
+  packSearchPrefix?: string | undefined;
   existingItem?: BullshiitakeItem | undefined;
   onSaved: (item: BullshiitakeItem) => void;
   onCancel: () => void;
-  /** Fired when the Admin Approved toggle persists (instant write — can land
-   * even if the editor is later cancelled). Lets list views stay in sync. */
-  onApprovedChanged?: ((itemId: string, approved: boolean) => void) | undefined;
+}
+
+/** Textarea that grows to fit its content — no inner scrolling. Height tracks
+ * the value on every change (and on mount, for pre-filled stories). */
+function AutoGrowTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const { value } = props;
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight + 2}px`;
+  }, [value]);
+  return <textarea ref={ref} {...props} />;
 }
 
 const BS_TYPES: BSType[] = ["true", "partlytrue", "bullshiitake"];
@@ -81,10 +95,10 @@ function buildBannerPrompt(subject: string, addedFormatPrompt: string): string {
  */
 export default function BullshiitakeItemEditor({
   packId,
+  packSearchPrefix,
   existingItem,
   onSaved,
   onCancel,
-  onApprovedChanged,
 }: BullshiitakeItemEditorProps) {
   const { user, aiImageGenSettings } = useAuth();
 
@@ -189,13 +203,12 @@ export default function BullshiitakeItemEditor({
     if (!existingItem) return;
     setApprovedSaving(true);
     setBullshiitakeItemApproved(existingItem.id, next)
-      .then(() => onApprovedChanged?.(existingItem.id, next))
       .catch(() => {
         setAdminApproved(!next);
         setError("Failed to save the approval state.");
       })
       .finally(() => setApprovedSaving(false));
-  }, [adminApproved, existingItem, onApprovedChanged]);
+  }, [adminApproved, existingItem]);
 
   const handleSave = useCallback(async () => {
     if (!user) return;
@@ -326,9 +339,9 @@ export default function BullshiitakeItemEditor({
             {existingItem?.searchID != null && (
               <span
                 className="rounded-full border border-white/15 px-2 py-0.5 font-mono text-xs text-white/50"
-                title="Search ID — auto-assigned, not editable"
+                title="Card number — auto-assigned, not editable"
               >
-                #{existingItem.searchID}
+                {cardLabel(existingItem.searchPrefix ?? packSearchPrefix, existingItem.searchID)}
               </span>
             )}
           </div>
@@ -384,13 +397,13 @@ export default function BullshiitakeItemEditor({
                 </label>
                 <WordsRemaining text={shortText} max={SHORT_TEXT_MAX_WORDS} />
               </div>
-              <textarea
+              <AutoGrowTextarea
                 value={shortText}
                 onChange={(e) => setShortText(e.target.value)}
                 placeholder="Shortened version of the story…"
-                rows={4}
+                rows={3}
                 spellCheck
-                className="w-full resize-y whitespace-pre-wrap rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm leading-relaxed text-white placeholder-white/25 outline-none focus:border-lime-400/40"
+                className="w-full resize-none overflow-hidden whitespace-pre-wrap rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm leading-relaxed text-white placeholder-white/25 outline-none focus:border-lime-400/40"
               />
               <p className="text-[10px] text-white/30">
                 When set, the game shows this instead of the full story below —
@@ -432,13 +445,13 @@ export default function BullshiitakeItemEditor({
                 <label className={labelClass}>Story Text</label>
                 <WordsRemaining text={storyText} max={STORY_TEXT_MAX_WORDS} />
               </div>
-              <textarea
+              <AutoGrowTextarea
                 value={storyText}
                 onChange={(e) => setStoryText(e.target.value)}
                 placeholder="The story, as read to the group…"
-                rows={8}
+                rows={4}
                 spellCheck
-                className="w-full resize-y whitespace-pre-wrap rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm leading-relaxed text-white placeholder-white/25 outline-none focus:border-lime-400/40"
+                className="w-full resize-none overflow-hidden whitespace-pre-wrap rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm leading-relaxed text-white placeholder-white/25 outline-none focus:border-lime-400/40"
               />
               <p className="text-[10px] text-white/30">
                 Line breaks are preserved — blank lines separate paragraphs.
@@ -499,12 +512,12 @@ export default function BullshiitakeItemEditor({
             {/* Correction */}
             <div className="space-y-1.5">
               <label className={labelClass}>Correction</label>
-              <textarea
+              <AutoGrowTextarea
                 value={correction}
                 onChange={(e) => setCorrection(e.target.value)}
                 placeholder="What's actually true…"
-                rows={3}
-                className="w-full resize-y rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm leading-relaxed text-white placeholder-white/25 outline-none focus:border-lime-400/40"
+                rows={2}
+                className="w-full resize-none overflow-hidden rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm leading-relaxed text-white placeholder-white/25 outline-none focus:border-lime-400/40"
               />
               <p className="text-[10px] text-white/30">
                 Clarifying text — required reading when the story is Partly True

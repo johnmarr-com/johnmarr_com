@@ -1,18 +1,44 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { X, Pencil, Trash2, Plus, Loader2, Link2, Video, Package } from "lucide-react";
+import { X, Pencil, Trash2, Plus, Loader2, Link2, Video, Package, Search } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
 import {
-  listItemsForPack,
+  subscribeToItemsForPack,
   deleteBullshiitakeItem,
+  cardLabel,
   BS_TYPE_LABELS,
   type BullshiitakePack,
   type BullshiitakeItem,
   type BSType,
 } from "@/lib/bullshiitake-packs";
 import BullshiitakeItemEditor from "./BullshiitakeItemEditor";
+
+/** True when `token` appears in `text` in order (subsequence) — cheap typo
+ * tolerance for the title search ("blockbstr" still finds Blockbuster). */
+function isSubsequence(token: string, text: string): boolean {
+  let i = 0;
+  for (const ch of text) {
+    if (ch === token[i]) i++;
+    if (i === token.length) return true;
+  }
+  return false;
+}
+
+/** Fuzzy story filter: every query token must hit the card label, title, or
+ * short text (substring), or at least read as a subsequence of the title.
+ * Runs client-side — the pack's stories are already fully loaded, so no
+ * Firestore text-search limitation applies. */
+function matchesQuery(item: BullshiitakeItem, query: string): boolean {
+  const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return true;
+  const title = item.title.toLowerCase();
+  const haystack = `${cardLabel(item.searchPrefix, item.searchID)} ${title} ${
+    item.shortText ?? ""
+  }`.toLowerCase();
+  return tokens.every((t) => haystack.includes(t) || isSubsequence(t, title));
+}
 
 interface BullshiitakePackDetailViewProps {
   pack: BullshiitakePack;
@@ -41,24 +67,34 @@ export default function BullshiitakePackDetailView({
 
   const [items, setItems] = useState<BullshiitakeItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
   const [editorItem, setEditorItem] = useState<BullshiitakeItem | "new" | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const loadItems = useCallback(async () => {
-    setLoading(true);
-    try {
-      setItems(await listItemsForPack(pack.id));
-    } catch (err) {
-      console.error("Failed to load stories:", err);
-    } finally {
+  // Live listener — simultaneous editors see each other's saves and approval
+  // dots in real time; no manual reloads.
+  useEffect(() => {
+    let cancelled = false;
+    let unsub: (() => void) | undefined;
+    void subscribeToItemsForPack(pack.id, (next) => {
+      if (cancelled) return;
+      setItems(next);
       setLoading(false);
-    }
+    }).then((u) => {
+      if (cancelled) u();
+      else unsub = u;
+    });
+    return () => {
+      cancelled = true;
+      unsub?.();
+    };
   }, [pack.id]);
 
-  useEffect(() => {
-    loadItems();
-  }, [loadItems]);
+  const visibleItems = useMemo(
+    () => items.filter((i) => matchesQuery(i, searchQuery)),
+    [items, searchQuery],
+  );
 
   const handleDelete = useCallback(
     async (itemId: string) => {
@@ -92,34 +128,57 @@ export default function BullshiitakePackDetailView({
         <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" aria-hidden />
 
         <div
-          className="relative flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-[28px] border border-white/20 bg-neutral-900 xl:max-w-2xl"
+          className="relative flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-[28px] border border-white/20 bg-neutral-900 xl:max-w-4xl"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
-          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              {pack.iconURL ? (
-                /* eslint-disable-next-line @next/next/no-img-element -- Storage URL */
-                <img src={pack.iconURL} alt="" className="h-11 w-11 shrink-0 rounded-lg object-cover" />
-              ) : (
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/5">
-                  <Package className="h-5 w-5 text-white/20" />
+          {/* Header — title row + search bar, both fixed above the scroll body */}
+          <div className="shrink-0 border-b border-white/10 px-5 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                {pack.iconURL ? (
+                  /* eslint-disable-next-line @next/next/no-img-element -- Storage URL */
+                  <img src={pack.iconURL} alt="" className="h-11 w-11 shrink-0 rounded-lg object-cover" />
+                ) : (
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/5">
+                    <Package className="h-5 w-5 text-white/20" />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <h3 className="truncate text-lg font-bold text-white">
+                    {pack.name}
+                    {pack.searchPrefix && (
+                      <span className="ml-2 rounded-md border border-white/15 bg-white/5 px-1.5 py-0.5 align-middle font-mono text-xs font-normal text-white/50">
+                        {pack.searchPrefix}-#
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-xs text-white/40">
+                    {searchQuery.trim()
+                      ? `${visibleItems.length} of ${items.length} stories`
+                      : `${items.length} stor${items.length !== 1 ? "ies" : "y"}`}
+                  </p>
                 </div>
-              )}
-              <div className="min-w-0">
-                <h3 className="truncate text-lg font-bold text-white">{pack.name}</h3>
-                <p className="text-xs text-white/40">
-                  {items.length} stor{items.length !== 1 ? "ies" : "y"}
-                </p>
               </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-lg p-2 text-white/40 transition-colors hover:bg-white/10"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg p-2 text-white/40 transition-colors hover:bg-white/10"
-            >
-              <X className="h-5 w-5" />
-            </button>
+
+            {/* Story search — fuzzy match on card number, title, and short text */}
+            <div className="relative mt-3">
+              <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-white/30" />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search stories by title or short text…"
+                className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pr-3 pl-9 text-sm text-white placeholder-white/25 outline-none focus:border-lime-400/40"
+              />
+            </div>
           </div>
 
           {/* Scrollable body */}
@@ -136,59 +195,71 @@ export default function BullshiitakePackDetailView({
               <p className="py-8 text-center text-sm text-white/30">
                 No stories in this pack yet.
               </p>
+            ) : visibleItems.length === 0 ? (
+              <p className="py-8 text-center text-sm text-white/30">
+                No stories match &ldquo;{searchQuery.trim()}&rdquo;.
+              </p>
             ) : (
-              <div className="flex flex-col gap-2">
-                {items.map((item) => (
+              <div className="flex flex-col gap-2.5">
+                {visibleItems.map((item) => (
                   <div
                     key={item.id}
-                    className="group flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-2.5"
+                    onClick={canManage ? () => setEditorItem(item) : undefined}
+                    className={`group flex items-center gap-4 rounded-xl border border-white/10 bg-white/5 p-3 transition-colors ${
+                      canManage ? "cursor-pointer hover:border-lime-400/30 hover:bg-white/10" : ""
+                    }`}
                   >
                     {/* 2:1 banner thumb */}
-                    <div className="aspect-2/1 w-24 shrink-0 overflow-hidden rounded-lg bg-neutral-800">
+                    <div className="aspect-2/1 w-36 shrink-0 overflow-hidden rounded-lg bg-neutral-800 sm:w-44">
                       {item.imageURL ? (
                         /* eslint-disable-next-line @next/next/no-img-element -- Storage URL */
                         <img src={item.imageURL} alt="" className="h-full w-full object-cover" />
                       ) : (
-                        <div className="flex h-full items-center justify-center text-[9px] text-white/20">
+                        <div className="flex h-full items-center justify-center text-[10px] text-white/20">
                           no image
                         </div>
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-white">
+                      <p className="truncate text-base font-bold text-white">
                         {item.searchID != null && (
-                          <span className="mr-1.5 font-mono text-xs font-normal text-white/35">
-                            #{item.searchID}
+                          <span className="mr-2 font-mono text-sm font-normal text-white/40">
+                            {cardLabel(item.searchPrefix ?? pack.searchPrefix, item.searchID)}
                           </span>
                         )}
                         {item.title}
                       </p>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
                         <span
-                          className={`rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${BS_TYPE_BADGE[item.bsType]}`}
+                          className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${BS_TYPE_BADGE[item.bsType]}`}
                         >
                           {BS_TYPE_LABELS[item.bsType]}
                         </span>
                         {item.citations?.length ? (
-                          <span className="flex items-center gap-0.5 text-[9px] text-white/30">
-                            <Link2 className="h-2.5 w-2.5" />
+                          <span className="flex items-center gap-1 text-[10px] text-white/30">
+                            <Link2 className="h-3 w-3" />
                             {item.citations.length}
                           </span>
                         ) : null}
                         {item.videoURL ? (
-                          <span className="flex items-center gap-0.5 text-[9px] text-white/30">
-                            <Video className="h-2.5 w-2.5" />
+                          <span className="flex items-center gap-1 text-[10px] text-white/30">
+                            <Video className="h-3 w-3" />
                             video
                           </span>
                         ) : null}
                       </div>
+                      {item.shortText?.trim() ? (
+                        <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-white/40">
+                          {item.shortText}
+                        </p>
+                      ) : null}
                     </div>
                     {canManage && (
-                      <div className="flex shrink-0 items-center gap-0.5">
+                      <div className="flex shrink-0 flex-col items-center gap-3">
                         {/* Back-office approval dot — mirrors the editor's
                             Admin Approved toggle (green = short form approved). */}
                         <span
-                          className={`mr-1 h-3 w-3 shrink-0 rounded-full ${
+                          className={`h-3.5 w-3.5 shrink-0 rounded-full ${
                             item.adminApproved
                               ? "bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.6)]"
                               : "border border-white/25 bg-black"
@@ -201,15 +272,10 @@ export default function BullshiitakePackDetailView({
                         />
                         <button
                           type="button"
-                          onClick={() => setEditorItem(item)}
-                          className="rounded-md bg-black/40 p-2 text-white/50 transition-colors hover:text-white"
-                          title="Edit story"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setConfirmDeleteId(item.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfirmDeleteId(item.id);
+                          }}
                           className="rounded-md bg-black/40 p-2 text-red-400/50 transition-colors hover:text-red-400"
                           title="Delete story"
                         >
@@ -288,24 +354,11 @@ export default function BullshiitakePackDetailView({
       {editorItem && (
         <BullshiitakeItemEditor
           packId={pack.id}
+          packSearchPrefix={pack.searchPrefix}
           existingItem={editorItem === "new" ? undefined : editorItem}
-          onApprovedChanged={(itemId, approved) => {
-            // The toggle persists instantly (even if the editor is later
-            // cancelled) — keep the list's dot in sync with Firestore.
-            setItems((prev) =>
-              prev.map((i) => (i.id === itemId ? { ...i, adminApproved: approved } : i)),
-            );
-          }}
-          onSaved={(saved) => {
-            setItems((prev) => {
-              const idx = prev.findIndex((i) => i.id === saved.id);
-              if (idx === -1) return [...prev, saved];
-              const next = [...prev];
-              next[idx] = saved;
-              return next;
-            });
-            setEditorItem(null);
-          }}
+          /* No local list bookkeeping needed — the live items listener picks
+             up saves and instant approval-toggle writes on its own. */
+          onSaved={() => setEditorItem(null)}
           onCancel={() => setEditorItem(null)}
         />
       )}
