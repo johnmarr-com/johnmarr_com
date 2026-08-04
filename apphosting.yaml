@@ -29,3 +29,8 @@ env:
     secret: ANTHROPIC_API_KEY
   - variable: IDEOGRAM_API_KEY
     secret: IDEOGRAM_API_KEY
+  # Neon Postgres (trivia content pipeline / Trivia Review admin panel).
+  # Was never wired into App Hosting — trivia-review routes 500'd in prod
+  # with "NEON_URL missing from environment" (only ever worked on localhost).
+  - variable: NEON_URL
+    secret: NEON_URL
