@@ -184,7 +184,21 @@ export default function BullshiitakePackDetailView({
                       </div>
                     </div>
                     {canManage && (
-                      <div className="flex shrink-0 gap-0.5">
+                      <div className="flex shrink-0 items-center gap-0.5">
+                        {/* Back-office approval dot — mirrors the editor's
+                            Admin Approved toggle (green = short form approved). */}
+                        <span
+                          className={`mr-1 h-3 w-3 shrink-0 rounded-full ${
+                            item.adminApproved
+                              ? "bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.6)]"
+                              : "border border-white/25 bg-black"
+                          }`}
+                          title={
+                            item.adminApproved
+                              ? "Short form approved"
+                              : "Short form not yet approved"
+                          }
+                        />
                         <button
                           type="button"
                           onClick={() => setEditorItem(item)}
@@ -275,6 +289,13 @@ export default function BullshiitakePackDetailView({
         <BullshiitakeItemEditor
           packId={pack.id}
           existingItem={editorItem === "new" ? undefined : editorItem}
+          onApprovedChanged={(itemId, approved) => {
+            // The toggle persists instantly (even if the editor is later
+            // cancelled) — keep the list's dot in sync with Firestore.
+            setItems((prev) =>
+              prev.map((i) => (i.id === itemId ? { ...i, adminApproved: approved } : i)),
+            );
+          }}
           onSaved={(saved) => {
             setItems((prev) => {
               const idx = prev.findIndex((i) => i.id === saved.id);

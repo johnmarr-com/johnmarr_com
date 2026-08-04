@@ -32,6 +32,9 @@ interface BullshiitakeItemEditorProps {
   existingItem?: BullshiitakeItem | undefined;
   onSaved: (item: BullshiitakeItem) => void;
   onCancel: () => void;
+  /** Fired when the Admin Approved toggle persists (instant write — can land
+   * even if the editor is later cancelled). Lets list views stay in sync. */
+  onApprovedChanged?: ((itemId: string, approved: boolean) => void) | undefined;
 }
 
 const BS_TYPES: BSType[] = ["true", "partlytrue", "bullshiitake"];
@@ -81,6 +84,7 @@ export default function BullshiitakeItemEditor({
   existingItem,
   onSaved,
   onCancel,
+  onApprovedChanged,
 }: BullshiitakeItemEditorProps) {
   const { user, aiImageGenSettings } = useAuth();
 
@@ -185,12 +189,13 @@ export default function BullshiitakeItemEditor({
     if (!existingItem) return;
     setApprovedSaving(true);
     setBullshiitakeItemApproved(existingItem.id, next)
+      .then(() => onApprovedChanged?.(existingItem.id, next))
       .catch(() => {
         setAdminApproved(!next);
         setError("Failed to save the approval state.");
       })
       .finally(() => setApprovedSaving(false));
-  }, [adminApproved, existingItem]);
+  }, [adminApproved, existingItem, onApprovedChanged]);
 
   const handleSave = useCallback(async () => {
     if (!user) return;
