@@ -106,7 +106,8 @@ export default function BullshiitakeGame({ sessionId }: GC3Props) {
         const story: PresentedStory = {
           itemId: pick.id,
           bsType: pick.bsType,
-          storyText: pick.storyText,
+          // Prefer the shortened version when the author provided one.
+          storyText: pick.shortText?.trim() ? pick.shortText : pick.storyText,
           ...(pick.correction ? { correction: pick.correction } : {}),
           ...(pick.imageURL ? { imageURL: pick.imageURL } : {}),
           ...(pick.searchID != null ? { searchID: pick.searchID } : {}),

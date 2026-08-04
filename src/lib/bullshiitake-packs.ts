@@ -34,6 +34,9 @@ export interface BullshiitakeItem {
   title: string;
   bsType: BSType;
   storyText: string;
+  /** Optional shortened version — the game prefers this over storyText when
+   * set; the full story is kept alongside it. */
+  shortText?: string;
   citations?: string[];
   /** Clarifying text — required reading when the story is Partly True. */
   correction?: string;
@@ -60,6 +63,7 @@ export interface BullshiitakeItemFields {
   title: string;
   bsType: BSType;
   storyText: string;
+  shortText?: string;
   citations?: string[];
   correction?: string;
   imageURL?: string;
@@ -218,6 +222,7 @@ async function itemFieldsData(
     storyText: fields.storyText,
   };
   const optionals: [string, unknown][] = [
+    ["shortText", fields.shortText?.trim() ? fields.shortText : undefined],
     ["citations", fields.citations?.length ? fields.citations : undefined],
     ["correction", fields.correction?.trim() ? fields.correction.trim() : undefined],
     ["imageURL", fields.imageURL ? fields.imageURL : undefined],

@@ -35,6 +35,26 @@ interface BullshiitakeItemEditorProps {
 
 const BS_TYPES: BSType[] = ["true", "partlytrue", "bullshiitake"];
 
+const SHORT_TEXT_MAX_WORDS = 75;
+const STORY_TEXT_MAX_WORDS = 150;
+
+const countWords = (t: string): number =>
+  t.trim() ? t.trim().split(/\s+/).length : 0;
+
+/** Remaining-words badge (top-right of a field label). Never blocks input —
+ * just goes red when the budget is overspent. */
+function WordsRemaining({ text, max }: { text: string; max: number }) {
+  const left = max - countWords(text);
+  return (
+    <span
+      className={`font-mono text-[10px] ${left < 0 ? "font-bold text-red-400" : "text-white/30"}`}
+      title={`${max} word max`}
+    >
+      {left} words
+    </span>
+  );
+}
+
 /** Banner prompt = house-style lead-in + subject + the user's saved format
  * prompt. Bull Shiitake banners are isometric cartoon (matches the backfill
  * script's style — photo-realism read wrong for the game). */
@@ -64,6 +84,7 @@ export default function BullshiitakeItemEditor({
 
   const [title, setTitle] = useState(existingItem?.title ?? "");
   const [bsType, setBsType] = useState<BSType>(existingItem?.bsType ?? "true");
+  const [shortText, setShortText] = useState(existingItem?.shortText ?? "");
   const [storyText, setStoryText] = useState(existingItem?.storyText ?? "");
   const [citations, setCitations] = useState<string[]>(existingItem?.citations ?? []);
   const [citationInput, setCitationInput] = useState("");
@@ -205,6 +226,7 @@ export default function BullshiitakeItemEditor({
         title: title.trim(),
         bsType,
         storyText: storyText, // preserve line-break paragraphs verbatim
+        ...(shortText.trim() ? { shortText } : {}),
         ...(citations.length ? { citations } : {}),
         ...(correction.trim() ? { correction: correction.trim() } : {}),
         ...(finalImageURL ? { imageURL: finalImageURL } : {}),
@@ -237,6 +259,7 @@ export default function BullshiitakeItemEditor({
     title,
     bsType,
     storyText,
+    shortText,
     citations,
     correction,
     videoURL,
@@ -322,9 +345,34 @@ export default function BullshiitakeItemEditor({
               </select>
             </div>
 
+            {/* Short Text — preferred in game when set */}
+            <div className="space-y-1.5">
+              <div className="flex items-baseline justify-between">
+                <label className={labelClass}>
+                  Short Text <span className="font-normal normal-case text-white/25">(optional)</span>
+                </label>
+                <WordsRemaining text={shortText} max={SHORT_TEXT_MAX_WORDS} />
+              </div>
+              <textarea
+                value={shortText}
+                onChange={(e) => setShortText(e.target.value)}
+                placeholder="Shortened version of the story…"
+                rows={4}
+                spellCheck
+                className="w-full resize-y whitespace-pre-wrap rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm leading-relaxed text-white placeholder-white/25 outline-none focus:border-lime-400/40"
+              />
+              <p className="text-[10px] text-white/30">
+                When set, the game shows this instead of the full story below —
+                the long version is kept either way.
+              </p>
+            </div>
+
             {/* Story Text */}
             <div className="space-y-1.5">
-              <label className={labelClass}>Story Text</label>
+              <div className="flex items-baseline justify-between">
+                <label className={labelClass}>Story Text</label>
+                <WordsRemaining text={storyText} max={STORY_TEXT_MAX_WORDS} />
+              </div>
               <textarea
                 value={storyText}
                 onChange={(e) => setStoryText(e.target.value)}
