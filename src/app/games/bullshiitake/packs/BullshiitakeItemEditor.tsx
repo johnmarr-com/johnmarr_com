@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/AuthProvider";
 import {
   createBullshiitakeItem,
   updateBullshiitakeItem,
+  setBullshiitakeItemApproved,
   BS_TYPE_LABELS,
   type BullshiitakeItem,
   type BullshiitakeItemFields,
@@ -41,16 +42,17 @@ const STORY_TEXT_MAX_WORDS = 150;
 const countWords = (t: string): number =>
   t.trim() ? t.trim().split(/\s+/).length : 0;
 
-/** Remaining-words badge (top-right of a field label). Never blocks input —
- * just goes red when the budget is overspent. */
+/** Remaining-words badge (top-right of a field label), shown as
+ * `remaining/max`. Never blocks input — green while there's budget left,
+ * red from zero down into the negatives. */
 function WordsRemaining({ text, max }: { text: string; max: number }) {
   const left = max - countWords(text);
   return (
     <span
-      className={`font-mono text-[10px] ${left < 0 ? "font-bold text-red-400" : "text-white/30"}`}
+      className={`font-mono text-[10px] ${left > 0 ? "text-green-400" : "font-bold text-red-400"}`}
       title={`${max} word max`}
     >
-      {left} words
+      {left}/{max}
     </span>
   );
 }
@@ -86,6 +88,9 @@ export default function BullshiitakeItemEditor({
   const [bsType, setBsType] = useState<BSType>(existingItem?.bsType ?? "true");
   const [shortText, setShortText] = useState(existingItem?.shortText ?? "");
   const [storyText, setStoryText] = useState(existingItem?.storyText ?? "");
+  // Back-office flag — writes to Firestore the instant it's toggled (no Save).
+  const [adminApproved, setAdminApproved] = useState(existingItem?.adminApproved === true);
+  const [approvedSaving, setApprovedSaving] = useState(false);
   const [citations, setCitations] = useState<string[]>(existingItem?.citations ?? []);
   const [citationInput, setCitationInput] = useState("");
   const [correction, setCorrection] = useState(existingItem?.correction ?? "");
@@ -171,6 +176,22 @@ export default function BullshiitakeItemEditor({
     setCitationInput("");
   }, [citationInput]);
 
+  /** Flip the back-office approval flag. Existing stories persist the change
+   * immediately (no Save press needed); brand-new stories just hold the state
+   * locally and it lands with the doc on create. */
+  const handleToggleApproved = useCallback(() => {
+    const next = !adminApproved;
+    setAdminApproved(next);
+    if (!existingItem) return;
+    setApprovedSaving(true);
+    setBullshiitakeItemApproved(existingItem.id, next)
+      .catch(() => {
+        setAdminApproved(!next);
+        setError("Failed to save the approval state.");
+      })
+      .finally(() => setApprovedSaving(false));
+  }, [adminApproved, existingItem]);
+
   const handleSave = useCallback(async () => {
     if (!user) return;
     if (!title.trim()) { setError("A title is required."); return; }
@@ -242,10 +263,14 @@ export default function BullshiitakeItemEditor({
           creatorId: existingItem.creatorId,
           createdAt: existingItem.createdAt,
           updatedAt: existingItem.updatedAt,
+          ...(adminApproved ? { adminApproved: true } : {}),
           ...fields,
         });
       } else {
-        const item = await createBullshiitakeItem({ ...fields, packId, id: itemId }, user.uid);
+        const item = await createBullshiitakeItem(
+          { ...fields, packId, id: itemId, ...(adminApproved ? { adminApproved: true } : {}) },
+          user.uid,
+        );
         onSaved(item);
       }
       if (tempURL?.startsWith("blob:")) URL.revokeObjectURL(tempURL);
@@ -269,6 +294,7 @@ export default function BullshiitakeItemEditor({
     tempURL,
     existingItem,
     packId,
+    adminApproved,
     onSaved,
   ]);
 
@@ -365,6 +391,34 @@ export default function BullshiitakeItemEditor({
                 When set, the game shows this instead of the full story below —
                 the long version is kept either way.
               </p>
+            </div>
+
+            {/* Admin Approved — back-office tracking of whether a human has
+                approved the short form. Saves the moment it's toggled; never
+                gates gameplay (unapproved shorts still play). */}
+            <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2.5">
+              <div className="space-y-0.5">
+                <span className={labelClass}>Admin Approved</span>
+                <p className="text-[10px] text-white/30">
+                  Internal only — short form human-approved. Saves instantly on toggle.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={adminApproved}
+                onClick={handleToggleApproved}
+                disabled={approvedSaving}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-60 ${
+                  adminApproved ? "bg-lime-500" : "bg-white/15"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                    adminApproved ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
             </div>
 
             {/* Story Text */}

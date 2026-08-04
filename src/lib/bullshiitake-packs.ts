@@ -48,6 +48,10 @@ export interface BullshiitakeItem {
   imagePrompt?: string;
   /** Vimeo link (portrait orientation). */
   videoURL?: string;
+  /** Back-office only: has a human approved the short form? Saved instantly
+   * from the editor toggle (not part of the Save flow) and never read by the
+   * game — unapproved shorts still play. */
+  adminApproved?: boolean;
   creatorId: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -76,6 +80,8 @@ export interface CreateBullshiitakeItemInput extends BullshiitakeItemFields {
   /** Pre-generated doc id — lets the editor upload the banner to
    * `bullshiitake/items/{itemId}/…` before the doc exists. */
   id?: string;
+  /** Back-office approval toggled before the story was first saved. */
+  adminApproved?: boolean;
 }
 
 // ─── Firestore Helpers ───────────────────────────────────────
@@ -257,6 +263,7 @@ export async function createBullshiitakeItem(
     ...(await itemFieldsData(input, false)),
     packId: input.packId,
     searchID,
+    ...(input.adminApproved ? { adminApproved: true } : {}),
     creatorId: userId,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -268,6 +275,22 @@ export async function createBullshiitakeItem(
     id: ref.id,
     ...(data as unknown as Omit<BullshiitakeItem, "id">),
   };
+}
+
+/** Instant write of the back-office approval flag — fires the moment the
+ * editor toggle flips, independent of the Save button. Deliberately NOT part
+ * of BullshiitakeItemFields so the full-replace Save never clobbers it. */
+export async function setBullshiitakeItemApproved(
+  itemId: string,
+  approved: boolean,
+): Promise<void> {
+  const { doc, updateDoc, serverTimestamp } = await import("firebase/firestore");
+  const db = await getDb();
+
+  await updateDoc(doc(db, "bullshiitake", itemId), {
+    adminApproved: approved,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 /** Full replace of the authored fields (cleared optionals are removed). */
