@@ -42,6 +42,38 @@ const PERSIST_BUCKETS: RateLimitBucket[] = [
 /** Storage prefixes persist-image may write to (creator asset flows). */
 const PERSIST_PATH_PREFIXES = ["fyve-heists/", "fyve-bombs/", "bullshiitake/"];
 
+// ─── Ideogram v3 via Replicate ──────────────────────────────
+// All image generation is billed to the one Replicate account (same as the
+// sketch model). Replicate hosts Ideogram's official v3 models, so outputs
+// are identical to the direct API — only the parameter shapes differ.
+
+/** Our rendering_speed setting → which Ideogram v3 model to run. */
+const IDEOGRAM_MODEL_BY_SPEED: Record<string, `${string}/${string}`> = {
+  FLASH: "ideogram-ai/ideogram-v3-turbo",
+  TURBO: "ideogram-ai/ideogram-v3-turbo",
+  DEFAULT: "ideogram-ai/ideogram-v3-balanced",
+  QUALITY: "ideogram-ai/ideogram-v3-quality",
+};
+
+/** Direct-API enum ("GENERAL") → Replicate wrapper enum ("General"). */
+const capitalize = (v: string): string =>
+  v.charAt(0).toUpperCase() + v.slice(1).toLowerCase();
+
+/** Preset const ("80S_ILLUSTRATION") → wrapper label ("80s Illustration").
+ * Title-cases each word, with the wrapper's irregulars special-cased. */
+function toReplicateStylePreset(preset: string): string {
+  const SPECIAL: Record<string, string> = { CHILDRENS: "Children's", C4D: "C4D" };
+  return preset
+    .split("_")
+    .map((w) => {
+      if (SPECIAL[w]) return SPECIAL[w];
+      if (/^\d+S$/.test(w)) return `${w.slice(0, -1)}s`; // 80S → 80s
+      if (/^I{1,3}$/.test(w)) return w; // roman numerals stay uppercase
+      return capitalize(w);
+    })
+    .join(" ");
+}
+
 export async function POST(request: NextRequest) {
   // ─── Authenticate ─────────────────────────────────────────
   const authHeader = request.headers.get("Authorization");
@@ -156,53 +188,39 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Missing prompt" }, { status: 400 });
       }
 
-      const ideogramKey = process.env["IDEOGRAM_API_KEY"];
-      if (!ideogramKey) {
-        console.error("[AI Image] IDEOGRAM_API_KEY not configured");
+      if (!process.env["REPLICATE_API_TOKEN"]) {
+        console.error("[AI Image] REPLICATE_API_TOKEN not configured");
         return NextResponse.json({ error: "Image generation not configured" }, { status: 500 });
       }
 
       const presetTrimmed = b.style_preset?.trim();
       const styleType = coerceStyleTypeForIdeogramGenerate(b.style_type, presetTrimmed);
+      const model =
+        IDEOGRAM_MODEL_BY_SPEED[b.rendering_speed ?? "QUALITY"] ??
+        IDEOGRAM_MODEL_BY_SPEED["QUALITY"]!;
 
-      // Generate v3: multipart/form-data (see Ideogram docs). FICTION is not accepted by the live API.
-      const form = new FormData();
-      form.append("prompt", imagePrompt);
-      form.append("aspect_ratio", b.aspect_ratio ?? "1x1");
-      form.append("rendering_speed", b.rendering_speed ?? "QUALITY");
-      form.append("style_type", styleType);
-      form.append("magic_prompt", b.magic_prompt ?? "ON");
-      form.append("num_images", "1");
+      // Ideogram v3 on Replicate. Param shape differs from the direct API:
+      // aspect_ratio "2x1" → "2:1", enums Title Case, rendering_speed → model.
+      // negative_prompt has no wrapper equivalent and is dropped.
+      const input: Record<string, unknown> = {
+        prompt: imagePrompt,
+        aspect_ratio: (b.aspect_ratio ?? "1x1").replace("x", ":"),
+        style_type: capitalize(styleType),
+        magic_prompt_option: capitalize(b.magic_prompt ?? "ON"),
+        ...(typeof b.seed === "number" && !Number.isNaN(b.seed)
+          ? { seed: Math.floor(b.seed) }
+          : {}),
+        ...(presetTrimmed ? { style_preset: toReplicateStylePreset(presetTrimmed) } : {}),
+      };
       if (b.negative_prompt?.trim()) {
-        form.append("negative_prompt", b.negative_prompt.trim());
-      }
-      if (typeof b.seed === "number" && !Number.isNaN(b.seed)) {
-        form.append("seed", String(Math.floor(b.seed)));
-      }
-      if (presetTrimmed) {
-        form.append("style_preset", presetTrimmed);
+        console.log("[AI Image] negative_prompt not supported via Replicate — dropped");
       }
 
       try {
-        const ideogramRes = await fetch("https://api.ideogram.ai/v1/ideogram-v3/generate", {
-          method: "POST",
-          headers: {
-            "Api-Key": ideogramKey,
-          },
-          body: form,
-        });
-
-        if (!ideogramRes.ok) {
-          const errBody = await ideogramRes.text();
-          console.error(`[AI Image] Ideogram ${ideogramRes.status}: ${errBody}`);
-          return NextResponse.json({ error: "Image generation failed" }, { status: 502 });
-        }
-
-        const ideogramData = (await ideogramRes.json()) as {
-          data?: { url?: string }[];
-        };
-        const imageUrl = ideogramData.data?.[0]?.url ?? "";
-        console.log(`[AI Image] uid=${uid} Ideogram v3: ${imageUrl.slice(0, 80)}...`);
+        const output = await replicate.run(model, { input });
+        const rawUrl = Array.isArray(output) ? output[0] : output;
+        const imageUrl = typeof rawUrl === "string" ? rawUrl : String(rawUrl ?? "");
+        console.log(`[AI Image] uid=${uid} ${model}: ${imageUrl.slice(0, 80)}...`);
 
         if (!imageUrl) {
           return NextResponse.json({ error: "Image generation returned no URL" }, { status: 502 });
@@ -229,7 +247,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ imageUrl, type: "image" });
       } catch (err) {
-        console.error("[AI Image] Ideogram error:", err);
+        console.error("[AI Image] Ideogram-via-Replicate error:", err);
         return NextResponse.json({ error: "Image generation failed" }, { status: 502 });
       }
     }

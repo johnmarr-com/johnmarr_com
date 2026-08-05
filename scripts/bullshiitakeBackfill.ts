@@ -140,30 +140,31 @@ async function phasePrompts(db: FirebaseFirestore.Firestore, rows: Row[]): Promi
   }
 }
 
-/** Direct Ideogram v3 generate (QUALITY, REALISTIC — the app's defaults), 2:1. */
+/** Ideogram v3 (quality tier) via Replicate — same model as the direct API,
+ * billed to the one Replicate account the app uses for all image gen. */
 async function ideogramGenerate(prompt: string): Promise<string | null> {
-  const key = process.env["IDEOGRAM_API_KEY"];
-  if (!key) throw new Error("IDEOGRAM_API_KEY missing from env");
-  const form = new FormData();
-  form.append("prompt", prompt);
-  form.append("aspect_ratio", "2x1");
-  form.append("rendering_speed", "QUALITY");
-  // GENERAL (not REALISTIC): the house style is isometric cartoon — the
-  // style lives in the prompt; REALISTIC fights it with photo-realism.
-  form.append("style_type", "GENERAL");
-  form.append("magic_prompt", "ON");
-  form.append("num_images", "1");
-  const res = await fetch("https://api.ideogram.ai/v1/ideogram-v3/generate", {
-    method: "POST",
-    headers: { "Api-Key": key },
-    body: form,
-  });
-  if (!res.ok) {
-    console.error(`[images] Ideogram ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const token = process.env["REPLICATE_API_TOKEN"];
+  if (!token) throw new Error("REPLICATE_API_TOKEN missing from env");
+  const { default: Replicate } = await import("replicate");
+  const replicate = new Replicate({ auth: token, useFileOutput: false });
+  try {
+    const output = await replicate.run("ideogram-ai/ideogram-v3-quality", {
+      input: {
+        prompt,
+        aspect_ratio: "2:1",
+        // General (not Realistic): the house style is isometric cartoon — the
+        // style lives in the prompt; Realistic fights it with photo-realism.
+        style_type: "General",
+        magic_prompt_option: "On",
+      },
+    });
+    const raw = Array.isArray(output) ? output[0] : output;
+    const url = typeof raw === "string" ? raw : String(raw ?? "");
+    return url || null;
+  } catch (err) {
+    console.error(`[images] Ideogram-via-Replicate:`, err instanceof Error ? err.message : err);
     return null;
   }
-  const data = (await res.json()) as { data?: { url?: string }[] };
-  return data.data?.[0]?.url ?? null;
 }
 
 async function phaseImages(db: FirebaseFirestore.Firestore, rows: Row[]): Promise<void> {
