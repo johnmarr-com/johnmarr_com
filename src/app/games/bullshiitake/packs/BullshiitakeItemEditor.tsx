@@ -53,6 +53,14 @@ function AutoGrowTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElemen
 
 const BS_TYPES: BSType[] = ["true", "partlytrue", "bullshiitake"];
 
+/** BS-Type select tinting — green / yellow / red so the truth status reads at
+ * a glance (matches the badge colors on the pack's story list). */
+const BS_TYPE_SELECT_CLASS: Record<BSType, string> = {
+  true: "border-green-400/40 bg-green-400/10 text-green-300 focus:border-green-400/70",
+  partlytrue: "border-yellow-400/40 bg-yellow-400/10 text-yellow-300 focus:border-yellow-400/70",
+  bullshiitake: "border-red-400/40 bg-red-400/10 text-red-300 focus:border-red-400/70",
+};
+
 const SHORT_TEXT_MAX_WORDS = 75;
 const STORY_TEXT_MAX_WORDS = 150;
 
@@ -379,10 +387,10 @@ export default function BullshiitakeItemEditor({
               <select
                 value={bsType}
                 onChange={(e) => setBsType(e.target.value as BSType)}
-                className="w-full rounded-lg border border-white/20 bg-neutral-800 px-4 py-2.5 text-sm text-white outline-none focus:border-lime-400/50"
+                className={`w-full rounded-lg border px-4 py-2.5 text-sm font-bold outline-none ${BS_TYPE_SELECT_CLASS[bsType]}`}
               >
                 {BS_TYPES.map((t) => (
-                  <option key={t} value={t}>
+                  <option key={t} value={t} className="bg-neutral-800 text-white">
                     {BS_TYPE_LABELS[t]}
                   </option>
                 ))}
