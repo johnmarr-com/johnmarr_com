@@ -8,6 +8,7 @@ import {
   createBullshiitakeItem,
   updateBullshiitakeItem,
   setBullshiitakeItemApproved,
+  setBullshiitakeItemCardImage,
   cardLabel,
   cardFileName,
   BS_TYPE_LABELS,
@@ -17,9 +18,11 @@ import {
 } from "@/lib/bullshiitake-packs";
 import {
   uploadBullshiitakeItemImage,
+  uploadBullshiitakeCardImage,
   validateBullshiitakeImageFile,
   BS_IMAGE_ACCEPT,
 } from "@/lib/bullshiitake-storage";
+import { renderBullshiitakeCard } from "./cardRenderer";
 import { BluffAiImageSettingsModal } from "@/app/games/bluffbox/packs/BluffAiImageSettingsModal";
 import { BluffAiSettingsButton } from "@/app/games/bluffbox/packs/BluffAiSettingsButton";
 import {
@@ -120,28 +123,9 @@ export default function BullshiitakeItemEditor({
   const [approvedSaving, setApprovedSaving] = useState(false);
   /** Full-size print-preview overlay. */
   const [cardZoom, setCardZoom] = useState(false);
-
-  /** Save the rendered card PNG to disk (fetch → blob keeps the `download`
-   * attribute honored across origins). */
-  const handleDownloadCard = useCallback(async () => {
-    const url = existingItem?.cardImageURL;
-    if (!url) return;
-    try {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = objectUrl;
-      a.download = `${cardFileName(
-        existingItem.searchPrefix ?? packSearchPrefix,
-        existingItem.searchID,
-      )}.png`;
-      a.click();
-      URL.revokeObjectURL(objectUrl);
-    } catch (err) {
-      console.error("[cards] download failed:", err);
-    }
-  }, [existingItem, packSearchPrefix]);
+  /** The story's rendered print card — refreshed in place after (re)generation. */
+  const [cardImageURL, setCardImageURL] = useState(existingItem?.cardImageURL ?? "");
+  const [cardGenBusy, setCardGenBusy] = useState(false);
   const [citations, setCitations] = useState<string[]>(existingItem?.citations ?? []);
   const [citationInput, setCitationInput] = useState("");
   const [correction, setCorrection] = useState(existingItem?.correction ?? "");
@@ -175,6 +159,56 @@ export default function BullshiitakeItemEditor({
       if (tempURL?.startsWith("blob:")) URL.revokeObjectURL(tempURL);
     };
   }, [tempURL]);
+
+  /** Render this one card from the CURRENT editor text (even unsaved) so
+   * layout can be tested story-by-story before generating the whole deck.
+   * Uploads to cards/{packId}/ and records the URL on the story. */
+  const handleGenerateCard = useCallback(async () => {
+    if (!existingItem) return;
+    setCardGenBusy(true);
+    setError(null);
+    try {
+      const prefix = existingItem.searchPrefix ?? packSearchPrefix;
+      const banner = tempURL ?? imageURL;
+      const blob = await renderBullshiitakeCard({
+        cardId: cardLabel(prefix, existingItem.searchID),
+        storyText: shortText.trim() ? shortText : storyText,
+        bannerURL: banner || undefined,
+      });
+      const url = await uploadBullshiitakeCardImage(
+        packId,
+        cardFileName(prefix, existingItem.searchID),
+        blob,
+      );
+      await setBullshiitakeItemCardImage(existingItem.id, url);
+      setCardImageURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Card generation failed.");
+    } finally {
+      setCardGenBusy(false);
+    }
+  }, [existingItem, packSearchPrefix, tempURL, imageURL, shortText, storyText, packId]);
+
+  /** Save the rendered card PNG to disk (fetch → blob keeps the `download`
+   * attribute honored across origins). */
+  const handleDownloadCard = useCallback(async () => {
+    if (!cardImageURL || !existingItem) return;
+    try {
+      const res = await fetch(cardImageURL);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = `${cardFileName(
+        existingItem.searchPrefix ?? packSearchPrefix,
+        existingItem.searchID,
+      )}.png`;
+      a.click();
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      console.error("[cards] download failed:", err);
+    }
+  }, [cardImageURL, existingItem, packSearchPrefix]);
 
   const handleGenerate = useCallback(async () => {
     if (!imagePrompt.trim()) return;
@@ -472,43 +506,81 @@ export default function BullshiitakeItemEditor({
               </button>
             </div>
 
-            {/* Print Preview — the rendered 900×1500 card (from the pack view's
-                "Generate Preview Images"); tap the thumb for full size. */}
-            {existingItem?.cardImageURL && (
+            {/* Print Preview — the rendered 900×1500 card. Generate/regenerate
+                uses the CURRENT editor text, so single cards can be tested
+                before running the whole deck. Tap the thumb for full size. */}
+            {existingItem && (
               <div className="space-y-2 rounded-lg border border-white/10 bg-white/5 p-3">
                 <span className={labelClass}>Print Preview</span>
                 <div className="flex items-start gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setCardZoom(true)}
-                    className="aspect-3/5 w-24 shrink-0 overflow-hidden rounded-md border border-white/15 transition-transform hover:scale-105"
-                    title="View full size"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element -- Storage URL */}
-                    <img
-                      src={existingItem.cardImageURL}
-                      alt="Card print preview"
-                      className="h-full w-full object-cover"
-                    />
-                  </button>
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <a
-                      href={existingItem.cardImageURL}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block truncate text-xs text-lime-300/80 underline-offset-2 hover:underline"
-                    >
-                      {existingItem.cardImageURL}
-                    </a>
-                    <p className="text-[10px] text-white/30">900 × 1500 PNG, print-ready.</p>
+                  {cardImageURL ? (
                     <button
                       type="button"
-                      onClick={() => void handleDownloadCard()}
-                      className="flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-bold text-white/70 transition-colors hover:bg-white/10"
+                      onClick={() => setCardZoom(true)}
+                      className="aspect-3/5 w-24 shrink-0 overflow-hidden rounded-md border border-white/15 transition-transform hover:scale-105"
+                      title="View full size"
                     >
-                      <Download className="h-3.5 w-3.5" />
-                      Download Card
+                      {/* eslint-disable-next-line @next/next/no-img-element -- Storage URL */}
+                      <img
+                        src={cardImageURL}
+                        alt="Card print preview"
+                        className="h-full w-full object-cover"
+                      />
                     </button>
+                  ) : (
+                    <div className="flex aspect-3/5 w-24 shrink-0 items-center justify-center rounded-md border border-dashed border-white/15 text-center text-[10px] leading-tight text-white/25">
+                      {cardGenBusy ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "no card yet"
+                      )}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1 space-y-2">
+                    {cardImageURL ? (
+                      <a
+                        href={cardImageURL}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block truncate text-xs text-lime-300/80 underline-offset-2 hover:underline"
+                      >
+                        {cardImageURL}
+                      </a>
+                    ) : (
+                      <p className="text-xs text-white/30">
+                        Not generated yet — render this card on its own to test
+                        the layout.
+                      </p>
+                    )}
+                    <p className="text-[10px] text-white/30">
+                      900 × 1500 PNG, print-ready. Renders from the text in this
+                      editor (unsaved edits included).
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void handleGenerateCard()}
+                        disabled={cardGenBusy}
+                        className="flex items-center gap-1.5 rounded-lg border border-lime-400/30 bg-lime-400/10 px-3 py-1.5 text-xs font-bold text-lime-300 transition-colors hover:bg-lime-400/20 disabled:opacity-50"
+                      >
+                        {cardGenBusy ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-3.5 w-3.5" />
+                        )}
+                        {cardImageURL ? "Regenerate Card" : "Generate Card"}
+                      </button>
+                      {cardImageURL && (
+                        <button
+                          type="button"
+                          onClick={() => void handleDownloadCard()}
+                          className="flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-bold text-white/70 transition-colors hover:bg-white/10"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          Download Card
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -737,7 +809,7 @@ export default function BullshiitakeItemEditor({
       />
 
       {/* Full-size print-preview overlay (stacked above the editor) */}
-      {cardZoom && existingItem?.cardImageURL && (
+      {cardZoom && cardImageURL && (
         <div
           className="pointer-events-auto fixed inset-0 z-70 flex items-center justify-center bg-black/80 p-6"
           onClick={() => setCardZoom(false)}
@@ -747,7 +819,7 @@ export default function BullshiitakeItemEditor({
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- Storage URL */}
           <img
-            src={existingItem.cardImageURL}
+            src={cardImageURL}
             alt="Card print preview, full size"
             className="max-h-full max-w-full rounded-xl object-contain shadow-2xl"
             onClick={(e) => e.stopPropagation()}
