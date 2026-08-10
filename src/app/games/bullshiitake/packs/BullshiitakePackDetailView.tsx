@@ -185,7 +185,7 @@ export default function BullshiitakePackDetailView({
             // the round; PT details live at BullShiitake.com (CTA in the art).
           }));
         if (entries.length > 0) {
-          const rangeLabel = `${cardLabel(prefix, start)} to ${cardLabel(prefix, end)}`;
+          const rangeLabel = prefix ? `${prefix} ${start} - ${end}` : `${start} - ${end}`;
           const blob = await renderBullshiitakeAnswerCard({ rangeLabel, entries });
           const url = await uploadBullshiitakeCardImage(
             pack.id,
