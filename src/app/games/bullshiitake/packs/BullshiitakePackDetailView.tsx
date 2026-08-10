@@ -172,7 +172,7 @@ export default function BullshiitakePackDetailView({
       setCardGen({ done, total });
     }
 
-    // Answer cards — one per 20-card block, filled in searchID order.
+    // Answer cards — one per ANSWERS_PER_CARD block, filled in searchID order.
     const prefix = pack.searchPrefix ?? items[0]?.searchPrefix;
     const nextAnswers: BullshiitakeAnswerCard[] = [];
     for (let g = 0; g < groupCount; g++) {
