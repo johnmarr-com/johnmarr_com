@@ -239,7 +239,9 @@ export async function renderBullshiitakeCard(input: CardRenderInput): Promise<Bl
 const ANSWERS_SRC = "/games/bullshiitake/BS-Answers.png";
 const RANGE_BOX = { x: 485, y: 176, w: 280, h: 60 };
 const TABLE = { x: 146, y: 288, w: 600, h: 900 };
-const TABLE_ROWS = 10;
+/** Answers per card = 2 columns × 15 rows = 30 (cards B 1-30, 31-60, …). */
+export const ANSWERS_PER_CARD = 30;
+const TABLE_ROWS = 15;
 /** Horizontal breathing room between the two columns. */
 const COL_GUTTER = 48;
 /** Verdict size relative to the card-ID size (IDs stay dominant). */
@@ -263,7 +265,7 @@ export interface AnswerEntry {
 export interface AnswerCardInput {
   /** Range headline, e.g. "B 1 - 20". */
   rangeLabel: string;
-  /** Up to 20 entries, in searchID order — filled column-first (1–10 left). */
+  /** Up to 30 entries, in searchID order — filled column-first (1–15 left). */
   entries: AnswerEntry[];
 }
 
@@ -295,8 +297,8 @@ export async function renderBullshiitakeAnswerCard(input: AnswerCardInput): Prom
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
 
-  // Answer grid — 2 columns × 10 rows, all single-line, perfectly aligned.
-  // Reads top-to-bottom then left-to-right (entries 0–9 left, 10–19 right).
+  // Answer grid — 2 columns × 15 rows, all single-line, perfectly aligned.
+  // Reads top-to-bottom then left-to-right (entries 0–14 left, 15–29 right).
   const colW = (TABLE.w - COL_GUTTER) / 2;
   const rowH = TABLE.h / TABLE_ROWS;
   const columns = [input.entries.slice(0, TABLE_ROWS), input.entries.slice(TABLE_ROWS)];

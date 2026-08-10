@@ -18,7 +18,11 @@ import {
   type BSType,
 } from "@/lib/bullshiitake-packs";
 import { uploadBullshiitakeCardImage } from "@/lib/bullshiitake-storage";
-import { renderBullshiitakeCard, renderBullshiitakeAnswerCard } from "./cardRenderer";
+import {
+  renderBullshiitakeCard,
+  renderBullshiitakeAnswerCard,
+  ANSWERS_PER_CARD,
+} from "./cardRenderer";
 import BullshiitakeItemEditor from "./BullshiitakeItemEditor";
 
 /** True when `token` appears in `text` in order (subsequence) — cheap typo
@@ -140,7 +144,7 @@ export default function BullshiitakePackDetailView({
   const handleGenerateCards = useCallback(async () => {
     const targets = items.filter((i) => !i.cardImageURL);
     const maxId = items.reduce((m, i) => Math.max(m, i.searchID ?? 0), 0);
-    const groupCount = Math.ceil(maxId / 20);
+    const groupCount = Math.ceil(maxId / ANSWERS_PER_CARD);
     if (targets.length === 0 && groupCount === 0) return;
     const total = targets.length + groupCount;
     setCardGen({ done: 0, total });
@@ -172,8 +176,8 @@ export default function BullshiitakePackDetailView({
     const prefix = pack.searchPrefix ?? items[0]?.searchPrefix;
     const nextAnswers: BullshiitakeAnswerCard[] = [];
     for (let g = 0; g < groupCount; g++) {
-      const start = g * 20 + 1;
-      const end = (g + 1) * 20;
+      const start = g * ANSWERS_PER_CARD + 1;
+      const end = (g + 1) * ANSWERS_PER_CARD;
       try {
         const entries = items
           .filter((i) => (i.searchID ?? 0) >= start && (i.searchID ?? 0) <= end)
