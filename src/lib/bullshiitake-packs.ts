@@ -36,6 +36,16 @@ export function cardLabel(searchPrefix: string | undefined, searchID: number | u
   return searchPrefix ? `${searchPrefix}-${searchID}` : `#${searchID}`;
 }
 
+/** File name (no extension) for a card render: "B-35", or "card-35" when the
+ * pack has no prefix. Must stay in sync with the download-cards zip route. */
+export function cardFileName(
+  searchPrefix: string | undefined,
+  searchID: number | undefined,
+): string {
+  const id = searchID ?? 0;
+  return searchPrefix ? `${searchPrefix}-${id}` : `card-${id}`;
+}
+
 /** A story item. Lives in the TOP-LEVEL `bullshiitake` collection and
  * references its pack via `packId` (unlike bluffbox, where cards are an
  * array on the pack doc — story items are too big for that). */
@@ -69,6 +79,10 @@ export interface BullshiitakeItem {
    * from the editor toggle (not part of the Save flow) and never read by the
    * game — unapproved shorts still play. */
   adminApproved?: boolean;
+  /** Print-ready card render (900×1500 PNG in `cards/{packId}/`). Written by
+   * the pack view's "Generate Preview Images" flow — like adminApproved it
+   * lives outside the authored fields so Save never clobbers it. */
+  cardImageURL?: string;
   creatorId: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -372,6 +386,20 @@ export async function setBullshiitakeItemApproved(
 
   await updateDoc(doc(db, "bullshiitake", itemId), {
     adminApproved: approved,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Record a freshly rendered print card on its story (outside the Save flow). */
+export async function setBullshiitakeItemCardImage(
+  itemId: string,
+  cardImageURL: string,
+): Promise<void> {
+  const { doc, updateDoc, serverTimestamp } = await import("firebase/firestore");
+  const db = await getDb();
+
+  await updateDoc(doc(db, "bullshiitake", itemId), {
+    cardImageURL,
     updatedAt: serverTimestamp(),
   });
 }

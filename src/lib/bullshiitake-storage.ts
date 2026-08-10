@@ -36,7 +36,11 @@ async function resizeTo(blob: Blob, width: number, height: number): Promise<Blob
   return canvas.convertToBlob({ type: "image/jpeg", quality: 0.88 });
 }
 
-async function uploadToPath(path: string, blob: Blob): Promise<string> {
+async function uploadToPath(
+  path: string,
+  blob: Blob,
+  contentType = "image/jpeg",
+): Promise<string> {
   const { initializeFirebase } = await import("./firebase");
   const { getStorage, ref, uploadBytes } = await import("firebase/storage");
 
@@ -44,7 +48,7 @@ async function uploadToPath(path: string, blob: Blob): Promise<string> {
   const storage = getStorage(app);
   const storageRef = ref(storage, path);
 
-  await uploadBytes(storageRef, blob, { contentType: "image/jpeg" });
+  await uploadBytes(storageRef, blob, { contentType });
 
   // Cache-buster: re-uploads to the same path must yield a NEW URL string,
   // or the doc update is a no-op and browsers keep the cached old image.
@@ -73,6 +77,19 @@ export async function uploadBullshiitakeItemImage(
 ): Promise<string> {
   const resized = await resizeTo(blob, BANNER_WIDTH, BANNER_HEIGHT);
   return uploadToPath(`bullshiitake/items/${itemId}/banner.jpg`, resized);
+}
+
+/**
+ * Upload a print-ready card render (900×1500 PNG) to `cards/{packId}/{name}.png`.
+ * No resize — the canvas already produced exact print dimensions; PNG stays
+ * lossless for print. Returns a cache-busted public URL.
+ */
+export async function uploadBullshiitakeCardImage(
+  packId: string,
+  fileName: string,
+  blob: Blob,
+): Promise<string> {
+  return uploadToPath(`cards/${packId}/${fileName}.png`, blob, "image/png");
 }
 
 /** Proxy-fetch an ephemeral AI image URL as a Blob (same flow as bluffbox). */

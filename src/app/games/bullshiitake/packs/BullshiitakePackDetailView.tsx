@@ -2,17 +2,21 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { X, Pencil, Trash2, Plus, Loader2, Link2, Video, Package, Search } from "lucide-react";
+import { X, Pencil, Trash2, Plus, Loader2, Link2, Video, Package, Search, ImagePlay, FolderDown } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
 import {
   subscribeToItemsForPack,
   deleteBullshiitakeItem,
+  setBullshiitakeItemCardImage,
   cardLabel,
+  cardFileName,
   BS_TYPE_LABELS,
   type BullshiitakePack,
   type BullshiitakeItem,
   type BSType,
 } from "@/lib/bullshiitake-packs";
+import { uploadBullshiitakeCardImage } from "@/lib/bullshiitake-storage";
+import { renderBullshiitakeCard } from "./cardRenderer";
 import BullshiitakeItemEditor from "./BullshiitakeItemEditor";
 
 /** True when `token` appears in `text` in order (subsequence) — cheap typo
@@ -95,6 +99,41 @@ export default function BullshiitakePackDetailView({
     () => items.filter((i) => matchesQuery(i, searchQuery)),
     [items, searchQuery],
   );
+
+  /** Print-card generation progress; null when idle. */
+  const [cardGen, setCardGen] = useState<{ done: number; total: number } | null>(null);
+
+  /** Render + upload a print card for every story that doesn't have one yet.
+   * Sequential on purpose — steady progress, no burst of parallel uploads.
+   * The live items listener refreshes each row as its card URL lands. */
+  const handleGenerateCards = useCallback(async () => {
+    const targets = items.filter((i) => !i.cardImageURL);
+    if (targets.length === 0) return;
+    setCardGen({ done: 0, total: targets.length });
+    let done = 0;
+    for (const item of targets) {
+      try {
+        const prefix = item.searchPrefix ?? pack.searchPrefix;
+        const story = item.shortText?.trim() ? item.shortText : item.storyText;
+        const blob = await renderBullshiitakeCard({
+          cardId: cardLabel(prefix, item.searchID),
+          storyText: story,
+          bannerURL: item.imageURL,
+        });
+        const url = await uploadBullshiitakeCardImage(
+          pack.id,
+          cardFileName(prefix, item.searchID),
+          blob,
+        );
+        await setBullshiitakeItemCardImage(item.id, url);
+      } catch (err) {
+        console.error(`[cards] render failed for ${item.title}:`, err);
+      }
+      done++;
+      setCardGen({ done, total: targets.length });
+    }
+    setCardGen(null);
+  }, [items, pack.id, pack.searchPrefix]);
 
   const handleDelete = useCallback(
     async (itemId: string) => {
@@ -291,27 +330,68 @@ export default function BullshiitakePackDetailView({
 
           {/* Footer */}
           {(canManage || onEdit) && (
-            <div className="flex shrink-0 gap-2 border-t border-white/10 p-4">
-              {canManage && (
-                <button
-                  type="button"
-                  onClick={() => setEditorItem("new")}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-lime-500 py-3 text-sm font-bold text-black transition-all hover:scale-[1.02] active:scale-95"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Story
-                </button>
+            <div className="shrink-0 space-y-2 border-t border-white/10 p-4">
+              {/* Print tools — render missing cards / grab the whole deck */}
+              {canManage && items.length > 0 && (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleGenerateCards()}
+                    disabled={cardGen !== null || items.every((i) => !!i.cardImageURL)}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 py-2.5 text-sm font-bold text-white/80 transition-colors hover:bg-white/10 disabled:opacity-40"
+                  >
+                    {cardGen ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Generating {cardGen.done}/{cardGen.total}…
+                      </>
+                    ) : (
+                      <>
+                        <ImagePlay className="h-4 w-4" />
+                        Generate Preview Images
+                        {items.some((i) => !i.cardImageURL) &&
+                          ` (${items.filter((i) => !i.cardImageURL).length})`}
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      window.open(
+                        `/api/games/bullshiitake/download-cards?packId=${pack.id}`,
+                        "_self",
+                      )
+                    }
+                    disabled={cardGen !== null || items.every((i) => !i.cardImageURL)}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 py-2.5 text-sm font-bold text-white/80 transition-colors hover:bg-white/10 disabled:opacity-40"
+                  >
+                    <FolderDown className="h-4 w-4" />
+                    Download All Cards
+                  </button>
+                </div>
               )}
-              {onEdit && (
-                <button
-                  type="button"
-                  onClick={onEdit}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-lime-400/30 bg-lime-400/10 py-3 text-sm font-bold text-lime-300 transition-colors hover:bg-lime-400/20"
-                >
-                  <Pencil className="h-4 w-4" />
-                  Edit Pack
-                </button>
-              )}
+              <div className="flex gap-2">
+                {canManage && (
+                  <button
+                    type="button"
+                    onClick={() => setEditorItem("new")}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-lime-500 py-3 text-sm font-bold text-black transition-all hover:scale-[1.02] active:scale-95"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Story
+                  </button>
+                )}
+                {onEdit && (
+                  <button
+                    type="button"
+                    onClick={onEdit}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-lime-400/30 bg-lime-400/10 py-3 text-sm font-bold text-lime-300 transition-colors hover:bg-lime-400/20"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Edit Pack
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>

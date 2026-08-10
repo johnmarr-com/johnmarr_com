@@ -361,6 +361,17 @@ service firebase.storage {
     }
 
     // ─────────────────────────────────────────────────────────────
+    // PRINT-READY CARD RENDERS (cards/{packId}/B-1.png … 900×1500 PNGs
+    // composed client-side by pack managers for physical printing)
+    // ─────────────────────────────────────────────────────────────
+
+    match /cards/{packId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isImage() && maxSize(10);
+      allow delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // FYVE HEISTS (Heist images + per-element bomb sound effects)
     // ─────────────────────────────────────────────────────────────
 

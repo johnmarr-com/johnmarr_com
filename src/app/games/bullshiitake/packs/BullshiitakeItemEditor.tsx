@@ -2,13 +2,14 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Loader2, RefreshCw, X, Upload, Plus, Trash2, ImagePlus } from "lucide-react";
+import { Loader2, RefreshCw, X, Upload, Plus, Trash2, ImagePlus, Download } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
 import {
   createBullshiitakeItem,
   updateBullshiitakeItem,
   setBullshiitakeItemApproved,
   cardLabel,
+  cardFileName,
   BS_TYPE_LABELS,
   type BullshiitakeItem,
   type BullshiitakeItemFields,
@@ -117,6 +118,30 @@ export default function BullshiitakeItemEditor({
   // Back-office flag — writes to Firestore the instant it's toggled (no Save).
   const [adminApproved, setAdminApproved] = useState(existingItem?.adminApproved === true);
   const [approvedSaving, setApprovedSaving] = useState(false);
+  /** Full-size print-preview overlay. */
+  const [cardZoom, setCardZoom] = useState(false);
+
+  /** Save the rendered card PNG to disk (fetch → blob keeps the `download`
+   * attribute honored across origins). */
+  const handleDownloadCard = useCallback(async () => {
+    const url = existingItem?.cardImageURL;
+    if (!url) return;
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = `${cardFileName(
+        existingItem.searchPrefix ?? packSearchPrefix,
+        existingItem.searchID,
+      )}.png`;
+      a.click();
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      console.error("[cards] download failed:", err);
+    }
+  }, [existingItem, packSearchPrefix]);
   const [citations, setCitations] = useState<string[]>(existingItem?.citations ?? []);
   const [citationInput, setCitationInput] = useState("");
   const [correction, setCorrection] = useState(existingItem?.correction ?? "");
@@ -447,6 +472,48 @@ export default function BullshiitakeItemEditor({
               </button>
             </div>
 
+            {/* Print Preview — the rendered 900×1500 card (from the pack view's
+                "Generate Preview Images"); tap the thumb for full size. */}
+            {existingItem?.cardImageURL && (
+              <div className="space-y-2 rounded-lg border border-white/10 bg-white/5 p-3">
+                <span className={labelClass}>Print Preview</span>
+                <div className="flex items-start gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setCardZoom(true)}
+                    className="aspect-3/5 w-24 shrink-0 overflow-hidden rounded-md border border-white/15 transition-transform hover:scale-105"
+                    title="View full size"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element -- Storage URL */}
+                    <img
+                      src={existingItem.cardImageURL}
+                      alt="Card print preview"
+                      className="h-full w-full object-cover"
+                    />
+                  </button>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <a
+                      href={existingItem.cardImageURL}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block truncate text-xs text-lime-300/80 underline-offset-2 hover:underline"
+                    >
+                      {existingItem.cardImageURL}
+                    </a>
+                    <p className="text-[10px] text-white/30">900 × 1500 PNG, print-ready.</p>
+                    <button
+                      type="button"
+                      onClick={() => void handleDownloadCard()}
+                      className="flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-bold text-white/70 transition-colors hover:bg-white/10"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Download Card
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Story Text */}
             <div className="space-y-1.5">
               <div className="flex items-baseline justify-between">
@@ -668,6 +735,33 @@ export default function BullshiitakeItemEditor({
         onClose={() => setAiSettingsOpen(false)}
         context="card"
       />
+
+      {/* Full-size print-preview overlay (stacked above the editor) */}
+      {cardZoom && existingItem?.cardImageURL && (
+        <div
+          className="pointer-events-auto fixed inset-0 z-70 flex items-center justify-center bg-black/80 p-6"
+          onClick={() => setCardZoom(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Card print preview"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- Storage URL */}
+          <img
+            src={existingItem.cardImageURL}
+            alt="Card print preview, full size"
+            className="max-h-full max-w-full rounded-xl object-contain shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            type="button"
+            onClick={() => setCardZoom(false)}
+            className="absolute top-4 right-4 rounded-full bg-black/60 p-2.5 text-white/70 transition-colors hover:text-white"
+            aria-label="Close preview"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      )}
     </div>,
     document.body,
   );
