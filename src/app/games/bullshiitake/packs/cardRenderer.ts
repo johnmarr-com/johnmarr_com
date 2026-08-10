@@ -24,9 +24,32 @@ const ID_BOX = { x: 664, y: 123, w: 114, h: 53 };
 const STORY_BOX = { x: 200, y: 500, w: 500, h: 700 };
 
 const OVERLAY_SRC = "/games/bullshiitake/BS-Card-Overlay.png";
-const FONT_FAMILY = '"Helvetica Neue", Helvetica, Arial, sans-serif';
 const QUESTION = "True, Partly True, or Bull Shiitake?";
 const LINE_HEIGHT = 1.4;
+
+// Crimson Pro — the site's body serif. Bundled as a variable-weight woff2 and
+// registered under our own family name so renders don't depend on next/font's
+// mangled names or on whatever fonts the generating machine has installed.
+const FONT_FAMILY = '"Crimson Pro Card", "Crimson Pro", Georgia, serif';
+const FONT_SRC = "/fonts/crimson-pro-latin.woff2";
+
+let fontReady: Promise<void> | null = null;
+
+/** Load the bundled card font once per session; falls back to serif on error. */
+function ensureCardFont(): Promise<void> {
+  fontReady ??= (async () => {
+    try {
+      const face = new FontFace("Crimson Pro Card", `url(${FONT_SRC})`, {
+        weight: "400 700",
+      });
+      await face.load();
+      document.fonts.add(face);
+    } catch (err) {
+      console.warn("[cards] card font failed to load — using fallback serif:", err);
+    }
+  })();
+  return fontReady;
+}
 
 export interface CardRenderInput {
   /** Physical lookup ID rendered on the card, e.g. "B-4". */
@@ -156,6 +179,7 @@ function drawCardId(ctx: CanvasRenderingContext2D, cardId: string): void {
 
 /** Render the full card; resolves to a lossless PNG blob (900×1500). */
 export async function renderBullshiitakeCard(input: CardRenderInput): Promise<Blob> {
+  await ensureCardFont();
   const canvas = document.createElement("canvas");
   canvas.width = CARD_W;
   canvas.height = CARD_H;
