@@ -160,19 +160,20 @@ function drawLine(
   }
 }
 
-/** Bold ID (e.g. "B-4") filling most of its box height, centered both ways. */
+/** Bold ID (e.g. "B-4"), centered in its box but nudged 12px down and drawn
+ * oversized relative to the box (short IDs render big; long ones shrink to
+ * the box width). Game-primary orange — the box sits on a black overlay area. */
 function drawCardId(ctx: CanvasRenderingContext2D, cardId: string): void {
-  let size = Math.floor(ID_BOX.h * 0.85);
+  let size = Math.floor(ID_BOX.h * 1.1);
   ctx.font = `bold ${size}px ${FONT_FAMILY}`;
-  while (size > 10 && ctx.measureText(cardId).width > ID_BOX.w - 6) {
+  while (size > 10 && ctx.measureText(cardId).width > ID_BOX.w) {
     size--;
     ctx.font = `bold ${size}px ${FONT_FAMILY}`;
   }
-  // Game-primary orange — the ID box sits on a black area of the overlay.
   ctx.fillStyle = "#F97316";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(cardId, ID_BOX.x + ID_BOX.w / 2, ID_BOX.y + ID_BOX.h / 2 + 1);
+  ctx.fillText(cardId, ID_BOX.x + ID_BOX.w / 2, ID_BOX.y + ID_BOX.h / 2 + 13);
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
 }
@@ -238,10 +239,11 @@ export async function renderBullshiitakeCard(input: CardRenderInput): Promise<Bl
 const ANSWERS_SRC = "/games/bullshiitake/BS-Answers.png";
 const RANGE_BOX = { x: 485, y: 176, w: 280, h: 60 };
 const TABLE = { x: 146, y: 288, w: 600, h: 900 };
-const TABLE_COLS = 2;
 const TABLE_ROWS = 10;
 const CELL_PAD_X = 10;
-const CELL_PAD_Y = 6;
+/** Font-size multipliers relative to the correction text (the base size). */
+const ID_SCALE = 1.7;
+const VERDICT_SCALE = 1.35;
 
 const VERDICT: Record<string, { text: string; color: string }> = {
   true: { text: "TRUE", color: "#4ADE80" },
@@ -264,58 +266,30 @@ export interface AnswerCardInput {
   entries: AnswerEntry[];
 }
 
-/** One styled run of text; cells flow tokens inline with word-wrap. */
-interface Token {
-  text: string;
-  color: string;
-  bold: boolean;
-  /** Font size multiplier (card IDs render larger). */
-  scale: number;
+/** One measured answer cell: header line (ID + verdict) plus, for Partly
+ * True, the correction wrapped onto its own lines underneath. */
+interface CellLayout {
+  entry: AnswerEntry;
+  /** Wrapped correction lines (empty for T / BS). */
+  bodyLines: string[][];
+  headerHeight: number;
+  height: number;
 }
 
-function cellTokens(entry: AnswerEntry): Token[] {
-  const verdict = VERDICT[entry.bsType] ?? VERDICT["bullshiitake"]!;
-  const tokens: Token[] = [
-    { text: entry.label, color: "#FFFFFF", bold: true, scale: 1.15 },
-    { text: verdict.text, color: verdict.color, bold: true, scale: 1 },
-  ];
-  if (entry.bsType === "partlytrue" && entry.correction?.trim()) {
-    for (const word of entry.correction.trim().split(/\s+/)) {
-      tokens.push({ text: word, color: "#FFFFFF", bold: false, scale: 1 });
-    }
-  }
-  return tokens;
-}
-
-function tokenFont(t: Token, size: number): string {
-  return `${t.bold ? "bold " : ""}${Math.round(size * t.scale)}px ${FONT_FAMILY}`;
-}
-
-/** Greedy inline wrap of styled tokens at the given base size. */
-function wrapTokens(
+function layoutCell(
   ctx: CanvasRenderingContext2D,
-  tokens: Token[],
+  entry: AnswerEntry,
   size: number,
   maxWidth: number,
-): Token[][] {
-  const lines: Token[][] = [];
-  let line: Token[] = [];
-  let lineWidth = 0;
-  for (const token of tokens) {
-    ctx.font = tokenFont(token, size);
-    const w = ctx.measureText(token.text).width;
-    const space = line.length ? ctx.measureText(" ").width : 0;
-    if (line.length && lineWidth + space + w > maxWidth) {
-      lines.push(line);
-      line = [token];
-      lineWidth = w;
-    } else {
-      line.push(token);
-      lineWidth += space + w;
-    }
+): CellLayout {
+  const headerHeight = size * ID_SCALE * 1.1;
+  let bodyLines: string[][] = [];
+  if (entry.bsType === "partlytrue" && entry.correction?.trim()) {
+    ctx.font = `${size}px ${FONT_FAMILY}`;
+    bodyLines = wrapWords(ctx, entry.correction.trim(), maxWidth);
   }
-  if (line.length) lines.push(line);
-  return lines;
+  const height = headerHeight + bodyLines.length * size * 1.22;
+  return { entry, bodyLines, headerHeight, height };
 }
 
 /** Render one answer card; resolves to a 900×1500 PNG blob. */
@@ -345,40 +319,52 @@ export async function renderBullshiitakeAnswerCard(input: AnswerCardInput): Prom
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
 
-  // Answer table — find the largest base size where EVERY cell fits its slot.
-  const cellW = TABLE.w / TABLE_COLS;
-  const cellH = TABLE.h / TABLE_ROWS;
-  const innerW = cellW - CELL_PAD_X * 2;
-  const innerH = cellH - CELL_PAD_Y * 2;
-  const cells = input.entries.slice(0, TABLE_COLS * TABLE_ROWS).map(cellTokens);
+  // Answer table — two INDEPENDENT columns (entries 0–9 left, 10–19 right).
+  // Rows size themselves: taller for Partly True (correction drops to its own
+  // lines under the ID + verdict), shorter for True / Bull Shiitake. One base
+  // size is chosen so the taller column still fits the table height.
+  const colW = TABLE.w / 2;
+  const innerW = colW - CELL_PAD_X * 2;
+  const columns = [input.entries.slice(0, TABLE_ROWS), input.entries.slice(TABLE_ROWS)];
 
   let size = 30;
-  let layouts: Token[][][] = [];
+  let colLayouts: CellLayout[][] = [];
   for (; size >= 10; size--) {
-    layouts = cells.map((tokens) => wrapTokens(ctx, tokens, size, innerW));
-    const fits = layouts.every((lines) => lines.length * size * 1.25 <= innerH);
+    colLayouts = columns.map((col) => col.map((e) => layoutCell(ctx, e, size, innerW)));
+    const fits = colLayouts.every(
+      (col) => col.reduce((s, c) => s + c.height, 0) <= TABLE.h,
+    );
     if (fits) break;
   }
-  const lineStep = size * 1.25;
 
-  // Column-first: entries 0–9 fill the left column, 10–19 the right.
-  cells.forEach((_, i) => {
-    const col = Math.floor(i / TABLE_ROWS);
-    const row = i % TABLE_ROWS;
-    const lines = layouts[i]!;
-    const cellX = TABLE.x + col * cellW + CELL_PAD_X;
-    const cellY = TABLE.y + row * cellH;
-    let y =
-      cellY + (cellH - lines.length * lineStep) / 2 + size; // first baseline, centered
-    for (const line of lines) {
-      let x = cellX;
-      for (const token of line) {
-        ctx.font = tokenFont(token, size);
-        ctx.fillStyle = token.color;
-        ctx.fillText(token.text, x, y);
-        x += ctx.measureText(token.text).width + ctx.measureText(" ").width;
+  colLayouts.forEach((col, colIdx) => {
+    const contentHeight = col.reduce((s, c) => s + c.height, 0);
+    // Distribute the leftover height as even breathing room between rows.
+    const rowGap = col.length > 0 ? (TABLE.h - contentHeight) / col.length : 0;
+    const x = TABLE.x + colIdx * colW + CELL_PAD_X;
+    let y = TABLE.y + rowGap / 2;
+
+    for (const cell of col) {
+      const verdict = VERDICT[cell.entry.bsType] ?? VERDICT["bullshiitake"]!;
+      // Header line: big bold white ID, then the verdict, baseline-aligned.
+      const headerBaseline = y + size * ID_SCALE;
+      ctx.font = `bold ${Math.round(size * ID_SCALE)}px ${FONT_FAMILY}`;
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillText(cell.entry.label, x, headerBaseline);
+      const idWidth = ctx.measureText(`${cell.entry.label} `).width;
+      ctx.font = `bold ${Math.round(size * VERDICT_SCALE)}px ${FONT_FAMILY}`;
+      ctx.fillStyle = verdict.color;
+      ctx.fillText(verdict.text, x + idWidth, headerBaseline);
+
+      // Correction lines (PT only) — base size, normal white, own lines.
+      let lineY = y + cell.headerHeight + size;
+      ctx.font = `${size}px ${FONT_FAMILY}`;
+      ctx.fillStyle = "#FFFFFF";
+      for (const words of cell.bodyLines) {
+        ctx.fillText(words.join(" "), x, lineY);
+        lineY += size * 1.22;
       }
-      y += lineStep;
+      y += cell.height + rowGap;
     }
   });
 
