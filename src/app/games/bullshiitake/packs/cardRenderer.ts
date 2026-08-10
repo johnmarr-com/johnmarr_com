@@ -327,7 +327,7 @@ export async function renderBullshiitakeAnswerCard(input: AnswerCardInput): Prom
   const innerW = colW - CELL_PAD_X * 2;
   const columns = [input.entries.slice(0, TABLE_ROWS), input.entries.slice(TABLE_ROWS)];
 
-  let size = 30;
+  let size = 46;
   let colLayouts: CellLayout[][] = [];
   for (; size >= 10; size--) {
     colLayouts = columns.map((col) => col.map((e) => layoutCell(ctx, e, size, innerW)));

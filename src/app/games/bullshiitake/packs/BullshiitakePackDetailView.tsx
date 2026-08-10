@@ -181,7 +181,8 @@ export default function BullshiitakePackDetailView({
           .map((i) => ({
             label: cardLabel(i.searchPrefix ?? prefix, i.searchID),
             bsType: i.bsType,
-            correction: i.shortCorrection?.trim() ? i.shortCorrection : i.correction,
+            // No correction on print answer cards — the verdict alone resolves
+            // the round; PT details live at BullShiitake.com (CTA in the art).
           }));
         if (entries.length > 0) {
           const rangeLabel = `${cardLabel(prefix, start)} to ${cardLabel(prefix, end)}`;
