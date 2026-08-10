@@ -128,6 +128,7 @@ export default function BullshiitakeItemEditor({
   const [cardGenBusy, setCardGenBusy] = useState(false);
   const [citations, setCitations] = useState<string[]>(existingItem?.citations ?? []);
   const [citationInput, setCitationInput] = useState("");
+  const [shortCorrection, setShortCorrection] = useState(existingItem?.shortCorrection ?? "");
   const [correction, setCorrection] = useState(existingItem?.correction ?? "");
   const [videoURL, setVideoURL] = useState(existingItem?.videoURL ?? "");
 
@@ -334,6 +335,7 @@ export default function BullshiitakeItemEditor({
         storyText: storyText, // preserve line-break paragraphs verbatim
         ...(shortText.trim() ? { shortText } : {}),
         ...(citations.length ? { citations } : {}),
+        ...(shortCorrection.trim() ? { shortCorrection: shortCorrection.trim() } : {}),
         ...(correction.trim() ? { correction: correction.trim() } : {}),
         ...(finalImageURL ? { imageURL: finalImageURL } : {}),
         ...(effectivePrompt ? { imagePrompt: effectivePrompt } : {}),
@@ -371,6 +373,7 @@ export default function BullshiitakeItemEditor({
     storyText,
     shortText,
     citations,
+    shortCorrection,
     correction,
     videoURL,
     imageURL,
@@ -654,6 +657,24 @@ export default function BullshiitakeItemEditor({
                   Add
                 </button>
               </div>
+            </div>
+
+            {/* Short Correction — the paper-card version */}
+            <div className="space-y-1.5">
+              <label className={labelClass}>
+                Short Correction <span className="font-normal normal-case text-white/25">(optional)</span>
+              </label>
+              <AutoGrowTextarea
+                value={shortCorrection}
+                onChange={(e) => setShortCorrection(e.target.value)}
+                placeholder="Tightened correction for the printed card…"
+                rows={2}
+                className="w-full resize-none overflow-hidden rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm leading-relaxed text-white placeholder-white/25 outline-none focus:border-lime-400/40"
+              />
+              <p className="text-[10px] text-white/30">
+                Paper cards use this when set (space is tight — point readers to
+                bullshiitake.com); the app keeps showing the full correction below.
+              </p>
             </div>
 
             {/* Correction */}

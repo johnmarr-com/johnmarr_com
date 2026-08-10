@@ -65,6 +65,10 @@ export interface BullshiitakeItem {
    * set; the full story is kept alongside it. */
   shortText?: string;
   citations?: string[];
+  /** Shortened correction for the PAPER cards, where space is tight — the
+   * printed card points readers to bullshiitake.com for the full story. The
+   * app/mobile display keeps using the long `correction`. */
+  shortCorrection?: string;
   /** Clarifying text — required reading when the story is Partly True. */
   correction?: string;
   /** 2:1 banner image. */
@@ -102,6 +106,7 @@ export interface BullshiitakeItemFields {
   storyText: string;
   shortText?: string;
   citations?: string[];
+  shortCorrection?: string;
   correction?: string;
   imageURL?: string;
   imagePrompt?: string;
@@ -318,6 +323,7 @@ async function itemFieldsData(
   const optionals: [string, unknown][] = [
     ["shortText", fields.shortText?.trim() ? fields.shortText : undefined],
     ["citations", fields.citations?.length ? fields.citations : undefined],
+    ["shortCorrection", fields.shortCorrection?.trim() ? fields.shortCorrection.trim() : undefined],
     ["correction", fields.correction?.trim() ? fields.correction.trim() : undefined],
     ["imageURL", fields.imageURL ? fields.imageURL : undefined],
     ["imagePrompt", fields.imagePrompt?.trim() ? fields.imagePrompt.trim() : undefined],

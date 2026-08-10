@@ -72,6 +72,8 @@ export default function BullshiitakePackDetailView({
   const [items, setItems] = useState<BullshiitakeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  /** BS-Type filter for the list — "all" shows every card. */
+  const [typeFilter, setTypeFilter] = useState<BSType | "all">("all");
   const [editorItem, setEditorItem] = useState<BullshiitakeItem | "new" | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -96,8 +98,11 @@ export default function BullshiitakePackDetailView({
   }, [pack.id]);
 
   const visibleItems = useMemo(
-    () => items.filter((i) => matchesQuery(i, searchQuery)),
-    [items, searchQuery],
+    () =>
+      items.filter(
+        (i) => (typeFilter === "all" || i.bsType === typeFilter) && matchesQuery(i, searchQuery),
+      ),
+    [items, searchQuery, typeFilter],
   );
 
   /** Print-card generation progress; null when idle. */
@@ -210,7 +215,7 @@ export default function BullshiitakePackDetailView({
                     )}
                   </h3>
                   <p className="text-xs text-white/40">
-                    {searchQuery.trim()
+                    {searchQuery.trim() || typeFilter !== "all"
                       ? `${visibleItems.length} of ${items.length} stories`
                       : `${items.length} stor${items.length !== 1 ? "ies" : "y"}`}
                   </p>
@@ -225,16 +230,37 @@ export default function BullshiitakePackDetailView({
               </button>
             </div>
 
-            {/* Story search — fuzzy match on card number, title, and short text */}
-            <div className="relative mt-3">
-              <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-white/30" />
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search stories by title or short text…"
-                className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pr-3 pl-9 text-sm text-white placeholder-white/25 outline-none focus:border-lime-400/40"
-              />
+            {/* Story search + BS-Type filter */}
+            <div className="mt-3 flex gap-2">
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-white/30" />
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search stories by title or short text…"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pr-3 pl-9 text-sm text-white placeholder-white/25 outline-none focus:border-lime-400/40"
+                />
+              </div>
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value as BSType | "all")}
+                className={`shrink-0 rounded-xl border px-3 py-2.5 text-sm font-bold outline-none ${
+                  typeFilter === "all"
+                    ? "border-white/10 bg-white/5 text-white/70"
+                    : BS_TYPE_BADGE[typeFilter]
+                }`}
+                title="Filter by BS-Type"
+              >
+                <option value="all" className="bg-neutral-800 text-white">
+                  All Cards
+                </option>
+                {(Object.keys(BS_TYPE_LABELS) as BSType[]).map((t) => (
+                  <option key={t} value={t} className="bg-neutral-800 text-white">
+                    {BS_TYPE_LABELS[t]}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
