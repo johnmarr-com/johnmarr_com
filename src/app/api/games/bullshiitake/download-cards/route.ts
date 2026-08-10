@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PassThrough, Readable } from "node:stream";
 import { ZipArchive } from "archiver";
-import { getAdminFirestore } from "@/lib/firebase-admin";
+import { getAdminFirestore, getAdminStorage } from "@/lib/firebase-admin";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 /**
- * Download every rendered print card in a pack as one zip.
- * GET /api/games/bullshiitake/download-cards?packId=…
+ * Build a zip of every rendered print card in a pack and return its URL.
+ * GET /api/games/bullshiitake/download-cards?packId=…  →  { url, cards }
  *
- * Streams the archive (same shape as /api/music/download-album): each PNG is
- * fetched from Storage and appended store-only, so memory stays ~one card.
- * Public by design — the card PNGs live under `cards/{packId}/` which is
- * world-readable in storage.rules; this route adds no new exposure.
+ * The zip is assembled INTO Cloud Storage (cards/{packId}/_deck.zip) rather
+ * than streamed through this route: full decks run hundreds of MB, and
+ * Cloud Run truncates streamed responses around 32MiB — which shipped
+ * corrupt zips. Storage downloads have no such limit. Public by design —
+ * the card PNGs (and thus the zip) live under world-readable cards/.
  */
 export async function GET(request: NextRequest) {
   const packId = request.nextUrl.searchParams.get("packId");
@@ -47,34 +48,57 @@ export async function GET(request: NextRequest) {
     return prefix ? `${prefix}-${id}.png` : `card-${id}.png`;
   };
 
-  // Store-only: PNGs are already compressed.
-  const archive = new ZipArchive({ zlib: { level: 0 } });
-  const out = new PassThrough();
-  archive.pipe(out);
-  archive.on("error", (err: Error) => out.destroy(err));
+  try {
+    const bucket = getAdminStorage();
+    const zipPath = `cards/${packId}/_deck.zip`;
+    const zipFile = bucket.file(zipPath);
+    const writeStream = zipFile.createWriteStream({
+      resumable: false,
+      metadata: {
+        contentType: "application/zip",
+        contentDisposition: `attachment; filename="${zipName}"`,
+      },
+    });
 
-  void (async () => {
-    try {
-      for (const card of cards) {
-        const res = await fetch(String(card["cardImageURL"]));
-        if (!res.ok) {
-          console.error(`[download-cards] ${packId}: fetch failed for ${cardName(card)} (${res.status})`);
-          continue;
-        }
-        archive.append(Buffer.from(await res.arrayBuffer()), { name: cardName(card) });
-      }
-      await archive.finalize();
-    } catch (err) {
-      console.error(`[download-cards] ${packId}:`, err);
-      out.destroy(err instanceof Error ? err : new Error(String(err)));
+    // Store-only: PNGs are already compressed.
+    const archive = new ZipArchive({ zlib: { level: 0 } });
+    const done = new Promise<void>((resolve, reject) => {
+      writeStream.on("finish", () => resolve());
+      writeStream.on("error", reject);
+      archive.on("error", reject);
+    });
+    archive.pipe(writeStream);
+
+    // Prefetch in small batches (memory ~batch × card size), append in order.
+    const BATCH = 10;
+    for (let i = 0; i < cards.length; i += BATCH) {
+      const batch = cards.slice(i, i + BATCH);
+      const buffers = await Promise.all(
+        batch.map(async (card) => {
+          const res = await fetch(String(card["cardImageURL"]));
+          if (!res.ok) {
+            console.error(
+              `[download-cards] ${packId}: fetch failed for ${cardName(card)} (${res.status})`,
+            );
+            return null;
+          }
+          return Buffer.from(await res.arrayBuffer());
+        }),
+      );
+      batch.forEach((card, j) => {
+        const buf = buffers[j];
+        if (buf) archive.append(buf, { name: cardName(card) });
+      });
     }
-  })();
+    await archive.finalize();
+    await done;
 
-  return new NextResponse(Readable.toWeb(out) as ReadableStream, {
-    headers: {
-      "Content-Type": "application/zip",
-      "Content-Disposition": `attachment; filename="${zipName}"`,
-      "Cache-Control": "no-store",
-    },
-  });
+    const url =
+      `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/` +
+      `${encodeURIComponent(zipPath)}?alt=media&t=${Date.now()}`;
+    return NextResponse.json({ url, cards: cards.length });
+  } catch (err) {
+    console.error(`[download-cards] ${packId}:`, err);
+    return NextResponse.json({ error: "Failed to build zip" }, { status: 500 });
+  }
 }

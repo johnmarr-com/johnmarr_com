@@ -102,6 +102,24 @@ export default function BullshiitakePackDetailView({
 
   /** Print-card generation progress; null when idle. */
   const [cardGen, setCardGen] = useState<{ done: number; total: number } | null>(null);
+  /** True while the server assembles the deck zip in Storage. */
+  const [zipBusy, setZipBusy] = useState(false);
+
+  /** The zip is built server-side into Storage (streaming it through Cloud
+   * Run truncates at ~32MiB), then downloaded straight from Storage. */
+  const handleDownloadAll = useCallback(async () => {
+    setZipBusy(true);
+    try {
+      const res = await fetch(`/api/games/bullshiitake/download-cards?packId=${pack.id}`);
+      const data = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok || !data.url) throw new Error(data.error ?? "Failed to build zip");
+      window.open(data.url, "_self");
+    } catch (err) {
+      console.error("[cards] deck download failed:", err);
+    } finally {
+      setZipBusy(false);
+    }
+  }, [pack.id]);
 
   /** Render + upload a print card for every story that doesn't have one yet.
    * Sequential on purpose — steady progress, no burst of parallel uploads.
@@ -356,17 +374,23 @@ export default function BullshiitakePackDetailView({
                   </button>
                   <button
                     type="button"
-                    onClick={() =>
-                      window.open(
-                        `/api/games/bullshiitake/download-cards?packId=${pack.id}`,
-                        "_self",
-                      )
+                    onClick={() => void handleDownloadAll()}
+                    disabled={
+                      zipBusy || cardGen !== null || items.every((i) => !i.cardImageURL)
                     }
-                    disabled={cardGen !== null || items.every((i) => !i.cardImageURL)}
                     className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 py-2.5 text-sm font-bold text-white/80 transition-colors hover:bg-white/10 disabled:opacity-40"
                   >
-                    <FolderDown className="h-4 w-4" />
-                    Download All Cards
+                    {zipBusy ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Preparing zip…
+                      </>
+                    ) : (
+                      <>
+                        <FolderDown className="h-4 w-4" />
+                        Download All Cards
+                      </>
+                    )}
                   </button>
                 </div>
               )}
