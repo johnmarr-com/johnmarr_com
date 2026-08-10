@@ -13,6 +13,16 @@ export const BS_TYPE_LABELS: Record<BSType, string> = {
   bullshiitake: "Bull Shiitake",
 };
 
+/** A rendered print answer card covering a 20-card block (B-1…B-20 etc.). */
+export interface BullshiitakeAnswerCard {
+  /** First searchID covered (1, 21, 41, …). */
+  start: number;
+  /** Last searchID covered (20, 40, 60, …). */
+  end: number;
+  /** 900×1500 PNG in `cards/{packId}/`. */
+  imageURL: string;
+}
+
 export interface BullshiitakePack {
   id: string;
   name: string;
@@ -20,6 +30,9 @@ export interface BullshiitakePack {
   /** Physical-card lookup prefix (max 2 chars, e.g. "B" → cards B-1, B-2…).
    * Copied onto every item in the pack so cards resolve without a pack read. */
   searchPrefix?: string;
+  /** Print answer cards, one per 20-card block — regenerated (and re-saved
+   * here) every time the pack view's Generate Preview Images runs. */
+  answerCards?: BullshiitakeAnswerCard[];
   creatorId: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -199,6 +212,20 @@ export async function updateBullshiitakePack(
     data["searchPrefix"] = normalizeSearchPrefix(updates.searchPrefix);
   }
   await updateDoc(doc(db, "bullshiitakePacks", packId), data);
+}
+
+/** Replace the pack's rendered answer-card set (runs after generation). */
+export async function setPackAnswerCards(
+  packId: string,
+  answerCards: BullshiitakeAnswerCard[],
+): Promise<void> {
+  const { doc, updateDoc, serverTimestamp } = await import("firebase/firestore");
+  const db = await getDb();
+
+  await updateDoc(doc(db, "bullshiitakePacks", packId), {
+    answerCards,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 /** Set a pack's card prefix AND restamp every item in the pack with it, so

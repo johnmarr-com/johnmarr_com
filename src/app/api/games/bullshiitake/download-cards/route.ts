@@ -90,6 +90,24 @@ export async function GET(request: NextRequest) {
         if (buf) archive.append(buf, { name: cardName(card) });
       });
     }
+
+    // Answer cards (one per 20-card block) ride along at the end.
+    const prefix = String(pack["searchPrefix"] ?? "").trim();
+    const answerCards = Array.isArray(pack["answerCards"]) ? pack["answerCards"] : [];
+    for (const ac of answerCards as { start?: number; end?: number; imageURL?: string }[]) {
+      if (typeof ac.imageURL !== "string" || !ac.imageURL) continue;
+      const res = await fetch(ac.imageURL);
+      if (!res.ok) {
+        console.error(
+          `[download-cards] ${packId}: fetch failed for answers ${ac.start}-${ac.end} (${res.status})`,
+        );
+        continue;
+      }
+      const label = prefix
+        ? `Answers ${prefix}-${ac.start} to ${prefix}-${ac.end}.png`
+        : `Answers ${ac.start} to ${ac.end}.png`;
+      archive.append(Buffer.from(await res.arrayBuffer()), { name: label });
+    }
     await archive.finalize();
     await done;
 

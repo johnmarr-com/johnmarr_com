@@ -230,3 +230,162 @@ export async function renderBullshiitakeCard(input: CardRenderInput): Promise<Bl
     );
   });
 }
+
+// ─── Answer cards ───────────────────────────────────────────
+// One card per 20-story block: the BS-Answers background, the covered range
+// top-right, and a 2×10 answer table on the black panel (no cell chrome).
+
+const ANSWERS_SRC = "/games/bullshiitake/BS-Answers.png";
+const RANGE_BOX = { x: 485, y: 176, w: 280, h: 60 };
+const TABLE = { x: 146, y: 288, w: 600, h: 900 };
+const TABLE_COLS = 2;
+const TABLE_ROWS = 10;
+const CELL_PAD_X = 10;
+const CELL_PAD_Y = 6;
+
+const VERDICT: Record<string, { text: string; color: string }> = {
+  true: { text: "TRUE", color: "#4ADE80" },
+  partlytrue: { text: "PARTLY TRUE:", color: "#FACC15" },
+  bullshiitake: { text: "BULL SHIITAKE", color: "#F97316" },
+};
+
+export interface AnswerEntry {
+  /** Card ID as printed, e.g. "B-14". */
+  label: string;
+  bsType: "true" | "partlytrue" | "bullshiitake";
+  /** Short correction (falls back to the long one) — Partly True only. */
+  correction?: string | undefined;
+}
+
+export interface AnswerCardInput {
+  /** Range headline, e.g. "B-1 to B-20". */
+  rangeLabel: string;
+  /** Up to 20 entries, in searchID order — filled column-first (1–10 left). */
+  entries: AnswerEntry[];
+}
+
+/** One styled run of text; cells flow tokens inline with word-wrap. */
+interface Token {
+  text: string;
+  color: string;
+  bold: boolean;
+  /** Font size multiplier (card IDs render larger). */
+  scale: number;
+}
+
+function cellTokens(entry: AnswerEntry): Token[] {
+  const verdict = VERDICT[entry.bsType] ?? VERDICT["bullshiitake"]!;
+  const tokens: Token[] = [
+    { text: entry.label, color: "#FFFFFF", bold: true, scale: 1.15 },
+    { text: verdict.text, color: verdict.color, bold: true, scale: 1 },
+  ];
+  if (entry.bsType === "partlytrue" && entry.correction?.trim()) {
+    for (const word of entry.correction.trim().split(/\s+/)) {
+      tokens.push({ text: word, color: "#FFFFFF", bold: false, scale: 1 });
+    }
+  }
+  return tokens;
+}
+
+function tokenFont(t: Token, size: number): string {
+  return `${t.bold ? "bold " : ""}${Math.round(size * t.scale)}px ${FONT_FAMILY}`;
+}
+
+/** Greedy inline wrap of styled tokens at the given base size. */
+function wrapTokens(
+  ctx: CanvasRenderingContext2D,
+  tokens: Token[],
+  size: number,
+  maxWidth: number,
+): Token[][] {
+  const lines: Token[][] = [];
+  let line: Token[] = [];
+  let lineWidth = 0;
+  for (const token of tokens) {
+    ctx.font = tokenFont(token, size);
+    const w = ctx.measureText(token.text).width;
+    const space = line.length ? ctx.measureText(" ").width : 0;
+    if (line.length && lineWidth + space + w > maxWidth) {
+      lines.push(line);
+      line = [token];
+      lineWidth = w;
+    } else {
+      line.push(token);
+      lineWidth += space + w;
+    }
+  }
+  if (line.length) lines.push(line);
+  return lines;
+}
+
+/** Render one answer card; resolves to a 900×1500 PNG blob. */
+export async function renderBullshiitakeAnswerCard(input: AnswerCardInput): Promise<Blob> {
+  await ensureCardFont();
+  const canvas = document.createElement("canvas");
+  canvas.width = CARD_W;
+  canvas.height = CARD_H;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas 2D context unavailable");
+
+  // Background
+  const bg = await loadImage(ANSWERS_SRC);
+  ctx.drawImage(bg, 0, 0, CARD_W, CARD_H);
+
+  // Range headline — large bold orange, centered in its box
+  let rangeSize = Math.floor(RANGE_BOX.h * 0.8);
+  ctx.font = `bold ${rangeSize}px ${FONT_FAMILY}`;
+  while (rangeSize > 12 && ctx.measureText(input.rangeLabel).width > RANGE_BOX.w - 8) {
+    rangeSize--;
+    ctx.font = `bold ${rangeSize}px ${FONT_FAMILY}`;
+  }
+  ctx.fillStyle = "#F97316";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(input.rangeLabel, RANGE_BOX.x + RANGE_BOX.w / 2, RANGE_BOX.y + RANGE_BOX.h / 2 + 1);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+
+  // Answer table — find the largest base size where EVERY cell fits its slot.
+  const cellW = TABLE.w / TABLE_COLS;
+  const cellH = TABLE.h / TABLE_ROWS;
+  const innerW = cellW - CELL_PAD_X * 2;
+  const innerH = cellH - CELL_PAD_Y * 2;
+  const cells = input.entries.slice(0, TABLE_COLS * TABLE_ROWS).map(cellTokens);
+
+  let size = 30;
+  let layouts: Token[][][] = [];
+  for (; size >= 10; size--) {
+    layouts = cells.map((tokens) => wrapTokens(ctx, tokens, size, innerW));
+    const fits = layouts.every((lines) => lines.length * size * 1.25 <= innerH);
+    if (fits) break;
+  }
+  const lineStep = size * 1.25;
+
+  // Column-first: entries 0–9 fill the left column, 10–19 the right.
+  cells.forEach((_, i) => {
+    const col = Math.floor(i / TABLE_ROWS);
+    const row = i % TABLE_ROWS;
+    const lines = layouts[i]!;
+    const cellX = TABLE.x + col * cellW + CELL_PAD_X;
+    const cellY = TABLE.y + row * cellH;
+    let y =
+      cellY + (cellH - lines.length * lineStep) / 2 + size; // first baseline, centered
+    for (const line of lines) {
+      let x = cellX;
+      for (const token of line) {
+        ctx.font = tokenFont(token, size);
+        ctx.fillStyle = token.color;
+        ctx.fillText(token.text, x, y);
+        x += ctx.measureText(token.text).width + ctx.measureText(" ").width;
+      }
+      y += lineStep;
+    }
+  });
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error("Answer card export failed"))),
+      "image/png",
+    );
+  });
+}

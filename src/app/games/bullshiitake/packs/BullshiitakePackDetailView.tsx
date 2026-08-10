@@ -8,15 +8,17 @@ import {
   subscribeToItemsForPack,
   deleteBullshiitakeItem,
   setBullshiitakeItemCardImage,
+  setPackAnswerCards,
   cardLabel,
   cardFileName,
   BS_TYPE_LABELS,
   type BullshiitakePack,
   type BullshiitakeItem,
+  type BullshiitakeAnswerCard,
   type BSType,
 } from "@/lib/bullshiitake-packs";
 import { uploadBullshiitakeCardImage } from "@/lib/bullshiitake-storage";
-import { renderBullshiitakeCard } from "./cardRenderer";
+import { renderBullshiitakeCard, renderBullshiitakeAnswerCard } from "./cardRenderer";
 import BullshiitakeItemEditor from "./BullshiitakeItemEditor";
 
 /** True when `token` appears in `text` in order (subsequence) — cheap typo
@@ -107,6 +109,10 @@ export default function BullshiitakePackDetailView({
 
   /** Print-card generation progress; null when idle. */
   const [cardGen, setCardGen] = useState<{ done: number; total: number } | null>(null);
+  /** Rendered answer cards — from the pack doc, refreshed after generation. */
+  const [answerCards, setAnswerCards] = useState<BullshiitakeAnswerCard[]>(
+    pack.answerCards ?? [],
+  );
   /** True while the server assembles the deck zip in Storage. */
   const [zipBusy, setZipBusy] = useState(false);
 
@@ -126,14 +132,20 @@ export default function BullshiitakePackDetailView({
     }
   }, [pack.id]);
 
-  /** Render + upload a print card for every story that doesn't have one yet.
-   * Sequential on purpose — steady progress, no burst of parallel uploads.
-   * The live items listener refreshes each row as its card URL lands. */
+  /** Render + upload a print card for every story that doesn't have one yet,
+   * then (re)render every answer card — those always refresh, since any
+   * story edit or type change can alter an answer. Sequential on purpose:
+   * steady progress, no burst of parallel uploads. The live items listener
+   * refreshes each row as its card URL lands. */
   const handleGenerateCards = useCallback(async () => {
     const targets = items.filter((i) => !i.cardImageURL);
-    if (targets.length === 0) return;
-    setCardGen({ done: 0, total: targets.length });
+    const maxId = items.reduce((m, i) => Math.max(m, i.searchID ?? 0), 0);
+    const groupCount = Math.ceil(maxId / 20);
+    if (targets.length === 0 && groupCount === 0) return;
+    const total = targets.length + groupCount;
+    setCardGen({ done: 0, total });
     let done = 0;
+
     for (const item of targets) {
       try {
         const prefix = item.searchPrefix ?? pack.searchPrefix;
@@ -153,7 +165,45 @@ export default function BullshiitakePackDetailView({
         console.error(`[cards] render failed for ${item.title}:`, err);
       }
       done++;
-      setCardGen({ done, total: targets.length });
+      setCardGen({ done, total });
+    }
+
+    // Answer cards — one per 20-card block, filled in searchID order.
+    const prefix = pack.searchPrefix ?? items[0]?.searchPrefix;
+    const nextAnswers: BullshiitakeAnswerCard[] = [];
+    for (let g = 0; g < groupCount; g++) {
+      const start = g * 20 + 1;
+      const end = (g + 1) * 20;
+      try {
+        const entries = items
+          .filter((i) => (i.searchID ?? 0) >= start && (i.searchID ?? 0) <= end)
+          .sort((a, b) => (a.searchID ?? 0) - (b.searchID ?? 0))
+          .map((i) => ({
+            label: cardLabel(i.searchPrefix ?? prefix, i.searchID),
+            bsType: i.bsType,
+            correction: i.shortCorrection?.trim() ? i.shortCorrection : i.correction,
+          }));
+        if (entries.length > 0) {
+          const rangeLabel = `${cardLabel(prefix, start)} to ${cardLabel(prefix, end)}`;
+          const blob = await renderBullshiitakeAnswerCard({ rangeLabel, entries });
+          const url = await uploadBullshiitakeCardImage(
+            pack.id,
+            `answers-${start}-${end}`,
+            blob,
+          );
+          nextAnswers.push({ start, end, imageURL: url });
+        }
+      } catch (err) {
+        console.error(`[cards] answer card ${start}-${end} failed:`, err);
+      }
+      done++;
+      setCardGen({ done, total });
+    }
+    try {
+      await setPackAnswerCards(pack.id, nextAnswers);
+      setAnswerCards(nextAnswers);
+    } catch (err) {
+      console.error("[cards] saving answer cards failed:", err);
     }
     setCardGen(null);
   }, [items, pack.id, pack.searchPrefix]);
@@ -368,6 +418,32 @@ export default function BullshiitakePackDetailView({
                     )}
                   </div>
                 ))}
+
+                {/* Answer cards — one per 20-card block, listed by range only */}
+                {answerCards.length > 0 &&
+                  !searchQuery.trim() &&
+                  typeFilter === "all" &&
+                  answerCards.map((ac) => (
+                    <a
+                      key={`answers-${ac.start}`}
+                      href={ac.imageURL}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="group flex items-center gap-4 rounded-xl border border-orange-400/20 bg-orange-400/5 p-3 transition-colors hover:border-orange-400/40 hover:bg-orange-400/10"
+                    >
+                      <div className="aspect-3/5 w-12 shrink-0 overflow-hidden rounded-md border border-white/10 bg-neutral-800">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- Storage URL */}
+                        <img src={ac.imageURL} alt="" className="h-full w-full object-cover" />
+                      </div>
+                      <p className="min-w-0 flex-1 truncate text-base font-bold text-orange-300">
+                        Answers {cardLabel(pack.searchPrefix, ac.start)} to{" "}
+                        {cardLabel(pack.searchPrefix, ac.end)}
+                      </p>
+                      <span className="shrink-0 text-[10px] uppercase tracking-wider text-white/30">
+                        answer card
+                      </span>
+                    </a>
+                  ))}
               </div>
             )}
           </div>
@@ -381,7 +457,7 @@ export default function BullshiitakePackDetailView({
                   <button
                     type="button"
                     onClick={() => void handleGenerateCards()}
-                    disabled={cardGen !== null || items.every((i) => !!i.cardImageURL)}
+                    disabled={cardGen !== null}
                     className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 py-2.5 text-sm font-bold text-white/80 transition-colors hover:bg-white/10 disabled:opacity-40"
                   >
                     {cardGen ? (
@@ -395,6 +471,7 @@ export default function BullshiitakePackDetailView({
                         Generate Preview Images
                         {items.some((i) => !i.cardImageURL) &&
                           ` (${items.filter((i) => !i.cardImageURL).length})`}
+                        {" + answers"}
                       </>
                     )}
                   </button>
