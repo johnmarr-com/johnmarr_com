@@ -145,7 +145,8 @@ function drawCardId(ctx: CanvasRenderingContext2D, cardId: string): void {
     size--;
     ctx.font = `bold ${size}px ${FONT_FAMILY}`;
   }
-  ctx.fillStyle = "#000000";
+  // Game-primary orange — the ID box sits on a black area of the overlay.
+  ctx.fillStyle = "#F97316";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(cardId, ID_BOX.x + ID_BOX.w / 2, ID_BOX.y + ID_BOX.h / 2 + 1);
