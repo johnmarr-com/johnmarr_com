@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { X, Pencil, Trash2, Plus, Loader2, Link2, Video, Package, Search, ImagePlay, FolderDown } from "lucide-react";
+import { X, Pencil, Trash2, Plus, Loader2, Link2, Video, Package, Search, ImagePlay, FolderDown, FileSpreadsheet } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
 import {
   subscribeToItemsForPack,
@@ -119,6 +119,34 @@ export default function BullshiitakePackDetailView({
   );
   /** True while the server assembles the deck zip in Storage. */
   const [zipBusy, setZipBusy] = useState(false);
+
+  /** Admin-only: download the deck as CSV (IDs + all text) for proofing. */
+  const handleExportCsv = useCallback(() => {
+    const esc = (v: string): string => `"${v.replace(/"/g, '""')}"`;
+    const rows = [
+      ["Card ID", "Title", "BS-Type", "Short Text", "Story Text", "Short Correction", "Correction"],
+      ...[...items]
+        .sort((a, b) => (a.searchID ?? 0) - (b.searchID ?? 0))
+        .map((i) => [
+          cardLabel(i.searchPrefix ?? pack.searchPrefix, i.searchID),
+          i.title,
+          BS_TYPE_LABELS[i.bsType],
+          i.shortText ?? "",
+          i.storyText,
+          i.shortCorrection ?? "",
+          i.correction ?? "",
+        ]),
+    ];
+    const csv = rows.map((r) => r.map(esc).join(",")).join("\r\n");
+    // BOM so Excel opens UTF-8 (curly quotes in stories) correctly.
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${pack.name.replace(/[/\\:*?"<>|]/g, "-")} deck.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [items, pack.name, pack.searchPrefix]);
 
   /** The zip is built server-side into Storage (streaming it through Cloud
    * Run truncates at ~32MiB), then downloaded straight from Storage. */
@@ -500,6 +528,18 @@ export default function BullshiitakePackDetailView({
                       </>
                     )}
                   </button>
+                  {/* Admin-only: full deck text as CSV, for proofing passes */}
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={handleExportCsv}
+                      className="flex shrink-0 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-bold text-white/80 transition-colors hover:bg-white/10"
+                      title="Export deck text as CSV (proofing)"
+                    >
+                      <FileSpreadsheet className="h-4 w-4" />
+                      CSV
+                    </button>
+                  )}
                 </div>
               )}
               <div className="flex gap-2">
