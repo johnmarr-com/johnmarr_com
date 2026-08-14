@@ -44,9 +44,8 @@ function matchesQuery(item: BullshiitakeItem, query: string): boolean {
   const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (tokens.length === 0) return true;
   const title = item.title.toLowerCase();
-  const haystack = `${cardLabel(item.searchPrefix, item.searchID)} ${title} ${
-    item.shortText ?? ""
-  }`.toLowerCase();
+  const haystack =
+    `${cardLabel(item.searchPrefix, item.searchID)} ${title} ${item.storyText}`.toLowerCase();
   return tokens.every((t) => haystack.includes(t) || isSubsequence(t, title));
 }
 
@@ -124,16 +123,14 @@ export default function BullshiitakePackDetailView({
   const handleExportCsv = useCallback(() => {
     const esc = (v: string): string => `"${v.replace(/"/g, '""')}"`;
     const rows = [
-      ["Card ID", "Title", "BS-Type", "Short Text", "Story Text", "Short Correction", "Correction"],
+      ["Card ID", "Title", "BS-Type", "Story Text", "Correction"],
       ...[...items]
         .sort((a, b) => (a.searchID ?? 0) - (b.searchID ?? 0))
         .map((i) => [
           cardLabel(i.searchPrefix ?? pack.searchPrefix, i.searchID),
           i.title,
           BS_TYPE_LABELS[i.bsType],
-          i.shortText ?? "",
           i.storyText,
-          i.shortCorrection ?? "",
           i.correction ?? "",
         ]),
     ];
@@ -181,10 +178,9 @@ export default function BullshiitakePackDetailView({
     for (const item of targets) {
       try {
         const prefix = item.searchPrefix ?? pack.searchPrefix;
-        const story = item.shortText?.trim() ? item.shortText : item.storyText;
         const blob = await renderBullshiitakeCard({
           cardId: cardLabel(prefix, item.searchID),
-          storyText: story,
+          storyText: item.storyText,
           bannerURL: item.imageURL,
         });
         const url = await uploadBullshiitakeCardImage(
@@ -414,9 +410,9 @@ export default function BullshiitakePackDetailView({
                           </span>
                         ) : null}
                       </div>
-                      {item.shortText?.trim() ? (
+                      {item.storyText.trim() ? (
                         <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-white/40">
-                          {item.shortText}
+                          {item.storyText}
                         </p>
                       ) : null}
                     </div>

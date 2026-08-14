@@ -65,8 +65,7 @@ const BS_TYPE_SELECT_CLASS: Record<BSType, string> = {
   bullshiitake: "border-red-400/40 bg-red-400/10 text-red-300 focus:border-red-400/70",
 };
 
-const SHORT_TEXT_MAX_WORDS = 75;
-const STORY_TEXT_MAX_WORDS = 150;
+const STORY_TEXT_MAX_WORDS = 75;
 
 const countWords = (t: string): number =>
   t.trim() ? t.trim().split(/\s+/).length : 0;
@@ -116,7 +115,6 @@ export default function BullshiitakeItemEditor({
 
   const [title, setTitle] = useState(existingItem?.title ?? "");
   const [bsType, setBsType] = useState<BSType>(existingItem?.bsType ?? "true");
-  const [shortText, setShortText] = useState(existingItem?.shortText ?? "");
   const [storyText, setStoryText] = useState(existingItem?.storyText ?? "");
   // Back-office flag — writes to Firestore the instant it's toggled (no Save).
   const [adminApproved, setAdminApproved] = useState(existingItem?.adminApproved === true);
@@ -128,7 +126,6 @@ export default function BullshiitakeItemEditor({
   const [cardGenBusy, setCardGenBusy] = useState(false);
   const [citations, setCitations] = useState<string[]>(existingItem?.citations ?? []);
   const [citationInput, setCitationInput] = useState("");
-  const [shortCorrection, setShortCorrection] = useState(existingItem?.shortCorrection ?? "");
   const [correction, setCorrection] = useState(existingItem?.correction ?? "");
   const [videoURL, setVideoURL] = useState(existingItem?.videoURL ?? "");
 
@@ -173,7 +170,7 @@ export default function BullshiitakeItemEditor({
       const banner = tempURL ?? imageURL;
       const blob = await renderBullshiitakeCard({
         cardId: cardLabel(prefix, existingItem.searchID),
-        storyText: shortText.trim() ? shortText : storyText,
+        storyText,
         bannerURL: banner || undefined,
       });
       const url = await uploadBullshiitakeCardImage(
@@ -188,7 +185,7 @@ export default function BullshiitakeItemEditor({
     } finally {
       setCardGenBusy(false);
     }
-  }, [existingItem, packSearchPrefix, tempURL, imageURL, shortText, storyText, packId]);
+  }, [existingItem, packSearchPrefix, tempURL, imageURL, storyText, packId]);
 
   /** Save the rendered card PNG to disk (fetch → blob keeps the `download`
    * attribute honored across origins). */
@@ -333,9 +330,7 @@ export default function BullshiitakeItemEditor({
         title: title.trim(),
         bsType,
         storyText: storyText, // preserve line-break paragraphs verbatim
-        ...(shortText.trim() ? { shortText } : {}),
         ...(citations.length ? { citations } : {}),
-        ...(shortCorrection.trim() ? { shortCorrection: shortCorrection.trim() } : {}),
         ...(correction.trim() ? { correction: correction.trim() } : {}),
         ...(finalImageURL ? { imageURL: finalImageURL } : {}),
         ...(effectivePrompt ? { imagePrompt: effectivePrompt } : {}),
@@ -371,9 +366,7 @@ export default function BullshiitakeItemEditor({
     title,
     bsType,
     storyText,
-    shortText,
     citations,
-    shortCorrection,
     correction,
     videoURL,
     imageURL,
@@ -459,25 +452,22 @@ export default function BullshiitakeItemEditor({
               </select>
             </div>
 
-            {/* Short Text — preferred in game when set */}
+            {/* Story Text — the one story version: game, print card, lookup */}
             <div className="space-y-1.5">
               <div className="flex items-baseline justify-between">
-                <label className={labelClass}>
-                  Short Text <span className="font-normal normal-case text-white/25">(optional)</span>
-                </label>
-                <WordsRemaining text={shortText} max={SHORT_TEXT_MAX_WORDS} />
+                <label className={labelClass}>Story Text</label>
+                <WordsRemaining text={storyText} max={STORY_TEXT_MAX_WORDS} />
               </div>
               <AutoGrowTextarea
-                value={shortText}
-                onChange={(e) => setShortText(e.target.value)}
-                placeholder="Shortened version of the story…"
-                rows={3}
+                value={storyText}
+                onChange={(e) => setStoryText(e.target.value)}
+                placeholder="The story, as read to the group…"
+                rows={4}
                 spellCheck
                 className="w-full resize-none overflow-hidden whitespace-pre-wrap rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm leading-relaxed text-white placeholder-white/25 outline-none focus:border-lime-400/40"
               />
               <p className="text-[10px] text-white/30">
-                When set, the game shows this instead of the full story below —
-                the long version is kept either way.
+                Line breaks are preserved — blank lines separate paragraphs.
               </p>
             </div>
 
@@ -488,7 +478,7 @@ export default function BullshiitakeItemEditor({
               <div className="space-y-0.5">
                 <span className={labelClass}>Admin Approved</span>
                 <p className="text-[10px] text-white/30">
-                  Internal only — short form human-approved. Saves instantly on toggle.
+                  Internal only — story text human-approved. Saves instantly on toggle.
                 </p>
               </div>
               <button
@@ -589,25 +579,6 @@ export default function BullshiitakeItemEditor({
               </div>
             )}
 
-            {/* Story Text */}
-            <div className="space-y-1.5">
-              <div className="flex items-baseline justify-between">
-                <label className={labelClass}>Story Text</label>
-                <WordsRemaining text={storyText} max={STORY_TEXT_MAX_WORDS} />
-              </div>
-              <AutoGrowTextarea
-                value={storyText}
-                onChange={(e) => setStoryText(e.target.value)}
-                placeholder="The story, as read to the group…"
-                rows={4}
-                spellCheck
-                className="w-full resize-none overflow-hidden whitespace-pre-wrap rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm leading-relaxed text-white placeholder-white/25 outline-none focus:border-lime-400/40"
-              />
-              <p className="text-[10px] text-white/30">
-                Line breaks are preserved — blank lines separate paragraphs.
-              </p>
-            </div>
-
             {/* Citations */}
             <div className="space-y-1.5">
               <label className={labelClass}>
@@ -657,24 +628,6 @@ export default function BullshiitakeItemEditor({
                   Add
                 </button>
               </div>
-            </div>
-
-            {/* Short Correction — the paper-card version */}
-            <div className="space-y-1.5">
-              <label className={labelClass}>
-                Short Correction <span className="font-normal normal-case text-white/25">(optional)</span>
-              </label>
-              <AutoGrowTextarea
-                value={shortCorrection}
-                onChange={(e) => setShortCorrection(e.target.value)}
-                placeholder="Tightened correction for the printed card…"
-                rows={2}
-                className="w-full resize-none overflow-hidden rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm leading-relaxed text-white placeholder-white/25 outline-none focus:border-lime-400/40"
-              />
-              <p className="text-[10px] text-white/30">
-                Paper cards use this when set (space is tight — point readers to
-                bullshiitake.com); the app keeps showing the full correction below.
-              </p>
             </div>
 
             {/* Correction */}
