@@ -665,8 +665,8 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
             <div className="sticky top-6">
               <p className={`mb-2 ${labelClass}`}>Card Preview (900 × 1500)</p>
               <div
-                className="relative aspect-3/5 w-full max-w-md overflow-hidden rounded-2xl border border-white/15 bg-neutral-900"
-                style={{ maxHeight: "80vh" }}
+                className="relative aspect-3/5 w-full max-w-sm overflow-hidden rounded-2xl border border-white/15 bg-neutral-900"
+                style={{ maxHeight: "62vh" }}
               >
                 {editing === null ? (
                   <div className="flex h-full items-center justify-center px-8 text-center text-sm text-white/25">
@@ -700,7 +700,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
 
               {/* Deck fonts — one face per text role, applied when card text
                   rendering lands. Live samples; saved instantly per pack. */}
-              <div className="mt-4 grid max-w-md gap-3 sm:grid-cols-3">
+              <div className="mt-4 grid max-w-xl gap-3 sm:grid-cols-3">
                 <JMFontSelect
                   label="Title Font"
                   value={fonts.title}
