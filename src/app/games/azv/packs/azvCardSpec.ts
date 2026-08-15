@@ -1,4 +1,4 @@
-import type { AZVCardType } from "@/lib/azv-packs";
+import type { AZVCardType, AZVWeaponType } from "@/lib/azv-packs";
 
 /**
  * Per-CardType authoring spec: which optional inputs each type shows, and
@@ -61,6 +61,21 @@ export const AZV_TYPE_SPEC: Record<AZVCardType, AZVTypeSpec> = {
   Levels: { fields: { level: true }, overlay: null },
   RoundCounter: { fields: { level: true }, overlay: null },
 };
+
+/** Text/stat placement on the 900×1500 card (shared by preview + renderer). */
+export const AZV_LAYOUT = {
+  /** Transparent title box — horizontally centered, center Y = 212. */
+  title: { x: 165, y: 167, w: 570, h: 90, maxFontSize: 60 },
+  /** Hits number (or weapon icon) — 125×125 centered at (212, 1000). */
+  hits: { cx: 212, cy: 1000, size: 125, fontSize: 60 },
+  /** Hope / Hunger number — 125×125 centered at (684, 1000). */
+  hopeHunger: { cx: 684, cy: 1000, size: 125, fontSize: 60 },
+} as const;
+
+/** Weapon type badge graphic (125×125 slot). */
+export function weaponIconPath(weapon: AZVWeaponType): string {
+  return `/games/azv/Type-${weapon}.png`;
+}
 
 /** Resolve the overlay path for a card (null = no overlay). */
 export function overlayForCard(cardType: AZVCardType, level: number | undefined): string | null {

@@ -32,8 +32,10 @@ import {
   validateAZVImageFile,
   AZV_IMAGE_ACCEPT,
 } from "@/lib/azv-storage";
-import { AZV_TYPE_SPEC, overlayForCard } from "./azvCardSpec";
-import { renderAZVCard } from "./azvCardRenderer";
+import { ensureJMFont, jmFontFamily } from "@/JMKit";
+import { AZV_TYPE_SPEC, AZV_LAYOUT, overlayForCard, weaponIconPath } from "./azvCardSpec";
+import { renderAZVCard, fitAZVTitleSize } from "./azvCardRenderer";
+import type { AZVTextColor } from "@/lib/azv-packs";
 
 interface AZVPackBuilderProps {
   pack: AZVPack;
@@ -45,6 +47,33 @@ function cardListLabel(card: { cardType: AZVCardType; title: string; level?: num
   if (card.title.trim()) return card.title;
   const base = AZV_CARD_TYPE_LABELS[card.cardType];
   return card.level ? `${base} · L${card.level}` : base;
+}
+
+/** Black / white swatch toggle for a text role's color. */
+function BWToggle({
+  value,
+  onChange,
+}: {
+  value: AZVTextColor | undefined;
+  onChange: (c: AZVTextColor) => void;
+}) {
+  const current = value ?? "white";
+  return (
+    <div className="flex gap-1.5">
+      {(["black", "white"] as AZVTextColor[]).map((c) => (
+        <button
+          key={c}
+          type="button"
+          onClick={() => onChange(c)}
+          title={c === "black" ? "Black text" : "White text"}
+          aria-pressed={current === c}
+          className={`h-7 w-7 rounded-full border-2 transition-all ${
+            c === "black" ? "bg-black" : "bg-white"
+          } ${current === c ? "border-lime-400 scale-110" : "border-white/25"}`}
+        />
+      ))}
+    </div>
+  );
 }
 
 const inputClass =
@@ -90,6 +119,37 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
 
   /** Doc id fixed up-front so the background can upload before the doc exists. */
   const cardIdRef = useRef<string>("");
+
+  /** Scale factor mapping the 900×1500 design space onto the preview box. */
+  const previewBoxRef = useRef<HTMLDivElement>(null);
+  const [previewScale, setPreviewScale] = useState(0.4);
+  useEffect(() => {
+    const el = previewBoxRef.current;
+    if (!el) return;
+    const update = () => setPreviewScale(el.getBoundingClientRect().width / 900);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  /** Title font size, fitted exactly like the final render (max 60). */
+  const [titleFitSize, setTitleFitSize] = useState<number>(AZV_LAYOUT.title.maxFontSize);
+  useEffect(() => {
+    let cancelled = false;
+    void ensureJMFont(fonts.title).then(() => {
+      if (cancelled) return;
+      setTitleFitSize(fitAZVTitleSize(title, jmFontFamily(fonts.title)));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [title, fonts.title]);
+
+  // Numbers font for the preview slots.
+  useEffect(() => {
+    void ensureJMFont(fonts.numbers);
+  }, [fonts.numbers]);
 
   useEffect(() => {
     let cancelled = false;
@@ -236,10 +296,17 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
     setGenerating(true);
     setError(null);
     try {
+      const hitsN = parseNum(hits);
+      const hopeHungerN = parseNum(spec.fields.hope ? hope : hunger);
       const blob = await renderAZVCard({
         cardType,
         level,
         backgroundImageURL: pendingBgPreview ?? bgURL ?? undefined,
+        title,
+        ...(spec.fields.hits && hitsN != null ? { hits: hitsN } : {}),
+        ...(hopeHungerN != null ? { hopeOrHunger: hopeHungerN } : {}),
+        ...(spec.fields.weaponType && weaponType ? { weaponType } : {}),
+        fonts,
       });
       const url = await uploadAZVCardImage(pack.id, `azv-${cardIdRef.current}`, blob);
       await setAZVCardImage(editing.id, url);
@@ -248,7 +315,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
     } finally {
       setGenerating(false);
     }
-  }, [editing, cardType, level, pendingBgPreview, bgURL, pack.id]);
+  }, [editing, cardType, level, pendingBgPreview, bgURL, pack.id, title, hits, hope, hunger, weaponType, fonts, spec]);
 
   const handleFontChange = useCallback(
     (role: keyof AZVFontSettings, fontId: string) => {
@@ -275,6 +342,11 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
 
   const previewBg = editing ? (pendingBgPreview ?? bgURL) : "";
   const previewOverlay = editing ? overlayForCard(cardType, level) : null;
+  const previewHits = spec.fields.hits ? parseNum(hits) : undefined;
+  const previewHopeHunger = parseNum(spec.fields.hope ? hope : spec.fields.hunger ? hunger : "");
+  const previewWeapon = spec.fields.weaponType && weaponType ? weaponType : undefined;
+  const titleColorHex = (fonts.titleColor ?? "white") === "black" ? "#000" : "#fff";
+  const numbersColorHex = (fonts.numbersColor ?? "white") === "black" ? "#000" : "#fff";
   const generatedURL = editing && editing !== "new" ? editing.cardImageURL : undefined;
 
   return (
@@ -664,16 +736,25 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
           <div className="min-w-0 flex-1">
             <div className="sticky top-6">
               <p className={`mb-2 ${labelClass}`}>Card Preview (900 × 1500)</p>
+              {/* Exactly 3:5 — width-driven aspect box; the width cap encodes
+                  the height budget (62vh × 3/5), so the ratio never distorts.
+                  Generated output stays 900×1500 = 3"×5" at 300 DPI. */}
               <div
-                className="relative aspect-3/5 w-full max-w-sm overflow-hidden rounded-2xl border border-white/15 bg-neutral-900"
-                style={{ maxHeight: "62vh" }}
+                ref={previewBoxRef}
+                className="relative aspect-3/5 w-full overflow-hidden rounded-2xl border border-white/15 bg-neutral-900"
+                style={{ maxWidth: "min(24rem, calc(62vh * 0.6))" }}
               >
                 {editing === null ? (
                   <div className="flex h-full items-center justify-center px-8 text-center text-sm text-white/25">
                     Add a card or tap one in the list to see its preview.
                   </div>
                 ) : (
-                  <>
+                  /* 900×1500 design space, scaled to the box — positions and
+                     font sizes below are the real card coordinates. */
+                  <div
+                    className="absolute top-0 left-0 origin-top-left"
+                    style={{ width: 900, height: 1500, transform: `scale(${previewScale})` }}
+                  >
                     {previewBg ? (
                       /* eslint-disable-next-line @next/next/no-img-element -- Storage/blob URL */
                       <img
@@ -682,7 +763,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                         className="absolute inset-0 h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="flex h-full items-center justify-center text-sm text-white/20">
+                      <div className="flex h-full items-center justify-center text-4xl text-white/20">
                         No background yet
                       </div>
                     )}
@@ -694,31 +775,117 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                         className="absolute inset-0 h-full w-full"
                       />
                     )}
-                  </>
+
+                    {/* Title — transparent box, centered, fit ≤60px */}
+                    {title.trim() && (
+                      <div
+                        className="absolute flex items-center justify-center whitespace-nowrap"
+                        style={{
+                          left: AZV_LAYOUT.title.x,
+                          top: AZV_LAYOUT.title.y,
+                          width: AZV_LAYOUT.title.w,
+                          height: AZV_LAYOUT.title.h,
+                          fontFamily: jmFontFamily(fonts.title),
+                          fontSize: titleFitSize,
+                          color: titleColorHex,
+                        }}
+                      >
+                        {title}
+                      </div>
+                    )}
+
+                    {/* Hits number (or weapon badge) at (212, 1000) */}
+                    {previewHits != null && (
+                      <div
+                        className="absolute flex items-center justify-center"
+                        style={{
+                          left: AZV_LAYOUT.hits.cx - AZV_LAYOUT.hits.size / 2,
+                          top: AZV_LAYOUT.hits.cy - AZV_LAYOUT.hits.size / 2,
+                          width: AZV_LAYOUT.hits.size,
+                          height: AZV_LAYOUT.hits.size,
+                          fontFamily: jmFontFamily(fonts.numbers),
+                          fontSize: AZV_LAYOUT.hits.fontSize,
+                          color: numbersColorHex,
+                        }}
+                      >
+                        {previewHits}
+                      </div>
+                    )}
+                    {previewWeapon && (
+                      /* eslint-disable-next-line @next/next/no-img-element -- local asset */
+                      <img
+                        src={weaponIconPath(previewWeapon)}
+                        alt={previewWeapon}
+                        className="absolute"
+                        style={{
+                          left: AZV_LAYOUT.hits.cx - AZV_LAYOUT.hits.size / 2,
+                          top: AZV_LAYOUT.hits.cy - AZV_LAYOUT.hits.size / 2,
+                          width: AZV_LAYOUT.hits.size,
+                          height: AZV_LAYOUT.hits.size,
+                        }}
+                      />
+                    )}
+
+                    {/* Hope / Hunger number at (684, 1000) */}
+                    {previewHopeHunger != null && (
+                      <div
+                        className="absolute flex items-center justify-center"
+                        style={{
+                          left: AZV_LAYOUT.hopeHunger.cx - AZV_LAYOUT.hopeHunger.size / 2,
+                          top: AZV_LAYOUT.hopeHunger.cy - AZV_LAYOUT.hopeHunger.size / 2,
+                          width: AZV_LAYOUT.hopeHunger.size,
+                          height: AZV_LAYOUT.hopeHunger.size,
+                          fontFamily: jmFontFamily(fonts.numbers),
+                          fontSize: AZV_LAYOUT.hopeHunger.fontSize,
+                          color: numbersColorHex,
+                        }}
+                      >
+                        {previewHopeHunger}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
               {/* Deck fonts — one face per text role, applied when card text
                   rendering lands. Live samples; saved instantly per pack. */}
               <div className="mt-4 grid max-w-xl gap-3 sm:grid-cols-3">
-                <JMFontSelect
-                  label="Title Font"
-                  value={fonts.title}
-                  onChange={(id) => handleFontChange("title", id)}
-                  sampleText={title.trim() || "Card Title"}
-                />
-                <JMFontSelect
-                  label="Description Font"
-                  value={fonts.description}
-                  onChange={(id) => handleFontChange("description", id)}
-                  sampleText="Description & conditions"
-                />
-                <JMFontSelect
-                  label="Numbers Font"
-                  value={fonts.numbers}
-                  onChange={(id) => handleFontChange("numbers", id)}
-                  sampleText="0 1 2 3 4 5"
-                />
+                <div className="space-y-2">
+                  <JMFontSelect
+                    label="Title Font"
+                    value={fonts.title}
+                    onChange={(id) => handleFontChange("title", id)}
+                    sampleText={title.trim() || "Card Title"}
+                  />
+                  <BWToggle
+                    value={fonts.titleColor}
+                    onChange={(c) => handleFontChange("titleColor", c)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <JMFontSelect
+                    label="Description Font"
+                    value={fonts.description}
+                    onChange={(id) => handleFontChange("description", id)}
+                    sampleText="Description & conditions"
+                  />
+                  <BWToggle
+                    value={fonts.descriptionColor}
+                    onChange={(c) => handleFontChange("descriptionColor", c)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <JMFontSelect
+                    label="Numbers Font"
+                    value={fonts.numbers}
+                    onChange={(id) => handleFontChange("numbers", id)}
+                    sampleText="0 1 2 3 4 5"
+                  />
+                  <BWToggle
+                    value={fonts.numbersColor}
+                    onChange={(c) => handleFontChange("numbersColor", c)}
+                  />
+                </div>
               </div>
             </div>
           </div>

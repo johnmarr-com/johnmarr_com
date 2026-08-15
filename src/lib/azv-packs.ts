@@ -61,11 +61,16 @@ export interface AZVCondition {
   value: number;
 }
 
-/** Deck-wide font choices (JMFonts registry ids), per text role. */
+export type AZVTextColor = "black" | "white";
+
+/** Deck-wide font + color choices (JMFonts registry ids), per text role. */
 export interface AZVFontSettings {
   title?: string;
   description?: string;
   numbers?: string;
+  titleColor?: AZVTextColor;
+  descriptionColor?: AZVTextColor;
+  numbersColor?: AZVTextColor;
 }
 
 export interface AZVPack {
