@@ -37,6 +37,7 @@ import {
   resolveAZVTextStyle,
 } from "./azvCardSpec";
 import { renderAZVCard, fitAZVTextSize, fitAZVBlockSize } from "./azvCardRenderer";
+import { parseAZVRichText } from "./azvRichText";
 import type { AZVTextStyles } from "@/lib/azv-packs";
 import AZVTextStyleModal from "./AZVTextStyleModal";
 
@@ -654,6 +655,11 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                       rows={3}
                       className={`${inputClass} resize-y`}
                     />
+                    <p className="text-[10px] text-white/30">
+                      Styling: *bold*, **italic**, ***bold italic***, [red:colored]
+                      (red, orange, yellow, green, blue, purple, pink, gray, white,
+                      black, or [#FF00AA:hex]).
+                    </p>
                   </div>
                 )}
 
@@ -838,7 +844,19 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                         }}
                       >
                         <div className="w-full" style={{ textAlign: descStyle.align }}>
-                          {previewDescription}
+                          {parseAZVRichText(previewDescription).map((token, i) => (
+                            <span
+                              key={i}
+                              style={{
+                                fontWeight:
+                                  token.bold || descStyle.weight === "bold" ? 700 : 400,
+                                fontStyle: token.italic ? "italic" : "normal",
+                                ...(token.color ? { color: token.color } : {}),
+                              }}
+                            >
+                              {token.text}
+                            </span>
+                          ))}
                         </div>
                       </div>
                     )}

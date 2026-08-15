@@ -9,6 +9,7 @@ import {
   type AZVResolvedTextStyle,
   AZV_LAYOUT,
 } from "./azvCardSpec";
+import { parseAZVRichText, azvRichWords, type AZVRichToken } from "./azvRichText";
 
 /**
  * AZV print-card renderer — 900×1500 canvas:
@@ -107,35 +108,45 @@ function drawBoxedText(
 
 const DESC_LINE_HEIGHT = 1.2;
 
-/** Greedy word-wrap at a given size; returns null when any line overflows. */
-function wrapAt(
+/** Font string for one rich token (role weight/italic combine with markup). */
+function richFont(style: AZVResolvedTextStyle, token: AZVRichToken, size: number): string {
+  const bold = token.bold || style.weight === "bold";
+  return `${token.italic ? "italic " : ""}${bold ? "bold " : ""}${size}px ${jmFontFamily(style.font)}`;
+}
+
+/** Greedy rich word-wrap at a given size; null when any word overflows. */
+function wrapRichAt(
   ctx: CanvasRenderingContext2D,
-  text: string,
+  words: AZVRichToken[],
   style: AZVResolvedTextStyle,
   size: number,
   maxWidth: number,
-): string[] | null {
+): AZVRichToken[][] | null {
   ctx.font = fontString(style, size);
-  const words = text.split(/\s+/).filter(Boolean);
-  const lines: string[] = [];
-  let line = "";
+  const spaceW = ctx.measureText(" ").width;
+  const lines: AZVRichToken[][] = [];
+  let line: AZVRichToken[] = [];
+  let lineW = 0;
   for (const word of words) {
-    if (ctx.measureText(word).width > maxWidth) return null;
-    const candidate = line ? `${line} ${word}` : word;
-    if (ctx.measureText(candidate).width > maxWidth) {
+    ctx.font = richFont(style, word, size);
+    const w = ctx.measureText(word.text).width;
+    if (w > maxWidth) return null;
+    if (line.length && lineW + spaceW + w > maxWidth) {
       lines.push(line);
-      line = word;
+      line = [word];
+      lineW = w;
     } else {
-      line = candidate;
+      line.push(word);
+      lineW += (line.length > 1 ? spaceW : 0) + w;
     }
   }
-  if (line) lines.push(line);
+  if (line.length) lines.push(line);
   return lines;
 }
 
 /**
- * Largest size (≤ the style's size) at which `text`, word-wrapped, fits the
- * box. Exported so the live preview sizes exactly like the final render.
+ * Largest size (≤ the style's size) at which the rich text, word-wrapped,
+ * fits the box. Exported so the live preview sizes exactly like the render.
  */
 export function fitAZVBlockSize(
   text: string,
@@ -145,16 +156,17 @@ export function fitAZVBlockSize(
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
   if (!ctx || !text.trim()) return style.size;
+  const words = azvRichWords(parseAZVRichText(text));
   let size = style.size;
   while (size > 1) {
-    const lines = wrapAt(ctx, text, style, size, box.w);
+    const lines = wrapRichAt(ctx, words, style, size, box.w);
     if (lines && lines.length * size * DESC_LINE_HEIGHT <= box.h) break;
     size--;
   }
   return size;
 }
 
-/** Draw a wrapped, aligned block vertically centered in its box. */
+/** Draw wrapped rich text, aligned per line, vertically centered in its box. */
 function drawWrappedText(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -162,23 +174,32 @@ function drawWrappedText(
   box: { x: number; y: number; w: number; h: number },
 ): void {
   const size = fitAZVBlockSize(text, style, box);
-  const lines = wrapAt(ctx, text, style, size, box.w) ?? [text];
-  ctx.font = fontString(style, size);
-  ctx.fillStyle = colorHex(style.color);
+  const words = azvRichWords(parseAZVRichText(text));
+  const lines = wrapRichAt(ctx, words, style, size, box.w) ?? [words];
   ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  ctx.font = fontString(style, size);
+  const spaceW = ctx.measureText(" ").width;
   const step = size * DESC_LINE_HEIGHT;
   let y = box.y + (box.h - lines.length * step) / 2 + step / 2 + style.offsetY;
   for (const line of lines) {
-    if (style.align === "left") {
-      ctx.textAlign = "left";
-      ctx.fillText(line, box.x, y);
-    } else if (style.align === "right") {
-      ctx.textAlign = "right";
-      ctx.fillText(line, box.x + box.w, y);
-    } else {
-      ctx.textAlign = "center";
-      ctx.fillText(line, box.x + box.w / 2, y);
-    }
+    const widths = line.map((word) => {
+      ctx.font = richFont(style, word, size);
+      return ctx.measureText(word.text).width;
+    });
+    const total = widths.reduce((a, b) => a + b, 0) + spaceW * (line.length - 1);
+    let x =
+      style.align === "left"
+        ? box.x
+        : style.align === "right"
+          ? box.x + box.w - total
+          : box.x + (box.w - total) / 2;
+    line.forEach((word, i) => {
+      ctx.font = richFont(style, word, size);
+      ctx.fillStyle = word.color ?? colorHex(style.color);
+      ctx.fillText(word.text, x, y);
+      x += widths[i]! + spaceW;
+    });
     y += step;
   }
   ctx.textAlign = "left";
