@@ -361,6 +361,16 @@ service firebase.storage {
     }
 
     // ─────────────────────────────────────────────────────────────
+    // ATOMIC ZOMBIE VAMPIRES (card backgrounds under azv/cards/)
+    // ─────────────────────────────────────────────────────────────
+
+    match /azv/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isImage() && maxSize(10);
+      allow delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // PRINT-READY CARD RENDERS (cards/{packId}/B-1.png … 900×1500 PNGs
     // composed client-side by pack managers for physical printing)
     // ─────────────────────────────────────────────────────────────

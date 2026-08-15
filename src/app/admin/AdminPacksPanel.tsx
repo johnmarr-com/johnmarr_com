@@ -17,6 +17,7 @@ import { getTopLevelContent } from "@/lib/content";
 
 /** Engines with a pack builder at /games/{engine}/packs. */
 const DECK_ENGINES: { engine: string; fallbackName: string }[] = [
+  { engine: "azv", fallbackName: "Atomic Zombie Vampires" },
   { engine: "blarf", fallbackName: "Blarf" },
   { engine: "bluffbox", fallbackName: "Bluff Box" },
   { engine: "bullshiitake", fallbackName: "Bull Shiitake" },
