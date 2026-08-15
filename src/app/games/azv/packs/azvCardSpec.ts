@@ -78,6 +78,8 @@ export const AZV_LAYOUT = {
   hits: { cx: 212, cy: 985, size: 125, maxFontSize: 90 },
   /** Hope / Hunger number — 125×125 centered at (684, 985). Bold. */
   hopeHunger: { cx: 684, cy: 985, size: 125, maxFontSize: 90 },
+  /** Description block — wraps + shrinks to fit. */
+  description: { x: 150, y: 1150, w: 600, h: 170 },
 } as const;
 
 /** A text role's style with every field resolved to a concrete value. */
@@ -93,7 +95,7 @@ export interface AZVResolvedTextStyle {
 
 const ROLE_DEFAULTS: Record<keyof AZVTextStyles, AZVResolvedTextStyle> = {
   title: { font: undefined, size: AZV_LAYOUT.title.maxFontSize, weight: "bold", color: "white", align: "center", offsetY: 0 },
-  description: { font: undefined, size: 40, weight: "normal", color: "white", align: "center", offsetY: 0 },
+  description: { font: undefined, size: 32, weight: "normal", color: "black", align: "center", offsetY: 0 },
   numbers: { font: undefined, size: AZV_LAYOUT.hits.maxFontSize, weight: "bold", color: "white", align: "center", offsetY: 0 },
 };
 

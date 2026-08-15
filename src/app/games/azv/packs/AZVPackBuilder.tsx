@@ -36,7 +36,7 @@ import {
   weaponIconPath,
   resolveAZVTextStyle,
 } from "./azvCardSpec";
-import { renderAZVCard, fitAZVTextSize } from "./azvCardRenderer";
+import { renderAZVCard, fitAZVTextSize, fitAZVBlockSize } from "./azvCardRenderer";
 import type { AZVTextStyles } from "@/lib/azv-packs";
 import AZVTextStyleModal from "./AZVTextStyleModal";
 
@@ -139,6 +139,20 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
       cancelled = true;
     };
   }, [title, textStyles]);
+
+  /** Fitted (wrapped) size for the description block in the preview. */
+  const [descFitSize, setDescFitSize] = useState<number>(32);
+  useEffect(() => {
+    let cancelled = false;
+    const style = resolveAZVTextStyle("description", textStyles);
+    void ensureJMFont(style.font).then(() => {
+      if (cancelled) return;
+      setDescFitSize(fitAZVBlockSize(description, style, AZV_LAYOUT.description));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [description, textStyles]);
 
   /** Fitted sizes for the two stat slots in the preview. */
   const [statFitSizes, setStatFitSizes] = useState({ hits: 90, hopeHunger: 90 });
@@ -324,6 +338,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
         ...(spec.fields.hits && hitsN != null ? { hits: hitsN } : {}),
         ...(hopeHungerN != null ? { hopeOrHunger: hopeHungerN } : {}),
         ...(spec.fields.weaponType && weaponType ? { weaponType } : {}),
+        ...(spec.fields.description && description.trim() ? { description: description.trim() } : {}),
         textStyles,
       });
       const url = await uploadAZVCardImage(pack.id, `azv-${cardIdRef.current}`, blob);
@@ -333,7 +348,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
     } finally {
       setGenerating(false);
     }
-  }, [editing, cardType, level, pendingBgPreview, bgURL, pack.id, title, hits, hope, hunger, weaponType, textStyles, spec]);
+  }, [editing, cardType, level, pendingBgPreview, bgURL, pack.id, title, hits, hope, hunger, weaponType, description, textStyles, spec]);
 
   const handleDelete = useCallback(async () => {
     if (!editing || editing === "new") return;
@@ -352,6 +367,8 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
   const previewWeapon = spec.fields.weaponType && weaponType ? weaponType : undefined;
   const titleStyle = resolveAZVTextStyle("title", textStyles);
   const numbersStyle = resolveAZVTextStyle("numbers", textStyles);
+  const descStyle = resolveAZVTextStyle("description", textStyles);
+  const previewDescription = spec.fields.description ? description.trim() : "";
   const styleColor = (c: "black" | "white") => (c === "black" ? "#000" : "#fff");
   const styleAlign = (a: "left" | "center" | "right") =>
     a === "left" ? "flex-start" : a === "right" ? "flex-end" : "center";
@@ -801,6 +818,28 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                         }}
                       >
                         {title}
+                      </div>
+                    )}
+
+                    {/* Description block */}
+                    {previewDescription && (
+                      <div
+                        className="absolute flex items-center"
+                        style={{
+                          left: AZV_LAYOUT.description.x,
+                          top: AZV_LAYOUT.description.y + descStyle.offsetY,
+                          width: AZV_LAYOUT.description.w,
+                          height: AZV_LAYOUT.description.h,
+                          fontFamily: jmFontFamily(descStyle.font),
+                          fontSize: descFitSize,
+                          lineHeight: 1.2,
+                          fontWeight: descStyle.weight === "bold" ? 700 : 400,
+                          color: styleColor(descStyle.color),
+                        }}
+                      >
+                        <div className="w-full" style={{ textAlign: descStyle.align }}>
+                          {previewDescription}
+                        </div>
                       </div>
                     )}
 

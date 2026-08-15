@@ -31,6 +31,7 @@ export interface AZVCardRenderInput {
   /** Hope (Humans / GoodStuff / MegaStuff) or Hunger (BadStuff). */
   hopeOrHunger?: number | undefined;
   weaponType?: AZVWeaponType | undefined;
+  description?: string | undefined;
   textStyles?: AZVTextStyles | undefined;
 }
 
@@ -104,6 +105,86 @@ function drawBoxedText(
   ctx.textBaseline = "alphabetic";
 }
 
+const DESC_LINE_HEIGHT = 1.2;
+
+/** Greedy word-wrap at a given size; returns null when any line overflows. */
+function wrapAt(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  style: AZVResolvedTextStyle,
+  size: number,
+  maxWidth: number,
+): string[] | null {
+  ctx.font = fontString(style, size);
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let line = "";
+  for (const word of words) {
+    if (ctx.measureText(word).width > maxWidth) return null;
+    const candidate = line ? `${line} ${word}` : word;
+    if (ctx.measureText(candidate).width > maxWidth) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = candidate;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+/**
+ * Largest size (≤ the style's size) at which `text`, word-wrapped, fits the
+ * box. Exported so the live preview sizes exactly like the final render.
+ */
+export function fitAZVBlockSize(
+  text: string,
+  style: AZVResolvedTextStyle,
+  box: { w: number; h: number },
+): number {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx || !text.trim()) return style.size;
+  let size = style.size;
+  while (size > 1) {
+    const lines = wrapAt(ctx, text, style, size, box.w);
+    if (lines && lines.length * size * DESC_LINE_HEIGHT <= box.h) break;
+    size--;
+  }
+  return size;
+}
+
+/** Draw a wrapped, aligned block vertically centered in its box. */
+function drawWrappedText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  style: AZVResolvedTextStyle,
+  box: { x: number; y: number; w: number; h: number },
+): void {
+  const size = fitAZVBlockSize(text, style, box);
+  const lines = wrapAt(ctx, text, style, size, box.w) ?? [text];
+  ctx.font = fontString(style, size);
+  ctx.fillStyle = colorHex(style.color);
+  ctx.textBaseline = "middle";
+  const step = size * DESC_LINE_HEIGHT;
+  let y = box.y + (box.h - lines.length * step) / 2 + step / 2 + style.offsetY;
+  for (const line of lines) {
+    if (style.align === "left") {
+      ctx.textAlign = "left";
+      ctx.fillText(line, box.x, y);
+    } else if (style.align === "right") {
+      ctx.textAlign = "right";
+      ctx.fillText(line, box.x + box.w, y);
+    } else {
+      ctx.textAlign = "center";
+      ctx.fillText(line, box.x + box.w / 2, y);
+    }
+    y += step;
+  }
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+}
+
 const slotBox = (slot: { cx: number; cy: number; size: number }) => ({
   x: slot.cx - slot.size / 2,
   y: slot.cy - slot.size / 2,
@@ -115,7 +196,12 @@ const slotBox = (slot: { cx: number; cy: number; size: number }) => ({
 export async function renderAZVCard(input: AZVCardRenderInput): Promise<Blob> {
   const titleStyle = resolveAZVTextStyle("title", input.textStyles);
   const numbersStyle = resolveAZVTextStyle("numbers", input.textStyles);
-  await Promise.all([ensureJMFont(titleStyle.font), ensureJMFont(numbersStyle.font)]);
+  const descStyle = resolveAZVTextStyle("description", input.textStyles);
+  await Promise.all([
+    ensureJMFont(titleStyle.font),
+    ensureJMFont(numbersStyle.font),
+    ensureJMFont(descStyle.font),
+  ]);
 
   const canvas = document.createElement("canvas");
   canvas.width = CARD_W;
@@ -139,6 +225,11 @@ export async function renderAZVCard(input: AZVCardRenderInput): Promise<Blob> {
   const title = input.title?.trim();
   if (title) {
     drawBoxedText(ctx, title, titleStyle, AZV_LAYOUT.title);
+  }
+
+  const description = input.description?.trim();
+  if (description) {
+    drawWrappedText(ctx, description, descStyle, AZV_LAYOUT.description);
   }
 
   if (typeof input.hits === "number") {
