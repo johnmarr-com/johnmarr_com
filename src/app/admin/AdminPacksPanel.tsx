@@ -7,7 +7,7 @@ import { useJMStyle } from "@/JMStyle";
 import { getTopLevelContent } from "@/lib/content";
 
 /**
- * AdminDecksPanel — Inventing Studio home for deck building.
+ * AdminPacksPanel — Inventing Studio home for pack building.
  *
  * Lists every game engine with customizable content / deck building and
  * jumps straight to its pack creator (the same screen reached from the
@@ -29,7 +29,7 @@ interface DeckGameTile {
   coverURL: string;
 }
 
-export function AdminDecksPanel() {
+export function AdminPacksPanel() {
   const { theme } = useJMStyle();
   const router = useRouter();
   const [tiles, setTiles] = useState<DeckGameTile[]>([]);
@@ -58,7 +58,7 @@ export function AdminDecksPanel() {
           })),
         );
       } catch (err) {
-        console.error("[decks] failed to load games:", err);
+        console.error("[packs] failed to load games:", err);
         if (!cancelled) {
           setTiles(
             DECK_ENGINES.map(({ engine, fallbackName }) => ({
@@ -81,10 +81,10 @@ export function AdminDecksPanel() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold" style={{ color: theme.text.primary }}>
-          Decks
+          Packs
         </h2>
         <p className="mt-1 text-sm" style={{ color: theme.text.secondary }}>
-          Pick a game to open its deck creator / editor.
+          Pick a game to open its pack creator / editor.
         </p>
       </div>
 

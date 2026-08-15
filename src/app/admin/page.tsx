@@ -24,7 +24,7 @@ import { AdminAIPersonasPanel } from "./AdminAIPersonasPanel";
 import { AdminDataCleanupPanel } from "./AdminDataCleanupPanel";
 import { AdminAgentsPanel } from "./AdminAgentsPanel";
 import { AdminTriviaReviewPanel } from "./AdminTriviaReviewPanel";
-import { AdminDecksPanel } from "./AdminDecksPanel";
+import { AdminPacksPanel } from "./AdminPacksPanel";
 
 function AdminContent() {
   const { isAdmin } = useAuth();
@@ -90,7 +90,7 @@ function AdminContent() {
         {focus === "cleanup" && <AdminDataCleanupPanel />}
         {focus === "agents" && <AdminAgentsPanel />}
         {focus === "trivia_review" && <AdminTriviaReviewPanel />}
-        {focus === "decks" && <AdminDecksPanel />}
+        {focus === "packs" && <AdminPacksPanel />}
       </main>
     </div>
   );

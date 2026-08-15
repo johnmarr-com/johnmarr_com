@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
 import { useJMStyle } from "@/JMStyle";
 
-export type AdminFocus = "users" | "avatars" | "featured" | "alert" | "brands" | "rowcollections" | "gridcollections" | "pages" | "show" | "story" | "card" | "game" | "artist" | "auction" | "levels" | "points" | "aipersonas" | "cleanup" | "agents" | "trivia_review" | "scrollyfox" | "decks" | null;
+export type AdminFocus = "users" | "avatars" | "featured" | "alert" | "brands" | "rowcollections" | "gridcollections" | "pages" | "show" | "story" | "game" | "artist" | "auction" | "levels" | "points" | "aipersonas" | "cleanup" | "agents" | "trivia_review" | "scrollyfox" | "packs" | null;
 
 interface JMAdminDropdownProps {
   value: AdminFocus;
@@ -25,9 +25,8 @@ const SORTED: { value: AdminFocus; label: string }[] = [
   { value: "auction", label: "Auctions" },
   { value: "avatars", label: "Avatars" },
   { value: "brands", label: "Brands" },
-  { value: "card", label: "Cards" },
   { value: "cleanup", label: "Data Cleanup" },
-  { value: "decks", label: "Decks" },
+  { value: "packs", label: "Packs" },
   { value: "featured", label: "Featured" },
   { value: "game", label: "Games" },
   { value: "gridcollections", label: "Grid Collections" },
