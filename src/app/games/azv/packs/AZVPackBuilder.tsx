@@ -777,7 +777,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                         className="absolute flex items-center whitespace-nowrap"
                         style={{
                           left: AZV_LAYOUT.title.x,
-                          top: AZV_LAYOUT.title.y,
+                          top: AZV_LAYOUT.title.y + titleStyle.offsetY,
                           width: AZV_LAYOUT.title.w,
                           height: AZV_LAYOUT.title.h,
                           justifyContent: styleAlign(titleStyle.align),
@@ -797,7 +797,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                         className="absolute flex items-center"
                         style={{
                           left: AZV_LAYOUT.hits.cx - AZV_LAYOUT.hits.size / 2,
-                          top: AZV_LAYOUT.hits.cy - AZV_LAYOUT.hits.size / 2,
+                          top: AZV_LAYOUT.hits.cy - AZV_LAYOUT.hits.size / 2 + numbersStyle.offsetY,
                           width: AZV_LAYOUT.hits.size,
                           height: AZV_LAYOUT.hits.size,
                           justifyContent: styleAlign(numbersStyle.align),
@@ -831,7 +831,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                         className="absolute flex items-center"
                         style={{
                           left: AZV_LAYOUT.hopeHunger.cx - AZV_LAYOUT.hopeHunger.size / 2,
-                          top: AZV_LAYOUT.hopeHunger.cy - AZV_LAYOUT.hopeHunger.size / 2,
+                          top: AZV_LAYOUT.hopeHunger.cy - AZV_LAYOUT.hopeHunger.size / 2 + numbersStyle.offsetY,
                           width: AZV_LAYOUT.hopeHunger.size,
                           height: AZV_LAYOUT.hopeHunger.size,
                           justifyContent: styleAlign(numbersStyle.align),

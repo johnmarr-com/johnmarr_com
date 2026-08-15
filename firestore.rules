@@ -789,6 +789,25 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────────────────────
+    // ATOMIC ZOMBIE VAMPIRES STYLE SETS (Reusable text-style presets)
+    // ─────────────────────────────────────────────────────────────
+
+    match /azvStyleSets/{setId} {
+      // Any authenticated user can read style sets
+      allow read: if isAuthenticated();
+
+      // Authenticated users can create sets; creatorId must match
+      allow create: if isAuthenticated()
+        && request.resource.data.creatorId == request.auth.uid;
+
+      // Creator can update their own sets, admins can update any
+      allow update: if (isAuthenticated() && resource.data.creatorId == request.auth.uid) || isAdmin();
+
+      // Creator can delete their own sets, admins can delete any
+      allow delete: if (isAuthenticated() && resource.data.creatorId == request.auth.uid) || isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // FYVE KEYS (Server-only secret key assignments)
     // ─────────────────────────────────────────────────────────────
 

@@ -87,12 +87,14 @@ export interface AZVResolvedTextStyle {
   weight: AZVTextWeight;
   color: AZVTextColor;
   align: AZVTextAlign;
+  /** Vertical nudge in card pixels (+down / −up). */
+  offsetY: number;
 }
 
 const ROLE_DEFAULTS: Record<keyof AZVTextStyles, AZVResolvedTextStyle> = {
-  title: { font: undefined, size: AZV_LAYOUT.title.maxFontSize, weight: "bold", color: "white", align: "center" },
-  description: { font: undefined, size: 40, weight: "normal", color: "white", align: "center" },
-  numbers: { font: undefined, size: AZV_LAYOUT.hits.maxFontSize, weight: "bold", color: "white", align: "center" },
+  title: { font: undefined, size: AZV_LAYOUT.title.maxFontSize, weight: "bold", color: "white", align: "center", offsetY: 0 },
+  description: { font: undefined, size: 40, weight: "normal", color: "white", align: "center", offsetY: 0 },
+  numbers: { font: undefined, size: AZV_LAYOUT.hits.maxFontSize, weight: "bold", color: "white", align: "center", offsetY: 0 },
 };
 
 /** Resolve a role's style against its defaults. */
@@ -108,6 +110,7 @@ export function resolveAZVTextStyle(
     weight: s.weight ?? d.weight,
     color: s.color ?? d.color,
     align: s.align ?? d.align,
+    offsetY: s.offsetY ?? d.offsetY,
   };
 }
 

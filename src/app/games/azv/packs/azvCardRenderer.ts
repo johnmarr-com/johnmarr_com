@@ -89,7 +89,7 @@ function drawBoxedText(
   ctx.font = fontString(style, size);
   ctx.fillStyle = colorHex(style.color);
   ctx.textBaseline = "middle";
-  const y = box.y + box.h / 2;
+  const y = box.y + box.h / 2 + style.offsetY;
   if (style.align === "left") {
     ctx.textAlign = "left";
     ctx.fillText(text, box.x, y);

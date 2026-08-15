@@ -73,6 +73,9 @@ export interface AZVTextStyle {
   weight?: AZVTextWeight;
   color?: AZVTextColor;
   align?: AZVTextAlign;
+  /** Vertical nudge in card pixels (+down / −up) — different fonts sit on
+   * different baselines. */
+  offsetY?: number;
 }
 
 /** The three text roles a card renders. */
@@ -155,6 +158,62 @@ async function getDb() {
   const { getFirestore } = await import("firebase/firestore");
   const { app } = await initializeFirebase();
   return getFirestore(app);
+}
+
+/** A named, reusable set of text styles ("style preset") — separate from
+ * card data. Cards only remember concrete values; presets make loading a
+ * look onto another card easy. */
+export interface AZVStyleSet {
+  id: string;
+  name: string;
+  styles: AZVTextStyles;
+  creatorId: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/** All saved style sets, A→Z. */
+export async function listAZVStyleSets(): Promise<AZVStyleSet[]> {
+  const { collection, query, orderBy, getDocs } = await import("firebase/firestore");
+  const db = await getDb();
+  const snap = await getDocs(query(collection(db, "azvStyleSets"), orderBy("name")));
+  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<AZVStyleSet, "id">) }));
+}
+
+/** Save a style set — overwrites the set with the same name, else creates. */
+export async function saveAZVStyleSet(
+  name: string,
+  styles: AZVTextStyles,
+  userId: string,
+): Promise<AZVStyleSet> {
+  const { collection, query, where, getDocs, doc, setDoc, updateDoc, serverTimestamp } =
+    await import("firebase/firestore");
+  const db = await getDb();
+
+  const trimmed = name.trim();
+  const existing = await getDocs(
+    query(collection(db, "azvStyleSets"), where("name", "==", trimmed)),
+  );
+  const found = existing.docs[0];
+  if (found) {
+    await updateDoc(found.ref, { styles, updatedAt: serverTimestamp() });
+    return { id: found.id, ...(found.data() as Omit<AZVStyleSet, "id">), styles };
+  }
+  const ref = doc(collection(db, "azvStyleSets"));
+  const data = {
+    name: trimmed,
+    styles,
+    creatorId: userId,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+  await setDoc(ref, data);
+  return {
+    id: ref.id,
+    ...data,
+    createdAt: data.createdAt as unknown as Timestamp,
+    updatedAt: data.updatedAt as unknown as Timestamp,
+  };
 }
 
 // ─── Pack CRUD ───────────────────────────────────────────────
