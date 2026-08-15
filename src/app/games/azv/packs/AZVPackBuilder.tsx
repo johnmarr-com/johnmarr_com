@@ -36,7 +36,12 @@ import {
   weaponIconPath,
   resolveAZVTextStyle,
 } from "./azvCardSpec";
-import { renderAZVCard, fitAZVTextSize, fitAZVBlockSize } from "./azvCardRenderer";
+import {
+  renderAZVCard,
+  fitAZVTextSize,
+  fitAZVBlockSize,
+  fitAZVConditionsSize,
+} from "./azvCardRenderer";
 import { parseAZVRichText } from "./azvRichText";
 import type { AZVTextStyles } from "@/lib/azv-packs";
 import AZVTextStyleModal from "./AZVTextStyleModal";
@@ -156,6 +161,20 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
       cancelled = true;
     };
   }, [description, textStyles]);
+
+  /** Fitted size for the conditions block in the preview. */
+  const [condFitSize, setCondFitSize] = useState<number>(32);
+  useEffect(() => {
+    let cancelled = false;
+    const style = resolveAZVTextStyle("description", textStyles);
+    void ensureJMFont(style.font).then(() => {
+      if (cancelled) return;
+      setCondFitSize(fitAZVConditionsSize(conditions, style, AZV_LAYOUT.description));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [conditions, textStyles]);
 
   /** Fitted sizes for the two stat slots in the preview. */
   const [statFitSizes, setStatFitSizes] = useState({ hits: 90, hopeHunger: 90 });
@@ -342,6 +361,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
         ...(hopeHungerN != null ? { hopeOrHunger: hopeHungerN } : {}),
         ...(spec.fields.weaponType && weaponType ? { weaponType } : {}),
         ...(spec.fields.description && description.trim() ? { description: description.trim() } : {}),
+        ...(spec.fields.conditions && conditions.length ? { conditions } : {}),
         textStyles,
       });
       const url = await uploadAZVCardImage(pack.id, `azv-${cardIdRef.current}`, blob);
@@ -351,7 +371,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
     } finally {
       setGenerating(false);
     }
-  }, [editing, cardType, level, pendingBgPreview, bgURL, pack.id, title, hits, hope, hunger, weaponType, description, textStyles, spec]);
+  }, [editing, cardType, level, pendingBgPreview, bgURL, pack.id, title, hits, hope, hunger, weaponType, description, conditions, textStyles, spec]);
 
   /** Cards grouped by type — and, for level-bearing types, by level too. */
   const cardGroups = (() => {
@@ -426,7 +446,9 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
   const titleStyle = resolveAZVTextStyle("title", textStyles);
   const numbersStyle = resolveAZVTextStyle("numbers", textStyles);
   const descStyle = resolveAZVTextStyle("description", textStyles);
-  const previewDescription = spec.fields.description ? description.trim() : "";
+  const previewConditions = spec.fields.conditions ? conditions.slice(0, 2) : [];
+  const previewDescription =
+    previewConditions.length === 0 && spec.fields.description ? description.trim() : "";
   const styleColor = (c: "black" | "white") => (c === "black" ? "#000" : "#fff");
   const styleAlign = (a: "left" | "center" | "right") =>
     a === "left" ? "flex-start" : a === "right" ? "flex-end" : "center";
@@ -664,7 +686,11 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                   <div className="space-y-1.5">
                     <label className={labelClass}>Conditions</label>
                     {conditions.map((c, i) => (
-                      <div key={i} className="flex items-center gap-1.5">
+                      <div
+                        key={i}
+                        className="space-y-1.5 rounded-lg border border-white/10 bg-white/5 p-2"
+                      >
+                        <div className="flex items-center gap-1.5">
                         <select
                           value={c.condition}
                           onChange={(e) =>
@@ -721,6 +747,20 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
+                        </div>
+                        <input
+                          type="text"
+                          value={c.conditionDescription ?? ""}
+                          onChange={(e) =>
+                            setConditions((prev) =>
+                              prev.map((x, j) =>
+                                j === i ? { ...x, conditionDescription: e.target.value } : x,
+                              ),
+                            )
+                          }
+                          placeholder="e.g. Sticky (+1 to hit her)"
+                          className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white placeholder-white/25 outline-none focus:border-lime-400/40"
+                        />
                       </div>
                     ))}
                     <button
@@ -917,6 +957,57 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                         }}
                       >
                         {title}
+                      </div>
+                    )}
+
+                    {/* Conditions block — rows centered in the description box */}
+                    {previewConditions.length > 0 && (
+                      <div
+                        className="absolute flex flex-col justify-center"
+                        style={{
+                          left: AZV_LAYOUT.description.x,
+                          top: AZV_LAYOUT.description.y + descStyle.offsetY,
+                          width: AZV_LAYOUT.description.w,
+                          height: AZV_LAYOUT.description.h,
+                          fontFamily: jmFontFamily(descStyle.font),
+                          fontSize: condFitSize,
+                          color: styleColor(descStyle.color),
+                        }}
+                      >
+                        {previewConditions.map((c, i) => (
+                          <div
+                            key={i}
+                            className="flex items-center justify-center"
+                            style={{
+                              height: AZV_LAYOUT.conditionRow.height,
+                              gap: AZV_LAYOUT.conditionRow.gap,
+                            }}
+                          >
+                            <span style={{ fontWeight: 700 }}>{c.condition}:</span>
+                            {/* eslint-disable-next-line @next/next/no-img-element -- local asset */}
+                            <img
+                              src={weaponIconPath(c.weapon)}
+                              alt={c.weapon}
+                              onError={(e) => {
+                                e.currentTarget.style.visibility = "hidden";
+                              }}
+                              style={{
+                                width: AZV_LAYOUT.conditionRow.iconSize,
+                                height: AZV_LAYOUT.conditionRow.iconSize,
+                              }}
+                            />
+                            {c.conditionDescription?.trim() && (
+                              <span
+                                style={{
+                                  fontWeight: descStyle.weight === "bold" ? 700 : 400,
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {c.conditionDescription}
+                              </span>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     )}
 

@@ -78,8 +78,11 @@ export const AZV_LAYOUT = {
   hits: { cx: 212, cy: 985, size: 125, maxFontSize: 90 },
   /** Hope / Hunger number — 125×125 centered at (684, 985). Bold. */
   hopeHunger: { cx: 684, cy: 985, size: 125, maxFontSize: 90 },
-  /** Description block — wraps + shrinks to fit. */
+  /** Description block — wraps + shrinks to fit. Conditions share this box
+   * (a card has description OR conditions, never both). */
   description: { x: 150, y: 1150, w: 600, h: 170 },
+  /** One condition row: bold "Type:" + 70×70 weapon icon + note, centered. */
+  conditionRow: { height: 80, iconSize: 70, gap: 12 },
 } as const;
 
 /** A text role's style with every field resolved to a concrete value. */

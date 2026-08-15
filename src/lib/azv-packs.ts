@@ -59,6 +59,9 @@ export interface AZVCondition {
   condition: AZVConditionType;
   weapon: AZVWeaponType;
   value: number;
+  /** Short plain-text note rendered after the weapon icon, e.g.
+   * "Sticky (+1 to hit her)". */
+  conditionDescription?: string;
 }
 
 export type AZVTextColor = "black" | "white";

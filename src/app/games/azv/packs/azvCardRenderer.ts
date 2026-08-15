@@ -1,7 +1,7 @@
 "use client";
 
 import { ensureJMFont, jmFontFamily } from "@/JMKit";
-import type { AZVCardType, AZVWeaponType, AZVTextStyles } from "@/lib/azv-packs";
+import type { AZVCardType, AZVWeaponType, AZVTextStyles, AZVCondition } from "@/lib/azv-packs";
 import {
   overlayForCard,
   weaponIconPath,
@@ -33,6 +33,8 @@ export interface AZVCardRenderInput {
   hopeOrHunger?: number | undefined;
   weaponType?: AZVWeaponType | undefined;
   description?: string | undefined;
+  /** Rendered in the description box instead of `description` when present. */
+  conditions?: AZVCondition[] | undefined;
   textStyles?: AZVTextStyles | undefined;
 }
 
@@ -221,6 +223,91 @@ function drawWrappedText(
   ctx.textBaseline = "alphabetic";
 }
 
+// ── Conditions ──────────────────────────────────────────────
+// Each row: bold "Weakness:" + 70×70 weapon icon + the note, the trio
+// centered horizontally; rows centered vertically in the description box.
+
+const conditionLabel = (c: AZVCondition): string => `${c.condition}:`;
+
+/** Row part widths at a given size (label / note; icon is fixed). */
+function measureConditionRow(
+  ctx: CanvasRenderingContext2D,
+  c: AZVCondition,
+  style: AZVResolvedTextStyle,
+  size: number,
+): { labelW: number; noteW: number; total: number } {
+  const { iconSize, gap } = AZV_LAYOUT.conditionRow;
+  const family = jmFontFamily(style.font);
+  ctx.font = `bold ${size}px ${family}`;
+  const labelW = ctx.measureText(conditionLabel(c)).width;
+  const note = c.conditionDescription?.trim() ?? "";
+  ctx.font = fontString(style, size);
+  const noteW = note ? ctx.measureText(note).width : 0;
+  const total = labelW + gap + iconSize + (noteW ? gap + noteW : 0);
+  return { labelW, noteW, total };
+}
+
+/** Largest size (≤ style size) where every condition row fits the box width. */
+export function fitAZVConditionsSize(
+  conditions: AZVCondition[],
+  style: AZVResolvedTextStyle,
+  box: { w: number },
+): number {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx || conditions.length === 0) return style.size;
+  let size = style.size;
+  while (size > 1) {
+    if (conditions.every((c) => measureConditionRow(ctx, c, style, size).total <= box.w)) break;
+    size--;
+  }
+  return size;
+}
+
+async function drawConditions(
+  ctx: CanvasRenderingContext2D,
+  conditions: AZVCondition[],
+  style: AZVResolvedTextStyle,
+  box: { x: number; y: number; w: number; h: number },
+): Promise<void> {
+  const { height: rowH, iconSize, gap } = AZV_LAYOUT.conditionRow;
+  const rows = conditions.slice(0, 2);
+  const size = fitAZVConditionsSize(rows, style, box);
+  const family = jmFontFamily(style.font);
+  const color = colorHex(style.color);
+
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+
+  // Rows centered as a group, whatever the count.
+  let centerY = box.y + (box.h - rows.length * rowH) / 2 + rowH / 2 + style.offsetY;
+  for (const c of rows) {
+    const { labelW, total } = measureConditionRow(ctx, c, style, size);
+    let x = box.x + (box.w - total) / 2;
+
+    ctx.font = `bold ${size}px ${family}`;
+    ctx.fillStyle = color;
+    ctx.fillText(conditionLabel(c), x, centerY + cssCenterBaseline(ctx));
+    x += labelW + gap;
+
+    try {
+      const icon = await loadImage(weaponIconPath(c.weapon));
+      ctx.drawImage(icon, x, centerY - iconSize / 2, iconSize, iconSize);
+    } catch (err) {
+      console.warn("[azv] condition icon failed to load:", err);
+    }
+    x += iconSize + gap;
+
+    const note = c.conditionDescription?.trim() ?? "";
+    if (note) {
+      ctx.font = fontString(style, size);
+      ctx.fillStyle = color;
+      ctx.fillText(note, x, centerY + cssCenterBaseline(ctx));
+    }
+    centerY += rowH;
+  }
+}
+
 const slotBox = (slot: { cx: number; cy: number; size: number }) => ({
   x: slot.cx - slot.size / 2,
   y: slot.cy - slot.size / 2,
@@ -263,8 +350,12 @@ export async function renderAZVCard(input: AZVCardRenderInput): Promise<Blob> {
     drawBoxedText(ctx, title, titleStyle, AZV_LAYOUT.title);
   }
 
+  // A card carries conditions OR a description — conditions win the box.
+  const conditions = input.conditions?.length ? input.conditions : null;
   const description = input.description?.trim();
-  if (description) {
+  if (conditions) {
+    await drawConditions(ctx, conditions, descStyle, AZV_LAYOUT.description);
+  } else if (description) {
     drawWrappedText(ctx, description, descStyle, AZV_LAYOUT.description);
   }
 
