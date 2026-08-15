@@ -22,7 +22,8 @@ export interface AZVTypeSpec {
   overlay: string | null | ((level: number) => string);
 }
 
-const GENERAL = "/games/azv/General-Overlay.png";
+const HUMAN = "/games/azv/Human-Overlay.png";
+const GOOD_STUFF = "/games/azv/GoodStuff-Overlay.png";
 const MEGA = "/games/azv/Mega-Stuff-Overlay.png";
 
 /** BadStuff mall floors, level 1–5. */
@@ -37,7 +38,7 @@ const BAD_STUFF_OVERLAYS: Record<number, string> = {
 export const AZV_TYPE_SPEC: Record<AZVCardType, AZVTypeSpec> = {
   Humans: {
     fields: { hope: true, hits: true, description: true, oneTimePower: true },
-    overlay: GENERAL,
+    overlay: HUMAN,
   },
   Targets: {
     fields: {},
@@ -49,7 +50,7 @@ export const AZV_TYPE_SPEC: Record<AZVCardType, AZVTypeSpec> = {
   },
   GoodStuff: {
     fields: { weaponType: true, hope: true, description: true },
-    overlay: GENERAL,
+    overlay: GOOD_STUFF,
   },
   MegaStuff: {
     fields: { weaponType: true, hope: true, description: true },
