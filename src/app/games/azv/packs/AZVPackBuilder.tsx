@@ -861,16 +861,41 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                 )}
               </div>
 
-              {/* Per-card text styling — full controls live in the popup */}
+              {/* Per-card text styling — the popup creates/edits sets; the
+                  dropdown assigns a saved set without leaving the preview */}
               {editing !== null && (
-                <button
-                  type="button"
-                  onClick={() => setStyleModalOpen(true)}
-                  className="mt-4 flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-bold text-white/80 transition-colors hover:bg-white/10"
-                >
-                  <Type className="h-4 w-4" />
-                  Text Styles
-                </button>
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStyleModalOpen(true)}
+                    className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-bold text-white/80 transition-colors hover:bg-white/10"
+                  >
+                    <Type className="h-4 w-4" />
+                    Text Styles
+                  </button>
+                  <select
+                    value={styleSetId}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setStyleSetId(id);
+                      const set = styleSets.find((x) => x.id === id);
+                      setTextStyles(
+                        set
+                          ? (JSON.parse(JSON.stringify(set.styles)) as AZVTextStyles)
+                          : {},
+                      );
+                    }}
+                    className="rounded-xl border border-white/20 bg-neutral-800 px-3 py-2.5 text-sm text-white outline-none focus:border-lime-400/50"
+                    title="Assign a saved style set to this card"
+                  >
+                    <option value="">No style set</option>
+                    {styleSets.map((set) => (
+                      <option key={set.id} value={set.id}>
+                        {set.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               )}
             </div>
           </div>
