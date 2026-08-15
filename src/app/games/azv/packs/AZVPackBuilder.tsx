@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ArrowLeft, Plus, Loader2, Trash2, Upload, Wand2, X, Type } from "lucide-react";
+import { ArrowLeft, Plus, Loader2, Trash2, Upload, Wand2, X, Type, ChevronRight, FileSpreadsheet } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
 import { listAZVStyleSets, type AZVStyleSet } from "@/lib/azv-packs";
 import {
@@ -89,6 +89,8 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
   }, []);
   /** null = list mode; "new" or a card = form mode. */
   const [editing, setEditing] = useState<AZVCard | "new" | null>(null);
+  /** Collapsible card groups — all closed by default. */
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   // ── Form state ──────────────────────────────────────────────
   const [cardType, setCardType] = useState<AZVCardType>("Humans");
@@ -351,6 +353,61 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
     }
   }, [editing, cardType, level, pendingBgPreview, bgURL, pack.id, title, hits, hope, hunger, weaponType, description, textStyles, spec]);
 
+  /** Cards grouped by type — and, for level-bearing types, by level too. */
+  const cardGroups = (() => {
+    const groups = new Map<string, { label: string; cards: AZVCard[] }>();
+    for (const type of AZV_CARD_TYPES) {
+      const ofType = cards.filter((c) => c.cardType === type);
+      if (ofType.length === 0) continue;
+      if (AZV_TYPE_SPEC[type].fields.level) {
+        const levels = [...new Set(ofType.map((c) => c.level ?? 1))].sort((a, b) => a - b);
+        for (const lvl of levels) {
+          groups.set(`${type}-L${lvl}`, {
+            label: `${AZV_CARD_TYPE_LABELS[type]} · Level ${lvl}`,
+            cards: ofType.filter((c) => (c.level ?? 1) === lvl),
+          });
+        }
+      } else {
+        groups.set(type, { label: AZV_CARD_TYPE_LABELS[type], cards: ofType });
+      }
+    }
+    return groups;
+  })();
+
+  /** Export every card as CSV (all authored fields + links). */
+  const handleExportCsv = useCallback(() => {
+    const esc = (v: string): string => `"${v.replace(/"/g, '""')}"`;
+    const setName = (id: string | undefined): string =>
+      id ? (styleSets.find((x) => x.id === id)?.name ?? id) : "";
+    const rows = [
+      ["Card Type", "Title", "Level", "Hits", "Hunger", "Hope", "Weapon", "Conditions", "Description", "One-Time Power", "Style Set", "Background URL", "Card Image URL"],
+      ...cards.map((c) => [
+        AZV_CARD_TYPE_LABELS[c.cardType],
+        c.title,
+        c.level != null ? String(c.level) : "",
+        c.hits != null ? String(c.hits) : "",
+        c.hunger != null ? String(c.hunger) : "",
+        c.hope != null ? String(c.hope) : "",
+        c.weaponType ?? "",
+        (c.conditions ?? []).map((x) => `${x.condition} ${x.weapon} ${x.value}`).join("; "),
+        c.description ?? "",
+        c.oneTimePower ?? "",
+        setName(c.styleSetId),
+        c.backgroundImageURL ?? "",
+        c.cardImageURL ?? "",
+      ]),
+    ];
+    const csv = rows.map((r) => r.map(esc).join(",")).join("\r\n");
+    // BOM so Excel opens UTF-8 correctly.
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${pack.name.replace(/[/\\:*?"<>|]/g, "-")} cards.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [cards, styleSets, pack.name]);
+
   const handleDelete = useCallback(async () => {
     if (!editing || editing === "new") return;
     try {
@@ -386,9 +443,21 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
           All Packs
         </button>
 
-        <h1 className="mb-6 text-2xl font-black uppercase tracking-wider text-lime-400">
-          {pack.name}
-        </h1>
+        <div className="mb-6 flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-black uppercase tracking-wider text-lime-400">
+            {pack.name}
+          </h1>
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            disabled={cards.length === 0}
+            className="flex shrink-0 items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm font-bold text-white/80 transition-colors hover:bg-white/10 disabled:opacity-40"
+            title="Export all cards as CSV"
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            CSV
+          </button>
+        </div>
 
         <div className="flex flex-col gap-6 lg:flex-row">
           {/* ── Left column: card list, or the create/edit form in its place ── */}
@@ -411,39 +480,63 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                 ) : cards.length === 0 ? (
                   <p className="py-8 text-center text-sm text-white/30">No cards yet.</p>
                 ) : (
-                  cards.map((card) => (
-                    <button
-                      key={card.id}
-                      type="button"
-                      onClick={() => openForm(card)}
-                      className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-2.5 text-left transition-colors hover:border-lime-400/30 hover:bg-white/10"
-                    >
-                      <div className="aspect-3/5 w-10 shrink-0 overflow-hidden rounded-md bg-neutral-800">
-                        {card.backgroundImageURL ? (
-                          /* eslint-disable-next-line @next/next/no-img-element -- Storage URL */
-                          <img
-                            src={card.backgroundImageURL}
-                            alt=""
-                            className="h-full w-full object-cover"
-                          />
-                        ) : null}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-white">
-                          {cardListLabel(card)}
-                        </p>
-                        <p className="text-[10px] uppercase tracking-wider text-white/35">
-                          {AZV_CARD_TYPE_LABELS[card.cardType]}
-                          {card.level ? ` · L${card.level}` : ""}
-                        </p>
-                      </div>
-                      {card.cardImageURL && (
-                        <span
-                          className="h-2.5 w-2.5 shrink-0 rounded-full bg-lime-400"
-                          title="Card generated"
+                  [...cardGroups.entries()].map(([key, group]) => (
+                    <div key={key} className="overflow-hidden rounded-xl border border-white/10">
+                      {/* Group header — tap to expand/collapse, count at right */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }))
+                        }
+                        className="flex w-full items-center gap-2 bg-white/5 px-3 py-2.5 text-left transition-colors hover:bg-white/10"
+                      >
+                        <ChevronRight
+                          className={`h-4 w-4 shrink-0 text-white/40 transition-transform ${
+                            openGroups[key] ? "rotate-90" : ""
+                          }`}
                         />
+                        <span className="min-w-0 flex-1 truncate text-sm font-bold text-white">
+                          {group.label}
+                        </span>
+                        <span className="shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-xs font-bold text-white/50">
+                          {group.cards.length}
+                        </span>
+                      </button>
+
+                      {/* 3-column card grid */}
+                      {openGroups[key] && (
+                        <div className="grid grid-cols-3 gap-2 p-2">
+                          {group.cards.map((card) => (
+                            <button
+                              key={card.id}
+                              type="button"
+                              onClick={() => openForm(card)}
+                              className="group flex flex-col items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 p-1.5 transition-colors hover:border-lime-400/30 hover:bg-white/10"
+                            >
+                              <div className="aspect-3/5 w-full overflow-hidden rounded-md bg-neutral-800">
+                                {card.backgroundImageURL ? (
+                                  /* eslint-disable-next-line @next/next/no-img-element -- Storage URL */
+                                  <img
+                                    src={card.backgroundImageURL}
+                                    alt=""
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : null}
+                              </div>
+                              <p className="w-full truncate text-center text-xs font-bold text-white">
+                                {cardListLabel(card)}
+                              </p>
+                              {card.cardImageURL && (
+                                <span
+                                  className="h-2 w-2 shrink-0 rounded-full bg-lime-400"
+                                  title="Card generated"
+                                />
+                              )}
+                            </button>
+                          ))}
+                        </div>
                       )}
-                    </button>
+                    </div>
                   ))
                 )}
               </div>
