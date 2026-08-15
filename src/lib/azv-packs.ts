@@ -61,10 +61,20 @@ export interface AZVCondition {
   value: number;
 }
 
+/** Deck-wide font choices (JMFonts registry ids), per text role. */
+export interface AZVFontSettings {
+  title?: string;
+  description?: string;
+  numbers?: string;
+}
+
 export interface AZVPack {
   id: string;
   name: string;
   iconURL?: string;
+  /** Fonts used when rendering this deck's cards (title / description+
+   * conditions / stat numbers). Saved instantly from the builder. */
+  fontSettings?: AZVFontSettings;
   creatorId: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -168,6 +178,19 @@ export async function updateAZVPack(
   const { doc, updateDoc, serverTimestamp } = await import("firebase/firestore");
   const db = await getDb();
   await updateDoc(doc(db, "azvPacks", packId), { ...updates, updatedAt: serverTimestamp() });
+}
+
+/** Save the deck's font choices (fires on dropdown change, no Save step). */
+export async function setAZVPackFonts(
+  packId: string,
+  fontSettings: AZVFontSettings,
+): Promise<void> {
+  const { doc, updateDoc, serverTimestamp } = await import("firebase/firestore");
+  const db = await getDb();
+  await updateDoc(doc(db, "azvPacks", packId), {
+    fontSettings,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 /** Delete a pack AND all of its cards. */

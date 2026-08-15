@@ -3,6 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ArrowLeft, Plus, Loader2, Trash2, Upload, Wand2, X } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
+import { JMFontSelect } from "@/JMKit";
+import {
+  setAZVPackFonts,
+  type AZVFontSettings,
+} from "@/lib/azv-packs";
 import {
   subscribeToAZVCards,
   createAZVCard,
@@ -57,6 +62,8 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
 
   const [cards, setCards] = useState<AZVCard[]>([]);
   const [loading, setLoading] = useState(true);
+  /** Deck-wide font roles — saved to the pack the moment a dropdown changes. */
+  const [fonts, setFonts] = useState<AZVFontSettings>(pack.fontSettings ?? {});
   /** null = list mode; "new" or a card = form mode. */
   const [editing, setEditing] = useState<AZVCard | "new" | null>(null);
 
@@ -242,6 +249,19 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
       setGenerating(false);
     }
   }, [editing, cardType, level, pendingBgPreview, bgURL, pack.id]);
+
+  const handleFontChange = useCallback(
+    (role: keyof AZVFontSettings, fontId: string) => {
+      setFonts((prev) => {
+        const next = { ...prev, [role]: fontId };
+        void setAZVPackFonts(pack.id, next).catch((err) =>
+          console.error("[azv] saving fonts failed:", err),
+        );
+        return next;
+      });
+    },
+    [pack.id],
+  );
 
   const handleDelete = useCallback(async () => {
     if (!editing || editing === "new") return;
@@ -676,6 +696,29 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                     )}
                   </>
                 )}
+              </div>
+
+              {/* Deck fonts — one face per text role, applied when card text
+                  rendering lands. Live samples; saved instantly per pack. */}
+              <div className="mt-4 grid max-w-md gap-3 sm:grid-cols-3">
+                <JMFontSelect
+                  label="Title Font"
+                  value={fonts.title}
+                  onChange={(id) => handleFontChange("title", id)}
+                  sampleText={title.trim() || "Card Title"}
+                />
+                <JMFontSelect
+                  label="Description Font"
+                  value={fonts.description}
+                  onChange={(id) => handleFontChange("description", id)}
+                  sampleText="Description & conditions"
+                />
+                <JMFontSelect
+                  label="Numbers Font"
+                  value={fonts.numbers}
+                  onChange={(id) => handleFontChange("numbers", id)}
+                  sampleText="0 1 2 3 4 5"
+                />
               </div>
             </div>
           </div>
