@@ -6,7 +6,7 @@ import { overlayForCard, weaponIconPath, AZV_LAYOUT } from "./azvCardSpec";
 
 /**
  * AZV print-card renderer — 900×1500 canvas:
- *   background (cover-fit) → type/level overlay → title (fit-to-box, ≤60px)
+ *   background (cover-fit) → type/level overlay → bold title (fit-to-box, ≤90px)
  *   → hits number OR weapon badge at (212,1000) → hope/hunger at (684,1000).
  * Fonts + black/white colors come from the pack's fontSettings (JMFonts ids).
  * Description / conditions placement lands later, card type by card type.
@@ -59,8 +59,23 @@ export function fitAZVTitleSize(title: string, fontFamily: string): number {
   if (!ctx || !title.trim()) return maxFontSize;
   let size = Math.min(maxFontSize, h);
   while (size > 1) {
-    ctx.font = `${size}px ${fontFamily}`;
+    ctx.font = `bold ${size}px ${fontFamily}`;
     if (ctx.measureText(title).width <= w) break;
+    size--;
+  }
+  return size;
+}
+
+/** Largest bold size (≤90) at which a stat number fits its 125px slot. */
+export function fitAZVStatSize(text: string, fontFamily: string): number {
+  const { size: slot, maxFontSize } = AZV_LAYOUT.hits;
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx || !text) return maxFontSize;
+  let size = maxFontSize;
+  while (size > 1) {
+    ctx.font = `bold ${size}px ${fontFamily}`;
+    if (ctx.measureText(text).width <= slot - 6) break;
     size--;
   }
   return size;
@@ -93,27 +108,29 @@ export async function renderAZVCard(input: AZVCardRenderInput): Promise<Blob> {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  // Title — centered in its transparent box, fit to width (max 60).
+  // Title — bold, centered in its transparent box, fit to width (max 90).
   const title = input.title?.trim();
   if (title) {
     const family = jmFontFamily(fonts.title);
     const size = fitAZVTitleSize(title, family);
-    ctx.font = `${size}px ${family}`;
+    ctx.font = `bold ${size}px ${family}`;
     ctx.fillStyle = colorHex(fonts.titleColor);
     const box = AZV_LAYOUT.title;
     ctx.fillText(title, box.x + box.w / 2, box.y + box.h / 2);
   }
 
-  // Numbers — fixed 60px, centered in their 125×125 slots.
+  // Numbers — bold, fitted (≤90px), centered in their 125×125 slots.
   const numbersFamily = jmFontFamily(fonts.numbers);
   ctx.fillStyle = colorHex(fonts.numbersColor);
   if (typeof input.hits === "number") {
-    ctx.font = `${AZV_LAYOUT.hits.fontSize}px ${numbersFamily}`;
-    ctx.fillText(String(input.hits), AZV_LAYOUT.hits.cx, AZV_LAYOUT.hits.cy);
+    const text = String(input.hits);
+    ctx.font = `bold ${fitAZVStatSize(text, numbersFamily)}px ${numbersFamily}`;
+    ctx.fillText(text, AZV_LAYOUT.hits.cx, AZV_LAYOUT.hits.cy);
   }
   if (typeof input.hopeOrHunger === "number") {
-    ctx.font = `${AZV_LAYOUT.hopeHunger.fontSize}px ${numbersFamily}`;
-    ctx.fillText(String(input.hopeOrHunger), AZV_LAYOUT.hopeHunger.cx, AZV_LAYOUT.hopeHunger.cy);
+    const text = String(input.hopeOrHunger);
+    ctx.font = `bold ${fitAZVStatSize(text, numbersFamily)}px ${numbersFamily}`;
+    ctx.fillText(text, AZV_LAYOUT.hopeHunger.cx, AZV_LAYOUT.hopeHunger.cy);
   }
 
   // Weapon badge — occupies the hits slot (types with a weapon have no hits).

@@ -34,7 +34,7 @@ import {
 } from "@/lib/azv-storage";
 import { ensureJMFont, jmFontFamily } from "@/JMKit";
 import { AZV_TYPE_SPEC, AZV_LAYOUT, overlayForCard, weaponIconPath } from "./azvCardSpec";
-import { renderAZVCard, fitAZVTitleSize } from "./azvCardRenderer";
+import { renderAZVCard, fitAZVTitleSize, fitAZVStatSize } from "./azvCardRenderer";
 import type { AZVTextColor } from "@/lib/azv-packs";
 
 interface AZVPackBuilderProps {
@@ -146,10 +146,25 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
     };
   }, [title, fonts.title]);
 
-  // Numbers font for the preview slots.
+  /** Fitted (bold, ≤90px) sizes for the two stat slots in the preview. */
+  const [statFitSizes, setStatFitSizes] = useState({ hits: 90, hopeHunger: 90 });
   useEffect(() => {
-    void ensureJMFont(fonts.numbers);
-  }, [fonts.numbers]);
+    let cancelled = false;
+    void ensureJMFont(fonts.numbers).then(() => {
+      if (cancelled) return;
+      const family = jmFontFamily(fonts.numbers);
+      const hitsN = parseInt(hits, 10);
+      const hhRaw = AZV_TYPE_SPEC[cardType].fields.hope ? hope : hunger;
+      const hhN = parseInt(hhRaw, 10);
+      setStatFitSizes({
+        hits: Number.isNaN(hitsN) ? 90 : fitAZVStatSize(String(hitsN), family),
+        hopeHunger: Number.isNaN(hhN) ? 90 : fitAZVStatSize(String(hhN), family),
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [fonts.numbers, hits, hope, hunger, cardType]);
 
   useEffect(() => {
     let cancelled = false;
@@ -787,6 +802,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                           height: AZV_LAYOUT.title.h,
                           fontFamily: jmFontFamily(fonts.title),
                           fontSize: titleFitSize,
+                          fontWeight: 700,
                           color: titleColorHex,
                         }}
                       >
@@ -804,7 +820,8 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                           width: AZV_LAYOUT.hits.size,
                           height: AZV_LAYOUT.hits.size,
                           fontFamily: jmFontFamily(fonts.numbers),
-                          fontSize: AZV_LAYOUT.hits.fontSize,
+                          fontSize: statFitSizes.hits,
+                          fontWeight: 700,
                           color: numbersColorHex,
                         }}
                       >
@@ -836,7 +853,8 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                           width: AZV_LAYOUT.hopeHunger.size,
                           height: AZV_LAYOUT.hopeHunger.size,
                           fontFamily: jmFontFamily(fonts.numbers),
-                          fontSize: AZV_LAYOUT.hopeHunger.fontSize,
+                          fontSize: statFitSizes.hopeHunger,
+                          fontWeight: 700,
                           color: numbersColorHex,
                         }}
                       >

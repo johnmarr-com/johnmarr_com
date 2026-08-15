@@ -64,12 +64,12 @@ export const AZV_TYPE_SPEC: Record<AZVCardType, AZVTypeSpec> = {
 
 /** Text/stat placement on the 900×1500 card (shared by preview + renderer). */
 export const AZV_LAYOUT = {
-  /** Transparent title box — horizontally centered, center Y = 212. */
-  title: { x: 165, y: 167, w: 570, h: 90, maxFontSize: 60 },
-  /** Hits number (or weapon icon) — 125×125 centered at (212, 1000). */
-  hits: { cx: 212, cy: 1000, size: 125, fontSize: 60 },
-  /** Hope / Hunger number — 125×125 centered at (684, 1000). */
-  hopeHunger: { cx: 684, cy: 1000, size: 125, fontSize: 60 },
+  /** Transparent title box — horizontally centered, center Y = 212. Bold. */
+  title: { x: 165, y: 167, w: 570, h: 90, maxFontSize: 90 },
+  /** Hits number (or weapon icon) — 125×125 centered at (212, 985). Bold. */
+  hits: { cx: 212, cy: 985, size: 125, maxFontSize: 90 },
+  /** Hope / Hunger number — 125×125 centered at (684, 985). Bold. */
+  hopeHunger: { cx: 684, cy: 985, size: 125, maxFontSize: 90 },
 } as const;
 
 /** Weapon type badge graphic (125×125 slot). */
