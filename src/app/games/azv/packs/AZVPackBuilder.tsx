@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ArrowLeft, Plus, Loader2, Trash2, Upload, Wand2, X, Type, ChevronRight, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Plus, Loader2, Trash2, Upload, Wand2, X, Type, ChevronRight, FileSpreadsheet, Zap } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
 import { listAZVStyleSets, type AZVStyleSet } from "@/lib/azv-packs";
 import {
@@ -57,6 +57,12 @@ function cardListLabel(card: { cardType: AZVCardType; title: string; level?: num
   const base = AZV_CARD_TYPE_LABELS[card.cardType];
   return card.level ? `${base} · L${card.level}` : base;
 }
+
+/** The common Bad Stuff pairing — one tap instead of typing both out. */
+const DEFAULT_WEAKNESS_PAIR = (): AZVCondition[] => [
+  { condition: "Weakness", weapon: "Slimy", value: 1, conditionDescription: "Slimy (+1 to hit him)" },
+  { condition: "Weakness", weapon: "Sharp", value: 1, conditionDescription: "Sharp (+1 to hit him)" },
+];
 
 const inputClass =
   "w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 outline-none focus:border-lime-400/40";
@@ -763,19 +769,31 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                         />
                       </div>
                     ))}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setConditions((prev) => [
-                          ...prev,
-                          { condition: "Weakness", weapon: "Slimy", value: 1 },
-                        ])
-                      }
-                      className="flex items-center gap-1 rounded-lg border border-white/15 px-2.5 py-1.5 text-xs font-bold text-white/60 transition-colors hover:bg-white/10"
-                    >
-                      <Plus className="h-3 w-3" />
-                      Add Condition
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setConditions((prev) => [
+                            ...prev,
+                            { condition: "Weakness", weapon: "Slimy", value: 1 },
+                          ])
+                        }
+                        className="flex items-center gap-1 rounded-lg border border-white/15 px-2.5 py-1.5 text-xs font-bold text-white/60 transition-colors hover:bg-white/10"
+                      >
+                        <Plus className="h-3 w-3" />
+                        Add Condition
+                      </button>
+                      {/* One tap for the common Bad Stuff pair */}
+                      <button
+                        type="button"
+                        onClick={() => setConditions(DEFAULT_WEAKNESS_PAIR())}
+                        title="Replace with Slimy + Sharp weaknesses"
+                        className="flex items-center gap-1 rounded-lg border border-lime-400/30 bg-lime-400/10 px-2.5 py-1.5 text-xs font-bold text-lime-300 transition-colors hover:bg-lime-400/20"
+                      >
+                        <Zap className="h-3 w-3" />
+                        2 Weaknesses
+                      </button>
+                    </div>
                   </div>
                 )}
 
