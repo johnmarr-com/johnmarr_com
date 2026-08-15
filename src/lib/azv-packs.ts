@@ -62,24 +62,34 @@ export interface AZVCondition {
 }
 
 export type AZVTextColor = "black" | "white";
+export type AZVTextAlign = "left" | "center" | "right";
+export type AZVTextWeight = "normal" | "bold";
 
-/** Deck-wide font + color choices (JMFonts registry ids), per text role. */
-export interface AZVFontSettings {
-  title?: string;
-  description?: string;
-  numbers?: string;
-  titleColor?: AZVTextColor;
-  descriptionColor?: AZVTextColor;
-  numbersColor?: AZVTextColor;
+/** Full style for one text role (font is a JMFonts registry id). */
+export interface AZVTextStyle {
+  font?: string;
+  /** Font size in card pixels (used as the fit ceiling for boxed text). */
+  size?: number;
+  weight?: AZVTextWeight;
+  color?: AZVTextColor;
+  align?: AZVTextAlign;
+}
+
+/** The three text roles a card renders. */
+export interface AZVTextStyles {
+  title?: AZVTextStyle;
+  description?: AZVTextStyle;
+  numbers?: AZVTextStyle;
 }
 
 export interface AZVPack {
   id: string;
   name: string;
   iconURL?: string;
-  /** Fonts used when rendering this deck's cards (title / description+
-   * conditions / stat numbers). Saved instantly from the builder. */
-  fontSettings?: AZVFontSettings;
+  /** Deck defaults for the three text roles — mirrored from the last card
+   * save, so new cards start from the latest look. Each card stores its own
+   * copy in `textStyles`. */
+  textDefaults?: AZVTextStyles;
   creatorId: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -103,6 +113,8 @@ export interface AZVCard {
   conditions?: AZVCondition[];
   description?: string;
   oneTimePower?: string;
+  /** Per-card styles for the three text roles (falls back to deck defaults). */
+  textStyles?: AZVTextStyles;
   /** 900×1500 background (Storage upload). */
   backgroundImageURL?: string;
   /** Generated print card (900×1500 PNG in `cards/{packId}/`) — written by
@@ -125,6 +137,7 @@ export interface AZVCardFields {
   conditions?: AZVCondition[];
   description?: string;
   oneTimePower?: string;
+  textStyles?: AZVTextStyles;
   backgroundImageURL?: string;
 }
 
@@ -185,15 +198,15 @@ export async function updateAZVPack(
   await updateDoc(doc(db, "azvPacks", packId), { ...updates, updatedAt: serverTimestamp() });
 }
 
-/** Save the deck's font choices (fires on dropdown change, no Save step). */
-export async function setAZVPackFonts(
+/** Mirror the latest card's text styles as the deck defaults for new cards. */
+export async function setAZVPackTextDefaults(
   packId: string,
-  fontSettings: AZVFontSettings,
+  textDefaults: AZVTextStyles,
 ): Promise<void> {
   const { doc, updateDoc, serverTimestamp } = await import("firebase/firestore");
   const db = await getDb();
   await updateDoc(doc(db, "azvPacks", packId), {
-    fontSettings,
+    textDefaults,
     updatedAt: serverTimestamp(),
   });
 }
@@ -252,6 +265,7 @@ async function cardFieldsData(
     ["conditions", fields.conditions?.length ? fields.conditions : undefined],
     ["description", fields.description?.trim() ? fields.description.trim() : undefined],
     ["oneTimePower", fields.oneTimePower?.trim() ? fields.oneTimePower.trim() : undefined],
+    ["textStyles", fields.textStyles && Object.keys(fields.textStyles).length ? fields.textStyles : undefined],
     ["backgroundImageURL", fields.backgroundImageURL || undefined],
   ];
   for (const [key, value] of optionals) {

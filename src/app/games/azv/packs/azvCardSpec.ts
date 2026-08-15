@@ -1,4 +1,12 @@
-import type { AZVCardType, AZVWeaponType } from "@/lib/azv-packs";
+import type {
+  AZVCardType,
+  AZVWeaponType,
+  AZVTextStyle,
+  AZVTextStyles,
+  AZVTextAlign,
+  AZVTextColor,
+  AZVTextWeight,
+} from "@/lib/azv-packs";
 
 /**
  * Per-CardType authoring spec: which optional inputs each type shows, and
@@ -71,6 +79,37 @@ export const AZV_LAYOUT = {
   /** Hope / Hunger number — 125×125 centered at (684, 985). Bold. */
   hopeHunger: { cx: 684, cy: 985, size: 125, maxFontSize: 90 },
 } as const;
+
+/** A text role's style with every field resolved to a concrete value. */
+export interface AZVResolvedTextStyle {
+  font: string | undefined;
+  size: number;
+  weight: AZVTextWeight;
+  color: AZVTextColor;
+  align: AZVTextAlign;
+}
+
+const ROLE_DEFAULTS: Record<keyof AZVTextStyles, AZVResolvedTextStyle> = {
+  title: { font: undefined, size: AZV_LAYOUT.title.maxFontSize, weight: "bold", color: "white", align: "center" },
+  description: { font: undefined, size: 40, weight: "normal", color: "white", align: "center" },
+  numbers: { font: undefined, size: AZV_LAYOUT.hits.maxFontSize, weight: "bold", color: "white", align: "center" },
+};
+
+/** Resolve a role's style against its defaults. */
+export function resolveAZVTextStyle(
+  role: keyof AZVTextStyles,
+  styles: AZVTextStyles | undefined,
+): AZVResolvedTextStyle {
+  const d = ROLE_DEFAULTS[role];
+  const s: AZVTextStyle = styles?.[role] ?? {};
+  return {
+    font: s.font ?? d.font,
+    size: s.size ?? d.size,
+    weight: s.weight ?? d.weight,
+    color: s.color ?? d.color,
+    align: s.align ?? d.align,
+  };
+}
 
 /** Weapon type badge graphic (125×125 slot). */
 export function weaponIconPath(weapon: AZVWeaponType): string {

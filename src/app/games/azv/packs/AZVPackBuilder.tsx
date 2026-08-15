@@ -1,13 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ArrowLeft, Plus, Loader2, Trash2, Upload, Wand2, X } from "lucide-react";
+import { ArrowLeft, Plus, Loader2, Trash2, Upload, Wand2, X, Type } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
-import { JMFontSelect } from "@/JMKit";
-import {
-  setAZVPackFonts,
-  type AZVFontSettings,
-} from "@/lib/azv-packs";
+import { setAZVPackTextDefaults } from "@/lib/azv-packs";
 import {
   subscribeToAZVCards,
   createAZVCard,
@@ -33,9 +29,16 @@ import {
   AZV_IMAGE_ACCEPT,
 } from "@/lib/azv-storage";
 import { ensureJMFont, jmFontFamily } from "@/JMKit";
-import { AZV_TYPE_SPEC, AZV_LAYOUT, overlayForCard, weaponIconPath } from "./azvCardSpec";
-import { renderAZVCard, fitAZVTitleSize, fitAZVStatSize } from "./azvCardRenderer";
-import type { AZVTextColor } from "@/lib/azv-packs";
+import {
+  AZV_TYPE_SPEC,
+  AZV_LAYOUT,
+  overlayForCard,
+  weaponIconPath,
+  resolveAZVTextStyle,
+} from "./azvCardSpec";
+import { renderAZVCard, fitAZVTextSize } from "./azvCardRenderer";
+import type { AZVTextStyles } from "@/lib/azv-packs";
+import AZVTextStyleModal from "./AZVTextStyleModal";
 
 interface AZVPackBuilderProps {
   pack: AZVPack;
@@ -47,33 +50,6 @@ function cardListLabel(card: { cardType: AZVCardType; title: string; level?: num
   if (card.title.trim()) return card.title;
   const base = AZV_CARD_TYPE_LABELS[card.cardType];
   return card.level ? `${base} · L${card.level}` : base;
-}
-
-/** Black / white swatch toggle for a text role's color. */
-function BWToggle({
-  value,
-  onChange,
-}: {
-  value: AZVTextColor | undefined;
-  onChange: (c: AZVTextColor) => void;
-}) {
-  const current = value ?? "white";
-  return (
-    <div className="flex gap-1.5">
-      {(["black", "white"] as AZVTextColor[]).map((c) => (
-        <button
-          key={c}
-          type="button"
-          onClick={() => onChange(c)}
-          title={c === "black" ? "Black text" : "White text"}
-          aria-pressed={current === c}
-          className={`h-7 w-7 rounded-full border-2 transition-all ${
-            c === "black" ? "bg-black" : "bg-white"
-          } ${current === c ? "border-lime-400 scale-110" : "border-white/25"}`}
-        />
-      ))}
-    </div>
-  );
 }
 
 const inputClass =
@@ -91,8 +67,9 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
 
   const [cards, setCards] = useState<AZVCard[]>([]);
   const [loading, setLoading] = useState(true);
-  /** Deck-wide font roles — saved to the pack the moment a dropdown changes. */
-  const [fonts, setFonts] = useState<AZVFontSettings>(pack.fontSettings ?? {});
+  /** The open card's text styles (per-card; new cards seed from deck defaults). */
+  const [textStyles, setTextStyles] = useState<AZVTextStyles>({});
+  const [styleModalOpen, setStyleModalOpen] = useState(false);
   /** null = list mode; "new" or a card = form mode. */
   const [editing, setEditing] = useState<AZVCard | "new" | null>(null);
 
@@ -133,38 +110,43 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
     return () => ro.disconnect();
   }, []);
 
-  /** Title font size, fitted exactly like the final render (max 60). */
+  /** Title font size, fitted exactly like the final render. */
   const [titleFitSize, setTitleFitSize] = useState<number>(AZV_LAYOUT.title.maxFontSize);
   useEffect(() => {
     let cancelled = false;
-    void ensureJMFont(fonts.title).then(() => {
+    const style = resolveAZVTextStyle("title", textStyles);
+    void ensureJMFont(style.font).then(() => {
       if (cancelled) return;
-      setTitleFitSize(fitAZVTitleSize(title, jmFontFamily(fonts.title)));
+      setTitleFitSize(fitAZVTextSize(title, style, AZV_LAYOUT.title.w));
     });
     return () => {
       cancelled = true;
     };
-  }, [title, fonts.title]);
+  }, [title, textStyles]);
 
-  /** Fitted (bold, ≤90px) sizes for the two stat slots in the preview. */
+  /** Fitted sizes for the two stat slots in the preview. */
   const [statFitSizes, setStatFitSizes] = useState({ hits: 90, hopeHunger: 90 });
   useEffect(() => {
     let cancelled = false;
-    void ensureJMFont(fonts.numbers).then(() => {
+    const style = resolveAZVTextStyle("numbers", textStyles);
+    void ensureJMFont(style.font).then(() => {
       if (cancelled) return;
-      const family = jmFontFamily(fonts.numbers);
       const hitsN = parseInt(hits, 10);
       const hhRaw = AZV_TYPE_SPEC[cardType].fields.hope ? hope : hunger;
       const hhN = parseInt(hhRaw, 10);
       setStatFitSizes({
-        hits: Number.isNaN(hitsN) ? 90 : fitAZVStatSize(String(hitsN), family),
-        hopeHunger: Number.isNaN(hhN) ? 90 : fitAZVStatSize(String(hhN), family),
+        hits: Number.isNaN(hitsN)
+          ? style.size
+          : fitAZVTextSize(String(hitsN), style, AZV_LAYOUT.hits.size),
+        hopeHunger: Number.isNaN(hhN)
+          ? style.size
+          : fitAZVTextSize(String(hhN), style, AZV_LAYOUT.hopeHunger.size),
       });
     });
     return () => {
       cancelled = true;
     };
-  }, [fonts.numbers, hits, hope, hunger, cardType]);
+  }, [textStyles, hits, hope, hunger, cardType]);
 
   useEffect(() => {
     let cancelled = false;
@@ -198,6 +180,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
       if (prev) URL.revokeObjectURL(prev);
       return null;
     });
+    setTextStyles(card === "new" ? (pack.textDefaults ?? {}) : (card.textStyles ?? pack.textDefaults ?? {}));
     if (card === "new") {
       cardIdRef.current =
         typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -228,7 +211,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
       setOneTimePower(card.oneTimePower ?? "");
       setBgURL(card.backgroundImageURL ?? "");
     }
-  }, []);
+  }, [pack.textDefaults]);
 
   const handleBgFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -274,10 +257,11 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
         ...(spec.fields.oneTimePower && oneTimePower.trim()
           ? { oneTimePower: oneTimePower.trim() }
           : {}),
+        ...(Object.keys(textStyles).length ? { textStyles } : {}),
         ...(finalBgURL ? { backgroundImageURL: finalBgURL } : {}),
       };
     },
-    [cardType, title, weaponType, level, hits, hunger, hope, conditions, description, oneTimePower, spec],
+    [cardType, title, weaponType, level, hits, hunger, hope, conditions, description, oneTimePower, textStyles, spec],
   );
 
   const handleSave = useCallback(async () => {
@@ -297,13 +281,19 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
       } else {
         await updateAZVCard(editing.id, fields);
       }
+      // Remember this card's text styles as the deck defaults for new cards.
+      if (Object.keys(textStyles).length) {
+        void setAZVPackTextDefaults(pack.id, textStyles).catch((err) =>
+          console.error("[azv] saving text defaults failed:", err),
+        );
+      }
       setEditing(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save card.");
     } finally {
       setSaving(false);
     }
-  }, [user, editing, bgURL, buildFields, pack.id]);
+  }, [user, editing, bgURL, buildFields, pack.id, textStyles]);
 
   /** Render the 900×1500 card (bg + overlay) and save its link on the card. */
   const handleGenerate = useCallback(async () => {
@@ -321,7 +311,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
         ...(spec.fields.hits && hitsN != null ? { hits: hitsN } : {}),
         ...(hopeHungerN != null ? { hopeOrHunger: hopeHungerN } : {}),
         ...(spec.fields.weaponType && weaponType ? { weaponType } : {}),
-        fonts,
+        textStyles,
       });
       const url = await uploadAZVCardImage(pack.id, `azv-${cardIdRef.current}`, blob);
       await setAZVCardImage(editing.id, url);
@@ -330,20 +320,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
     } finally {
       setGenerating(false);
     }
-  }, [editing, cardType, level, pendingBgPreview, bgURL, pack.id, title, hits, hope, hunger, weaponType, fonts, spec]);
-
-  const handleFontChange = useCallback(
-    (role: keyof AZVFontSettings, fontId: string) => {
-      setFonts((prev) => {
-        const next = { ...prev, [role]: fontId };
-        void setAZVPackFonts(pack.id, next).catch((err) =>
-          console.error("[azv] saving fonts failed:", err),
-        );
-        return next;
-      });
-    },
-    [pack.id],
-  );
+  }, [editing, cardType, level, pendingBgPreview, bgURL, pack.id, title, hits, hope, hunger, weaponType, textStyles, spec]);
 
   const handleDelete = useCallback(async () => {
     if (!editing || editing === "new") return;
@@ -360,8 +337,11 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
   const previewHits = spec.fields.hits ? parseNum(hits) : undefined;
   const previewHopeHunger = parseNum(spec.fields.hope ? hope : spec.fields.hunger ? hunger : "");
   const previewWeapon = spec.fields.weaponType && weaponType ? weaponType : undefined;
-  const titleColorHex = (fonts.titleColor ?? "white") === "black" ? "#000" : "#fff";
-  const numbersColorHex = (fonts.numbersColor ?? "white") === "black" ? "#000" : "#fff";
+  const titleStyle = resolveAZVTextStyle("title", textStyles);
+  const numbersStyle = resolveAZVTextStyle("numbers", textStyles);
+  const styleColor = (c: "black" | "white") => (c === "black" ? "#000" : "#fff");
+  const styleAlign = (a: "left" | "center" | "right") =>
+    a === "left" ? "flex-start" : a === "right" ? "flex-end" : "center";
   const generatedURL = editing && editing !== "new" ? editing.cardImageURL : undefined;
 
   return (
@@ -794,16 +774,17 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                     {/* Title — transparent box, centered, fit ≤60px */}
                     {title.trim() && (
                       <div
-                        className="absolute flex items-center justify-center whitespace-nowrap"
+                        className="absolute flex items-center whitespace-nowrap"
                         style={{
                           left: AZV_LAYOUT.title.x,
                           top: AZV_LAYOUT.title.y,
                           width: AZV_LAYOUT.title.w,
                           height: AZV_LAYOUT.title.h,
-                          fontFamily: jmFontFamily(fonts.title),
+                          justifyContent: styleAlign(titleStyle.align),
+                          fontFamily: jmFontFamily(titleStyle.font),
                           fontSize: titleFitSize,
-                          fontWeight: 700,
-                          color: titleColorHex,
+                          fontWeight: titleStyle.weight === "bold" ? 700 : 400,
+                          color: styleColor(titleStyle.color),
                         }}
                       >
                         {title}
@@ -813,16 +794,17 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                     {/* Hits number (or weapon badge) at (212, 1000) */}
                     {previewHits != null && (
                       <div
-                        className="absolute flex items-center justify-center"
+                        className="absolute flex items-center"
                         style={{
                           left: AZV_LAYOUT.hits.cx - AZV_LAYOUT.hits.size / 2,
                           top: AZV_LAYOUT.hits.cy - AZV_LAYOUT.hits.size / 2,
                           width: AZV_LAYOUT.hits.size,
                           height: AZV_LAYOUT.hits.size,
-                          fontFamily: jmFontFamily(fonts.numbers),
+                          justifyContent: styleAlign(numbersStyle.align),
+                          fontFamily: jmFontFamily(numbersStyle.font),
                           fontSize: statFitSizes.hits,
-                          fontWeight: 700,
-                          color: numbersColorHex,
+                          fontWeight: numbersStyle.weight === "bold" ? 700 : 400,
+                          color: styleColor(numbersStyle.color),
                         }}
                       >
                         {previewHits}
@@ -846,16 +828,17 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                     {/* Hope / Hunger number at (684, 1000) */}
                     {previewHopeHunger != null && (
                       <div
-                        className="absolute flex items-center justify-center"
+                        className="absolute flex items-center"
                         style={{
                           left: AZV_LAYOUT.hopeHunger.cx - AZV_LAYOUT.hopeHunger.size / 2,
                           top: AZV_LAYOUT.hopeHunger.cy - AZV_LAYOUT.hopeHunger.size / 2,
                           width: AZV_LAYOUT.hopeHunger.size,
                           height: AZV_LAYOUT.hopeHunger.size,
-                          fontFamily: jmFontFamily(fonts.numbers),
+                          justifyContent: styleAlign(numbersStyle.align),
+                          fontFamily: jmFontFamily(numbersStyle.font),
                           fontSize: statFitSizes.hopeHunger,
-                          fontWeight: 700,
-                          color: numbersColorHex,
+                          fontWeight: numbersStyle.weight === "bold" ? 700 : 400,
+                          color: styleColor(numbersStyle.color),
                         }}
                       >
                         {previewHopeHunger}
@@ -865,50 +848,28 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                 )}
               </div>
 
-              {/* Deck fonts — one face per text role, applied when card text
-                  rendering lands. Live samples; saved instantly per pack. */}
-              <div className="mt-4 grid max-w-xl gap-3 sm:grid-cols-3">
-                <div className="space-y-2">
-                  <JMFontSelect
-                    label="Title Font"
-                    value={fonts.title}
-                    onChange={(id) => handleFontChange("title", id)}
-                    sampleText={title.trim() || "Card Title"}
-                  />
-                  <BWToggle
-                    value={fonts.titleColor}
-                    onChange={(c) => handleFontChange("titleColor", c)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <JMFontSelect
-                    label="Description Font"
-                    value={fonts.description}
-                    onChange={(id) => handleFontChange("description", id)}
-                    sampleText="Description & conditions"
-                  />
-                  <BWToggle
-                    value={fonts.descriptionColor}
-                    onChange={(c) => handleFontChange("descriptionColor", c)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <JMFontSelect
-                    label="Numbers Font"
-                    value={fonts.numbers}
-                    onChange={(id) => handleFontChange("numbers", id)}
-                    sampleText="0 1 2 3 4 5"
-                  />
-                  <BWToggle
-                    value={fonts.numbersColor}
-                    onChange={(c) => handleFontChange("numbersColor", c)}
-                  />
-                </div>
-              </div>
+              {/* Per-card text styling — full controls live in the popup */}
+              {editing !== null && (
+                <button
+                  type="button"
+                  onClick={() => setStyleModalOpen(true)}
+                  className="mt-4 flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-bold text-white/80 transition-colors hover:bg-white/10"
+                >
+                  <Type className="h-4 w-4" />
+                  Text Styles
+                </button>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      <AZVTextStyleModal
+        isOpen={styleModalOpen}
+        onClose={() => setStyleModalOpen(false)}
+        styles={textStyles}
+        onChange={setTextStyles}
+      />
     </div>
   );
 }
