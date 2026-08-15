@@ -89,10 +89,6 @@ export interface AZVPack {
   id: string;
   name: string;
   iconURL?: string;
-  /** Deck defaults for the three text roles — mirrored from the last card
-   * save, so new cards start from the latest look. Each card stores its own
-   * copy in `textStyles`. */
-  textDefaults?: AZVTextStyles;
   creatorId: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -116,8 +112,9 @@ export interface AZVCard {
   conditions?: AZVCondition[];
   description?: string;
   oneTimePower?: string;
-  /** Per-card styles for the three text roles (falls back to deck defaults). */
-  textStyles?: AZVTextStyles;
+  /** Pointer to the card's text style set (azvStyleSets doc id). Cards keep
+   * the pointer only — editing a set restyles every card that points at it. */
+  styleSetId?: string;
   /** 900×1500 background (Storage upload). */
   backgroundImageURL?: string;
   /** Generated print card (900×1500 PNG in `cards/{packId}/`) — written by
@@ -140,7 +137,7 @@ export interface AZVCardFields {
   conditions?: AZVCondition[];
   description?: string;
   oneTimePower?: string;
-  textStyles?: AZVTextStyles;
+  styleSetId?: string;
   backgroundImageURL?: string;
 }
 
@@ -257,19 +254,6 @@ export async function updateAZVPack(
   await updateDoc(doc(db, "azvPacks", packId), { ...updates, updatedAt: serverTimestamp() });
 }
 
-/** Mirror the latest card's text styles as the deck defaults for new cards. */
-export async function setAZVPackTextDefaults(
-  packId: string,
-  textDefaults: AZVTextStyles,
-): Promise<void> {
-  const { doc, updateDoc, serverTimestamp } = await import("firebase/firestore");
-  const db = await getDb();
-  await updateDoc(doc(db, "azvPacks", packId), {
-    textDefaults,
-    updatedAt: serverTimestamp(),
-  });
-}
-
 /** Delete a pack AND all of its cards. */
 export async function deleteAZVPack(packId: string): Promise<void> {
   const { collection, query, where, getDocs, doc, deleteDoc, writeBatch } =
@@ -324,7 +308,7 @@ async function cardFieldsData(
     ["conditions", fields.conditions?.length ? fields.conditions : undefined],
     ["description", fields.description?.trim() ? fields.description.trim() : undefined],
     ["oneTimePower", fields.oneTimePower?.trim() ? fields.oneTimePower.trim() : undefined],
-    ["textStyles", fields.textStyles && Object.keys(fields.textStyles).length ? fields.textStyles : undefined],
+    ["styleSetId", fields.styleSetId || undefined],
     ["backgroundImageURL", fields.backgroundImageURL || undefined],
   ];
   for (const [key, value] of optionals) {

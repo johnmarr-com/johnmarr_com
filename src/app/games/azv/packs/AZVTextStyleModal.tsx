@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { AlignLeft, AlignCenter, AlignRight, Loader2, Save } from "lucide-react";
 import { JMModal, JMFontSelect } from "@/JMKit";
 import { useAuth } from "@/lib/AuthProvider";
 import {
-  listAZVStyleSets,
   saveAZVStyleSet,
   type AZVStyleSet,
   type AZVTextStyles,
@@ -19,10 +18,18 @@ import { resolveAZVTextStyle } from "./azvCardSpec";
 interface AZVTextStyleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  /** The card's current styles (sparse — unset fields fall back to defaults). */
+  /** Working copy of the pointed set's values (sparse — defaults fill gaps). */
   styles: AZVTextStyles;
-  /** Fires on every change; caller updates preview live and saves with the card. */
+  /** Fires on every control change; caller updates the preview live. */
   onChange: (styles: AZVTextStyles) => void;
+  /** All saved style sets (owned by the builder). */
+  sets: AZVStyleSet[];
+  /** The card's current set pointer. */
+  selectedSetId: string;
+  /** User picked a set — repoint the card and swap in its values. */
+  onSelectSet: (setId: string, styles: AZVTextStyles) => void;
+  /** A set was created/updated — builder refreshes its list + pointer. */
+  onSetSaved: (set: AZVStyleSet) => void;
 }
 
 const ROLES: { key: keyof AZVTextStyles; label: string; sample: string }[] = [
@@ -98,54 +105,47 @@ export default function AZVTextStyleModal({
   onClose,
   styles,
   onChange,
+  sets,
+  selectedSetId,
+  onSelectSet,
+  onSetSaved,
 }: AZVTextStyleModalProps) {
   const { user } = useAuth();
 
-  const [sets, setSets] = useState<AZVStyleSet[]>([]);
   const [setName, setSetName] = useState("");
   const [savingSet, setSavingSet] = useState(false);
-  const [selectedSetId, setSelectedSetId] = useState("");
 
-  useEffect(() => {
-    if (!isOpen) return;
-    let cancelled = false;
-    void listAZVStyleSets()
-      .then((list) => {
-        if (!cancelled) setSets(list);
-      })
-      .catch((err) => console.error("[azv] loading style sets failed:", err));
-    return () => {
-      cancelled = true;
-    };
-  }, [isOpen]);
+  // Keep the name field synced to the pointed set when the modal opens or
+  // the pointer changes (adjust-during-render, no effect needed).
+  const [lastSelected, setLastSelected] = useState(selectedSetId);
+  if (selectedSetId !== lastSelected) {
+    setLastSelected(selectedSetId);
+    const set = sets.find((s) => s.id === selectedSetId);
+    if (set) setSetName(set.name);
+  }
 
   const handleSaveSet = useCallback(async () => {
     if (!user || !setName.trim() || savingSet) return;
     setSavingSet(true);
     try {
+      // Saves ALL role values from the working copy — offsets included.
       const saved = await saveAZVStyleSet(setName, styles, user.uid);
-      setSets((prev) => {
-        const idx = prev.findIndex((s) => s.id === saved.id);
-        const next = idx === -1 ? [...prev, saved] : prev.map((s) => (s.id === saved.id ? saved : s));
-        return next.sort((a, b) => a.name.localeCompare(b.name));
-      });
-      setSelectedSetId(saved.id);
+      onSetSaved(saved);
     } catch (err) {
       console.error("[azv] saving style set failed:", err);
     } finally {
       setSavingSet(false);
     }
-  }, [user, setName, styles, savingSet]);
+  }, [user, setName, styles, savingSet, onSetSaved]);
 
   const handleLoadSet = useCallback(
     (setId: string) => {
-      setSelectedSetId(setId);
       const set = sets.find((s) => s.id === setId);
       if (!set) return;
-      onChange(JSON.parse(JSON.stringify(set.styles)) as AZVTextStyles);
+      onSelectSet(set.id, JSON.parse(JSON.stringify(set.styles)) as AZVTextStyles);
       setSetName(set.name);
     },
-    [sets, onChange],
+    [sets, onSelectSet],
   );
 
   const patch = (role: keyof AZVTextStyles, part: Partial<AZVTextStyle>) => {
@@ -187,7 +187,7 @@ export default function AZVTextStyleModal({
               onChange={(e) => handleLoadSet(e.target.value)}
               className="rounded-lg border border-white/20 bg-neutral-800 px-3 py-2 text-sm text-white outline-none focus:border-lime-400/50"
             >
-              <option value="">Saved style sets…</option>
+              <option value="">Card&apos;s style set…</option>
               {sets.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}

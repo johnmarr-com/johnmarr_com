@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ArrowLeft, Plus, Loader2, Trash2, Upload, Wand2, X, Type } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
-import { setAZVPackTextDefaults } from "@/lib/azv-packs";
+import { listAZVStyleSets, type AZVStyleSet } from "@/lib/azv-packs";
 import {
   subscribeToAZVCards,
   createAZVCard,
@@ -67,9 +67,25 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
 
   const [cards, setCards] = useState<AZVCard[]>([]);
   const [loading, setLoading] = useState(true);
-  /** The open card's text styles (per-card; new cards seed from deck defaults). */
+  /** All saved style sets — cards point at one via styleSetId. */
+  const [styleSets, setStyleSets] = useState<AZVStyleSet[]>([]);
+  /** The open card's set pointer, and the working copy of that set's values
+   * (drives preview + render; persisted by saving the SET, not the card). */
+  const [styleSetId, setStyleSetId] = useState("");
   const [textStyles, setTextStyles] = useState<AZVTextStyles>({});
   const [styleModalOpen, setStyleModalOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listAZVStyleSets()
+      .then((sets) => {
+        if (!cancelled) setStyleSets(sets);
+      })
+      .catch((err) => console.error("[azv] loading style sets failed:", err));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   /** null = list mode; "new" or a card = form mode. */
   const [editing, setEditing] = useState<AZVCard | "new" | null>(null);
 
@@ -180,7 +196,10 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
       if (prev) URL.revokeObjectURL(prev);
       return null;
     });
-    setTextStyles(card === "new" ? (pack.textDefaults ?? {}) : (card.textStyles ?? pack.textDefaults ?? {}));
+    const pointer = card === "new" ? "" : (card.styleSetId ?? "");
+    setStyleSetId(pointer);
+    const set = pointer ? styleSets.find((x) => x.id === pointer) : undefined;
+    setTextStyles(set ? (JSON.parse(JSON.stringify(set.styles)) as AZVTextStyles) : {});
     if (card === "new") {
       cardIdRef.current =
         typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -211,7 +230,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
       setOneTimePower(card.oneTimePower ?? "");
       setBgURL(card.backgroundImageURL ?? "");
     }
-  }, [pack.textDefaults]);
+  }, [styleSets]);
 
   const handleBgFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -257,11 +276,11 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
         ...(spec.fields.oneTimePower && oneTimePower.trim()
           ? { oneTimePower: oneTimePower.trim() }
           : {}),
-        ...(Object.keys(textStyles).length ? { textStyles } : {}),
+        ...(styleSetId ? { styleSetId } : {}),
         ...(finalBgURL ? { backgroundImageURL: finalBgURL } : {}),
       };
     },
-    [cardType, title, weaponType, level, hits, hunger, hope, conditions, description, oneTimePower, textStyles, spec],
+    [cardType, title, weaponType, level, hits, hunger, hope, conditions, description, oneTimePower, styleSetId, spec],
   );
 
   const handleSave = useCallback(async () => {
@@ -281,19 +300,13 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
       } else {
         await updateAZVCard(editing.id, fields);
       }
-      // Remember this card's text styles as the deck defaults for new cards.
-      if (Object.keys(textStyles).length) {
-        void setAZVPackTextDefaults(pack.id, textStyles).catch((err) =>
-          console.error("[azv] saving text defaults failed:", err),
-        );
-      }
       setEditing(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save card.");
     } finally {
       setSaving(false);
     }
-  }, [user, editing, bgURL, buildFields, pack.id, textStyles]);
+  }, [user, editing, bgURL, buildFields, pack.id]);
 
   /** Render the 900×1500 card (bg + overlay) and save its link on the card. */
   const handleGenerate = useCallback(async () => {
@@ -869,6 +882,20 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
         onClose={() => setStyleModalOpen(false)}
         styles={textStyles}
         onChange={setTextStyles}
+        sets={styleSets}
+        selectedSetId={styleSetId}
+        onSelectSet={(id, styles) => {
+          setStyleSetId(id);
+          setTextStyles(styles);
+        }}
+        onSetSaved={(saved) => {
+          setStyleSets((prev) => {
+            const idx = prev.findIndex((x) => x.id === saved.id);
+            const next = idx === -1 ? [...prev, saved] : prev.map((x) => (x.id === saved.id ? saved : x));
+            return next.sort((a, b) => a.name.localeCompare(b.name));
+          });
+          setStyleSetId(saved.id);
+        }}
       />
     </div>
   );
