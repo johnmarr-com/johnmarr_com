@@ -978,6 +978,10 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                       <img
                         src={weaponIconPath(previewWeapon)}
                         alt={previewWeapon}
+                        // A missing icon should vanish, not show a broken-link glyph.
+                        onError={(e) => {
+                          e.currentTarget.style.visibility = "hidden";
+                        }}
                         className="absolute"
                         style={{
                           left: AZV_LAYOUT.hits.cx - AZV_LAYOUT.hits.size / 2,
