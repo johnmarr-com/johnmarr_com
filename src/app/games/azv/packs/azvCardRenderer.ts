@@ -60,6 +60,20 @@ const fontString = (style: AZVResolvedTextStyle, size: number): string =>
   `${style.weight === "bold" ? "bold " : ""}${size}px ${jmFontFamily(style.font)}`;
 
 /**
+ * Baseline offset that vertically centers text the way CSS does: half the
+ * font's line box (ascent − descent). Canvas textBaseline:"middle" centers on
+ * the em square instead, which sits a few px higher than the CSS preview —
+ * the preview is the approved look, so the render matches it.
+ * Requires ctx.font to be set first.
+ */
+function cssCenterBaseline(ctx: CanvasRenderingContext2D): number {
+  const m = ctx.measureText("Mg");
+  const ascent = m.fontBoundingBoxAscent ?? m.actualBoundingBoxAscent;
+  const descent = m.fontBoundingBoxDescent ?? m.actualBoundingBoxDescent;
+  return (ascent - descent) / 2;
+}
+
+/**
  * Largest size (≤ the style's size, no minimum) at which `text` fits `width`.
  * Exported so the live preview sizes exactly like the final render.
  */
@@ -90,8 +104,8 @@ function drawBoxedText(
   const size = fitAZVTextSize(text, style, box.w);
   ctx.font = fontString(style, size);
   ctx.fillStyle = colorHex(style.color);
-  ctx.textBaseline = "middle";
-  const y = box.y + box.h / 2 + style.offsetY;
+  ctx.textBaseline = "alphabetic";
+  const y = box.y + box.h / 2 + style.offsetY + cssCenterBaseline(ctx);
   if (style.align === "left") {
     ctx.textAlign = "left";
     ctx.fillText(text, box.x, y);
@@ -176,12 +190,13 @@ function drawWrappedText(
   const size = fitAZVBlockSize(text, style, box);
   const words = azvRichWords(parseAZVRichText(text));
   const lines = wrapRichAt(ctx, words, style, size, box.w) ?? [words];
-  ctx.textBaseline = "middle";
+  ctx.textBaseline = "alphabetic";
   ctx.textAlign = "left";
   ctx.font = fontString(style, size);
   const spaceW = ctx.measureText(" ").width;
   const step = size * DESC_LINE_HEIGHT;
-  let y = box.y + (box.h - lines.length * step) / 2 + step / 2 + style.offsetY;
+  const baselineShift = cssCenterBaseline(ctx);
+  let y = box.y + (box.h - lines.length * step) / 2 + step / 2 + style.offsetY + baselineShift;
   for (const line of lines) {
     const widths = line.map((word) => {
       ctx.font = richFont(style, word, size);
