@@ -4,11 +4,11 @@ import type { Timestamp } from "firebase/firestore";
 
 // ─── Types ───────────────────────────────────────────────────
 
-export type AZVWeaponType = "Slimy" | "Sharp" | "Stinky" | "Sticky" | "Slamming";
+export type AZVWeaponType = "Slimy" | "Sharp" | "Smelly" | "Sticky" | "Slamming";
 export const AZV_WEAPON_TYPES: AZVWeaponType[] = [
   "Slimy",
   "Sharp",
-  "Stinky",
+  "Smelly",
   "Sticky",
   "Slamming",
 ];
