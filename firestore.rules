@@ -749,6 +749,46 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────────────────────
+    // ATOMIC ZOMBIE VAMPIRES PACKS (Card packs for AZV game)
+    // ─────────────────────────────────────────────────────────────
+
+    match /azvPacks/{packId} {
+      // No visibility tiers (yet) — any authenticated user can read packs
+      allow read: if isAuthenticated();
+
+      // Authenticated users can create packs (pro/admin gating is client-side).
+      // creatorId must match the requesting user.
+      allow create: if isAuthenticated()
+        && request.resource.data.creatorId == request.auth.uid;
+
+      // Creator can update their own packs, admins can update any
+      allow update: if (isAuthenticated() && resource.data.creatorId == request.auth.uid) || isAdmin();
+
+      // Creator can delete their own packs, admins can delete any
+      allow delete: if (isAuthenticated() && resource.data.creatorId == request.auth.uid) || isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // ATOMIC ZOMBIE VAMPIRES CARDS (Top-level cards, reference packId)
+    // ─────────────────────────────────────────────────────────────
+
+    match /azv/{cardId} {
+      // Any authenticated user can read cards
+      allow read: if isAuthenticated();
+
+      // Authenticated users can create cards (pro/admin gating is client-side).
+      // creatorId must match the requesting user.
+      allow create: if isAuthenticated()
+        && request.resource.data.creatorId == request.auth.uid;
+
+      // Creator can update their own cards, admins can update any
+      allow update: if (isAuthenticated() && resource.data.creatorId == request.auth.uid) || isAdmin();
+
+      // Creator can delete their own cards, admins can delete any
+      allow delete: if (isAuthenticated() && resource.data.creatorId == request.auth.uid) || isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // FYVE KEYS (Server-only secret key assignments)
     // ─────────────────────────────────────────────────────────────
 
