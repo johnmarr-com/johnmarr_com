@@ -1,6 +1,7 @@
 import type {
   AZVCardType,
   AZVWeaponType,
+  AZVGoodStuffType,
   AZVTextStyle,
   AZVTextStyles,
   AZVTextAlign,
@@ -14,25 +15,44 @@ import type {
  * background. Shared by the builder form, the live preview, and the renderer.
  */
 
+/** Optional inputs a card exposes (title + background are universal). */
+export interface AZVFieldFlags {
+  goodStuffType?: boolean;
+  weaponType?: boolean;
+  level?: boolean;
+  hits?: boolean;
+  hunger?: boolean;
+  hope?: boolean;
+  conditions?: boolean;
+  description?: boolean;
+  oneTimePower?: boolean;
+}
+
+/** What a card's fields/overlay depend on beyond its CardType. */
+export interface AZVCardContext {
+  level?: number | undefined;
+  goodStuffType?: AZVGoodStuffType | undefined;
+}
+
 export interface AZVTypeSpec {
-  /** Optional inputs this type exposes (title + background are universal). */
-  fields: {
-    weaponType?: boolean;
-    level?: boolean;
-    hits?: boolean;
-    hunger?: boolean;
-    hope?: boolean;
-    conditions?: boolean;
-    description?: boolean;
-    oneTimePower?: boolean;
-  };
-  /** Foreground overlay path, or null for none. BadStuff resolves by level. */
-  overlay: string | null | ((level: number) => string);
+  fields: AZVFieldFlags | ((ctx: AZVCardContext) => AZVFieldFlags);
+  /** Overlay path, null for none — BadStuff resolves by level, Good Stuff by
+   * sub-kind. */
+  overlay: string | null | ((ctx: AZVCardContext) => string | null);
+  /** Highest level this type uses. Mall floors go to 5; loot stops at 4
+   * (nothing is looted on the Helipad). */
+  maxLevel?: number;
 }
 
 const HUMAN = "/games/azv/Human-Overlay.png";
-const GOOD_STUFF = "/games/azv/GoodStuff-Overlay.png";
 const MEGA = "/games/azv/Mega-Stuff-Overlay.png";
+
+/** Good Stuff overlays by sub-kind. */
+const GOOD_STUFF_OVERLAYS: Record<AZVGoodStuffType, string> = {
+  Weapon: "/games/azv/AZV-GS-W-Overlay.png",
+  Armor: "/games/azv/AZV-GS-A-Overlay.png",
+  Energy: "/games/azv/AZV-GS-E-Overlay.png",
+};
 
 /** BadStuff mall floors, level 1–5. */
 const BAD_STUFF_OVERLAYS: Record<number, string> = {
@@ -54,11 +74,16 @@ export const AZV_TYPE_SPEC: Record<AZVCardType, AZVTypeSpec> = {
   },
   BadStuff: {
     fields: { level: true, hits: true, hunger: true, description: true, conditions: true },
-    overlay: (level) => BAD_STUFF_OVERLAYS[level] ?? BAD_STUFF_OVERLAYS[1]!,
+    overlay: ({ level }) => BAD_STUFF_OVERLAYS[level ?? 1] ?? BAD_STUFF_OVERLAYS[1]!,
   },
   GoodStuff: {
-    fields: { weaponType: true, hope: true, description: true },
-    overlay: GOOD_STUFF,
+    // Weapons carry a damage type and Hope; armor and energy are title + text.
+    fields: ({ goodStuffType }) =>
+      goodStuffType === "Armor" || goodStuffType === "Energy"
+        ? { goodStuffType: true, level: true, description: true }
+        : { goodStuffType: true, level: true, weaponType: true, hope: true, description: true },
+    overlay: ({ goodStuffType }) => GOOD_STUFF_OVERLAYS[goodStuffType ?? "Weapon"],
+    maxLevel: 4,
   },
   MegaStuff: {
     fields: { weaponType: true, hope: true, description: true },
@@ -125,8 +150,18 @@ export function weaponIconPath(weapon: AZVWeaponType): string {
 }
 
 /** Resolve the overlay path for a card (null = no overlay). */
-export function overlayForCard(cardType: AZVCardType, level: number | undefined): string | null {
+export function overlayForCard(cardType: AZVCardType, ctx: AZVCardContext = {}): string | null {
   const spec = AZV_TYPE_SPEC[cardType];
-  if (typeof spec.overlay === "function") return spec.overlay(level ?? 1);
-  return spec.overlay;
+  return typeof spec.overlay === "function" ? spec.overlay(ctx) : spec.overlay;
+}
+
+/** Resolve which inputs a card exposes. */
+export function fieldsForCard(cardType: AZVCardType, ctx: AZVCardContext = {}): AZVFieldFlags {
+  const spec = AZV_TYPE_SPEC[cardType];
+  return typeof spec.fields === "function" ? spec.fields(ctx) : spec.fields;
+}
+
+/** Highest selectable level for a card type (default 5). */
+export function maxLevelForCard(cardType: AZVCardType): number {
+  return AZV_TYPE_SPEC[cardType].maxLevel ?? 5;
 }

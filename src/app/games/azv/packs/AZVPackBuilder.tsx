@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { ArrowLeft, Plus, Loader2, Trash2, Upload, Wand2, X, Type, ChevronRight, FileSpreadsheet, Zap } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
 import { listAZVStyleSets, type AZVStyleSet } from "@/lib/azv-packs";
@@ -13,12 +13,14 @@ import {
   AZV_CARD_TYPES,
   AZV_CARD_TYPE_LABELS,
   AZV_WEAPON_TYPES,
+  AZV_GOOD_STUFF_TYPES,
   AZV_CONDITION_TYPES,
   type AZVPack,
   type AZVCard,
   type AZVCardFields,
   type AZVCardType,
   type AZVWeaponType,
+  type AZVGoodStuffType,
   type AZVCondition,
   type AZVConditionType,
 } from "@/lib/azv-packs";
@@ -30,9 +32,10 @@ import {
 } from "@/lib/azv-storage";
 import { ensureJMFont, jmFontFamily } from "@/JMKit";
 import {
-  AZV_TYPE_SPEC,
   AZV_LAYOUT,
   overlayForCard,
+  fieldsForCard,
+  maxLevelForCard,
   weaponIconPath,
   resolveAZVTextStyle,
 } from "./azvCardSpec";
@@ -179,6 +182,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
   // ── Form state ──────────────────────────────────────────────
   const [cardType, setCardType] = useState<AZVCardType>("Humans");
   const [title, setTitle] = useState("");
+  const [goodStuffType, setGoodStuffType] = useState<AZVGoodStuffType>("Weapon");
   const [weaponType, setWeaponType] = useState<AZVWeaponType | "">("");
   const [level, setLevel] = useState(1);
   const [hits, setHits] = useState("");
@@ -263,7 +267,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
     void ensureJMFont(style.font).then(() => {
       if (cancelled) return;
       const hitsN = parseInt(hits, 10);
-      const hhRaw = AZV_TYPE_SPEC[cardType].fields.hope ? hope : hunger;
+      const hhRaw = fieldsForCard(cardType, { goodStuffType }).hope ? hope : hunger;
       const hhN = parseInt(hhRaw, 10);
       setStatFitSizes({
         hits: Number.isNaN(hitsN)
@@ -277,7 +281,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
     return () => {
       cancelled = true;
     };
-  }, [textStyles, hits, hope, hunger, cardType]);
+  }, [textStyles, hits, hope, hunger, cardType, goodStuffType]);
 
   useEffect(() => {
     let cancelled = false;
@@ -322,6 +326,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
           : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
       setCardType("Humans");
       setTitle("");
+      setGoodStuffType("Weapon");
       setWeaponType("");
       setLevel(1);
       setHits("");
@@ -335,6 +340,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
       cardIdRef.current = card.id;
       setCardType(card.cardType);
       setTitle(card.title);
+      setGoodStuffType(card.goodStuffType ?? "Weapon");
       setWeaponType(card.weaponType ?? "");
       setLevel(card.level ?? 1);
       setHits(card.hits != null ? String(card.hits) : "");
@@ -364,7 +370,12 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
     });
   }, []);
 
-  const spec = AZV_TYPE_SPEC[cardType];
+  // Which inputs this card exposes — Good Stuff varies by sub-kind.
+  const spec = useMemo(
+    () => ({ fields: fieldsForCard(cardType, { goodStuffType }) }),
+    [cardType, goodStuffType],
+  );
+  const maxLevel = maxLevelForCard(cardType);
   const parseNum = (v: string): number | undefined => {
     const n = parseInt(v, 10);
     return Number.isNaN(n) ? undefined : n;
@@ -372,13 +383,14 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
 
   const buildFields = useCallback(
     (finalBgURL: string): AZVCardFields => {
-      const lvl = Math.min(5, Math.max(1, level));
+      const lvl = Math.min(maxLevel, Math.max(1, level));
       const hitsN = parseNum(hits);
       const hungerN = parseNum(hunger);
       const hopeN = parseNum(hope);
       return {
         cardType,
         title: title.trim(),
+        ...(spec.fields.goodStuffType ? { goodStuffType } : {}),
         ...(spec.fields.weaponType && weaponType ? { weaponType } : {}),
         ...(spec.fields.level ? { level: lvl } : {}),
         ...(spec.fields.hits && hitsN != null ? { hits: hitsN } : {}),
@@ -395,7 +407,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
         ...(finalBgURL ? { backgroundImageURL: finalBgURL } : {}),
       };
     },
-    [cardType, title, weaponType, level, hits, hunger, hope, conditions, description, oneTimePower, styleSetId, spec],
+    [cardType, title, goodStuffType, weaponType, level, hits, hunger, hope, conditions, description, oneTimePower, styleSetId, spec, maxLevel],
   );
 
   const handleSave = useCallback(async () => {
@@ -433,11 +445,13 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
       const hopeHungerN = parseNum(spec.fields.hope ? hope : hunger);
       const blob = await renderAZVCard({
         cardType,
+        ...(spec.fields.goodStuffType ? { goodStuffType } : {}),
         level,
         backgroundImageURL: pendingBgPreview ?? bgURL ?? undefined,
         title,
         ...(spec.fields.hits && hitsN != null ? { hits: hitsN } : {}),
         ...(hopeHungerN != null ? { hopeOrHunger: hopeHungerN } : {}),
+        ...(spec.fields.goodStuffType ? { goodStuffType } : {}),
         ...(spec.fields.weaponType && weaponType ? { weaponType } : {}),
         ...(spec.fields.description && description.trim() ? { description: description.trim() } : {}),
         ...(spec.fields.conditions && conditions.length ? { conditions } : {}),
@@ -450,7 +464,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
     } finally {
       setGenerating(false);
     }
-  }, [editing, cardType, level, pendingBgPreview, bgURL, pack.id, title, hits, hope, hunger, weaponType, description, conditions, textStyles, spec]);
+  }, [editing, cardType, level, goodStuffType, pendingBgPreview, bgURL, pack.id, title, hits, hope, hunger, weaponType, description, conditions, textStyles, spec]);
 
   /** Cards grouped by type — and, for level-bearing types, by level too. */
   const cardGroups = (() => {
@@ -458,7 +472,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
     for (const type of AZV_CARD_TYPES) {
       const ofType = cards.filter((c) => c.cardType === type);
       if (ofType.length === 0) continue;
-      if (AZV_TYPE_SPEC[type].fields.level) {
+      if (fieldsForCard(type, {}).level) {
         const levels = [...new Set(ofType.map((c) => c.level ?? 1))].sort((a, b) => a - b);
         for (const lvl of levels) {
           groups.set(`${type}-L${lvl}`, {
@@ -518,7 +532,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
   }, [editing]);
 
   const previewBg = editing ? (pendingBgPreview ?? bgURL) : "";
-  const previewOverlay = editing ? overlayForCard(cardType, level) : null;
+  const previewOverlay = editing ? overlayForCard(cardType, { level, goodStuffType }) : null;
   const previewHits = spec.fields.hits ? parseNum(hits) : undefined;
   const previewHopeHunger = parseNum(spec.fields.hope ? hope : spec.fields.hunger ? hunger : "");
   const previewWeapon = spec.fields.weaponType && weaponType ? weaponType : undefined;
@@ -685,16 +699,33 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                   />
                 </div>
 
+                {spec.fields.goodStuffType && (
+                  <div className="space-y-1.5">
+                    <label className={labelClass}>Good Stuff Type</label>
+                    <select
+                      value={goodStuffType}
+                      onChange={(e) => setGoodStuffType(e.target.value as AZVGoodStuffType)}
+                      className="w-full rounded-lg border border-white/20 bg-neutral-800 px-3 py-2.5 text-sm font-bold text-white outline-none focus:border-lime-400/50"
+                    >
+                      {AZV_GOOD_STUFF_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 {spec.fields.level && (
                   <div className="space-y-1.5">
-                    <label className={labelClass}>Level (1–5)</label>
+                    <label className={labelClass}>Level (1–{maxLevel})</label>
                     <input
                       type="number"
                       min={1}
-                      max={5}
+                      max={maxLevel}
                       value={level}
                       onChange={(e) =>
-                        setLevel(Math.min(5, Math.max(1, parseInt(e.target.value, 10) || 1)))
+                        setLevel(Math.min(maxLevel, Math.max(1, parseInt(e.target.value, 10) || 1)))
                       }
                       className={inputClass}
                     />

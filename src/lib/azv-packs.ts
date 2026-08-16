@@ -13,6 +13,10 @@ export const AZV_WEAPON_TYPES: AZVWeaponType[] = [
   "Slamming",
 ];
 
+/** Good Stuff sub-kind — drives its overlay and which stats it carries. */
+export type AZVGoodStuffType = "Weapon" | "Armor" | "Energy";
+export const AZV_GOOD_STUFF_TYPES: AZVGoodStuffType[] = ["Weapon", "Armor", "Energy"];
+
 export type AZVConditionType = "Weakness" | "Resistant" | "Immune";
 export const AZV_CONDITION_TYPES: AZVConditionType[] = [
   "Weakness",
@@ -106,8 +110,10 @@ export interface AZVCard {
   packId: string;
   cardType: AZVCardType;
   title: string;
+  /** Good Stuff only: Weapon | Armor | Energy. */
+  goodStuffType?: AZVGoodStuffType;
   weaponType?: AZVWeaponType;
-  /** 1–5 (BadStuff mall floors; roll/level/counter cards). */
+  /** BadStuff mall floors 1–5; loot (Good Stuff) is found on 1–4. */
   level?: number;
   hits?: number;
   hunger?: number;
@@ -132,6 +138,7 @@ export interface AZVCard {
 export interface AZVCardFields {
   cardType: AZVCardType;
   title: string;
+  goodStuffType?: AZVGoodStuffType;
   weaponType?: AZVWeaponType;
   level?: number;
   hits?: number;
@@ -303,6 +310,7 @@ async function cardFieldsData(
     title: fields.title,
   };
   const optionals: [string, unknown][] = [
+    ["goodStuffType", fields.goodStuffType || undefined],
     ["weaponType", fields.weaponType || undefined],
     ["level", typeof fields.level === "number" ? fields.level : undefined],
     ["hits", typeof fields.hits === "number" ? fields.hits : undefined],

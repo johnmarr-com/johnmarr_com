@@ -1,7 +1,13 @@
 "use client";
 
 import { ensureJMFont, jmFontFamily } from "@/JMKit";
-import type { AZVCardType, AZVWeaponType, AZVTextStyles, AZVCondition } from "@/lib/azv-packs";
+import type {
+  AZVCardType,
+  AZVWeaponType,
+  AZVGoodStuffType,
+  AZVTextStyles,
+  AZVCondition,
+} from "@/lib/azv-packs";
 import {
   overlayForCard,
   weaponIconPath,
@@ -25,6 +31,7 @@ const CARD_H = 1500;
 
 export interface AZVCardRenderInput {
   cardType: AZVCardType;
+  goodStuffType?: AZVGoodStuffType | undefined;
   level?: number | undefined;
   backgroundImageURL?: string | undefined;
   title?: string | undefined;
@@ -340,7 +347,10 @@ export async function renderAZVCard(input: AZVCardRenderInput): Promise<Blob> {
     drawCover(ctx, await loadImage(input.backgroundImageURL));
   }
 
-  const overlaySrc = overlayForCard(input.cardType, input.level);
+  const overlaySrc = overlayForCard(input.cardType, {
+    level: input.level,
+    goodStuffType: input.goodStuffType,
+  });
   if (overlaySrc) {
     ctx.drawImage(await loadImage(overlaySrc), 0, 0, CARD_W, CARD_H);
   }
