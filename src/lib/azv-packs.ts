@@ -13,11 +13,11 @@ export const AZV_WEAPON_TYPES: AZVWeaponType[] = [
   "Slamming",
 ];
 
-export type AZVConditionType = "Weakness" | "Resistance" | "Impervious";
+export type AZVConditionType = "Weakness" | "Resistant" | "Immune";
 export const AZV_CONDITION_TYPES: AZVConditionType[] = [
   "Weakness",
-  "Resistance",
-  "Impervious",
+  "Resistant",
+  "Immune",
 ];
 
 export type AZVCardType =

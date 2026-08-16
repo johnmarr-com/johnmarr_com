@@ -70,6 +70,67 @@ function retypeConditionNote(
   return leadingWeapon.test(note) ? note.replace(leadingWeapon, weapon) : note;
 }
 
+/** "+1" / "-1" / "0" — the parenthetical always shows an explicit sign. */
+const signedNumber = (n: number): string => (n > 0 ? `+${n}` : String(n));
+
+const PARENTHETICAL = /\(([^)]*)\)/;
+const IMMUNE_TEXT = "does no harm";
+
+/** Sync the number inside a note's parenthetical to the condition value,
+ * keeping the surrounding words: "Slimy (+1 to hit him)" @ -2 →
+ * "Slimy (-2 to hit him)". A parenthetical with no number (e.g. after
+ * Immune) is replaced by the signed value alone. */
+function renumberConditionNote(note: string | undefined, value: number): string | undefined {
+  if (!note?.trim()) return note;
+  const match = note.match(PARENTHETICAL);
+  if (!match) return note;
+  const inner = match[1]!;
+  const next = /[+-]?\d+/.test(inner)
+    ? inner.replace(/[+-]?\d+/, signedNumber(value))
+    : signedNumber(value);
+  return note.replace(PARENTHETICAL, `(${next})`);
+}
+
+/** Immune carries no number — its parenthetical is fixed copy. */
+function immuneConditionNote(note: string | undefined): string | undefined {
+  if (!note?.trim()) return note;
+  return PARENTHETICAL.test(note)
+    ? note.replace(PARENTHETICAL, `(${IMMUNE_TEXT})`)
+    : `${note.trim()} (${IMMUNE_TEXT})`;
+}
+
+/** Condition value field — draft-based so "-" and empty states type freely. */
+function ConditionValueInput({
+  value,
+  onCommit,
+}: {
+  value: number;
+  onCommit: (n: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(value));
+  const [lastValue, setLastValue] = useState(value);
+  if (value !== lastValue) {
+    setLastValue(value);
+    if (parseInt(draft, 10) !== value) setDraft(String(value));
+  }
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={draft}
+      onChange={(e) => {
+        const raw = e.target.value;
+        if (!/^-?\d*$/.test(raw)) return;
+        setDraft(raw);
+        const n = parseInt(raw, 10);
+        if (!Number.isNaN(n)) onCommit(n);
+      }}
+      onBlur={() => setDraft(String(value))}
+      className="w-16 shrink-0 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-xs text-white outline-none"
+    />
+  );
+}
+
 /** The common Bad Stuff pairing — one tap instead of typing both out. */
 const DEFAULT_WEAKNESS_PAIR = (): AZVCondition[] => [
   { condition: "Weakness", weapon: "Slimy", value: 1, conditionDescription: "Slimy (+1 to hit him)" },
@@ -711,15 +772,28 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                         <div className="flex items-center gap-1.5">
                         <select
                           value={c.condition}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const condition = e.target.value as AZVConditionType;
                             setConditions((prev) =>
-                              prev.map((x, j) =>
-                                j === i
-                                  ? { ...x, condition: e.target.value as AZVConditionType }
-                                  : x,
-                              ),
-                            )
-                          }
+                              prev.map((x, j) => {
+                                if (j !== i) return x;
+                                // Weakness reads positive, Resistant negative.
+                                const value =
+                                  condition === "Weakness"
+                                    ? Math.abs(x.value)
+                                    : condition === "Resistant"
+                                      ? -Math.abs(x.value)
+                                      : x.value;
+                                const next: AZVCondition = { ...x, condition, value };
+                                const note =
+                                  condition === "Immune"
+                                    ? immuneConditionNote(x.conditionDescription)
+                                    : renumberConditionNote(x.conditionDescription, value);
+                                if (note !== undefined) next.conditionDescription = note;
+                                return next;
+                              }),
+                            );
+                          }}
                           className="min-w-0 flex-1 rounded-lg border border-white/20 bg-neutral-800 px-2 py-2 text-xs text-white outline-none"
                         >
                           {AZV_CONDITION_TYPES.map((ct) => (
@@ -750,17 +824,21 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                             </option>
                           ))}
                         </select>
-                        <input
-                          type="number"
+                        <ConditionValueInput
                           value={c.value}
-                          onChange={(e) =>
+                          onCommit={(value) =>
                             setConditions((prev) =>
-                              prev.map((x, j) =>
-                                j === i ? { ...x, value: parseInt(e.target.value, 10) || 0 } : x,
-                              ),
+                              prev.map((x, j) => {
+                                if (j !== i) return x;
+                                const next: AZVCondition = { ...x, value };
+                                if (x.condition !== "Immune") {
+                                  const note = renumberConditionNote(x.conditionDescription, value);
+                                  if (note !== undefined) next.conditionDescription = note;
+                                }
+                                return next;
+                              }),
                             )
                           }
-                          className="w-16 shrink-0 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-xs text-white outline-none"
                         />
                         <button
                           type="button"
