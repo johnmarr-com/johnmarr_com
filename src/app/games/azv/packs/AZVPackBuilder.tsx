@@ -1219,10 +1219,10 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                         }}
                         className="absolute"
                         style={{
-                          left: AZV_LAYOUT.hits.cx - AZV_LAYOUT.hits.size / 2,
-                          top: AZV_LAYOUT.hits.cy - AZV_LAYOUT.hits.size / 2,
-                          width: AZV_LAYOUT.hits.size,
-                          height: AZV_LAYOUT.hits.size,
+                          left: AZV_LAYOUT.weaponBadge.cx - AZV_LAYOUT.weaponBadge.size / 2,
+                          top: AZV_LAYOUT.weaponBadge.cy - AZV_LAYOUT.weaponBadge.size / 2,
+                          width: AZV_LAYOUT.weaponBadge.size,
+                          height: AZV_LAYOUT.weaponBadge.size,
                         }}
                       />
                     )}

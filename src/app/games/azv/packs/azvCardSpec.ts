@@ -106,6 +106,9 @@ export const AZV_LAYOUT = {
   hits: { cx: 212, cy: 985, size: 125, maxFontSize: 90 },
   /** Hope / Hunger number — 125×125 centered at (684, 985). Bold. */
   hopeHunger: { cx: 684, cy: 985, size: 125, maxFontSize: 90 },
+  /** Weapon type badge — 175×175 centered at (210, 1010); shares the hits
+   * slot's top edge (types with a weapon never carry hits). */
+  weaponBadge: { cx: 210, cy: 1010, size: 175 },
   /** Description block — wraps + shrinks to fit. Conditions share this box
    * (a card has description OR conditions, never both). */
   description: { x: 150, y: 1150, w: 600, h: 170 },

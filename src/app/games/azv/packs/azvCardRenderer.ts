@@ -376,9 +376,9 @@ export async function renderAZVCard(input: AZVCardRenderInput): Promise<Blob> {
     drawBoxedText(ctx, String(input.hopeOrHunger), numbersStyle, slotBox(AZV_LAYOUT.hopeHunger));
   }
 
-  // Weapon badge — occupies the hits slot (types with a weapon have no hits).
+  // Weapon badge — its own slot (types with a weapon have no hits number).
   if (input.weaponType) {
-    const box = slotBox(AZV_LAYOUT.hits);
+    const box = slotBox(AZV_LAYOUT.weaponBadge);
     try {
       const icon = await loadImage(weaponIconPath(input.weaponType));
       ctx.drawImage(icon, box.x, box.y, box.w, box.h);
