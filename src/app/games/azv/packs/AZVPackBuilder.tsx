@@ -58,6 +58,18 @@ function cardListLabel(card: { cardType: AZVCardType; title: string; level?: num
   return card.level ? `${base} · L${card.level}` : base;
 }
 
+/** Swap the leading weapon word in a condition note when its type changes:
+ * "Slimy (+1 to hit him)" → "Sticky (+1 to hit him)". Notes that don't start
+ * with a weapon name (or are empty) are left alone. */
+function retypeConditionNote(
+  note: string | undefined,
+  weapon: AZVWeaponType,
+): string | undefined {
+  if (!note?.trim()) return note;
+  const leadingWeapon = new RegExp(`^\\s*(?:${AZV_WEAPON_TYPES.join("|")})\\b`, "i");
+  return leadingWeapon.test(note) ? note.replace(leadingWeapon, weapon) : note;
+}
+
 /** The common Bad Stuff pairing — one tap instead of typing both out. */
 const DEFAULT_WEAKNESS_PAIR = (): AZVCondition[] => [
   { condition: "Weakness", weapon: "Slimy", value: 1, conditionDescription: "Slimy (+1 to hit him)" },
@@ -718,13 +730,18 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                         </select>
                         <select
                           value={c.weapon}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const weapon = e.target.value as AZVWeaponType;
                             setConditions((prev) =>
-                              prev.map((x, j) =>
-                                j === i ? { ...x, weapon: e.target.value as AZVWeaponType } : x,
-                              ),
-                            )
-                          }
+                              prev.map((x, j) => {
+                                if (j !== i) return x;
+                                const next: AZVCondition = { ...x, weapon };
+                                const note = retypeConditionNote(x.conditionDescription, weapon);
+                                if (note !== undefined) next.conditionDescription = note;
+                                return next;
+                              }),
+                            );
+                          }}
                           className="min-w-0 flex-1 rounded-lg border border-white/20 bg-neutral-800 px-2 py-2 text-xs text-white outline-none"
                         >
                           {AZV_WEAPON_TYPES.map((w) => (
