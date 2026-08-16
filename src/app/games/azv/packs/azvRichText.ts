@@ -20,16 +20,24 @@ export interface AZVRichToken {
   color?: string;
 }
 
-/** Named colors available in [name:text]. */
+/**
+ * Named colors available in [name:text].
+ *
+ * Mid-tone by design: card art runs light or dark, so each hue is pinned to a
+ * luminance that clears 3:1 contrast against BOTH white and black (most clear
+ * ~4:1 either way). Yellow reads as gold — a yellow light enough to look
+ * "bright" disappears on white. `white`/`black` are deliberate extremes for
+ * when you know the background.
+ */
 export const AZV_RICH_COLORS: Record<string, string> = {
-  red: "#EF4444",
-  orange: "#F97316",
-  yellow: "#FACC15",
-  green: "#4ADE80",
-  blue: "#60A5FA",
-  purple: "#A78BFA",
-  pink: "#F472B6",
-  gray: "#9CA3AF",
+  red: "#DC2626", // 4.8 on white / 4.4 on black
+  orange: "#CC5500", // 4.3 / 4.9
+  yellow: "#A16207", // 4.9 / 4.3 — gold
+  green: "#15803D", // 5.0 / 4.2
+  blue: "#2563EB", // 5.2 / 4.1
+  purple: "#9B59B6", // 4.7 / 4.5
+  pink: "#DB2777", // 4.6 / 4.6
+  gray: "#6B7280", // 4.8 / 4.3
   white: "#FFFFFF",
   black: "#000000",
 };
