@@ -86,7 +86,9 @@ export const AZV_TYPE_SPEC: Record<AZVCardType, AZVTypeSpec> = {
     maxLevel: 4,
   },
   MegaStuff: {
-    fields: { weaponType: true, hope: true, description: true },
+    // No Hope on the card — Mega Stuff scales with play, its Hope being the
+    // current game level (1–5), so nothing is printed.
+    fields: { weaponType: true, description: true },
     overlay: MEGA,
   },
   GoodRoll: { fields: { level: true }, overlay: null },
