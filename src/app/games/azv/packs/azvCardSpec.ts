@@ -45,13 +45,19 @@ export interface AZVTypeSpec {
 }
 
 const HUMAN = "/games/azv/Human-Overlay.png";
-const MEGA = "/games/azv/Mega-Stuff-Overlay.png";
 
 /** Good Stuff overlays by sub-kind. */
 const GOOD_STUFF_OVERLAYS: Record<AZVGoodStuffType, string> = {
   Weapon: "/games/azv/AZV-GS-W-Overlay.png",
   Armor: "/games/azv/AZV-GS-A-Overlay.png",
   Energy: "/games/azv/AZV-GS-E-Overlay.png",
+};
+
+/** Mega Stuff overlays by sub-kind. */
+const MEGA_STUFF_OVERLAYS: Record<AZVGoodStuffType, string> = {
+  Weapon: "/games/azv/Mega-Stuff-Overlay.png",
+  Armor: "/games/azv/Mega-Stuff-Armor-Overlay.png",
+  Energy: "/games/azv/Mega-Stuff-Energy-Overlay.png",
 };
 
 /** BadStuff mall floors, level 1–5. */
@@ -86,11 +92,14 @@ export const AZV_TYPE_SPEC: Record<AZVCardType, AZVTypeSpec> = {
     maxLevel: 4,
   },
   MegaStuff: {
-    // No Hope on the card — Mega Stuff scales with play, its Hope being the
-    // current game level (1–5), so nothing is printed. Level is authored for
-    // organizing the deck but isn't drawn.
-    fields: { level: true, weaponType: true, description: true },
-    overlay: MEGA,
+    // Same three sub-kinds as Good Stuff. No Hope on the card — Mega Stuff
+    // scales with play, its Hope being the current game level (1–5) — and
+    // level is authored for organizing the deck but isn't drawn.
+    fields: ({ goodStuffType }) =>
+      goodStuffType === "Armor" || goodStuffType === "Energy"
+        ? { goodStuffType: true, level: true, description: true }
+        : { goodStuffType: true, level: true, weaponType: true, description: true },
+    overlay: ({ goodStuffType }) => MEGA_STUFF_OVERLAYS[goodStuffType ?? "Weapon"],
   },
   GoodRoll: { fields: { level: true }, overlay: null },
   BadRoll: { fields: { level: true }, overlay: null },

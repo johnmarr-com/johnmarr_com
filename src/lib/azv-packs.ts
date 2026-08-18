@@ -13,7 +13,9 @@ export const AZV_WEAPON_TYPES: AZVWeaponType[] = [
   "Slamming",
 ];
 
-/** Good Stuff sub-kind — drives its overlay and which stats it carries. */
+/** Loot sub-kind, shared by Good Stuff and Mega Stuff — drives the overlay
+ * and which stats the card carries. (Field name kept as `goodStuffType` for
+ * data continuity.) */
 export type AZVGoodStuffType = "Weapon" | "Armor" | "Energy";
 export const AZV_GOOD_STUFF_TYPES: AZVGoodStuffType[] = ["Weapon", "Armor", "Energy"];
 
@@ -110,7 +112,7 @@ export interface AZVCard {
   packId: string;
   cardType: AZVCardType;
   title: string;
-  /** Good Stuff only: Weapon | Armor | Energy. */
+  /** Good Stuff / Mega Stuff: Weapon | Armor | Energy. */
   goodStuffType?: AZVGoodStuffType;
   weaponType?: AZVWeaponType;
   /** BadStuff mall floors 1–5; loot (Good Stuff) is found on 1–4. */

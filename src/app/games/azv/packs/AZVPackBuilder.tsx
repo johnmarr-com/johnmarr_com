@@ -493,9 +493,10 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
     const setName = (id: string | undefined): string =>
       id ? (styleSets.find((x) => x.id === id)?.name ?? id) : "";
     const rows = [
-      ["Card Type", "Title", "Level", "Hits", "Hunger", "Hope", "Weapon", "Conditions", "Description", "One-Time Power", "Style Set", "Background URL", "Card Image URL"],
+      ["Card Type", "Item Type", "Title", "Level", "Hits", "Hunger", "Hope", "Weapon", "Conditions", "Description", "One-Time Power", "Style Set", "Background URL", "Card Image URL"],
       ...cards.map((c) => [
         AZV_CARD_TYPE_LABELS[c.cardType],
+        c.goodStuffType ?? "",
         c.title,
         c.level != null ? String(c.level) : "",
         c.hits != null ? String(c.hits) : "",
@@ -730,7 +731,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
 
                 {spec.fields.goodStuffType && (
                   <div className="space-y-1.5">
-                    <label className={labelClass}>Good Stuff Type</label>
+                    <label className={labelClass}>Item Type</label>
                     <select
                       value={goodStuffType}
                       onChange={(e) => setGoodStuffType(e.target.value as AZVGoodStuffType)}
