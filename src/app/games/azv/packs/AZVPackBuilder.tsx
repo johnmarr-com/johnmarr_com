@@ -628,7 +628,7 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                               onClick={() => openForm(card)}
                               className="group flex flex-col items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 p-1.5 transition-colors hover:border-lime-400/30 hover:bg-white/10"
                             >
-                              <div className="aspect-3/5 w-full overflow-hidden rounded-md bg-neutral-800">
+                              <div className="relative aspect-3/5 w-full overflow-hidden rounded-md bg-neutral-800">
                                 {card.backgroundImageURL ? (
                                   /* eslint-disable-next-line @next/next/no-img-element -- Storage URL */
                                   <img
@@ -637,6 +637,35 @@ export default function AZVPackBuilder({ pack, onBack }: AZVPackBuilderProps) {
                                     className="h-full w-full object-cover"
                                   />
                                 ) : null}
+                                {/* At-a-glance stats: weapon icon or Hits at
+                                    bottom-left, Hope or Hunger bottom-right. */}
+                                {card.weaponType ? (
+                                  /* eslint-disable-next-line @next/next/no-img-element -- local asset */
+                                  <img
+                                    src={weaponIconPath(card.weaponType)}
+                                    alt={card.weaponType}
+                                    title={card.weaponType}
+                                    onError={(e) => {
+                                      e.currentTarget.style.visibility = "hidden";
+                                    }}
+                                    className="absolute bottom-0.5 left-0.5 h-4 w-4 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]"
+                                  />
+                                ) : card.hits != null ? (
+                                  <span
+                                    title="Hits"
+                                    className="absolute bottom-0.5 left-1 text-[10px] font-bold text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]"
+                                  >
+                                    {card.hits}
+                                  </span>
+                                ) : null}
+                                {(card.hope ?? card.hunger) != null && (
+                                  <span
+                                    title={card.hope != null ? "Hope" : "Hunger"}
+                                    className="absolute right-1 bottom-0.5 text-[10px] font-bold text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]"
+                                  >
+                                    {card.hope ?? card.hunger}
+                                  </span>
+                                )}
                               </div>
                               <p className="w-full truncate text-center text-xs font-bold text-white">
                                 {cardListLabel(card)}
