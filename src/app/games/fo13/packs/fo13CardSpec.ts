@@ -58,7 +58,11 @@ export const FO13_TEXT_STYLE = {
   color: "#0B0B0B",
 } as const;
 
-/** Typed lines are capped so they stay legible at the design size. */
+/**
+ * Where a typed line fills the box at the design size — a guideline the
+ * editor flags, not a cap it enforces. Longer copy is allowed and simply
+ * renders smaller, since the renderer shrinks type to fit.
+ */
 export const FO13_MAX_TEXT_LENGTH = 40;
 
 /**

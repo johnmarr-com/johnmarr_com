@@ -507,13 +507,11 @@ export default function FO13PackBuilder({ pack, onBack }: FO13PackBuilderProps) 
                     <input
                       type="text"
                       value={text}
-                      onChange={(e) => {
-                        // Cap the VISIBLE characters — break markers are
-                        // layout and shouldn't eat into the copy budget.
-                        const next = e.target.value;
-                        if (fo13VisibleLength(next) <= FO13_MAX_TEXT_LENGTH) setText(next);
-                      }}
-                      placeholder="One line, up to 40 characters…"
+                      // No hard cap: 40 is where copy fills the box, not a
+                      // wall. Past it the counter turns red and the renderer
+                      // shrinks the type to fit.
+                      onChange={(e) => setText(e.target.value)}
+                      placeholder="One line — 40 characters fills the card…"
                       className={`${inputClass} mt-1.5`}
                       autoFocus
                     />
@@ -614,7 +612,8 @@ export default function FO13PackBuilder({ pack, onBack }: FO13PackBuilderProps) 
 
                 <div className="flex flex-col gap-2">
                   {aiCards.map((candidate, i) => {
-                    const over = candidate.text.length > FO13_MAX_TEXT_LENGTH;
+                    const length = fo13VisibleLength(candidate.text);
+                    const over = length > FO13_MAX_TEXT_LENGTH;
                     return (
                       <div key={i} className="flex items-center gap-2">
                         <input
@@ -639,7 +638,7 @@ export default function FO13PackBuilder({ pack, onBack }: FO13PackBuilderProps) 
                             over ? "text-red-400" : "text-white/25"
                           }`}
                         >
-                          {candidate.text.length}
+                          {length}
                         </span>
                         <button
                           type="button"
