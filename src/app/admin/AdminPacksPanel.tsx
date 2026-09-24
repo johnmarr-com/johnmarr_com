@@ -21,6 +21,7 @@ const DECK_ENGINES: { engine: string; fallbackName: string }[] = [
   { engine: "blarf", fallbackName: "Blarf" },
   { engine: "bluffbox", fallbackName: "Bluff Box" },
   { engine: "bullshiitake", fallbackName: "Bull Shiitake" },
+  { engine: "fo13", fallbackName: "Field Office 13" },
   { engine: "wordonkulous", fallbackName: "Wordonkulous" },
 ];
 

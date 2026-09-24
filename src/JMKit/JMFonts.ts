@@ -40,6 +40,7 @@ export const JM_FONTS: JMFontDef[] = [
   { id: "bebas-neue", label: "Bebas Neue", family: "JM Bebas Neue", file: "bebas-neue.woff2", fallback: "Arial Narrow, sans-serif" },
   { id: "nunito", label: "Nunito", family: "JM Nunito", file: "nunito.woff2", weight: "400 700", fallback: "Arial, sans-serif" },
   { id: "special-elite", label: "Special Elite", family: "JM Special Elite", file: "special-elite.woff2", fallback: "Courier New, monospace" },
+  { id: "bohemian-typewriter", label: "Bohemian Typewriter", family: "JM Bohemian Typewriter", file: "Bohemian-Typewriter.ttf", fallback: "Courier New, monospace" },
 ];
 
 export function getJMFont(id: string | undefined): JMFontDef | undefined {

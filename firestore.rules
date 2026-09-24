@@ -749,6 +749,45 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────────────────────
+    // FIELD OFFICE 13 PACKS (Card packs for the FO13 game)
+    // ─────────────────────────────────────────────────────────────
+
+    match /fo13Packs/{packId} {
+      // No visibility tiers — any authenticated user can read packs
+      allow read: if isAuthenticated();
+
+      // Authenticated users can create packs (pro/admin gating is client-side).
+      // creatorId must match the requesting user.
+      allow create: if isAuthenticated()
+        && request.resource.data.creatorId == request.auth.uid;
+
+      // Creator can update their own packs, admins can update any
+      allow update: if (isAuthenticated() && resource.data.creatorId == request.auth.uid) || isAdmin();
+
+      // Creator can delete their own packs, admins can delete any
+      allow delete: if (isAuthenticated() && resource.data.creatorId == request.auth.uid) || isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // FIELD OFFICE 13 CARDS (Top-level cards, reference packId)
+    // ─────────────────────────────────────────────────────────────
+
+    match /fo13/{cardId} {
+      // Any authenticated user can read cards
+      allow read: if isAuthenticated();
+
+      // Authenticated users can create cards; creatorId must match
+      allow create: if isAuthenticated()
+        && request.resource.data.creatorId == request.auth.uid;
+
+      // Creator can update their own cards, admins can update any
+      allow update: if (isAuthenticated() && resource.data.creatorId == request.auth.uid) || isAdmin();
+
+      // Creator can delete their own cards, admins can delete any
+      allow delete: if (isAuthenticated() && resource.data.creatorId == request.auth.uid) || isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // ATOMIC ZOMBIE VAMPIRES PACKS (Card packs for AZV game)
     // ─────────────────────────────────────────────────────────────
 

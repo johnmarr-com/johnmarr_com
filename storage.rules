@@ -361,6 +361,16 @@ service firebase.storage {
     }
 
     // ─────────────────────────────────────────────────────────────
+    // FIELD OFFICE 13 (Rank card art under fo13/cards/)
+    // ─────────────────────────────────────────────────────────────
+
+    match /fo13/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isImage() && maxSize(10);
+      allow delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // ATOMIC ZOMBIE VAMPIRES (card backgrounds under azv/cards/)
     // ─────────────────────────────────────────────────────────────
 
