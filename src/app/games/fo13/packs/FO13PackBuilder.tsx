@@ -10,6 +10,8 @@ import {
   Download,
   ChevronRight,
   ImageIcon,
+  Check,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
 import {
@@ -40,6 +42,7 @@ import {
   fo13VisibleLength,
 } from "./fo13CardSpec";
 import { drawFO13Card, renderFO13Card } from "./fo13CardRenderer";
+import { FO13_GENERATION_COUNT } from "./fo13Prompts";
 
 interface FO13PackBuilderProps {
   pack: FO13Pack;
@@ -89,6 +92,12 @@ export default function FO13PackBuilder({ pack, onBack }: FO13PackBuilderProps) 
   /** Render-all progress: null when idle, else "3 / 24". */
   const [renderProgress, setRenderProgress] = useState<string | null>(null);
 
+  /** AI candidates awaiting review. Empty means the panel is closed. */
+  const [aiCards, setAiCards] = useState<{ text: string; checked: boolean }[]>([]);
+  /** Which candidate the preview is showing. */
+  const [aiIndex, setAiIndex] = useState<number | null>(null);
+  const [generating, setGenerating] = useState(false);
+
   /** Doc id fixed up-front so art can upload before the doc exists. */
   const cardIdRef = useRef<string>("");
 
@@ -119,6 +128,8 @@ export default function FO13PackBuilder({ pack, onBack }: FO13PackBuilderProps) 
     setEditing(card);
     setError(null);
     setConfirmingDelete(false);
+    setAiCards([]);
+    setAiIndex(null);
     pendingArtBlobRef.current = null;
     setPendingArtPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
@@ -159,6 +170,9 @@ export default function FO13PackBuilder({ pack, onBack }: FO13PackBuilderProps) 
 
   // ── Live preview — the real renderer, drawn into a scaled canvas ──
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+  /** The candidate under review wins the preview; otherwise the form's text. */
+  const previewText =
+    aiIndex !== null ? (aiCards[aiIndex]?.text ?? "") : text;
   useEffect(() => {
     if (editing === null) return;
     const canvas = previewCanvasRef.current;
@@ -167,7 +181,7 @@ export default function FO13PackBuilder({ pack, onBack }: FO13PackBuilderProps) 
     let cancelled = false;
     void drawFO13Card(ctx, {
       cardType,
-      text,
+      text: previewText,
       imageURL: pendingArtPreview ?? imageURL,
     })
       .then(() => {
@@ -179,7 +193,7 @@ export default function FO13PackBuilder({ pack, onBack }: FO13PackBuilderProps) 
     return () => {
       cancelled = true;
     };
-  }, [editing, cardType, text, pendingArtPreview, imageURL]);
+  }, [editing, cardType, previewText, pendingArtPreview, imageURL]);
 
   const handleSave = useCallback(async () => {
     if (!user || !editing) return;
@@ -226,6 +240,67 @@ export default function FO13PackBuilder({ pack, onBack }: FO13PackBuilderProps) 
     }
   }, [editing]);
 
+  /** Ask the model for a batch of candidates for the selected card type. */
+  const handleGenerate = useCallback(async () => {
+    if (!user || cardType === "Rank") return;
+    setGenerating(true);
+    setError(null);
+    try {
+      // Send what the pack already has of this type so a second run doesn't
+      // repeat the first.
+      const existing = cards
+        .filter((c) => c.cardType === cardType)
+        .map((c) => c.text ?? "")
+        .filter(Boolean);
+      const res = await fetch("/api/games/fo13/generate-cards", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${await user.getIdToken()}`,
+        },
+        body: JSON.stringify({ cardType, existing }),
+      });
+      const body = (await res.json()) as { cards?: string[]; error?: string };
+      if (!res.ok || !body.cards) throw new Error(body.error ?? "Generation failed");
+      setAiCards(body.cards.map((t) => ({ text: t, checked: false })));
+      setAiIndex(0);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Generation failed.");
+    } finally {
+      setGenerating(false);
+    }
+  }, [user, cardType, cards]);
+
+  /** Save every checked candidate as its own card. */
+  const handleSaveChecked = useCallback(async () => {
+    if (!user) return;
+    const chosen = aiCards.filter((c) => c.checked && c.text.trim());
+    if (chosen.length === 0) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const base = cards.filter((c) => c.cardType === cardType).length;
+      for (const [i, candidate] of chosen.entries()) {
+        await createFO13Card(
+          {
+            packId: pack.id,
+            cardType,
+            order: base + i,
+            text: candidate.text.trim(),
+          },
+          user.uid,
+        );
+      }
+      setAiCards([]);
+      setAiIndex(null);
+      setEditing(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save cards.");
+    } finally {
+      setSaving(false);
+    }
+  }, [user, aiCards, cards, cardType, pack.id]);
+
   /**
    * Render every card, upload each PNG, then ask the API for a zip of the
    * pack and hand the browser its URL.
@@ -270,6 +345,7 @@ export default function FO13PackBuilder({ pack, onBack }: FO13PackBuilderProps) 
   const previewArt = pendingArtPreview ?? imageURL;
   const isTextCard = isFO13TextCard(cardType);
   const visibleLength = fo13VisibleLength(text);
+  const checkedCount = aiCards.filter((c) => c.checked).length;
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white">
@@ -399,7 +475,12 @@ export default function FO13PackBuilder({ pack, onBack }: FO13PackBuilderProps) 
                   <label className={labelClass}>Card Type</label>
                   <select
                     value={cardType}
-                    onChange={(e) => setCardType(e.target.value as FO13CardType)}
+                    onChange={(e) => {
+                      setCardType(e.target.value as FO13CardType);
+                      // Candidates are written for one type; drop them.
+                      setAiCards([]);
+                      setAiIndex(null);
+                    }}
                     disabled={editing !== "new"}
                     className={`${inputClass} mt-1.5 disabled:opacity-60`}
                   >
@@ -480,6 +561,24 @@ export default function FO13PackBuilder({ pack, onBack }: FO13PackBuilderProps) 
                   >
                     Cancel
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleGenerate()}
+                    disabled={!isTextCard || generating}
+                    title={
+                      isTextCard
+                        ? `Write ${FO13_GENERATION_COUNT} ${cardType} cards`
+                        : "Rank cards are art, not text"
+                    }
+                    className="ml-auto flex items-center gap-1.5 rounded-xl border border-emerald-400/40 px-4 py-2.5 text-sm font-bold text-emerald-300 transition-colors hover:bg-emerald-400/10 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-white/25 disabled:hover:bg-transparent"
+                  >
+                    {generating ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                    {generating ? "Writing…" : "AI GEN"}
+                  </button>
                   {editing !== "new" && (
                     <button
                       type="button"
@@ -487,12 +586,119 @@ export default function FO13PackBuilder({ pack, onBack }: FO13PackBuilderProps) 
                         if (confirmingDelete) void handleDelete();
                         else setConfirmingDelete(true);
                       }}
-                      className="ml-auto flex items-center gap-1.5 rounded-xl border border-red-500/30 px-4 py-2.5 text-sm font-bold text-red-400 transition-colors hover:bg-red-500/10"
+                      className="flex items-center gap-1.5 rounded-xl border border-red-500/30 px-4 py-2.5 text-sm font-bold text-red-400 transition-colors hover:bg-red-500/10"
                     >
                       <Trash2 className="h-4 w-4" />
                       {confirmingDelete ? "Tap again to confirm" : "Delete"}
                     </button>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* ── AI candidates — check the keepers, then save them all ── */}
+            {editing !== null && aiCards.length > 0 && (
+              <div className="mt-4 flex flex-col gap-3 rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-4">
+                <div className="flex items-baseline justify-between">
+                  <span className={labelClass}>
+                    AI {FO13_CARD_TYPE_LABELS[cardType]} Cards
+                  </span>
+                  <span className="text-xs text-white/40">
+                    {checkedCount} checked
+                  </span>
+                </div>
+                <p className="-mt-1 text-xs text-white/30">
+                  Tap a line to preview it. Edit freely — only checked cards are
+                  saved.
+                </p>
+
+                <div className="flex flex-col gap-2">
+                  {aiCards.map((candidate, i) => {
+                    const over = candidate.text.length > FO13_MAX_TEXT_LENGTH;
+                    return (
+                      <div key={i} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={candidate.text}
+                          onFocus={() => setAiIndex(i)}
+                          onChange={(e) => {
+                            const next = e.target.value;
+                            setAiIndex(i);
+                            setAiCards((prev) =>
+                              prev.map((c, j) => (j === i ? { ...c, text: next } : c)),
+                            );
+                          }}
+                          className={`min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm text-white outline-none ${
+                            aiIndex === i
+                              ? "border-amber-400/50 bg-white/10"
+                              : "border-white/10 bg-white/5"
+                          }`}
+                        />
+                        <span
+                          className={`w-10 shrink-0 text-right text-xs ${
+                            over ? "text-red-400" : "text-white/25"
+                          }`}
+                        >
+                          {candidate.text.length}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAiCards((prev) =>
+                              prev.map((c, j) =>
+                                j === i ? { ...c, checked: !c.checked } : c,
+                              ),
+                            )
+                          }
+                          aria-pressed={candidate.checked}
+                          aria-label={candidate.checked ? "Checked — will be saved" : "Not checked"}
+                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors ${
+                            candidate.checked
+                              ? "border-emerald-400 bg-emerald-500 text-black"
+                              : "border-white/15 text-white/25 hover:border-white/30"
+                          }`}
+                        >
+                          <Check className="h-4 w-4" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => void handleSaveChecked()}
+                    disabled={saving || checkedCount === 0}
+                    className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-black transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-40"
+                  >
+                    {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Save Cards{checkedCount > 0 ? ` (${checkedCount})` : ""}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAiCards([]);
+                      setAiIndex(null);
+                      setEditing(null);
+                    }}
+                    className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-bold text-white/60 transition-colors hover:bg-white/5"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleGenerate()}
+                    disabled={generating}
+                    className="ml-auto flex items-center gap-1.5 rounded-xl border border-emerald-400/40 px-4 py-2.5 text-sm font-bold text-emerald-300 transition-colors hover:bg-emerald-400/10 disabled:opacity-40"
+                  >
+                    {generating ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                    Regenerate
+                  </button>
                 </div>
               </div>
             )}
