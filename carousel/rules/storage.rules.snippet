@@ -1,0 +1,21 @@
+// ─────────────────────────────────────────────────────────────
+// Banner backdrops — paste inside `match /b/{bucket}/o`.
+// Assumes isAdmin(), isImage() and maxSize() helpers; see below.
+// ─────────────────────────────────────────────────────────────
+
+// function isAdmin() {
+//   return request.auth != null && request.auth.token.admin == true;
+// }
+// function isImage() {
+//   return request.resource.contentType.matches('image/.*');
+// }
+// function maxSize(mb) {
+//   return request.resource.size < mb * 1024 * 1024;
+// }
+
+match /featured-backdrops/{bannerId}/{fileName} {
+  // Backdrops are public: they are the banner.
+  allow read: if true;
+  allow write: if isAdmin() && isImage() && maxSize(10);
+  allow delete: if isAdmin();
+}

@@ -1,0 +1,366 @@
+/* ---------------------------------------------------------------------------
+   Banner admin — layout only. Every color is applied inline from the theme
+   object, so this file never needs to know your palette.
+--------------------------------------------------------------------------- */
+
+.jmc-a {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.jmc-a-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.jmc-a-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.jmc-a-hint {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+}
+
+.jmc-a-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.jmc-a-row--split {
+  justify-content: space-between;
+  width: 100%;
+}
+
+.jmc-a-row--end {
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.jmc-a-bar {
+  padding: 0.25rem 0;
+}
+
+.jmc-a-label {
+  display: block;
+  margin: 0.75rem 0 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.jmc-a-input {
+  border: 1px solid;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  /* 16px on touch devices stops iOS Safari zooming on focus. */
+  font-size: max(16px, 0.875rem);
+}
+
+@media (min-width: 768px) {
+  .jmc-a-input {
+    font-size: 0.875rem;
+  }
+}
+
+.jmc-a-input--full {
+  width: 100%;
+  resize: vertical;
+}
+
+.jmc-a-input--narrow {
+  width: 6rem;
+}
+
+.jmc-a-btn {
+  border: 0;
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.9rem;
+  font: inherit;
+  font-weight: 600;
+  /* Comfortable on a phone; the panel is used on tablets in the field. */
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.jmc-a-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.jmc-a-btn--ghost {
+  border: 1px solid;
+  background: transparent;
+}
+
+.jmc-a-link {
+  border: 0;
+  background: none;
+  padding: 0.4rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.jmc-a-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.jmc-a-pill--lg {
+  padding: 0.55rem 1.25rem;
+  font-size: 0.875rem;
+}
+
+.jmc-a-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+}
+
+.jmc-a-swatch input[type="color"] {
+  height: 32px;
+  width: 40px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.jmc-a-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  border: 1px solid;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+}
+
+.jmc-a-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.75rem;
+}
+
+.jmc-a-empty {
+  border: 2px dashed;
+  border-radius: 0.5rem;
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+.jmc-a-preview-stage {
+  border-radius: 0.75rem;
+  padding: 0.5rem 0;
+  overflow: hidden;
+}
+
+/* ---- List ------------------------------------------------------------ */
+
+.jmc-a-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.jmc-a-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid;
+  border-radius: 0.5rem;
+  padding: 0.625rem;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.jmc-a-grip {
+  cursor: grab;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.jmc-a-thumb {
+  position: relative;
+  flex: 0 0 auto;
+  width: 7rem;
+  aspect-ratio: 16 / 9;
+  border-radius: 0.375rem;
+  overflow: hidden;
+}
+
+.jmc-a-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.jmc-a-item-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  gap: 0.15rem;
+}
+
+.jmc-a-item-title {
+  font-weight: 600;
+}
+
+.jmc-a-item-title,
+.jmc-a-item-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jmc-a-item-sub {
+  font-size: 0.8125rem;
+}
+
+.jmc-a-order {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.jmc-a-icon {
+  border: 0;
+  background: none;
+  /* Full 44px target — these sit close together. */
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.jmc-a-icon:hover {
+  background: rgba(127, 127, 127, 0.12);
+}
+
+/* Stack the row on phones so nothing is squeezed out. */
+@media (max-width: 560px) {
+  .jmc-a-item {
+    flex-wrap: wrap;
+  }
+
+  .jmc-a-item-body {
+    flex-basis: 100%;
+    order: 3;
+  }
+}
+
+/* ---- Editor modal ---------------------------------------------------- */
+
+.jmc-a-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.jmc-a-modal-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+.jmc-a-modal-body {
+  position: relative;
+  width: 100%;
+  max-width: 34rem;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+}
+
+.jmc-a-field {
+  margin-top: 1rem;
+}
+
+/* ---- Image upload ---------------------------------------------------- */
+
+.jmc-a-drop {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  border: 2px dashed;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  cursor: pointer;
+  text-align: center;
+}
+
+.jmc-a-drop-hint {
+  padding: 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.jmc-a-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.jmc-a-drop-veil {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.8125rem;
+}
+
+.jmc-a-clear {
+  position: absolute;
+  top: 0.375rem;
+  right: 0.375rem;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 9999px;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.jmc-a-error {
+  margin: 0.375rem 0 0;
+  font-size: 0.8125rem;
+}

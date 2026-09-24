@@ -1,0 +1,29 @@
+// ─────────────────────────────────────────────────────────────
+// Feature banners — paste inside `match /databases/{database}/documents`.
+// Assumes an isAdmin() helper; the johnmarr.com version is below.
+// ─────────────────────────────────────────────────────────────
+
+// function isAdmin() {
+//   return request.auth != null && request.auth.token.admin == true;
+// }
+
+// Banners. Anyone may read a VISIBLE banner (that is what the public
+// carousel renders); only admins may read hidden ones or write anything.
+match /featured/{bannerId} {
+  allow read: if resource.data.isActive == true || isAdmin();
+  allow create, update, delete: if isAdmin();
+}
+
+// Named carousels. Admin-only: the public render path resolves these
+// server-side with the Admin SDK, which bypasses rules.
+match /featuredCarousels/{carouselId} {
+  allow read: if isAdmin();
+  allow create, update, delete: if isAdmin();
+}
+
+// Saved CTA pill styles. Admin-only for the same reason — CTA colors are
+// resolved server-side and inlined into the banner payload.
+match /buttonStyles/{styleId} {
+  allow read: if isAdmin();
+  allow create, update, delete: if isAdmin();
+}

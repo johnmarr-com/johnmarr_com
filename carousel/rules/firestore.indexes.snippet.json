@@ -1,0 +1,9 @@
+{
+  "_comment": "Add to firestore.indexes.json → indexes[]. Required by the server reader's where(isActive) + orderBy(order) query.",
+  "collectionGroup": "featured",
+  "queryScope": "COLLECTION",
+  "fields": [
+    { "fieldPath": "isActive", "order": "ASCENDING" },
+    { "fieldPath": "order", "order": "ASCENDING" }
+  ]
+}
