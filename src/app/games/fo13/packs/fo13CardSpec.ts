@@ -32,8 +32,14 @@ export function backgroundForCard(cardType: FO13CardType): string | null {
   return BACKGROUNDS[cardType];
 }
 
-/** The typed line's box, in card pixels. */
-export const FO13_TEXT_BOX = { x: 98, y: 276, w: 630, h: 600 } as const;
+/**
+ * The typed line's box, in card pixels.
+ *
+ * y is 20px above the authored 276: dead-centre in the form area rendered a
+ * shade low against the artwork, so the block sits slightly high of true
+ * centre. Height is unchanged, so the copy budget is the same.
+ */
+export const FO13_TEXT_BOX = { x: 98, y: 256, w: 630, h: 600 } as const;
 
 /**
  * Type style for the typed line.
