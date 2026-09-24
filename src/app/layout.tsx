@@ -1,20 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Crimson_Pro, JetBrains_Mono } from "next/font/google";
-import { jmJambo } from "@/fonts";
+import { crimsonPro, jetbrainsMono, jmJambo } from "@/fonts";
 import { Providers } from "./providers";
 import "./globals.css";
-
-const crimsonPro = Crimson_Pro({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-  weight: ["400", "500"],
-});
 
 const SITE_URL = process.env["NEXT_PUBLIC_SITE_URL"] ?? "https://johnmarr.com";
 
